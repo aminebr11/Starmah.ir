@@ -166,11 +166,16 @@ cPanel یعنی PHP 8.3 + MySQL/MariaDB روی Apache/LiteSpeed، بدون Docke
 
 ---
 
-## ۱۳) قدم بعدی — فاز ۰ (پایه‌گذاری)
-ترتیب اجرای پیشنهادی:
-1. **امنیت و پاک‌سازی ریپو:** انتقال اسرار به `.env`، حذف فایل‌های دیباگ، تنظیم `.gitignore`.
-2. **اسکلت پروژه:** نصب Laravel 11 + Breeze/Inertia + React + Tailwind + Filament + Sanctum + Spatie Permission.
-3. **schema تمیز نسخه‌ی ۲:** Migrationها برای دامنه‌ی بخش ۴ (کاربر/نقش، school/tenant، class، subject→topic→skill→question، theme، progress، xp، assignment).
-4. **پایه‌ی چندمستأجری:** `school_id` + Global Scope + seeder یک مدرسه‌ی نمونه.
-5. **احراز هویت نقش‌محور:** ورود پیامکی (با درایور قابل‌تعویض؛ ابتدا mock، بعد کاوه‌نگار).
-6. **اسکلت موتور تم:** ساختار بسته‌ی تم (Skin tokens + Narrative JSON) با دو تم فوتبال و ماشین به‌صورت placeholder.
+## ۱۳) فاز ۰ (پایه‌گذاری) — ✅ انجام شد
+1. ✅ **سازماندهی و امنیت ریپو:** کد نسخه‌ی ۱ به `legacy/` منتقل شد؛ اسرار به `.env` (gitignore) رفتند؛ `.env.example` با همه‌ی بخش‌ها (MySQL/cPanel، AI، پیامک، پرداخت).
+2. ✅ **اسکلت پروژه:** Laravel 13 + Breeze/Inertia + React + Tailwind + Sanctum + Spatie Permission (Filament در فاز بعد).
+3. ✅ **schema تمیز نسخه‌ی ۲:** ~۲۱ جدول تمیز (به‌جای ۷۰ جدول قدیمی) — کاربر/نقش، school/tenant، class/season، subject→topic→skill→question، theme، assignment، xp/mastery/badge، discipline، parent/messages.
+4. ✅ **چندمستأجری:** trait `BelongsToSchool` + Global Scope + seeder مدرسه‌ی نمونه.
+5. ✅ **احراز هویت نقش‌محور:** ورود با موبایل یا ایمیل + پنج نقش. (OTP پیامکی واقعی = قدم بعدی)
+6. ✅ **موتور تم:** سرویس `ThemeEngine` با سه لایه (Skin/Narrative/Content)؛ دو تم فوتبال و ماشین seed شد؛ داشبورد دانش‌آموز کاملاً تم‌دار و **اثبات‌شده‌ی end-to-end** (ورود واقعی → رندر متفاوت بر اساس تم کاربر).
+
+### قدم بعدی (شروع فاز ۱)
+- پنل‌های مدیریتی با **Filament** (معلم/مدرسه/سوپرادمین).
+- جریان واقعی **OTP پیامکی** (درایور کاوه‌نگار).
+- بقیه‌ی صفحات دانش‌آموز (مسابقه، جدول، کارنامه، پل والدین) به‌صورت صفحات Inertia کامل.
+- حلقه‌ی تمرین + ثبت XP/mastery + اختصاص تکلیف توسط معلم.
