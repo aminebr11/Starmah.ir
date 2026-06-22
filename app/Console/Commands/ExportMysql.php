@@ -66,11 +66,17 @@ class ExportMysql extends Command
         $lines = [];
         $pk = [];
 
+        // AUTO_INCREMENT فقط وقتی مجاز است که کلید اصلی تک‌ستونی و عددی باشد.
+        $pkCount = collect($cols)->where('pk', '>', 0)->count();
+
         foreach ($cols as $c) {
-            $type = $this->mapType($c->type, (bool) $c->pk && str_contains(strtolower($c->type), 'int'));
+            $isInt = str_contains(strtolower($c->type), 'int');
+            $autoInc = $pkCount === 1 && $c->pk && $isInt;
+
+            $type = $this->mapType($c->type, $autoInc);
             $line = "  `{$c->name}` {$type}";
             $line .= $c->notnull ? ' NOT NULL' : ' NULL';
-            if ($c->pk && str_contains(strtolower($c->type), 'int')) {
+            if ($autoInc) {
                 $line .= ' AUTO_INCREMENT';
             }
             if ($c->dflt_value !== null && ! str_contains($c->type, 'TEXT')) {
