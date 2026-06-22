@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0b1020">
+<title>ستاره ماه ۲.۰ — دمو طراحی</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+<style>
+/* ===================== TOKENS / RESET ===================== */
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:'Vazirmatn',system-ui,sans-serif;
+  background:#070a16;color:#fff;overflow-x:hidden;
+  display:flex;justify-content:center;align-items:center;min-height:100vh;
+  background-image:radial-gradient(circle at 20% 10%,#16203f 0,transparent 40%),radial-gradient(circle at 80% 90%,#1a0f2e 0,transparent 40%);
+}
+
+/* ===================== THEME ENGINE (Layer 1: SKIN) ===================== */
+:root{
+  --bg1:#0b1224; --bg2:#111a36; --card:rgba(255,255,255,.06); --stroke:rgba(255,255,255,.12);
+  --p1:#19c37d; --p2:#0f9d63; --acc:#ffd23f; --acc2:#ff4d4d; --muted:rgba(255,255,255,.6);
+  --ring:#19c37d; --shadow:0 18px 40px -12px rgba(0,0,0,.6);
+  --pattern:repeating-linear-gradient(90deg,rgba(255,255,255,.05) 0 2px,transparent 2px 70px);
+}
+[data-theme="football"]{
+  --bg1:#0a2a18; --bg2:#0e3a22; --p1:#1fd968; --p2:#0f9d4f; --acc:#ffd23f; --acc2:#ff3b3b;
+  --ring:#1fd968; --mascot:"⚽"; --hero:"🏟️";
+  --pattern:repeating-linear-gradient(0deg,rgba(255,255,255,.06) 0 2px,transparent 2px 64px);
+}
+[data-theme="cars"]{
+  --bg1:#0a0e1c; --bg2:#10182e; --p1:#13e2ff; --p2:#0b86ff; --acc:#ff2e63; --acc2:#ffd23f;
+  --ring:#13e2ff; --mascot:"🏎️"; --hero:"🏁";
+  --pattern:repeating-linear-gradient(115deg,rgba(255,255,255,.06) 0 14px,transparent 14px 28px);
+}
+
+/* ===================== PHONE FRAME ===================== */
+.stage{display:flex;flex-direction:column;align-items:center;gap:18px;padding:20px 12px;width:100%}
+.topbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
+.brand{font-weight:800;font-size:15px;letter-spacing:-.3px;opacity:.85}
+.brand b{color:var(--acc)}
+.switch{display:flex;gap:6px;background:rgba(255,255,255,.06);padding:5px;border-radius:14px;border:1px solid var(--stroke)}
+.switch button{border:0;background:transparent;color:#fff;font-family:inherit;font-weight:700;font-size:13px;
+  padding:8px 14px;border-radius:10px;cursor:pointer;transition:.25s;display:flex;gap:6px;align-items:center}
+.switch button.on{background:linear-gradient(135deg,var(--p1),var(--p2));box-shadow:0 6px 16px -6px var(--p1)}
+
+.phone{
+  width:390px;max-width:96vw;height:780px;max-height:86vh;position:relative;border-radius:42px;
+  background:linear-gradient(180deg,var(--bg1),var(--bg2));border:1px solid var(--stroke);
+  box-shadow:var(--shadow),0 0 0 10px #0a0e1c,0 0 0 11px rgba(255,255,255,.06);
+  overflow:hidden;display:flex;flex-direction:column;transition:background .5s}
+.phone::before{content:"";position:absolute;inset:0;background:var(--pattern);opacity:.5;pointer-events:none;mix-blend-mode:overlay}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:140px;height:26px;background:#0a0e1c;border-radius:0 0 18px 18px;z-index:50}
+
+/* ===================== SCREENS ===================== */
+.screens{flex:1;position:relative;overflow:hidden}
+.screen{position:absolute;inset:0;overflow-y:auto;padding:42px 18px 96px;opacity:0;transform:translateY(14px);
+  pointer-events:none;transition:.35s ease}
+.screen.active{opacity:1;transform:none;pointer-events:auto}
+.screen::-webkit-scrollbar{width:0}
+
+/* ===================== COMPONENTS ===================== */
+.row{display:flex;align-items:center;gap:10px}
+.between{justify-content:space-between}
+.card{background:var(--card);border:1px solid var(--stroke);border-radius:22px;padding:16px;backdrop-filter:blur(8px)}
+.pill{font-size:11px;font-weight:700;padding:5px 10px;border-radius:30px;background:rgba(255,255,255,.1);border:1px solid var(--stroke)}
+.tag-acc{background:linear-gradient(135deg,var(--acc),#ff9d00);color:#1a1200;border:0}
+.muted{color:var(--muted);font-size:12px;line-height:1.9}
+.h{font-weight:800;font-size:19px;letter-spacing:-.4px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:0;cursor:pointer;
+  font-family:inherit;font-weight:800;font-size:15px;color:#06121a;padding:15px;border-radius:18px;
+  background:linear-gradient(135deg,var(--p1),var(--p2));box-shadow:0 12px 26px -10px var(--p1);transition:.2s}
+.btn:active{transform:scale(.97)}
+.btn-ghost{background:rgba(255,255,255,.07);color:#fff;border:1px solid var(--stroke);box-shadow:none}
+.avatar{width:46px;height:46px;border-radius:16px;display:grid;place-items:center;font-size:24px;
+  background:linear-gradient(135deg,var(--p1),var(--p2));flex:none}
+.mascot{font-size:0}
+.mascot::after{content:var(--mascot);font-size:30px}
+.hero-emoji::after{content:var(--hero)}
+
+/* progress ring */
+.ring{--v:62;width:120px;height:120px;border-radius:50%;display:grid;place-items:center;flex:none;
+  background:conic-gradient(var(--ring) calc(var(--v)*1%),rgba(255,255,255,.08) 0)}
+.ring i{width:96px;height:96px;border-radius:50%;background:var(--bg2);display:grid;place-items:center;
+  font-style:normal;font-weight:800;font-size:13px;text-align:center;line-height:1.5}
+.ring i b{font-size:26px;color:var(--acc)}
+
+/* stat */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{background:var(--card);border:1px solid var(--stroke);border-radius:18px;padding:12px 8px;text-align:center}
+.stat b{display:block;font-size:20px;color:var(--acc)}
+.stat span{font-size:11px;color:var(--muted)}
+
+/* bars */
+.bar{height:9px;border-radius:10px;background:rgba(255,255,255,.1);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:10px;background:linear-gradient(90deg,var(--p1),var(--acc))}
+
+/* leaderboard */
+.lb{display:flex;align-items:center;gap:12px;padding:12px;border-radius:16px;margin-bottom:8px;
+  background:var(--card);border:1px solid var(--stroke)}
+.lb.me{background:linear-gradient(135deg,rgba(255,210,63,.18),rgba(255,255,255,.05));border-color:var(--acc)}
+.rk{width:28px;text-align:center;font-weight:800;color:var(--muted)}
+.rk.gold{color:#ffd23f}.rk.silver{color:#cdd3dc}.rk.bronze{color:#e29a5b}
+
+/* answer options */
+.opt{padding:15px;border-radius:16px;background:var(--card);border:1.5px solid var(--stroke);
+  font-weight:700;cursor:pointer;transition:.18s;display:flex;justify-content:space-between;align-items:center}
+.opt:active{transform:scale(.98)}
+.opt.correct{border-color:var(--p1);background:rgba(31,217,104,.16)}
+.opt.wrong{border-color:var(--acc2);background:rgba(255,59,59,.14)}
+
+/* chat */
+.msg{max-width:78%;padding:11px 14px;border-radius:18px;font-size:13px;line-height:1.9;margin-bottom:10px}
+.msg.in{background:var(--card);border:1px solid var(--stroke);border-bottom-right-radius:5px}
+.msg.out{background:linear-gradient(135deg,var(--p1),var(--p2));color:#06121a;margin-right:auto;border-bottom-left-radius:5px}
+.msg time{display:block;font-size:9px;opacity:.6;margin-top:3px}
+
+/* world select cards */
+.world{position:relative;border-radius:26px;padding:22px;overflow:hidden;cursor:pointer;border:1px solid var(--stroke);
+  min-height:140px;display:flex;flex-direction:column;justify-content:flex-end;transition:.25s}
+.world:active{transform:scale(.98)}
+.world .em{position:absolute;top:-10px;left:-6px;font-size:96px;opacity:.28;transform:rotate(-12deg)}
+.world.fb{background:linear-gradient(135deg,#0f9d4f,#0a2a18)}
+.world.cr{background:linear-gradient(135deg,#0b86ff,#0a0e1c)}
+.world.soon{opacity:.45;filter:grayscale(.4)}
+.world h4{font-size:18px;font-weight:800}
+.world p{font-size:11px;color:rgba(255,255,255,.75);margin-top:3px}
+
+/* bottom nav */
+.nav{position:absolute;bottom:0;left:0;right:0;height:74px;background:rgba(8,12,24,.86);backdrop-filter:blur(14px);
+  border-top:1px solid var(--stroke);display:flex;z-index:40}
+.nav button{flex:1;border:0;background:transparent;color:var(--muted);font-family:inherit;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;font-weight:700;padding-top:12px;transition:.2s}
+.nav button .ic{font-size:20px;transition:.2s}
+.nav button.on{color:var(--acc)}
+.nav button.on .ic{transform:translateY(-3px) scale(1.15)}
+
+/* reward pop */
+.pop{position:absolute;inset:0;display:none;place-items:center;background:rgba(0,0,0,.55);z-index:60;backdrop-filter:blur(3px)}
+.pop.show{display:grid;animation:fade .3s}
+.pop .box{background:linear-gradient(160deg,var(--bg2),var(--bg1));border:1px solid var(--acc);border-radius:26px;
+  padding:26px;text-align:center;width:260px;box-shadow:0 0 40px -8px var(--acc)}
+.pop .big{font-size:64px;animation:pop .5s}
+@keyframes pop{0%{transform:scale(0) rotate(-20deg)}70%{transform:scale(1.2)}100%{transform:scale(1)}}
+@keyframes fade{from{opacity:0}}
+.confetti{position:absolute;width:9px;height:14px;top:-20px;animation:fall 1.6s linear infinite}
+@keyframes fall{to{transform:translateY(820px) rotate(540deg)}}
+
+.section-title{display:flex;align-items:center;gap:8px;margin:20px 4px 12px;font-weight:800;font-size:15px}
+.section-title::before{content:"";width:5px;height:18px;border-radius:6px;background:linear-gradient(var(--p1),var(--acc))}
+
+/* themed banner */
+.banner{position:relative;border-radius:24px;padding:18px;overflow:hidden;margin-bottom:14px;
+  background:linear-gradient(120deg,var(--p2),var(--bg2))}
+.banner .em{position:absolute;left:-8px;top:-14px;font-size:90px;opacity:.22}
+.note{font-size:13px;text-align:center;color:var(--muted);margin-top:14px;line-height:2}
+.legend{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;font-size:11px;color:var(--muted);max-width:420px;text-align:center}
+.kbd{background:rgba(255,255,255,.08);border:1px solid var(--stroke);border-radius:7px;padding:2px 7px;font-size:11px}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="topbar">
+    <div class="brand">🌟 ستاره ماه <b>۲.۰</b> — دمو طراحی</div>
+    <div class="switch">
+      <button id="t-fb" class="on" onclick="setTheme('football')">⚽ دنیای فوتبال</button>
+      <button id="t-cr" onclick="setTheme('cars')">🏎️ دنیای ماشین</button>
+    </div>
+  </div>
+
+  <div class="phone" data-theme="football" id="phone">
+    <div class="notch"></div>
+    <div class="screens" id="screens">
+
+      <!-- ===== 0: WORLD SELECT (onboarding) ===== -->
+      <section class="screen" data-s="world">
+        <div style="text-align:center;margin-bottom:6px">
+          <div style="font-size:46px" class="hero-emoji"></div>
+          <div class="h" style="margin-top:6px">دنیای خودت رو انتخاب کن!</div>
+          <p class="muted">همه‌ی درس‌ها، بازی‌ها و جایزه‌ها بر اساس علاقه‌ی تو شکل می‌گیرن ✨</p>
+        </div>
+        <div style="display:grid;gap:12px;margin-top:14px">
+          <div class="world fb" onclick="setTheme('football');go('home')">
+            <span class="em">⚽</span><h4>فوتبال ⚽</h4><p>لیگ، گل، قهرمانی و تیم محبوبت</p>
+          </div>
+          <div class="world cr" onclick="setTheme('cars');go('home')">
+            <span class="em">🏎️</span><h4>ماشین و مسابقه 🏎️</h4><p>گرنپری، نیترو و سکوی قهرمانی</p>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="world soon" style="background:linear-gradient(135deg,#5b2a9d,#0a0e1c)"><span class="em">🚀</span><h4>فضا 🚀</h4><p>به‌زودی</p></div>
+            <div class="world soon" style="background:linear-gradient(135deg,#1f7a4d,#0a0e1c)"><span class="em">🦁</span><h4>حیوانات 🦁</h4><p>به‌زودی</p></div>
+          </div>
+        </div>
+        <p class="note">معمار «موتور تم» طوری ساخته می‌شه که افزودن هر دنیای جدید فقط یک بسته‌ی رنگ + روایت باشه.</p>
+      </section>
+
+      <!-- ===== 1: HOME / DASHBOARD ===== -->
+      <section class="screen active" data-s="home">
+        <div class="row between">
+          <div class="row">
+            <div class="avatar"><span class="mascot"></span></div>
+            <div>
+              <div style="font-weight:800;font-size:15px">سلام آرمین! 👋</div>
+              <div class="muted" id="rank-line">قهرمان <span id="league-name">لیگ برتر</span></div>
+            </div>
+          </div>
+          <div class="pill tag-acc">🔥 ۷ روز پیاپی</div>
+        </div>
+
+        <div class="banner" style="margin-top:14px">
+          <span class="em hero-emoji"></span>
+          <div class="row between">
+            <div>
+              <div class="muted" id="xp-label">گل‌های این فصل</div>
+              <div style="font-weight:800;font-size:30px;color:#fff">۱٬۲۴۰ <span style="font-size:15px;opacity:.8" id="xp-unit">گل</span></div>
+              <div class="pill" style="margin-top:6px" id="next-tier">۱۶۰ گل تا صعود به لیگ قهرمانان</div>
+            </div>
+            <div class="ring" style="--v:78"><i id="ring-txt"><b>۷۸٪</b><br>پیشرفت فصل</i></div>
+          </div>
+        </div>
+
+        <div class="stats">
+          <div class="stat"><b>۲۳</b><span id="s1">برد بازی</span></div>
+          <div class="stat"><b>۹۱٪</b><span>میانگین نمره</span></div>
+          <div class="stat"><b>⭐۴٫۸</b><span>انضباط</span></div>
+        </div>
+
+        <div class="section-title" id="mission-title">مسابقه‌ی امروز</div>
+        <div class="card row between" onclick="go('play')" style="cursor:pointer">
+          <div class="row">
+            <div class="avatar" style="background:linear-gradient(135deg,var(--acc),#ff9d00)">🧮</div>
+            <div>
+              <div style="font-weight:800">ریاضی چهارم — ضرب</div>
+              <div class="muted" id="mission-sub">۳ سؤال تا برد امروز • جایزه: ۵۰ گل</div>
+            </div>
+          </div>
+          <div style="font-size:22px">▶️</div>
+        </div>
+
+        <div class="section-title">جدول لیگ کلاس <span class="pill" style="margin-right:auto">۴ روز تا پایان فصل ⏳</span></div>
+        <div class="lb"><div class="rk gold">۱</div><div class="avatar" style="width:34px;height:34px;font-size:18px">🦁</div><div style="flex:1;font-weight:700">سارا محمدی</div><b style="color:var(--acc)">۱٬۵۱۰</b></div>
+        <div class="lb me"><div class="rk silver">۲</div><div class="avatar" style="width:34px;height:34px;font-size:18px">😎</div><div style="flex:1;font-weight:700">تو (آرمین)</div><b style="color:var(--acc)">۱٬۲۴۰</b></div>
+        <div class="lb"><div class="rk bronze">۳</div><div class="avatar" style="width:34px;height:34px;font-size:18px">🐯</div><div style="flex:1;font-weight:700">کیان رضایی</div><b style="color:var(--acc)">۱٬۱۸۰</b></div>
+
+        <div class="card row between" style="margin-top:16px;border-color:var(--acc)" onclick="go('parent')">
+          <div class="row"><div style="font-size:26px">💌</div><div><div style="font-weight:800">پیام از مامان</div><div class="muted">«آفرین قهرمان! امشب جشن می‌گیریم 🎉»</div></div></div>
+          <div class="pill tag-acc">۱</div>
+        </div>
+      </section>
+
+      <!-- ===== 2: PLAY (themed math) ===== -->
+      <section class="screen" data-s="play">
+        <div class="row between">
+          <button class="pill" style="cursor:pointer;border:0" onclick="go('home')">‹ بازگشت</button>
+          <div class="bar" style="flex:1;margin:0 12px"><i style="width:66%"></i></div>
+          <div class="pill tag-acc">۲/۳</div>
+        </div>
+
+        <div class="banner" style="margin-top:16px;text-align:center">
+          <span class="em hero-emoji"></span>
+          <div class="pill" style="display:inline-block" id="play-skill">⚽ مسئله‌ی زمین بازی</div>
+          <div style="font-weight:800;font-size:18px;line-height:2.1;margin-top:12px" id="q-text">
+            تیم قرمزها در ۴ بازیِ این هفته، در هر بازی ۳ گل زدند.<br>در مجموع چند گل به ثمر رساندند؟
+          </div>
+        </div>
+
+        <div style="display:grid;gap:10px">
+          <div class="opt" onclick="answer(this,false)"><span>۹ گل</span><span>🔴</span></div>
+          <div class="opt" onclick="answer(this,true)"><span>۱۲ گل</span><span>🟢</span></div>
+          <div class="opt" onclick="answer(this,false)"><span>۷ گل</span><span>🔵</span></div>
+          <div class="opt" onclick="answer(this,false)"><span>۱۵ گل</span><span>🟡</span></div>
+        </div>
+
+        <div class="card" style="margin-top:16px;display:flex;gap:12px;align-items:center">
+          <div style="font-size:30px">💡</div>
+          <div class="muted">همین مسئله در «دنیای ماشین» این‌طور می‌شه: «ماشین در هر دور ۳ کیلومتر می‌رود، بعد از ۴ دور چند کیلومتر؟» — <b>محتوای آموزشی یکیه، روایتش عوض می‌شه.</b></div>
+        </div>
+      </section>
+
+      <!-- ===== 3: LEAGUE / LEADERBOARD ===== -->
+      <section class="screen" data-s="league">
+        <div style="text-align:center">
+          <div style="font-size:40px" class="hero-emoji"></div>
+          <div class="h" id="league-title">جدول لیگ کلاس ۴/الف</div>
+          <p class="muted">فصل پاییز • ۴ روز تا اعلام قهرمان ⏳</p>
+        </div>
+
+        <div class="row" style="gap:8px;margin:14px 0;justify-content:center">
+          <span class="pill tag-acc">کلاس من</span><span class="pill">کل مدرسه</span><span class="pill">دوستان</span>
+        </div>
+
+        <!-- podium -->
+        <div class="row" style="justify-content:center;align-items:flex-end;gap:10px;margin-bottom:14px">
+          <div style="text-align:center"><div class="avatar" style="margin:auto">🐯</div><div class="muted">کیان</div><div style="height:46px;width:58px;background:linear-gradient(var(--p2),transparent);border-radius:12px 12px 0 0;display:grid;place-items:center;font-weight:800">۳</div></div>
+          <div style="text-align:center"><div style="font-size:22px">👑</div><div class="avatar" style="margin:auto;width:54px;height:54px;font-size:26px">🦁</div><div class="muted">سارا</div><div style="height:70px;width:62px;background:linear-gradient(var(--acc),transparent);border-radius:12px 12px 0 0;display:grid;place-items:center;font-weight:800;color:#1a1200">۱</div></div>
+          <div style="text-align:center"><div class="avatar" style="margin:auto">😎</div><div class="muted">تو</div><div style="height:58px;width:58px;background:linear-gradient(var(--p1),transparent);border-radius:12px 12px 0 0;display:grid;place-items:center;font-weight:800">۲</div></div>
+        </div>
+
+        <div class="lb"><div class="rk gold">۱</div><div class="avatar" style="width:34px;height:34px;font-size:18px">🦁</div><div style="flex:1"><b>سارا محمدی</b><div class="muted">۲۸ برد • زنجیره ۱۲</div></div><b style="color:var(--acc)">۱٬۵۱۰</b></div>
+        <div class="lb me"><div class="rk silver">۲</div><div class="avatar" style="width:34px;height:34px;font-size:18px">😎</div><div style="flex:1"><b>تو (آرمین)</b><div class="muted">۲۳ برد • زنجیره ۷</div></div><b style="color:var(--acc)">۱٬۲۴۰</b></div>
+        <div class="lb"><div class="rk bronze">۳</div><div class="avatar" style="width:34px;height:34px;font-size:18px">🐯</div><div style="flex:1"><b>کیان رضایی</b><div class="muted">۲۱ برد • زنجیره ۴</div></div><b style="color:var(--acc)">۱٬۱۸۰</b></div>
+        <div class="lb"><div class="rk">۴</div><div class="avatar" style="width:34px;height:34px;font-size:18px">🐼</div><div style="flex:1"><b>نیلوفر کاظمی</b><div class="muted">۱۹ برد</div></div><b style="color:var(--acc)">۱٬۰۵۰</b></div>
+        <div class="lb"><div class="rk">۵</div><div class="avatar" style="width:34px;height:34px;font-size:18px">🦊</div><div style="flex:1"><b>پارسا احمدی</b><div class="muted">۱۷ برد</div></div><b style="color:var(--acc)">۹۸۰</b></div>
+        <p class="note">طراحی «ضدفشار»: کنار رقابت، مسیر «رکورد شخصی» هست تا دانش‌آموز ضعیف‌تر هم انگیزه داشته باشه.</p>
+      </section>
+
+      <!-- ===== 4: PROGRESS / GRADEBOOK / DISCIPLINE ===== -->
+      <section class="screen" data-s="progress">
+        <div class="h" style="text-align:center">کارنامه‌ی آرمین 📈</div>
+        <p class="muted" style="text-align:center">دفتر نمره، مهارت‌ها و انضباط — یک‌جا</p>
+
+        <div class="stats" style="margin-top:14px">
+          <div class="stat"><b>۹۱٪</b><span>میانگین کل</span></div>
+          <div class="stat"><b>۱۴</b><span>نشان کسب‌شده</span></div>
+          <div class="stat"><b>⭐۴٫۸</b><span>امتیاز انضباط</span></div>
+        </div>
+
+        <div class="section-title">تسلط بر مهارت‌ها (ریاضی چهارم)</div>
+        <div class="card" style="display:grid;gap:14px">
+          <div><div class="row between" style="margin-bottom:6px"><b style="font-size:13px">جمع و تفریق</b><span class="muted">۹۵٪ • عالی</span></div><div class="bar"><i style="width:95%"></i></div></div>
+          <div><div class="row between" style="margin-bottom:6px"><b style="font-size:13px">ضرب</b><span class="muted">۸۲٪ • خوب</span></div><div class="bar"><i style="width:82%"></i></div></div>
+          <div><div class="row between" style="margin-bottom:6px"><b style="font-size:13px">کسرها</b><span class="muted">۴۸٪ • نیاز به تمرین</span></div><div class="bar"><i style="width:48%"></i></div></div>
+          <div><div class="row between" style="margin-bottom:6px"><b style="font-size:13px">هندسه</b><span class="muted">۷۰٪ • خوب</span></div><div class="bar"><i style="width:70%"></i></div></div>
+        </div>
+
+        <div class="section-title">دفتر نمره — آزمون‌های اخیر</div>
+        <div class="card" style="display:grid;gap:10px">
+          <div class="row between"><div class="row"><span class="pill tag-acc">۲۰</span><b style="font-size:13px">آزمون ضرب — ۱۲ آذر</b></div><span class="muted">معلم: خانم احمدی</span></div>
+          <div class="row between"><div class="row"><span class="pill">۱۸</span><b style="font-size:13px">آزمون کسرها — ۵ آذر</b></div><span class="muted">قابل بهبود</span></div>
+          <div class="row between"><div class="row"><span class="pill tag-acc">۱۹٫۵</span><b style="font-size:13px">آزمون هندسه — ۲۸ آبان</b></div><span class="muted">معلم: خانم احمدی</span></div>
+        </div>
+
+        <div class="section-title">انضباط و اخلاق</div>
+        <div class="card row between">
+          <div class="row"><div style="font-size:28px">🌟</div><div><b style="font-size:13px">رفتار هفته</b><div class="muted">۳ ستاره‌ی تشویقی • ۰ تذکر</div></div></div>
+          <div class="pill tag-acc">عالی</div>
+        </div>
+
+        <div class="section-title">نشان‌ها 🏅</div>
+        <div class="row" style="gap:10px;flex-wrap:wrap">
+          <div class="pill" style="padding:10px 12px">🥇 سلطان ضرب</div>
+          <div class="pill" style="padding:10px 12px">🔥 ۷ روز پیاپی</div>
+          <div class="pill" style="padding:10px 12px">⚡ سریع‌ترین پاسخ</div>
+          <div class="pill" style="padding:10px 12px;opacity:.4">🔒 استاد کسرها</div>
+        </div>
+      </section>
+
+      <!-- ===== 5: PARENT BRIDGE ===== -->
+      <section class="screen" data-s="parent">
+        <div class="h" style="text-align:center">پل والدین 💌</div>
+        <p class="muted" style="text-align:center">ارتباط دوسویه‌ی خانه و مدرسه</p>
+
+        <div class="card" style="margin-top:14px">
+          <div class="row between"><b style="font-size:13px">خلاصه‌ی هفته برای والدین</b><span class="pill tag-acc">گزارش زنده</span></div>
+          <div class="muted" style="margin-top:10px;line-height:2.1">این هفته آرمین <b style="color:var(--acc)">۵ بازی</b> برد، در ضرب <b style="color:var(--acc)">۸۲٪</b> تسلط پیدا کرد و <b style="color:var(--acc)">۳ ستاره‌ی انضباطی</b> گرفت. نقطه‌ی نیازمند توجه: <b>کسرها</b>.</div>
+        </div>
+
+        <div class="section-title">گفت‌وگو با معلم</div>
+        <div style="display:flex;flex-direction:column;padding:4px">
+          <div class="msg in">سلام، آرمین این هفته در ضرب خیلی پیشرفت کرد 👏 فقط کسرها رو بیشتر تمرین کنه.<time>خانم احمدی • ۱۰:۳۰</time></div>
+          <div class="msg out">ممنون از پیگیری‌تون 🙏 امشب باهاش تمرین می‌کنیم.<time>مادر آرمین • ۱۰:۴۲</time></div>
+          <div class="msg in">عالیه! یک بازی کسر تم‌دار هم براش فعال کردم 🎮<time>خانم احمدی • ۱۰:۴۵</time></div>
+        </div>
+
+        <div class="section-title">تشویق فرزندت</div>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <div class="pill" style="padding:10px 14px">👏 آفرین!</div>
+          <div class="pill" style="padding:10px 14px">🎁 جایزه‌ی خونگی</div>
+          <div class="pill" style="padding:10px 14px">💪 ادامه بده!</div>
+          <div class="pill tag-acc" style="padding:10px 14px">+ پیام دلخواه</div>
+        </div>
+        <button class="btn" style="margin-top:18px" onclick="go('home')">بازگشت به خانه</button>
+      </section>
+
+    </div>
+
+    <!-- reward popup -->
+    <div class="pop" id="pop">
+      <div class="box">
+        <div class="big" id="pop-emoji">⚽</div>
+        <div class="h" style="margin:10px 0 4px" id="pop-title">گل! آفرین 🎉</div>
+        <p class="muted" id="pop-sub">۵۰ گل به حسابت اضافه شد</p>
+        <button class="btn" style="margin-top:16px" onclick="closePop()">ادامه</button>
+      </div>
+    </div>
+
+    <!-- bottom nav -->
+    <div class="nav" id="nav">
+      <button data-go="home" class="on" onclick="go('home')"><span class="ic">🏠</span>خانه</button>
+      <button data-go="play" onclick="go('play')"><span class="ic">🎮</span><span id="n-play">مسابقه</span></button>
+      <button data-go="league" onclick="go('league')"><span class="ic">🏆</span>جدول</button>
+      <button data-go="progress" onclick="go('progress')"><span class="ic">📈</span>کارنامه</button>
+      <button data-go="parent" onclick="go('parent')"><span class="ic">💌</span>والدین</button>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span>صفحه‌ها: <span class="kbd">انتخاب دنیا</span> <span class="kbd">خانه</span> <span class="kbd">مسابقه</span> <span class="kbd">جدول لیگ</span> <span class="kbd">کارنامه/انضباط</span> <span class="kbd">پل والدین</span></span><br>
+    <span>تم را از بالا عوض کن تا «موتور تم» را ببینی — رنگ، روایت و واژگان همه عوض می‌شوند، ولی محتوای آموزشی ثابت می‌ماند. برای دیدن صفحه‌ی انتخاب دنیا روی <span class="kbd" style="cursor:pointer" onclick="go('world')">اینجا</span> بزن.</span>
+  </div>
+</div>
+
+<script>
+/* ===================== THEME ENGINE (Layer 2: NARRATIVE) ===================== */
+const THEMES = {
+  football:{
+    name:'فوتبال', emoji:'⚽',
+    xpUnit:'گل', xpLabel:'گل‌های این فصل', league:'لیگ برتر',
+    nextTier:'۱۶۰ گل تا صعود به لیگ قهرمانان',
+    missionTitle:'مسابقه‌ی امروز', missionSub:'۳ سؤال تا برد امروز • جایزه: ۵۰ گل',
+    leagueTitle:'جدول لیگ کلاس ۴/الف', playSkill:'⚽ مسئله‌ی زمین بازی',
+    qText:'تیم قرمزها در ۴ بازیِ این هفته، در هر بازی ۳ گل زدند.<br>در مجموع چند گل به ثمر رساندند؟',
+    s1:'برد بازی', nav:'مسابقه', popEmoji:'⚽', popTitle:'گل! آفرین 🎉', popSub:'۵۰ گل به حسابت اضافه شد',
+    rankLine:'قهرمان'
+  },
+  cars:{
+    name:'ماشین', emoji:'🏎️',
+    xpUnit:'نیترو', xpLabel:'نیتروی این گرنپری', league:'گرنپری طلایی',
+    nextTier:'۱۶۰ نیترو تا سکوی قهرمانی 🏁',
+    missionTitle:'مسابقه‌ی امروز', missionSub:'۳ پیچ تا خط پایان • جایزه: ۵۰ نیترو',
+    leagueTitle:'گرید مسابقه — کلاس ۴/الف', playSkill:'🏎️ چالش پیست',
+    qText:'ماشین مسابقه در هر دور پیست ۳ کیلومتر می‌رود.<br>بعد از ۴ دور، در مجموع چند کیلومتر رفته است؟',
+    s1:'برد مسابقه', nav:'پیست', popEmoji:'🏁', popTitle:'خط پایان! 🏁', popSub:'۵۰ نیترو به حسابت اضافه شد',
+    rankLine:'صدرنشین'
+  }
+};
+let cur='football';
+function setTheme(t){
+  cur=t;
+  document.getElementById('phone').dataset.theme=t;
+  document.getElementById('t-fb').classList.toggle('on',t==='football');
+  document.getElementById('t-cr').classList.toggle('on',t==='cars');
+  const x=THEMES[t];
+  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.innerHTML=v;};
+  set('xp-unit',x.xpUnit); set('xp-label',x.xpLabel); set('league-name',x.league);
+  set('next-tier',x.nextTier); set('mission-title',x.missionTitle); set('mission-sub',x.missionSub);
+  set('league-title',x.leagueTitle); set('play-skill',x.playSkill); set('q-text',x.qText);
+  set('s1',x.s1); set('n-play',x.nav); set('rank-line',x.rankLine+' '+'<span id="league-name">'+x.league+'</span>');
+  set('mission-title',x.missionTitle);
+}
+
+/* ===================== NAV ===================== */
+function go(s){
+  document.querySelectorAll('.screen').forEach(el=>el.classList.toggle('active',el.dataset.s===s));
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.go===s));
+  document.querySelector('.screens').scrollTop=0;
+  document.querySelectorAll('.screen').forEach(el=>{if(el.dataset.s===s)el.scrollTop=0;});
+}
+
+/* ===================== PLAY interaction ===================== */
+function answer(el,ok){
+  document.querySelectorAll('.opt').forEach(o=>o.style.pointerEvents='none');
+  el.classList.add(ok?'correct':'wrong');
+  if(ok){ setTimeout(openPop,420); }
+  else { const c=[...document.querySelectorAll('.opt')].find(o=>o.textContent.includes('۱۲')||o.textContent.includes('کیلومتر')); }
+}
+function openPop(){
+  const x=THEMES[cur];
+  document.getElementById('pop-emoji').textContent=x.popEmoji;
+  document.getElementById('pop-title').innerHTML=x.popTitle;
+  document.getElementById('pop-sub').textContent=x.popSub;
+  const pop=document.getElementById('pop'); pop.classList.add('show'); confetti();
+}
+function closePop(){
+  document.getElementById('pop').classList.remove('show');
+  document.querySelectorAll('.opt').forEach(o=>{o.style.pointerEvents='';o.classList.remove('correct','wrong');});
+  go('home');
+}
+function confetti(){
+  const pop=document.getElementById('pop'); const cols=['#ffd23f','#1fd968','#ff3b3b','#13e2ff','#ff2e63'];
+  for(let i=0;i<26;i++){const c=document.createElement('div');c.className='confetti';
+    c.style.left=Math.random()*100+'%';c.style.background=cols[i%cols.length];
+    c.style.animationDelay=Math.random()*0.8+'s';c.style.animationDuration=(1+Math.random())+'s';
+    pop.appendChild(c);setTimeout(()=>c.remove(),2000);}
+}
+setTheme('football');
+</script>
+</body>
+</html>
