@@ -29,3 +29,4 @@ Thumbs.db
 # local dev database
 /database/*.sqlite
 /database/*.sqlite-journal
+/database/starmah_mysql.sql

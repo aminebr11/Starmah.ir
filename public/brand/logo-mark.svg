@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="ستاره ماه">
+  <defs>
+    <radialGradient id="sky" cx="50%" cy="42%" r="65%">
+      <stop offset="0%" stop-color="#1e3a6e"/>
+      <stop offset="60%" stop-color="#152a55"/>
+      <stop offset="100%" stop-color="#0e1c3d"/>
+    </radialGradient>
+    <linearGradient id="moon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffd87a"/>
+      <stop offset="55%" stop-color="#f5b53f"/>
+      <stop offset="100%" stop-color="#e09b22"/>
+    </linearGradient>
+    <linearGradient id="star" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff3cf"/>
+      <stop offset="100%" stop-color="#f5b53f"/>
+    </linearGradient>
+  </defs>
+
+  <!-- night-sky disc -->
+  <circle cx="60" cy="60" r="58" fill="url(#sky)"/>
+  <circle cx="60" cy="60" r="58" fill="none" stroke="#f5b53f" stroke-opacity="0.35" stroke-width="2"/>
+
+  <!-- scattered small stars -->
+  <g fill="#cfe0ff" opacity="0.9">
+    <circle cx="30" cy="34" r="1.4"/>
+    <circle cx="46" cy="24" r="1"/>
+    <circle cx="86" cy="40" r="1.2"/>
+    <circle cx="94" cy="64" r="1"/>
+    <circle cx="40" cy="86" r="1.1"/>
+    <circle cx="74" cy="92" r="1.3"/>
+  </g>
+
+  <!-- crescent moon -->
+  <g transform="translate(60 60)">
+    <path d="M -2 -34 A 34 34 0 1 0 -2 34 A 27 30 0 1 1 -2 -34 Z" fill="url(#moon)"/>
+  </g>
+
+  <!-- big guiding star -->
+  <g transform="translate(78 40)">
+    <path d="M0 -13 L3.4 -3.8 L13 -3.8 L5.2 2 L8.2 11.5 L0 5.6 L-8.2 11.5 L-5.2 2 L-13 -3.8 L-3.4 -3.8 Z"
+          fill="url(#star)" stroke="#e09b22" stroke-width="0.6"/>
+  </g>
+</svg>

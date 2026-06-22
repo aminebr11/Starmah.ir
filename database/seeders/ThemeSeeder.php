@@ -14,6 +14,38 @@ class ThemeSeeder extends Seeder
 {
     public function run(): void
     {
+        // تم پایه‌ی برند (هویت پلتفرم: سرمه‌ای + طلایی). تم پیش‌فرض پیش از انتخاب دنیا.
+        Theme::updateOrCreate(['key' => 'brand'], [
+            'name'  => 'ستاره ماه',
+            'emoji' => '🌙',
+            'sort'  => 0,
+            'skin'  => [
+                'bg1' => '#0e1c3d', 'bg2' => '#152a55',
+                'p1' => '#f5b53f', 'p2' => '#e09b22',
+                'acc' => '#ffd87a', 'acc2' => '#4a90d9',
+                'ring' => '#f5b53f', 'mascot' => '🌙', 'hero' => '⭐',
+                'pattern' => 'stars',
+            ],
+            'narrative' => [
+                'xp_unit'       => 'ستاره',
+                'xp_label'      => 'ستاره‌های این فصل',
+                'level'         => 'مرحله',
+                'league'        => 'کهکشان ستاره‌ها',
+                'rank_title'    => 'ستاره',
+                'next_tier'     => 'تا ستاره‌ی بعدی',
+                'mission_title' => 'تمرین امروز',
+                'play_label'    => 'تمرین',
+                'leaderboard'   => 'جدول ستاره‌ها',
+                'streak'        => 'زنجیره',
+                'reward_title'  => 'آفرین! ⭐',
+            ],
+            'content_pools' => [
+                'team' => ['ستاره‌ها', 'کهکشان'],
+                'unit' => ['ستاره', 'امتیاز'],
+                'hero' => ['ستاره‌شناس', 'کاشف'],
+            ],
+        ]);
+
         Theme::updateOrCreate(['key' => 'football'], [
             'name'  => 'فوتبال',
             'emoji' => '⚽',

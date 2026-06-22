@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 110" width="360" height="110" role="img" aria-label="STARMAH - ستاره ماه">
+  <defs>
+    <radialGradient id="hsky" cx="50%" cy="42%" r="65%">
+      <stop offset="0%" stop-color="#1e3a6e"/>
+      <stop offset="60%" stop-color="#152a55"/>
+      <stop offset="100%" stop-color="#0e1c3d"/>
+    </radialGradient>
+    <linearGradient id="hmoon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffd87a"/>
+      <stop offset="55%" stop-color="#f5b53f"/>
+      <stop offset="100%" stop-color="#e09b22"/>
+    </linearGradient>
+    <linearGradient id="hstar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff3cf"/>
+      <stop offset="100%" stop-color="#f5b53f"/>
+    </linearGradient>
+  </defs>
+
+  <!-- mark -->
+  <g transform="translate(8 8)">
+    <circle cx="47" cy="47" r="46" fill="url(#hsky)"/>
+    <circle cx="47" cy="47" r="46" fill="none" stroke="#f5b53f" stroke-opacity="0.35" stroke-width="1.6"/>
+    <g fill="#cfe0ff" opacity="0.9">
+      <circle cx="22" cy="26" r="1.1"/><circle cx="64" cy="30" r="1"/><circle cx="74" cy="58" r="1"/><circle cx="30" cy="70" r="1"/>
+    </g>
+    <g transform="translate(47 47)">
+      <path d="M -2 -28 A 28 28 0 1 0 -2 28 A 22 25 0 1 1 -2 -28 Z" fill="url(#hmoon)"/>
+    </g>
+    <g transform="translate(62 31)">
+      <path d="M0 -10 L2.6 -2.9 L10 -2.9 L4 1.5 L6.3 8.8 L0 4.3 L-6.3 8.8 L-4 1.5 L-10 -2.9 L-2.6 -2.9 Z"
+            fill="url(#hstar)" stroke="#e09b22" stroke-width="0.5"/>
+    </g>
+  </g>
+
+  <!-- wordmark -->
+  <g font-family="'Segoe UI','Vazirmatn',sans-serif" font-weight="800" letter-spacing="1">
+    <text x="116" y="58" font-size="40" fill="#16264f">STAR<tspan fill="#f5b53f">MAH</tspan></text>
+    <text x="118" y="80" font-size="13" fill="#7d8aa6" font-weight="600" letter-spacing="3">NAJMEH MAHMOUDI</text>
+  </g>
+</svg>
