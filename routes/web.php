@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\WelcomeController;
 use App\Http\Controllers\LeaderboardController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\PracticeController;
@@ -14,7 +15,7 @@ use App\Http\Controllers\ThemeController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', fn () => Inertia::render('Welcome'))->name('welcome');
+Route::get('/', WelcomeController::class)->name('welcome');
 
 // نقطه‌ی ورود مشترک — بر اساس نقش هدایت می‌شود
 Route::get('/dashboard', HomeController::class)->middleware('auth')->name('dashboard');
