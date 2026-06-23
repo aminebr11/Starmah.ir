@@ -1,11 +1,10 @@
-import { usePage, useForm, router } from '@inertiajs/react';
+import { usePage, router } from '@inertiajs/react';
 import { useState } from 'react';
-import Themed from '@/Layouts/Themed';
-import { fa, ui, rankColor } from '@/theme';
+import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
+const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
-/** روستر کلاس + ثبت ستاره/تذکر انضباطی برای هر دانش‌آموز. */
 export default function Classroom() {
-    const { classroom, students } = usePage().props;
+    const { classroom, students = [] } = usePage().props;
     const [openFor, setOpenFor] = useState(null);
 
     const record = (studentId, type) => {
@@ -13,36 +12,33 @@ export default function Classroom() {
     };
 
     return (
-        <Themed title={classroom.name}>
-            <div style={ui.row('space-between')}>
-                <div>
-                    <div style={ui.h}>{classroom.name}</div>
-                    <div style={ui.muted}>کد ورود دانش‌آموزان: <b style={{ color: 'var(--acc)' }}>{classroom.join_code}</b></div>
-                </div>
+        <DashLayout title={`کلاس ${classroom?.name ?? ''}`} roleLabel="معلم" menu={teacherMenu} active="class">
+            <div className="panel">
+                <h3>🏫 {classroom?.name} — کد ورود: <span className="tag tag-info" style={{ marginInlineStart: 8 }}>{classroom?.join_code}</span></h3>
+                {students.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز دانش‌آموزی به این کلاس نپیوسته.</p>}
+                <table className="tbl">
+                    <tbody>
+                        {students.map((s, i) => (
+                            <tr key={s.id}>
+                                <td style={{ width: 30 }}>{fa(i + 1)}</td>
+                                <td style={{ fontWeight: 700 }}>{s.name}</td>
+                                <td style={{ color: 'var(--gold-2)', fontWeight: 800 }}>{fa(s.xp)} امتیاز</td>
+                                <td>تسلط {fa(s.avg)}٪</td>
+                                <td style={{ textAlign: 'left' }}>
+                                    {openFor === s.id ? (
+                                        <span style={{ display: 'inline-flex', gap: 6 }}>
+                                            <button onClick={() => record(s.id, 'star')} className="btn btn-sm">🌟</button>
+                                            <button onClick={() => record(s.id, 'warning')} className="btn btn-ghost btn-sm">⚠️</button>
+                                        </span>
+                                    ) : (
+                                        <button onClick={() => setOpenFor(s.id)} className="btn btn-ghost btn-sm">ثبت رفتار</button>
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
-
-            <div style={{ marginTop: 14 }}>
-                {students.map((s, i) => (
-                    <div key={s.id} style={{ ...ui.card, marginBottom: 8 }}>
-                        <div style={ui.row('space-between')}>
-                            <div style={ui.row()}>
-                                <div style={{ width: 28, textAlign: 'center', fontWeight: 800, color: rankColor(i + 1) }}>{fa(i + 1)}</div>
-                                <div>
-                                    <div style={{ fontWeight: 700 }}>{s.name}</div>
-                                    <div style={ui.muted}>{fa(s.xp)} امتیاز • تسلط {fa(s.avg)}٪</div>
-                                </div>
-                            </div>
-                            <button onClick={() => setOpenFor(openFor === s.id ? null : s.id)} style={{ ...ui.pill, cursor: 'pointer', fontFamily: 'inherit' }}>ثبت ⋯</button>
-                        </div>
-                        {openFor === s.id && (
-                            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                                <button onClick={() => record(s.id, 'star')} style={{ ...ui.btn, fontSize: 13, padding: 10 }}>🌟 ستاره‌ی تشویق</button>
-                                <button onClick={() => record(s.id, 'warning')} style={{ ...ui.btn, ...ui.ghost, fontSize: 13, padding: 10 }}>⚠️ تذکر</button>
-                            </div>
-                        )}
-                    </div>
-                ))}
-            </div>
-        </Themed>
+        </DashLayout>
     );
 }

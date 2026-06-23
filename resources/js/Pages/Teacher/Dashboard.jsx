@@ -1,45 +1,50 @@
 import { usePage, Link } from '@inertiajs/react';
-import Themed from '@/Layouts/Themed';
-import { fa, ui } from '@/theme';
+import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
+const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
-const nav = (a) => ([
-    { key: 'home', label: 'کلاس‌ها', icon: '🏫', href: '/teacher' },
-    { key: 'assign', label: 'تکلیف', icon: '📝', href: '/teacher/assignments/create' },
-    { key: 'messages', label: 'پیام‌ها', icon: '💌', href: '/messages' },
-]);
-
-export default function TeacherDashboard() {
-    const { classrooms, totals, flash } = usePage().props;
-
+export default function Dashboard() {
+    const { classrooms = [], totals = {} } = usePage().props;
+    const cards = [
+        { ic: '🏛️', lbl: 'کلاس‌ها', val: totals.classrooms, c: '#fff3d6' },
+        { ic: '🎓', lbl: 'دانش‌آموزان', val: totals.students, c: '#dcebff' },
+        { ic: '📝', lbl: 'تکالیف', val: totals.assignments, c: '#e9e4ff' },
+        { ic: '⭐', lbl: 'ستاره‌های داده‌شده', val: totals.stars, c: '#d4f5ef' },
+    ];
     return (
-        <Themed title="معلم" nav={nav('home')} active="home">
-            <div style={ui.h}>سلام معلم عزیز 👩‍🏫</div>
-            {flash?.flash && <div style={{ ...ui.card, marginTop: 10, borderColor: 'var(--p1)' }}>{flash.flash}</div>}
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 14 }}>
-                <Stat b={fa(totals.classrooms)} s="کلاس" />
-                <Stat b={fa(totals.students)} s="دانش‌آموز" />
+        <DashLayout title="پیشخان معلم" roleLabel="معلم" menu={teacherMenu} active="home"
+            actions={<Link href={route('teacher.assignments.create')} className="btn btn-sm">➕ تکلیف جدید</Link>}>
+            <div className="dash-cards">
+                {cards.map((c) => (
+                    <div key={c.lbl} className="dcard"><div className="ic" style={{ background: c.c }}>{c.ic}</div>
+                        <div className="lbl">{c.lbl}</div><div className="val">{fa(c.val ?? 0)}</div></div>
+                ))}
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '20px 4px 12px', fontWeight: 800 }}>
-                <span style={{ width: 5, height: 18, borderRadius: 6, background: 'linear-gradient(var(--p1),var(--acc))' }} />
-                کلاس‌های من
+            <div id="class" className="panel">
+                <h3>🏫 کلاس‌های من</h3>
+                {classrooms.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز کلاسی نداری.</p>}
+                {classrooms.map((c) => (
+                    <Link key={c.id} href={route('teacher.classroom', c.id)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: '1px solid var(--line)', color: 'var(--ink)' }}>
+                        <div><div style={{ fontWeight: 800 }}>{c.name}</div><div style={{ color: 'var(--muted)', fontSize: 13 }}>کد: {c.join_code} · {fa(c.students)} دانش‌آموز</div></div>
+                        <span style={{ fontSize: 20 }}>‹</span>
+                    </Link>
+                ))}
             </div>
 
-            {classrooms.map((c) => (
-                <Link key={c.id} href={route('teacher.classroom', c.id)} style={{ ...ui.card, marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', textDecoration: 'none', color: '#fff' }}>
-                    <div>
-                        <div style={{ fontWeight: 800 }}>{c.name}</div>
-                        <div style={ui.muted}>کد ورود: {c.join_code} • {fa(c.students)} دانش‌آموز</div>
-                    </div>
-                    <span style={{ fontSize: 20 }}>‹</span>
-                </Link>
-            ))}
-
-            <Link href={route('teacher.assignments.create')} style={{ ...ui.btn, marginTop: 8, textDecoration: 'none' }}>➕ تکلیف/آزمون جدید</Link>
-        </Themed>
+            <div className="dash-cards" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+                <Quick href={route('teacher.gradebook')} ic="📔" t="دفتر نمره" d="نمرات و تسلط دانش‌آموزان" />
+                <Quick href={route('teacher.discipline')} ic="⭐" t="انضباط" d="ثبت ستاره و تذکر" />
+                <Quick href={route('teacher.materials')} ic="📚" t="مطالب و محتوا" d="بارگذاری جزوه و فایل" />
+            </div>
+        </DashLayout>
     );
 }
-function Stat({ b, s }) {
-    return <div style={{ ...ui.card, textAlign: 'center' }}><b style={{ display: 'block', fontSize: 24, color: 'var(--acc)' }}>{b}</b><span style={ui.muted}>{s}</span></div>;
+function Quick({ href, ic, t, d }) {
+    return (
+        <Link href={href} className="dcard" style={{ display: 'block' }}>
+            <div style={{ fontSize: 26 }}>{ic}</div>
+            <div style={{ fontWeight: 800, marginTop: 6, color: 'var(--navy-800)' }}>{t}</div>
+            <div style={{ color: 'var(--muted)', fontSize: 13 }}>{d}</div>
+        </Link>
+    );
 }

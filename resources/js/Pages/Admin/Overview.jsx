@@ -1,48 +1,57 @@
-import { usePage } from '@inertiajs/react';
-import Themed from '@/Layouts/Themed';
-import { fa, ui } from '@/theme';
+import { usePage, Link } from '@inertiajs/react';
+import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
 
-const nav = () => ([
-    { key: 'home', label: 'مدرسه', icon: '🏫', href: '/admin' },
-    { key: 'messages', label: 'پیام‌ها', icon: '💌', href: '/messages' },
-]);
+const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 export default function Overview() {
-    const { school, totals, classrooms } = usePage().props;
+    const { stats = {}, recent_schools = [], recent_requests = [] } = usePage().props;
+
+    const cards = [
+        { ic: '🏫', lbl: 'مدارس', val: stats.schools, c: '#fff3d6' },
+        { ic: '⏳', lbl: 'در انتظار تأیید', val: stats.pending, c: '#ffe0ec' },
+        { ic: '🎓', lbl: 'دانش‌آموزان', val: stats.students, c: '#dcebff' },
+        { ic: '👩‍🏫', lbl: 'معلم‌ها', val: stats.teachers, c: '#d4f5ef' },
+        { ic: '🏛️', lbl: 'کلاس‌ها', val: stats.classes, c: '#e9e4ff' },
+        { ic: '🎨', lbl: 'تم‌ها (دنیاها)', val: stats.themes, c: '#fff3d6' },
+    ];
 
     return (
-        <Themed title="مدیریت مدرسه" nav={nav()} active="home">
-            <div style={ui.h}>پیشخان مدرسه 🏫</div>
-
-            {school && (
-                <div style={{ ...ui.card, marginTop: 12 }}>
-                    <div style={ui.row('space-between')}>
-                        <div style={{ fontWeight: 800, fontSize: 16 }}>{school.name}</div>
-                        <span style={{ ...ui.pill, ...ui.pillAcc }}>پلن {school.plan}</span>
+        <DashLayout title="پیشخان ادمین کل" roleLabel="ادمین کل" menu={adminMenu} active="home">
+            <div className="dash-cards" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+                {cards.map((c) => (
+                    <div key={c.lbl} className="dcard">
+                        <div className="ic" style={{ background: c.c }}>{c.ic}</div>
+                        <div className="lbl">{c.lbl}</div>
+                        <div className="val">{fa(c.val ?? 0)}</div>
                     </div>
-                    <div style={{ ...ui.muted, marginTop: 6 }}>وضعیت: {school.status} • ظرفیت: {fa(school.seats)} • اعتبار تا: {fa(school.ends_at ?? '—')}</div>
-                </div>
-            )}
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginTop: 14 }}>
-                <Stat b={fa(totals.students)} s="دانش‌آموز" />
-                <Stat b={fa(totals.teachers)} s="معلم" />
-                <Stat b={fa(totals.classrooms)} s="کلاس" />
+                ))}
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '20px 4px 12px', fontWeight: 800 }}>
-                <span style={{ width: 5, height: 18, borderRadius: 6, background: 'linear-gradient(var(--p1),var(--acc))' }} />
-                کلاس‌ها
+            <div className="panel">
+                <h3>⏳ درخواست‌های در انتظار تأیید
+                    <Link href={route('admin.schools')} className="btn btn-sm" style={{ marginInlineStart: 'auto' }}>مدیریت مدارس ←</Link>
+                </h3>
+                {recent_requests.length === 0 && <p style={{ color: 'var(--muted)' }}>درخواست جدیدی نیست.</p>}
+                {recent_requests.map((r) => (
+                    <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
+                        <span><b>{r.school_name}</b> — {r.manager_name} · {r.manager_phone}</span>
+                        <span style={{ color: 'var(--muted)', fontSize: 13 }}>{fa(r.classes_count)} کلاس</span>
+                    </div>
+                ))}
             </div>
-            {classrooms.map((c, i) => (
-                <div key={i} style={{ ...ui.card, marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
-                    <div><b>{c.name}</b><div style={ui.muted}>معلم: {c.teacher ?? '—'}</div></div>
-                    <span style={{ ...ui.pill }}>{fa(c.students)} دانش‌آموز</span>
-                </div>
-            ))}
-        </Themed>
+
+            <div className="panel">
+                <h3>🏫 آخرین مدارس</h3>
+                <table className="tbl">
+                    <thead><tr><th>نام</th><th>شهر</th><th>پلن</th><th>وضعیت</th></tr></thead>
+                    <tbody>
+                        {recent_schools.map((s) => (
+                            <tr key={s.id}><td>{s.name}</td><td>{s.city ?? '—'}</td><td>{s.plan}</td>
+                                <td><span className={`tag ${s.status === 'active' ? 'tag-ok' : 'tag-warn'}`}>{s.status === 'active' ? 'فعال' : s.status}</span></td></tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </DashLayout>
     );
-}
-function Stat({ b, s }) {
-    return <div style={{ ...ui.card, textAlign: 'center', padding: '12px 8px' }}><b style={{ display: 'block', fontSize: 22, color: 'var(--acc)' }}>{b}</b><span style={ui.muted}>{s}</span></div>;
 }

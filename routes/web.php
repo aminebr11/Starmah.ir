@@ -1,9 +1,10 @@
 <?php
 
-use App\Http\Controllers\AdminController;
+use App\Http\Controllers\Admin\PlatformController;
 use App\Http\Controllers\Admin\SchoolApprovalController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\RegistrationController;
+use App\Http\Controllers\SchoolAdmin\SchoolDashboardController;
 use App\Http\Controllers\SchoolAdmin\TeacherController as SchoolTeacherController;
 use App\Http\Controllers\WelcomeController;
 use App\Http\Controllers\LeaderboardController;
@@ -35,15 +36,25 @@ Route::middleware('guest')->group(function () {
 
 /* ---------------- ادمین کل (سوپرادمین) ---------------- */
 Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/', [PlatformController::class, 'overview'])->name('overview');
     Route::get('/schools', [SchoolApprovalController::class, 'index'])->name('schools');
     Route::post('/schools/requests/{schoolRequest}/approve', [SchoolApprovalController::class, 'approve'])->name('schools.approve');
     Route::post('/schools/requests/{schoolRequest}/reject', [SchoolApprovalController::class, 'reject'])->name('schools.reject');
+    Route::get('/themes', [PlatformController::class, 'themes'])->name('themes');
+    Route::post('/themes', [PlatformController::class, 'storeTheme'])->name('themes.store');
+    Route::post('/themes/{theme}/toggle', [PlatformController::class, 'toggleTheme'])->name('themes.toggle');
+    Route::get('/reports', [PlatformController::class, 'reports'])->name('reports');
+    Route::get('/settings', [PlatformController::class, 'settings'])->name('settings');
 });
 
 /* ---------------- مدیر مدرسه ---------------- */
 Route::middleware(['auth', 'role:school_admin'])->prefix('school')->name('school.')->group(function () {
+    Route::get('/', [SchoolDashboardController::class, 'overview'])->name('overview');
     Route::get('/teachers', [SchoolTeacherController::class, 'index'])->name('teachers');
     Route::post('/teachers', [SchoolTeacherController::class, 'store'])->name('teachers.store');
+    Route::get('/students', [SchoolDashboardController::class, 'students'])->name('students');
+    Route::get('/announcements', [SchoolDashboardController::class, 'announcements'])->name('announcements');
+    Route::get('/reports', [SchoolDashboardController::class, 'reports'])->name('reports');
 });
 
 /* ---------------- دانش‌آموز ---------------- */
@@ -62,14 +73,12 @@ Route::middleware(['auth', 'role:student'])->group(function () {
 Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')->group(function () {
     Route::get('/', [TeacherDashboardController::class, 'index'])->name('dashboard');
     Route::get('/class/{classroom}', [TeacherDashboardController::class, 'show'])->name('classroom');
+    Route::get('/gradebook', [TeacherDashboardController::class, 'gradebook'])->name('gradebook');
+    Route::get('/discipline', [TeacherDashboardController::class, 'discipline'])->name('discipline');
+    Route::get('/materials', [TeacherDashboardController::class, 'materials'])->name('materials');
     Route::get('/assignments/create', [AssignmentController::class, 'create'])->name('assignments.create');
     Route::post('/assignments', [AssignmentController::class, 'store'])->name('assignments.store');
     Route::post('/discipline', [DisciplineController::class, 'store'])->name('discipline.store');
-});
-
-/* ---------------- مدیر مدرسه / سوپرادمین ---------------- */
-Route::middleware(['auth', 'role:school_admin|super_admin'])->group(function () {
-    Route::get('/admin', [AdminController::class, 'overview'])->name('admin.overview');
 });
 
 /* ---------------- مشترک ---------------- */

@@ -13,8 +13,8 @@ class HomeController extends Controller
         $user = $request->user();
 
         return match (true) {
-            $user->hasRole(Roles::SUPER_ADMIN)  => redirect()->route('admin.schools'),
-            $user->hasRole(Roles::SCHOOL_ADMIN) => redirect()->route('school.teachers'),
+            $user->hasRole(Roles::SUPER_ADMIN)  => redirect()->route('admin.overview'),
+            $user->hasRole(Roles::SCHOOL_ADMIN) => redirect()->route('school.overview'),
             $user->hasRole(Roles::TEACHER)      => redirect()->route('teacher.dashboard'),
             $user->hasRole(Roles::PARENT)       => redirect()->route('messages.index'),
             // دانش‌آموزی که هنوز دنیای علاقه‌اش را نساخته → onboarding

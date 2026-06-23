@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
+use App\Models\Assignment;
 use App\Models\Classroom;
+use App\Models\DisciplineRecord;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -25,10 +27,62 @@ class TeacherDashboardController extends Controller
         return Inertia::render('Teacher/Dashboard', [
             'classrooms' => $classrooms,
             'totals' => [
-                'classrooms' => $classrooms->count(),
-                'students'   => $classrooms->sum('students'),
+                'classrooms'  => $classrooms->count(),
+                'students'    => $classrooms->sum('students'),
+                'assignments' => Assignment::where('teacher_id', $teacher->id)->count(),
+                'stars'       => DisciplineRecord::where('recorded_by', $teacher->id)->where('type', 'star')->count(),
             ],
         ]);
+    }
+
+    /** دفتر نمره: دانش‌آموزان × میانگین تسلط/امتیاز. */
+    public function gradebook(Request $request): Response
+    {
+        $teacher = $request->user();
+        $classroom = Classroom::where('teacher_id', $teacher->id)->first();
+
+        $rows = [];
+        if ($classroom) {
+            $rows = $classroom->students()->get()->map(fn ($s) => [
+                'id' => $s->id, 'name' => $s->name,
+                'xp' => $s->totalXp(),
+                'mastery' => (int) round($s->skillMastery()->avg('mastery') ?? 0),
+                'stars' => DisciplineRecord::where('student_id', $s->id)->where('type', 'star')->sum('points'),
+            ])->sortByDesc('xp')->values();
+        }
+
+        return Inertia::render('Teacher/Gradebook', [
+            'classroom' => $classroom?->only('name'),
+            'rows' => $rows,
+        ]);
+    }
+
+    /** انضباط: لیست رکوردها + دانش‌آموزان برای ثبت سریع. */
+    public function discipline(Request $request): Response
+    {
+        $teacher = $request->user();
+        $classroom = Classroom::where('teacher_id', $teacher->id)->first();
+
+        $students = $classroom ? $classroom->students()->get(['users.id', 'name'])
+            ->map(fn ($s) => ['id' => $s->id, 'name' => $s->name]) : collect();
+
+        $records = DisciplineRecord::where('recorded_by', $teacher->id)
+            ->with('student:id,name')->latest()->limit(40)->get()
+            ->map(fn ($r) => [
+                'student' => $r->student?->name, 'type' => $r->type,
+                'points' => $r->points, 'note' => $r->note,
+                'date' => $r->created_at?->format('Y/m/d'),
+            ]);
+
+        return Inertia::render('Teacher/Discipline', [
+            'students' => $students->values(),
+            'records'  => $records,
+        ]);
+    }
+
+    public function materials(Request $request): Response
+    {
+        return Inertia::render('Teacher/Materials');
     }
 
     public function show(Request $request, Classroom $classroom): Response

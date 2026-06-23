@@ -83,14 +83,16 @@ export default function Welcome() {
                                     <Link href="/dashboard" className="btn btn-lg">📊 ورود به داشبورد من</Link>
                                 ) : (
                                     <>
-                                        <Link href="/register/school" className="btn btn-lg">🏫 ثبت‌نام مدرسه</Link>
-                                        <Link href={route('login')} className="btn btn-glass btn-lg">🔑 ورود</Link>
+                                        <Link href="/register/student" className="btn btn-lg">🎓 ثبت‌نام دانش‌آموز</Link>
+                                        <Link href="/register/school" className="btn btn-glass btn-lg">🏫 ثبت‌نام مدرسه</Link>
                                     </>
                                 )}
                             </div>
                             {!user && (
-                                <div style={{ marginTop: 14, color: '#9fb1d8', fontSize: 13 }}>
-                                    دانش‌آموز هستی؟ <Link href="/register/student" style={{ color: 'var(--gold-light)', fontWeight: 700 }}>از اینجا ثبت‌نام کن ←</Link>
+                                <div style={{ marginTop: 16, color: '#cdd8ef', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                    <span>👦👧 دانش‌آموزی؟ روی دکمه‌ی طلایی «ثبت‌نام دانش‌آموز» بزن.</span>
+                                    <span style={{ opacity: .6 }}>|</span>
+                                    <Link href={route('login')} style={{ color: 'var(--gold-light)', fontWeight: 700 }}>قبلاً ثبت‌نام کرده‌ای؟ ورود ←</Link>
                                 </div>
                             )}
                             <div className="hero-trust">
