@@ -44,6 +44,7 @@ export default function WebLayout({ title, active = '', children }) {
                     <div className="nav-cta">
                         {user ? (
                             <>
+                                <Link href={route('profile.edit')} className="btn btn-ghost btn-sm">👤 پروفایل</Link>
                                 <Link href="/dashboard" className="btn btn-sm">داشبورد من</Link>
                                 <button onClick={() => router.post(route('logout'))} className="btn btn-ghost btn-sm">خروج</button>
                             </>

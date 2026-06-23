@@ -26,6 +26,9 @@ export default function DashLayout({ title, roleLabel, menu = [], active = '', c
                             <span className="ic">{m.icon}</span>{m.label}
                         </Link>
                     ))}
+                    <Link href={route('profile.edit')} className={active === 'profile' ? 'active' : ''} onClick={() => setOpen(false)}>
+                        <span className="ic">👤</span>پروفایل من
+                    </Link>
                     <button onClick={() => router.post(route('logout'))}
                         style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 13px', borderRadius: 13, color: '#ff9d9d', background: 'transparent', border: 0, fontFamily: 'inherit', fontWeight: 600, fontSize: 14, cursor: 'pointer', marginTop: 8 }}>
                         <span className="ic">🚪</span> خروج
@@ -43,7 +46,9 @@ export default function DashLayout({ title, roleLabel, menu = [], active = '', c
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         {actions}
-                        <span style={{ color: 'var(--muted)', fontSize: 14 }}>👤 {auth?.user?.name}</span>
+                        <Link href={route('profile.edit')} className="btn btn-ghost btn-sm" title="پروفایل من">
+                            👤 {auth?.user?.name}
+                        </Link>
                     </div>
                 </div>
                 {children}

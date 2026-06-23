@@ -22,6 +22,8 @@ class ThemeController extends Controller
                 ->map(fn ($t) => [
                     'id' => $t->id, 'key' => $t->key, 'name' => $t->name,
                     'emoji' => $t->emoji, 'skin' => $t->skin, 'premium' => $t->is_premium,
+                    'subtitle' => $t->word('subtitle'), 'tagline' => $t->word('tagline'),
+                    'character' => data_get($t->skin, 'character', $t->emoji),
                 ]),
         ]);
     }

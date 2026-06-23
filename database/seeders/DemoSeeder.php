@@ -37,8 +37,10 @@ class DemoSeeder extends Seeder
         $admin   = $this->makeUser($school, Roles::SCHOOL_ADMIN, 'خانم مدیری', '09120000001');
         $teacher = $this->makeUser($school, Roles::TEACHER, 'خانم احمدی', '09120000002');
 
-        $football = Theme::where('key', 'football')->first();
-        $cars     = Theme::where('key', 'cars')->first();
+        $fire   = Theme::where('key', 'fire-strikers')->first();
+        $blue   = Theme::where('key', 'blue-thunders')->first();
+        $creeper = Theme::where('key', 'creeper-warriors')->first();
+        $speed  = Theme::where('key', 'super-speed')->first();
 
         $season = Season::updateOrCreate(
             ['school_id' => $school->id, 'name' => 'فصل پاییز'],
@@ -50,12 +52,16 @@ class DemoSeeder extends Seeder
             ['teacher_id' => $teacher->id, 'grade' => 'چهارم', 'join_code' => 'STAR4A']
         );
 
-        // دانش‌آموزان نمونه با تم‌های مختلف
+        // دانش‌آموزان نمونه در گروه‌های مختلف (برای دیدن رقابت گروه‌ها)
         $students = [
-            ['آرمین رستمی', '09120000010', $football, 1240],
-            ['سارا محمدی', '09120000011', $football, 1510],
-            ['کیان رضایی', '09120000012', $cars, 1180],
-            ['نیلوفر کاظمی', '09120000013', $cars, 1050],
+            ['آرمین رستمی', '09120000010', $fire, 1240],
+            ['سارا محمدی', '09120000011', $blue, 1510],
+            ['کیان رضایی', '09120000012', $speed, 1180],
+            ['نیلوفر کاظمی', '09120000013', $creeper, 1050],
+            ['پارسا احمدی', '09120000014', $fire, 980],
+            ['مریم حسینی', '09120000015', $blue, 1120],
+            ['رضا کریمی', '09120000016', $creeper, 870],
+            ['زهرا نوری', '09120000017', $speed, 760],
         ];
 
         foreach ($students as [$name, $phone, $theme, $xp]) {

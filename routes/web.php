@@ -87,8 +87,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/messages', [MessageController::class, 'store'])->name('messages.store');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+
+    // تغییر اجباری رمز در اولین ورود
+    Route::get('/force-password', [\App\Http\Controllers\ForcePasswordController::class, 'show'])->name('password.force');
+    Route::post('/force-password', [\App\Http\Controllers\ForcePasswordController::class, 'update'])->name('password.force.update');
 });
 
 require __DIR__.'/auth.php';

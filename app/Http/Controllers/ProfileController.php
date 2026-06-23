@@ -2,62 +2,65 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\ProfileUpdateRequest;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 use Inertia\Response;
 
+/** پروفایل من — مشاهده و ویرایش اطلاعات، آواتار و رمز (همه‌ی نقش‌ها). */
 class ProfileController extends Controller
 {
-    /**
-     * Display the user's profile form.
-     */
     public function edit(Request $request): Response
     {
+        $u = $request->user();
         return Inertia::render('Profile/Edit', [
-            'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
-            'status' => session('status'),
+            'profile' => [
+                'name'   => $u->name,
+                'phone'  => $u->phone,
+                'email'  => $u->email,
+                'grade'  => $u->grade,
+                'avatar' => $u->avatar ? Storage::url($u->avatar) : null,
+                'role'   => $u->getRoleNames()->first(),
+                'school' => $u->school?->name,
+            ],
         ]);
     }
 
-    /**
-     * Update the user's profile information.
-     */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
+    public function update(Request $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $u = $request->user();
+        $data = $request->validate([
+            'name'   => ['required', 'string', 'max:100'],
+            'email'  => ['nullable', 'email', 'max:120'],
+            'avatar' => ['nullable', 'image', 'max:2048'], // حداکثر ۲ مگابایت
+        ]);
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        if ($request->hasFile('avatar')) {
+            if ($u->avatar) {
+                Storage::disk('public')->delete($u->avatar);
+            }
+            $u->avatar = $request->file('avatar')->store('avatars', 'public');
         }
 
-        $request->user()->save();
+        $u->name = $data['name'];
+        $u->email = $data['email'] ?? null;
+        $u->save();
 
-        return Redirect::route('profile.edit');
+        return back()->with('flash', 'پروفایل به‌روزرسانی شد ✅');
     }
 
-    /**
-     * Delete the user's account.
-     */
-    public function destroy(Request $request): RedirectResponse
+    public function updatePassword(Request $request): RedirectResponse
     {
-        $request->validate([
-            'password' => ['required', 'current_password'],
+        $data = $request->validate([
+            'current_password' => ['required', 'current_password'],
+            'password'         => ['required', 'confirmed', Password::min(6)],
         ]);
 
-        $user = $request->user();
+        $request->user()->update(['password' => Hash::make($data['password'])]);
 
-        Auth::logout();
-
-        $user->delete();
-
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-
-        return Redirect::to('/');
+        return back()->with('flash', 'رمز عبور تغییر کرد ✅');
     }
 }

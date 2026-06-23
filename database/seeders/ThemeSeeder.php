@@ -6,106 +6,70 @@ use App\Models\Theme;
 use Illuminate\Database\Seeder;
 
 /**
- * دو دنیای راه‌اندازی: فوتبال و ماشین.
- * توکن‌های skin از دموی طراحی تأییدشده گرفته شده‌اند تا فرانت دقیقاً همان ظاهر را بسازد.
- * افزودن دنیای جدید در آینده = افزودن یک ردیف اینجا.
+ * تم پایه‌ی برند + چهار «گروه/تیم» رقابتی (مطابق طرح ارائه‌شده).
+ * دانش‌آموز یکی از چهار تیم را انتخاب می‌کند و در کلاسش با بقیه‌ی تیم‌ها رقابت می‌کند.
+ * افزودن تیم جدید = افزودن یک ردیف اینجا (یا از پنل ادمین).
  */
 class ThemeSeeder extends Seeder
 {
     public function run(): void
     {
-        // تم پایه‌ی برند (هویت پلتفرم: سرمه‌ای + طلایی). تم پیش‌فرض پیش از انتخاب دنیا.
+        // تم پایه‌ی برند (هویت پلتفرم)
         Theme::updateOrCreate(['key' => 'brand'], [
-            'name'  => 'ستاره ماه',
-            'emoji' => '🌙',
-            'sort'  => 0,
-            'skin'  => [
-                'bg1' => '#0e1c3d', 'bg2' => '#152a55',
-                'p1' => '#f5b53f', 'p2' => '#e09b22',
-                'acc' => '#ffd87a', 'acc2' => '#4a90d9',
-                'ring' => '#f5b53f', 'mascot' => '🌙', 'hero' => '⭐',
-                'pattern' => 'stars',
-            ],
-            'narrative' => [
-                'xp_unit'       => 'ستاره',
-                'xp_label'      => 'ستاره‌های این فصل',
-                'level'         => 'مرحله',
-                'league'        => 'کهکشان ستاره‌ها',
-                'rank_title'    => 'ستاره',
-                'next_tier'     => 'تا ستاره‌ی بعدی',
-                'mission_title' => 'تمرین امروز',
-                'play_label'    => 'تمرین',
-                'leaderboard'   => 'جدول ستاره‌ها',
-                'streak'        => 'زنجیره',
-                'reward_title'  => 'آفرین! ⭐',
-            ],
-            'content_pools' => [
-                'team' => ['ستاره‌ها', 'کهکشان'],
-                'unit' => ['ستاره', 'امتیاز'],
-                'hero' => ['ستاره‌شناس', 'کاشف'],
-            ],
+            'name' => 'ستاره ماه', 'emoji' => '🌙', 'sort' => 0,
+            'skin' => ['bg1' => '#0e1c3d', 'bg2' => '#152a55', 'p1' => '#f5b53f', 'p2' => '#e09b22', 'acc' => '#ffd87a', 'acc2' => '#4a90d9', 'ring' => '#f5b53f', 'mascot' => '🌙', 'hero' => '⭐', 'pattern' => 'stars'],
+            'narrative' => ['xp_unit' => 'ستاره', 'xp_label' => 'ستاره‌های این فصل', 'league' => 'کهکشان', 'rank_title' => 'ستاره', 'leaderboard' => 'جدول ستاره‌ها', 'mission_title' => 'تمرین امروز', 'reward_title' => 'آفرین! ⭐', 'subtitle' => 'STARMAH', 'tagline' => ''],
+            'content_pools' => ['team' => ['ستاره‌ها'], 'unit' => ['ستاره'], 'hero' => ['کاشف']],
         ]);
 
-        Theme::updateOrCreate(['key' => 'football'], [
-            'name'  => 'فوتبال',
-            'emoji' => '⚽',
-            'sort'  => 1,
-            'skin'  => [
-                'bg1' => '#0a2a18', 'bg2' => '#0e3a22',
-                'p1' => '#1fd968', 'p2' => '#0f9d4f',
-                'acc' => '#ffd23f', 'acc2' => '#ff3b3b',
-                'ring' => '#1fd968', 'mascot' => '⚽', 'hero' => '🏟️',
-                'pattern' => 'pitch',
+        $groups = [
+            [
+                'key' => 'fire-strikers', 'name' => 'تیم شلیک آتشین', 'subtitle' => 'FIRE STRIKERS',
+                'emoji' => '🔥', 'sort' => 1, 'tagline' => 'فوتبال قرمز · قدرت و شور',
+                'skin' => ['bg1' => '#2a0c0c', 'bg2' => '#4a1212', 'p1' => '#ff4d3d', 'p2' => '#c81e1e', 'acc' => '#ffb03a', 'acc2' => '#ff7847', 'ring' => '#ff4d3d', 'mascot' => '🔥', 'hero' => '⚽', 'character' => '🦁', 'pattern' => 'pitch'],
+                'unit' => 'گل', 'league' => 'لیگ آتش',
+                'pools' => ['team' => ['قرمزها', 'شیرها'], 'unit' => ['گل'], 'hero' => ['مهاجم', 'کاپیتان']],
             ],
-            'narrative' => [
-                'xp_unit'       => 'گل',
-                'xp_label'      => 'گل‌های این فصل',
-                'level'         => 'لیگ',
-                'league'        => 'لیگ برتر',
-                'rank_title'    => 'قهرمان',
-                'next_tier'     => 'تا صعود به لیگ قهرمانان',
-                'mission_title' => 'مسابقه‌ی امروز',
-                'play_label'    => 'مسابقه',
-                'leaderboard'   => 'جدول لیگ',
-                'streak'        => 'زنجیره‌ی برد',
-                'reward_title'  => 'گل! آفرین 🎉',
+            [
+                'key' => 'blue-thunders', 'name' => 'تیم صاعقه آبی', 'subtitle' => 'BLUE THUNDERS',
+                'emoji' => '⚡', 'sort' => 2, 'tagline' => 'فوتبال آبی · سرعت و دقت',
+                'skin' => ['bg1' => '#07142e', 'bg2' => '#0e2a5e', 'p1' => '#2e8bff', 'p2' => '#1657c8', 'acc' => '#4fd2ff', 'acc2' => '#7cc0ff', 'ring' => '#2e8bff', 'mascot' => '⚡', 'hero' => '⚽', 'character' => '🐉', 'pattern' => 'pitch'],
+                'unit' => 'گل', 'league' => 'لیگ صاعقه',
+                'pools' => ['team' => ['آبی‌ها', 'اژدها'], 'unit' => ['گل'], 'hero' => ['ستاره', 'گلزن']],
             ],
-            'content_pools' => [
-                'team' => ['قرمزها', 'آبی‌ها', 'تیم ملی', 'سبزها'],
-                'unit' => ['گل', 'پاس گل'],
-                'hero' => ['مهاجم', 'دروازه‌بان', 'کاپیتان'],
+            [
+                'key' => 'creeper-warriors', 'name' => 'تیم جنگجویان کریپر', 'subtitle' => 'CREEPER WARRIORS',
+                'emoji' => '🟩', 'sort' => 3, 'tagline' => 'دنیای ماینکرفت · ساخت و ساز',
+                'skin' => ['bg1' => '#0e2a16', 'bg2' => '#143d20', 'p1' => '#5bbf4a', 'p2' => '#2e7d32', 'acc' => '#a5f36a', 'acc2' => '#7be05a', 'ring' => '#5bbf4a', 'mascot' => '🟩', 'hero' => '⛏️', 'character' => '🧟', 'pattern' => 'blocks'],
+                'unit' => 'زمرد', 'league' => 'لیگ کریپر',
+                'pools' => ['team' => ['کریپرها', 'جنگجوها'], 'unit' => ['زمرد', 'بلوک'], 'hero' => ['ماینر', 'سازنده']],
             ],
-        ]);
+            [
+                'key' => 'super-speed', 'name' => 'تیم هوپر اسپید', 'subtitle' => 'SUPER SPEED',
+                'emoji' => '🏎️', 'sort' => 4, 'tagline' => 'ماشین‌ها · سرعت و هیجان',
+                'skin' => ['bg1' => '#0a0e1c', 'bg2' => '#15182e', 'p1' => '#ff2e63', 'p2' => '#0b86ff', 'acc' => '#13e2ff', 'acc2' => '#ffd23f', 'ring' => '#13e2ff', 'mascot' => '🏎️', 'hero' => '🏁', 'character' => '🏎️', 'pattern' => 'speed'],
+                'unit' => 'نیترو', 'league' => 'گرنپری',
+                'pools' => ['team' => ['اسپیدرها'], 'unit' => ['نیترو', 'دور'], 'hero' => ['راننده', 'قهرمان پیست']],
+            ],
+        ];
 
-        Theme::updateOrCreate(['key' => 'cars'], [
-            'name'  => 'ماشین و مسابقه',
-            'emoji' => '🏎️',
-            'sort'  => 2,
-            'skin'  => [
-                'bg1' => '#0a0e1c', 'bg2' => '#10182e',
-                'p1' => '#13e2ff', 'p2' => '#0b86ff',
-                'acc' => '#ff2e63', 'acc2' => '#ffd23f',
-                'ring' => '#13e2ff', 'mascot' => '🏎️', 'hero' => '🏁',
-                'pattern' => 'speed',
-            ],
-            'narrative' => [
-                'xp_unit'       => 'نیترو',
-                'xp_label'      => 'نیتروی این گرنپری',
-                'level'         => 'گرنپری',
-                'league'        => 'گرنپری طلایی',
-                'rank_title'    => 'صدرنشین',
-                'next_tier'     => 'تا سکوی قهرمانی 🏁',
-                'mission_title' => 'مسابقه‌ی امروز',
-                'play_label'    => 'پیست',
-                'leaderboard'   => 'گرید مسابقه',
-                'streak'        => 'دور سریع',
-                'reward_title'  => 'خط پایان! 🏁',
-            ],
-            'content_pools' => [
-                'team' => ['ماشین قرمز', 'ماشین آبی', 'تیم نیترو'],
-                'unit' => ['کیلومتر', 'دور'],
-                'hero' => ['راننده', 'مکانیک', 'قهرمان پیست'],
-            ],
-        ]);
+        foreach ($groups as $g) {
+            $g['skin']['subtitle'] = $g['subtitle'];
+            Theme::updateOrCreate(['key' => $g['key']], [
+                'name'  => $g['name'],
+                'emoji' => $g['emoji'],
+                'sort'  => $g['sort'],
+                'skin'  => $g['skin'],
+                'narrative' => [
+                    'xp_unit' => $g['unit'], 'xp_label' => $g['unit'] . '‌های این فصل',
+                    'level' => 'مرحله', 'league' => $g['league'], 'rank_title' => 'قهرمان',
+                    'next_tier' => 'تا مرحله‌ی بعد', 'mission_title' => 'مأموریت امروز',
+                    'play_label' => 'مسابقه', 'leaderboard' => 'جدول رقابت', 'streak' => 'زنجیره',
+                    'reward_title' => 'آفرین! ' . $g['emoji'],
+                    'subtitle' => $g['subtitle'], 'tagline' => $g['tagline'],
+                ],
+                'content_pools' => $g['pools'],
+            ]);
+        }
     }
 }

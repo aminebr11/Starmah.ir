@@ -18,7 +18,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'school_id', 'name', 'phone', 'email', 'password', 'avatar',
-        'theme_id', 'grade', 'national_id', 'is_active', 'settings',
+        'theme_id', 'grade', 'national_id', 'is_active', 'must_change_password', 'settings',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -31,6 +31,7 @@ class User extends Authenticatable
             'last_login_at'     => 'datetime',
             'password'          => 'hashed',
             'is_active'         => 'boolean',
+            'must_change_password' => 'boolean',
             'settings'          => 'array',
         ];
     }

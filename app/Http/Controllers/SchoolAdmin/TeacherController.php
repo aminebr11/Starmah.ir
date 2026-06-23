@@ -62,6 +62,7 @@ class TeacherController extends Controller
                 'phone'     => $data['phone'],
                 'password'  => Hash::make($password),
                 'phone_verified_at' => now(),
+                'must_change_password' => true,
             ]);
             $teacher->assignRole(Roles::TEACHER);
 

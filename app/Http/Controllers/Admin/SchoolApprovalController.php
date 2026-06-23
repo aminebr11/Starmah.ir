@@ -57,6 +57,7 @@ class SchoolApprovalController extends Controller
                 'email'     => $schoolRequest->manager_email,
                 'password'  => Hash::make($password),
                 'phone_verified_at' => now(),
+                'must_change_password' => true,
             ]);
             $manager->assignRole(Roles::SCHOOL_ADMIN);
 
