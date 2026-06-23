@@ -57,10 +57,12 @@ class PlatformController extends Controller
             'acc'      => ['required', 'string', 'max:9'],
             'xp_unit'  => ['required', 'string', 'max:20'],
             'league'   => ['required', 'string', 'max:30'],
-            'header'   => ['nullable', 'image', 'max:4096'],
+            // بدون قاعده‌ی image (که به fileinfo نیاز دارد) — بررسی پسوند به‌صورت دستی
+            'header'   => ['nullable', 'file', 'max:8192'],
         ]);
 
-        $header = $request->hasFile('header') ? $this->saveHeader($request->file('header')) : null;
+        $header = ($request->hasFile('header') && $this->isImage($request->file('header')))
+            ? $this->saveHeader($request->file('header')) : null;
 
         Theme::create([
             'key'   => Str::slug($data['name']) ?: Str::lower(Str::random(6)),
@@ -95,19 +97,33 @@ class PlatformController extends Controller
         return back();
     }
 
-    /** آپلود/جایگزینی تصویر هدر یک تیم موجود. */
+    /** آپلود/جایگزینی تصویر هدر یک تیم موجود — مقاوم، بدون نیاز به fileinfo. */
     public function uploadHeader(Request $request, Theme $theme): RedirectResponse
     {
-        $request->validate(['header' => ['required', 'image', 'max:8192']]);
-
         try {
-            $path = $this->saveHeader($request->file('header'));
+            $file = $request->file('header');
+            if (! $file || ! $file->isValid()) {
+                return back()->with('flash', ['type' => 'error', 'message' => 'فایلی دریافت نشد. شاید حجم عکس از حد مجاز سرور (upload_max_filesize) بیشتر است.']);
+            }
+            if (! $this->isImage($file)) {
+                return back()->with('flash', ['type' => 'error', 'message' => 'فقط فایل تصویری (jpg, png, webp) مجاز است.']);
+            }
+
+            $path = $this->saveHeader($file);
             $theme->update(['header_image' => $path]);
         } catch (\Throwable $e) {
+            report($e);
             return back()->with('flash', ['type' => 'error', 'message' => 'خطا در ذخیره‌ی تصویر: ' . $e->getMessage()]);
         }
 
         return back()->with('flash', ['type' => 'success', 'message' => "تصویر هدر «{$theme->name}» به‌روزرسانی شد ✅"]);
+    }
+
+    /** بررسی تصویربودن فقط با پسوند (بدون وابستگی به fileinfo). */
+    private function isImage($file): bool
+    {
+        $ext = strtolower($file->getClientOriginalExtension());
+        return in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true);
     }
 
     /** ذخیره‌ی تصویر هدر مستقیم در public/team-headers (بدون نیاز به symlink). */
@@ -117,7 +133,8 @@ class PlatformController extends Controller
         if (! is_dir($dir)) {
             @mkdir($dir, 0755, true);
         }
-        $name = \Illuminate\Support\Str::random(24) . '.' . $file->getClientOriginalExtension();
+        $ext = strtolower($file->getClientOriginalExtension()) ?: 'png';
+        $name = \Illuminate\Support\Str::random(24) . '.' . $ext;
         $file->move($dir, $name);
 
         return 'team-headers/' . $name; // در مرورگر: /team-headers/xxx
