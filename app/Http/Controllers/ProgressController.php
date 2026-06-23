@@ -50,6 +50,16 @@ class ProgressController extends Controller
                 'date'   => Jalali::format($e->created_at),
             ]);
 
+        // نمرات دفتر کلاسی این دانش‌آموز
+        $grades = \App\Models\Grade::where('student_id', $user->id)->with('gradeColumn')->latest()->get()
+            ->map(fn ($g) => [
+                'title' => $g->gradeColumn?->title,
+                'type'  => $g->gradeColumn?->type,
+                'max'   => (float) ($g->gradeColumn?->max ?? 20),
+                'score' => $g->score,
+                'text'  => $g->text,
+            ])->values();
+
         return Inertia::render('Student/Progress', [
             'stats' => [
                 'xp'        => $user->totalXp(),
@@ -61,6 +71,7 @@ class ProgressController extends Controller
             'recent'     => $recent,
             'points_log' => $pointsLog,
             'summary'    => $summary,
+            'grades'     => $grades,
             'discipline' => $discipline,
             'badges'     => $user->badges()->get()->map(fn ($b) => ['name' => $b->name, 'emoji' => $b->emoji]),
         ]);

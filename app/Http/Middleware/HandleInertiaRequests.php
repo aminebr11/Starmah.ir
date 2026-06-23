@@ -42,6 +42,24 @@ class HandleInertiaRequests extends Middleware
             // تم فعال در همه‌ی صفحات در دسترس است تا فرانت ظاهر را بسازد
             'theme' => app(ThemeEngine::class)->presentation($theme),
             'flash' => ['flash' => fn () => $request->session()->get('flash')],
+            // اعلان‌های زنگوله‌ی دانش‌آموز: موارد انضباطی ۲۴ ساعت اخیر
+            'notifications' => fn () => $this->studentNotifications($user),
         ];
+    }
+
+    /** موارد انضباطی ۲۴ ساعت اخیر برای زنگوله‌ی دانش‌آموز. */
+    private function studentNotifications($user): array
+    {
+        if (! $user || ! $user->hasRole(\App\Support\Roles::STUDENT)) {
+            return [];
+        }
+        return \App\Models\DisciplineRecord::where('student_id', $user->id)
+            ->where('created_at', '>=', now()->subDay())
+            ->latest()->limit(10)->get()
+            ->map(fn ($r) => [
+                'title' => $r->title ?? ($r->points >= 0 ? 'تشویق' : 'تذکر'),
+                'points' => $r->points,
+                'kind' => $r->points >= 0 ? 'positive' : 'negative',
+            ])->all();
     }
 }

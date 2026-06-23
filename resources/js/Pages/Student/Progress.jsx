@@ -6,7 +6,7 @@ const card = { background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,
 
 /** کارنامه‌ی من — تسلط، نمرات، امتیازهای گرفته/ازدست‌رفته، انضباط، نشان‌ها. */
 export default function Progress() {
-    const { stats = {}, mastery = [], recent = [], points_log = [], summary = {}, discipline = [], badges = [] } = usePage().props;
+    const { stats = {}, mastery = [], recent = [], points_log = [], summary = {}, grades = [], discipline = [], badges = [] } = usePage().props;
     const byType = summary.by_type ?? [];
     const maxType = Math.max(1, ...byType.map((x) => x.points));
 
@@ -17,6 +17,18 @@ export default function Progress() {
                 <Stat b={`${fa(stats.avg ?? 0)}٪`} s="میانگین تسلط" />
                 <Stat b={`⭐${fa(stats.stars ?? 0)}`} s="ستاره انضباط" />
                 <Stat b={fa(stats.badges ?? 0)} s="نشان" />
+            </div>
+
+            <Title>📔 نمرات دفتر کلاسی</Title>
+            <div style={{ ...card, display: 'grid', gap: 10 }}>
+                {grades.length ? grades.map((g, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <b style={{ fontSize: 13 }}>{g.title}</b>
+                        {g.type === 'numeric'
+                            ? <span style={{ color: 'var(--acc)', fontWeight: 800 }}>{fa(g.score)} <span style={{ opacity: .6, fontSize: 12 }}>از {fa(g.max)}</span></span>
+                            : <span style={{ color: 'var(--acc)', fontWeight: 700 }}>{g.text}</span>}
+                    </div>
+                )) : <span style={{ opacity: .7 }}>هنوز نمره‌ای ثبت نشده.</span>}
             </div>
 
             <Title>🎯 امتیازهای من از کجا آمده؟</Title>

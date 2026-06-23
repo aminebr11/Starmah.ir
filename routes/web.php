@@ -68,6 +68,7 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::get('/progress', ProgressController::class)->name('progress');
     Route::get('/leaderboard', LeaderboardController::class)->name('leaderboard');
     Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'studentView'])->name('schedule');
+    Route::get('/my-discipline', [\App\Http\Controllers\StudentDisciplineController::class, 'index'])->name('my.discipline');
 
     Route::get('/exams', [ExamController::class, 'index'])->name('exams');
     Route::get('/exams/{assignment}/take', [ExamController::class, 'take'])->name('exams.take');
@@ -81,8 +82,14 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::get('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'index'])->name('activities');
     Route::post('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'store'])->name('activities.store');
     Route::post('/activities/{classActivity}/award', [\App\Http\Controllers\Teacher\ActivityController::class, 'award'])->name('activities.award');
-    Route::get('/gradebook', [TeacherDashboardController::class, 'gradebook'])->name('gradebook');
-    Route::get('/discipline', [TeacherDashboardController::class, 'discipline'])->name('discipline');
+    Route::get('/gradebook', [\App\Http\Controllers\Teacher\GradebookController::class, 'index'])->name('gradebook');
+    Route::post('/gradebook/columns', [\App\Http\Controllers\Teacher\GradebookController::class, 'storeColumn'])->name('gradebook.columns');
+    Route::post('/gradebook/columns/{gradeColumn}/grades', [\App\Http\Controllers\Teacher\GradebookController::class, 'saveGrades'])->name('gradebook.grades');
+    Route::delete('/gradebook/columns/{gradeColumn}', [\App\Http\Controllers\Teacher\GradebookController::class, 'destroyColumn'])->name('gradebook.columns.destroy');
+    Route::get('/discipline', [DisciplineController::class, 'index'])->name('discipline');
+    Route::post('/discipline/topics', [DisciplineController::class, 'storeTopic'])->name('discipline.topics');
+    Route::delete('/discipline/topics/{disciplineTopic}', [DisciplineController::class, 'destroyTopic'])->name('discipline.topics.destroy');
+    Route::post('/discipline/record', [DisciplineController::class, 'record'])->name('discipline.record');
     Route::get('/materials', [TeacherDashboardController::class, 'materials'])->name('materials');
     Route::get('/reports', [TeacherDashboardController::class, 'reports'])->name('reports');
     Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'manage'])->name('schedule');
@@ -90,7 +97,10 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::delete('/schedule/{scheduleEntry}', [\App\Http\Controllers\ScheduleController::class, 'destroy'])->name('schedule.destroy');
     Route::get('/assignments/create', [AssignmentController::class, 'create'])->name('assignments.create');
     Route::post('/assignments', [AssignmentController::class, 'store'])->name('assignments.store');
-    Route::post('/discipline', [DisciplineController::class, 'store'])->name('discipline.store');
+    // آزمون‌ساز (دستی + AI)
+    Route::get('/exams', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'index'])->name('exams');
+    Route::post('/exams/generate', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'generate'])->name('exams.generate');
+    Route::post('/exams', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'store'])->name('exams.store');
 });
 
 /* ---------------- مشترک ---------------- */

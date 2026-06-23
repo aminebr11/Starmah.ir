@@ -45,19 +45,31 @@ class ExamController extends Controller
         abort_unless($assignment->is_published, 404);
         $theme = $this->engine->for($user);
 
-        $skills = Skill::with('questions')->whereHas('questions')
-            ->when($assignment->skill_ids, fn ($q) => $q->whereIn('id', $assignment->skill_ids))->get();
-        abort_if($skills->isEmpty(), 404, 'سؤالی موجود نیست');
-
-        $count = min($assignment->question_count, 12);
         $token = (string) Str::uuid();
         $questions = []; $key = [];
-        for ($i = 0; $i < $count; $i++) {
-            $s = $skills->random(); $q = $s->questions->random();
-            $r = $this->engine->renderQuestion($q, $theme);
-            $questions[] = ['i' => $i, 'skill' => $s->name, 'prompt' => $r['prompt'],
-                'choices' => array_map(fn ($c) => ['value' => $c['value']], $r['choices'])];
-            $key[$i] = ['answer' => $r['answer']];
+
+        // اگر آزمون سؤال‌های ساخته‌شده (دستی/AI) دارد، از همان‌ها استفاده کن
+        $built = $assignment->config['questions'] ?? null;
+        if (is_array($built) && $built) {
+            foreach ($built as $i => $q) {
+                $correct = collect($q['choices'])->firstWhere('correct', true);
+                $questions[] = ['i' => $i, 'skill' => $assignment->title, 'prompt' => $q['prompt'],
+                    'choices' => array_map(fn ($c) => ['value' => (string) $c['value']], $q['choices'])];
+                $key[$i] = ['answer' => (string) ($correct['value'] ?? '')];
+            }
+        } else {
+            // در غیر این صورت از بانک سؤال مهارت‌محور
+            $skills = Skill::with('questions')->whereHas('questions')
+                ->when($assignment->skill_ids, fn ($q) => $q->whereIn('id', $assignment->skill_ids))->get();
+            abort_if($skills->isEmpty(), 404, 'سؤالی موجود نیست');
+            $count = min($assignment->question_count, 12);
+            for ($i = 0; $i < $count; $i++) {
+                $s = $skills->random(); $q = $s->questions->random();
+                $r = $this->engine->renderQuestion($q, $theme);
+                $questions[] = ['i' => $i, 'skill' => $s->name, 'prompt' => $r['prompt'],
+                    'choices' => array_map(fn ($c) => ['value' => $c['value']], $r['choices'])];
+                $key[$i] = ['answer' => $r['answer']];
+            }
         }
         $request->session()->put("exam.$token", $key);
 

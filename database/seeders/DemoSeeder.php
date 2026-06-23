@@ -118,6 +118,21 @@ class DemoSeeder extends Seeder
              'skill_ids' => null, 'question_count' => 5, 'is_published' => true]
         );
 
+        // موضوعات انضباطی نمونه (تشویق / تخلف)
+        foreach ([
+            ['کمک به هم‌کلاسی', 'positive', 10],
+            ['نظم و انضباط عالی', 'positive', 8],
+            ['پاسخ خوب در کلاس', 'positive', 5],
+            ['فراموشی تکلیف', 'negative', -5],
+            ['بی‌نظمی در کلاس', 'negative', -8],
+            ['صحبت بی‌اجازه', 'negative', -3],
+        ] as [$name, $kind, $pts]) {
+            \App\Models\DisciplineTopic::updateOrCreate(
+                ['school_id' => $school->id, 'name' => $name],
+                ['kind' => $kind, 'points' => $pts, 'created_by' => $teacher->id]
+            );
+        }
+
         // فعالیت‌های نمونه‌ی کلاس (با امتیاز)
         foreach ([
             ['game', 'بازی ریاضی هفته', 50],

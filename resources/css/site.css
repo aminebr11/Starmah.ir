@@ -307,3 +307,22 @@ img{max-width:100%;display:block}
 .dash{overflow-x:hidden}
 .dash-main{max-width:100%}
 .panel{overflow-x:auto}
+
+/* ---------- GRADEBOOK ---------- */
+.grade-input{width:70px;text-align:center;padding:7px 6px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:14px;background:var(--cream)}
+.grade-input:focus{outline:none;border-color:var(--gold);background:#fff}
+.gradebook-tbl th,.gradebook-tbl td{border:1px solid var(--line)}
+.sched-form{align-items:end}
+@media(max-width:760px){.sched-form{grid-template-columns:1fr!important}}
+
+/* ---------- PRINT ---------- */
+@media print{
+  .dash-side,.dash-mobilebtn,.dash-topbar .btn,.no-print,.dash-topbar>div:last-child{display:none!important}
+  .dash{display:block;background:#fff}
+  .dash-main{padding:0}
+  .panel{box-shadow:none;border:0}
+  .print-title{display:block!important}
+  .grade-input{border:0;background:none}
+  body{background:#fff}
+}
+.print-title{display:none}

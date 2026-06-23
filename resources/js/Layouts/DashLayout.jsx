@@ -76,7 +76,7 @@ export const schoolMenu = [
 export const teacherMenu = [
     { key: 'home', label: 'پیشخان', icon: '📊', href: '/teacher' },
     { key: 'activities', label: 'فعالیت‌ها و امتیاز', icon: '🎯', href: '/teacher/activities' },
-    { key: 'assignments', label: 'آزمون‌ساز', icon: '📝', href: '/teacher/assignments/create' },
+    { key: 'exams', label: 'آزمون‌ساز (AI)', icon: '📝', href: '/teacher/exams' },
     { key: 'schedule', label: 'برنامه کلاسی', icon: '🗓️', href: '/teacher/schedule' },
     { key: 'gradebook', label: 'دفتر نمره', icon: '📔', href: '/teacher/gradebook' },
     { key: 'discipline', label: 'انضباط', icon: '⭐', href: '/teacher/discipline' },
