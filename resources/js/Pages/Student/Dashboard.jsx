@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import ThemedDash from '@/Layouts/ThemedDash';
+import TeamHeader from '@/Components/TeamHeader';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -15,6 +16,9 @@ export default function Dashboard() {
     return (
         <ThemedDash title="خانه" active="home"
             actions={<Link href="/world" style={{ ...pill, textDecoration: 'none' }}>🎨 تغییر تیم</Link>}>
+
+            {/* هدر تیمی — مطابق طرح ۴ هدر */}
+            <TeamHeader />
 
             {/* بنر تیم من */}
             <div style={{ ...card, position: 'relative', overflow: 'hidden', background: 'linear-gradient(120deg,var(--p2),rgba(0,0,0,.2))' }}>

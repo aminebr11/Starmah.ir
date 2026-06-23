@@ -14,6 +14,10 @@
 
         <!-- Persian font -->
         <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+        <!-- Team header fonts -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Poppins:wght@600;800&family=Press+Start+2P&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
 
         <!-- Scripts -->
         @routes

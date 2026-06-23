@@ -326,3 +326,55 @@ img{max-width:100%;display:block}
   body{background:#fff}
 }
 .print-title{display:none}
+
+/* =========================================================
+   هدر تیم‌ها — دقیقاً مطابق CSS پیشنهادی تصویر
+   ========================================================= */
+.team-header{position:relative;overflow:hidden;border-radius:18px;color:#fff;margin-bottom:20px;
+  box-shadow:0 18px 50px -20px rgba(0,0,0,.6)}
+.team-header .th-inner{position:relative;z-index:2;display:flex;align-items:center;gap:18px;padding:22px 26px;flex-wrap:wrap}
+.team-header .th-shield{font-size:46px;filter:drop-shadow(0 4px 12px rgba(0,0,0,.5));flex:none}
+.team-header .th-title{font-size:clamp(30px,5vw,52px);line-height:1;letter-spacing:2px;margin:0;text-shadow:0 4px 18px rgba(0,0,0,.5)}
+.team-header .th-sub{font-family:'Vazirmatn',sans-serif;letter-spacing:3px;font-size:13px;opacity:.92;margin-top:6px;font-weight:700}
+.team-header .th-char{font-size:64px;margin-inline-start:auto;filter:drop-shadow(0 8px 20px rgba(0,0,0,.55))}
+.team-header nav{position:relative;z-index:2;display:flex;gap:22px;flex-wrap:wrap;padding:10px 26px 16px;font-family:'Vazirmatn',sans-serif}
+.team-header nav a{color:#fff;font-weight:700;font-size:13px;letter-spacing:1px;cursor:pointer;transition:.2s;opacity:.92}
+.team-header .th-social{display:flex;gap:14px;justify-content:center;padding:0 26px 16px;font-size:20px;position:relative;z-index:2}
+.team-header .th-glow{position:absolute;inset:0;opacity:.5;z-index:1;
+  background:radial-gradient(circle at 85% 30%,rgba(255,255,255,.18),transparent 40%)}
+
+/* ---- دقیقاً CSS پیشنهادی شما ---- */
+.fire-strikers {
+  background: linear-gradient(90deg, #8B0000, #FF4500);
+  color: #ffffff;
+  font-family: 'Bebas Neue', sans-serif;
+  border-bottom: 3px solid #FFD700;
+}
+.fire-strikers nav a:hover { color: #FFD700; text-shadow: 0 0 10px #FFD700; }
+
+.blue-thunders {
+  background: linear-gradient(90deg, #001F3F, #0074D9);
+  color: #ffffff;
+  font-family: 'Poppins', sans-serif;
+  border-bottom: 3px solid #00BFFF;
+}
+.blue-thunders nav a:hover { color: #00BFFF; text-shadow: 0 0 10px #00BFFF; }
+
+.creeper-warriors {
+  background: linear-gradient(90deg, #1B5E20, #4CAF50);
+  color: #ffffff;
+  font-family: 'Press Start 2P', cursive;
+  border-bottom: 3px solid #8BC34A;
+}
+.creeper-warriors nav a:hover { color: #C6FF00; text-shadow: 0 0 10px #C6FF00; }
+
+.super-speed {
+  background: linear-gradient(90deg, #1E1E1E, #FF6F00);
+  color: #ffffff;
+  font-family: 'Rajdhani', sans-serif;
+  border-bottom: 3px solid #FFA500;
+}
+.super-speed nav a:hover { color: #FFA500; text-shadow: 0 0 10px #FFA500; }
+
+/* عنوان تیم با فونت اختصاصی هر تیم اعمال می‌شود؛ زیرنویس فارسی فونت وزیر */
+.creeper-warriors .th-title{font-size:clamp(18px,3vw,30px);letter-spacing:1px}
