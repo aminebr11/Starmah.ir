@@ -216,3 +216,14 @@ img{max-width:100%;display:block}
   .hero-art img{width:240px}
   .chip.c3{display:none}
 }
+
+/* ---------- FORMS (registration / admin) ---------- */
+.grid-2-form{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.field textarea.input{resize:vertical;min-height:80px}
+.theme-pick{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:6px}
+.theme-opt{display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 10px;border-radius:18px;
+  color:#fff;font-family:inherit;cursor:pointer;border:2px solid transparent;transition:.2s}
+.theme-opt b{font-size:14px}
+.theme-opt:hover{transform:translateY(-2px)}
+.theme-opt.sel{border-color:var(--gold);box-shadow:0 0 0 3px rgba(245,181,63,.3)}
+@media(max-width:560px){.grid-2-form{grid-template-columns:1fr}}

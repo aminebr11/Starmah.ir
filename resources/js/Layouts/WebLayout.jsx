@@ -1,42 +1,44 @@
 import { Head, Link, usePage, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-/** منوی اصلی — مطابق ساختار سایت اصلی ستاره ماه. */
-export const MENU = [
-    { key: 'home', label: '🏠 خانه', href: '/' },
-    { key: 'about', label: '📖 درباره کلاس', href: '/about' },
-    { key: 'homework', label: '📝 تکالیف', href: '/homework' },
-    { key: 'materials', label: '📚 مطالب درسی', href: '/materials' },
-    { key: 'games', label: '🎮 آزمون و بازی', href: '/games' },
-    { key: 'podcast', label: '🎧 پادکست', href: '/podcast' },
-    { key: 'gallery', label: '🖼️ گالری', href: '/gallery' },
-    { key: 'feedback', label: '💬 بازخورد', href: '/feedback' },
+/** ناوبری عمومی محصول (صفحه‌ی فرود). لینک‌ها به بخش‌های همان صفحه + ورود/ثبت‌نام. */
+export const NAV = [
+    { key: 'features', label: 'امکانات', href: '/#features' },
+    { key: 'worlds', label: 'دنیاها', href: '/#worlds' },
+    { key: 'how', label: 'چطور کار می‌کند', href: '/#how' },
+    { key: 'schools', label: 'برای مدارس', href: '/register/school' },
 ];
 
-/** چیدمان وب ریسپانسیو: نوار ناوبری بالا + فوتر. دسکتاپ‌محور، ریسپانسیو به موبایل. */
+/** چیدمان وب عمومی: نوار ناوبری بالا (لوگوی برند) + فوتر. ریسپانسیو کامل. */
 export default function WebLayout({ title, active = '', children }) {
     const { auth } = usePage().props;
     const [open, setOpen] = useState(false);
+    const [scrolled, setScrolled] = useState(false);
     const user = auth?.user;
+
+    useEffect(() => {
+        const onScroll = () => setScrolled(window.scrollY > 8);
+        window.addEventListener('scroll', onScroll);
+        return () => window.removeEventListener('scroll', onScroll);
+    }, []);
 
     return (
         <div dir="rtl">
-            <Head title={title ? `${title} — ستاره ماه` : 'ستاره ماه'} />
+            <Head title={title ? `${title} — ستاره ماه` : 'ستاره ماه — آموزش هوشمند بر اساس علاقه'} />
 
-            <header className="nav">
+            <header className={`nav ${scrolled ? 'scrolled' : ''}`}>
                 <div className="container nav-inner">
                     <Link href="/" className="nav-logo">
-                        <img src="/brand/logo-mark.svg" alt="ستاره ماه" />
-                        <span>ستاره<span style={{ color: 'var(--gold-2)' }}>ماه</span></span>
+                        <img src="/brand/logo-emblem.png" alt="ستاره ماه" />
+                        <span>ستاره<span style={{ color: 'var(--gold-2)' }}> ماه</span></span>
                     </Link>
 
                     <nav className={`nav-menu ${open ? 'open' : ''}`}>
-                        {MENU.map((m) => (
+                        {NAV.map((m) => (
                             <Link key={m.key} href={m.href} className={active === m.key ? 'active' : ''} onClick={() => setOpen(false)}>
                                 {m.label}
                             </Link>
                         ))}
-                        {user?.roles?.includes?.('admin')}
                     </nav>
 
                     <div className="nav-cta">
@@ -47,8 +49,8 @@ export default function WebLayout({ title, active = '', children }) {
                             </>
                         ) : (
                             <>
-                                <Link href={route('login')} className="btn btn-navy btn-sm">ورود</Link>
-                                <Link href={route('register')} className="btn btn-sm">ثبت‌نام</Link>
+                                <Link href={route('login')} className="btn btn-ghost btn-sm">ورود</Link>
+                                <Link href="/register" className="btn btn-sm">ثبت‌نام</Link>
                             </>
                         )}
                         <button className="hamburger" onClick={() => setOpen(!open)} aria-label="منو">☰</button>
@@ -61,19 +63,20 @@ export default function WebLayout({ title, active = '', children }) {
             <footer className="footer">
                 <div className="container">
                     <div className="footer-grid">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <img src="/brand/logo-mark.svg" width="46" height="46" alt="" />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, maxWidth: 360 }}>
+                            <img src="/brand/logo-emblem.png" width="50" height="50" alt="" style={{ borderRadius: 12 }} />
                             <div>
                                 <div style={{ fontWeight: 800, color: '#fff', fontSize: 17 }}>ستاره ماه</div>
-                                <div style={{ fontSize: 13 }}>هر کودک، ستاره‌ای‌ست در مسیر کشف بی‌پایان</div>
+                                <div style={{ fontSize: 13 }}>پلتفرم آموزش هوشمند و شخصی‌سازی‌شده برای مدارس</div>
                             </div>
                         </div>
                         <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
-                            {MENU.slice(0, 5).map((m) => <Link key={m.key} href={m.href}>{m.label}</Link>)}
+                            {NAV.map((m) => <Link key={m.key} href={m.href}>{m.label}</Link>)}
+                            <Link href={route('login')}>ورود</Link>
                         </div>
                         <a href="https://instagram.com/starmah.ir" target="_blank" rel="noreferrer" className="btn btn-sm">📸 starmah.ir</a>
                     </div>
-                    <div className="footer-bottom">© ستاره ماه — آموزش خلاقانه با خانم نجمه محمودی</div>
+                    <div className="footer-bottom">© ستاره ماه — طراحی و توسعه توسط گروه طراحی ستاره ماه</div>
                 </div>
             </footer>
         </div>

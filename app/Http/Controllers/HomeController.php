@@ -13,9 +13,10 @@ class HomeController extends Controller
         $user = $request->user();
 
         return match (true) {
+            $user->hasRole(Roles::SUPER_ADMIN)  => redirect()->route('admin.schools'),
+            $user->hasRole(Roles::SCHOOL_ADMIN) => redirect()->route('school.teachers'),
             $user->hasRole(Roles::TEACHER)      => redirect()->route('teacher.dashboard'),
             $user->hasRole(Roles::PARENT)       => redirect()->route('messages.index'),
-            $user->hasAnyRole([Roles::SCHOOL_ADMIN, Roles::SUPER_ADMIN]) => redirect()->route('admin.overview'),
             // دانش‌آموزی که هنوز دنیای علاقه‌اش را نساخته → onboarding
             $user->isStudent() && ! $user->theme_id => redirect()->route('world.choose'),
             default                              => app(DashboardController::class)($request, app(\App\Services\ThemeEngine::class)),

@@ -71,22 +71,28 @@ export default function Welcome() {
 
                     <div className="hero-grid">
                         <div className="reveal in">
-                            <span className="hero-eyebrow"><span className="dot" /> کلاس چهارم — خانم نجمه محمودی</span>
-                            <h1>کلاس <span className="gradient-text">ستاره‌های درخشان</span> <span className="moon">🌙</span></h1>
+                            <span className="hero-eyebrow"><span className="dot" /> پلتفرم آموزش هوشمند مدارس · با هوش مصنوعی 🤖</span>
+                            <h1>کلاست را با <span className="gradient-text">ستاره ماه</span> و هوش مصنوعی جذاب‌تر کن <span className="moon">🌙</span></h1>
                             <p className="lead">
-                                دنیایی پر از شگفتی و یادگیری! 🚀 هر کودک ستاره‌ای‌ست در مسیر کشف بی‌پایان —
-                                با بازی، آزمون، امتیاز و <b style={{ color: '#fff' }}>دنیای دلخواه خودش</b> (فوتبال، ماشین و…).
+                                <b style={{ color: '#fff' }}>دنیای خودت را بساز و از آن استفاده کن.</b> هر دانش‌آموز بر اساس علاقه‌اش
+                                (فوتبال، ماشین و…) درس می‌خواند، بازی می‌کند و رشد می‌کند — یادگیری شخصی‌سازی‌شده برای
+                                مدارس، معلم‌ها و دانش‌آموزان.
                             </p>
                             <div className="hero-cta">
                                 {user ? (
                                     <Link href="/dashboard" className="btn btn-lg">📊 ورود به داشبورد من</Link>
                                 ) : (
                                     <>
-                                        <Link href={route('register')} className="btn btn-lg">🎓 ثبت‌نام دانش‌آموز</Link>
+                                        <Link href="/register/school" className="btn btn-lg">🏫 ثبت‌نام مدرسه</Link>
                                         <Link href={route('login')} className="btn btn-glass btn-lg">🔑 ورود</Link>
                                     </>
                                 )}
                             </div>
+                            {!user && (
+                                <div style={{ marginTop: 14, color: '#9fb1d8', fontSize: 13 }}>
+                                    دانش‌آموز هستی؟ <Link href="/register/student" style={{ color: 'var(--gold-light)', fontWeight: 700 }}>از اینجا ثبت‌نام کن ←</Link>
+                                </div>
+                            )}
                             <div className="hero-trust">
                                 <div className="avatars"><span>🦁</span><span>🐯</span><span>🦊</span><span>🐼</span></div>
                                 <span>+{fa(stats.students ?? 0)} دانش‌آموز در حال یادگیری و رقابت</span>
@@ -112,7 +118,7 @@ export default function Welcome() {
             </div>
 
             {/* ===== THEMED WORLDS (USP) ===== */}
-            <section className="section">
+            <section className="section" id="worlds">
                 <div className="container">
                     <div className="section-head reveal">
                         <span className="eyebrow">✨ منحصر‌به‌فرد</span>
@@ -137,7 +143,7 @@ export default function Welcome() {
             </section>
 
             {/* ===== BENTO FEATURES ===== */}
-            <section className="section" style={{ background: '#fff', borderBlock: '1px solid var(--line)' }}>
+            <section className="section" id="features" style={{ background: '#fff', borderBlock: '1px solid var(--line)' }}>
                 <div className="container">
                     <div className="section-head reveal">
                         <span className="eyebrow">امکانات</span>
@@ -194,16 +200,17 @@ export default function Welcome() {
             </section>
 
             {/* ===== HOW IT WORKS ===== */}
-            <section className="section">
+            <section className="section" id="how">
                 <div className="container">
                     <div className="section-head reveal">
                         <span className="eyebrow">چطور کار می‌کند؟</span>
-                        <h2>تنها در سه قدم</h2>
+                        <h2>راه‌اندازی برای مدرسه، تنها در چند قدم</h2>
+                        <p>از ثبت‌نام مدرسه تا ورود دانش‌آموز به دنیای دلخواهش</p>
                     </div>
                     <div className="steps reveal">
-                        <div className="step"><div className="num">۱</div><h3>ثبت‌نام و ورود</h3><p>دانش‌آموز با کد کلاس وارد می‌شود</p></div>
-                        <div className="step"><div className="num">۲</div><h3>انتخاب دنیا</h3><p>دنیای دلخواه (فوتبال، ماشین…) را برمی‌گزیند</p></div>
-                        <div className="step"><div className="num">۳</div><h3>یادگیری و رقابت</h3><p>بازی می‌کند، ستاره می‌گیرد و بالا می‌رود</p></div>
+                        <div className="step"><div className="num">۱</div><h3>ثبت‌نام مدرسه</h3><p>مدیر مدرسه درخواست می‌دهد و پس از تأیید، حساب مدرسه ساخته می‌شود</p></div>
+                        <div className="step"><div className="num">۲</div><h3>ساخت معلم‌ها و کلاس‌ها</h3><p>مدیر برای هر کلاس یک معلم و کد کلاس ایجاد می‌کند</p></div>
+                        <div className="step"><div className="num">۳</div><h3>ورود دانش‌آموز</h3><p>دانش‌آموز مدرسه، معلم و دنیای دلخواهش را انتخاب می‌کند و شروع می‌کند</p></div>
                     </div>
                 </div>
             </section>

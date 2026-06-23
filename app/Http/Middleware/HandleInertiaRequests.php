@@ -41,6 +41,7 @@ class HandleInertiaRequests extends Middleware
             ],
             // تم فعال در همه‌ی صفحات در دسترس است تا فرانت ظاهر را بسازد
             'theme' => app(ThemeEngine::class)->presentation($theme),
+            'flash' => ['flash' => fn () => $request->session()->get('flash')],
         ];
     }
 }
