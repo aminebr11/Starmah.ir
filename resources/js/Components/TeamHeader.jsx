@@ -2,32 +2,18 @@ import { usePage } from '@inertiajs/react';
 
 /**
  * هدر تیمی. اگر تصویر هدر آپلود شده باشد، عیناً همان تصویر نمایش داده می‌شود؛
- * در غیر این صورت نسخه‌ی گرادیانی با CSS اختصاصی تیم.
+ * در غیر این صورت نسخه‌ی گرادیانی با CSS اختصاصی تیم. (بدون منوی انگلیسی)
  */
-const SOCIAL = {
-    'fire-strikers': ['📸', '✈️', '🎮'],
-    'blue-thunders': ['📸', '✈️', '🎮'],
-    'creeper-warriors': ['🎮', '▶️', '📸'],
-    'super-speed': ['📸', '▶️', '✈️'],
-};
-
 export default function TeamHeader() {
     const { theme } = usePage().props;
     const skin = theme?.skin ?? {};
     const key = theme?.key ?? '';
-    const nav = skin.nav ?? ['HOME', 'ABOUT', 'PLAYERS', 'MATCHES', 'GALLERY', 'CONTACT'];
 
-    // اگر تصویر هدر اختصاصی هست → همان را نشان بده
+    // اگر تصویر هدر اختصاصی هست → فقط همان تصویر
     if (theme?.header) {
         return (
-            <div className={`team-header ${key}`} style={{ padding: 0 }}>
+            <div className={`team-header ${key}`} style={{ padding: 0, borderRadius: 18, overflow: 'hidden' }}>
                 <img src={theme.header} alt={theme?.name} style={{ width: '100%', display: 'block' }} />
-                <nav style={{ background: `linear-gradient(90deg, ${skin.hdr1 ?? '#16264f'}, ${skin.hdr2 ?? '#0e1c3d'})` }}>
-                    {nav.map((n, i) => <a key={i}>{n}</a>)}
-                    <span className="th-social" style={{ padding: 0, marginInlineStart: 'auto' }}>
-                        {(SOCIAL[key] ?? ['📸', '✈️', '🎮']).map((s, i) => <span key={i}>{s}</span>)}
-                    </span>
-                </nav>
             </div>
         );
     }
@@ -43,12 +29,6 @@ export default function TeamHeader() {
                     <div className="th-sub">{skin.sub_en}</div>
                 </div>
                 <span className="th-char">{skin.character ?? skin.hero}</span>
-            </div>
-            <nav>
-                {nav.map((n, i) => <a key={i}>{n}</a>)}
-            </nav>
-            <div className="th-social">
-                {(SOCIAL[key] ?? ['📸', '✈️', '🎮']).map((s, i) => <span key={i}>{s}</span>)}
             </div>
         </div>
     );

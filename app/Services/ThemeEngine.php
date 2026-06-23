@@ -49,7 +49,7 @@ class ThemeEngine
             'key'       => $theme->key,
             'name'      => $theme->name,
             'emoji'     => $theme->emoji,
-            'header'    => $theme->header_image ? \Illuminate\Support\Facades\Storage::url($theme->header_image) : null,
+            'header'    => $theme->header_image ? '/' . ltrim($theme->header_image, '/') : null,
             'skin'      => $theme->skin,
             'narrative' => $theme->narrative,
         ];

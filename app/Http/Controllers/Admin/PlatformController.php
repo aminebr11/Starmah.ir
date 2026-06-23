@@ -40,7 +40,7 @@ class PlatformController extends Controller
             'themes' => Theme::orderBy('sort')->get()->map(fn ($t) => [
                 'id' => $t->id, 'key' => $t->key, 'name' => $t->name, 'emoji' => $t->emoji,
                 'skin' => $t->skin, 'is_active' => $t->is_active, 'is_premium' => $t->is_premium,
-                'header' => $t->header_image ? \Illuminate\Support\Facades\Storage::url($t->header_image) : null,
+                'header' => $t->header_image ? '/' . ltrim($t->header_image, '/') : null,
             ]),
         ]);
     }
@@ -60,8 +60,7 @@ class PlatformController extends Controller
             'header'   => ['nullable', 'image', 'max:4096'],
         ]);
 
-        $header = $request->hasFile('header')
-            ? $request->file('header')->store('team-headers', 'public') : null;
+        $header = $request->hasFile('header') ? $this->saveHeader($request->file('header')) : null;
 
         Theme::create([
             'key'   => Str::slug($data['name']) ?: Str::lower(Str::random(6)),
@@ -99,14 +98,29 @@ class PlatformController extends Controller
     /** آپلود/جایگزینی تصویر هدر یک تیم موجود. */
     public function uploadHeader(Request $request, Theme $theme): RedirectResponse
     {
-        $request->validate(['header' => ['required', 'image', 'max:4096']]);
+        $request->validate(['header' => ['required', 'image', 'max:8192']]);
 
-        if ($theme->header_image) {
-            \Illuminate\Support\Facades\Storage::disk('public')->delete($theme->header_image);
+        try {
+            $path = $this->saveHeader($request->file('header'));
+            $theme->update(['header_image' => $path]);
+        } catch (\Throwable $e) {
+            return back()->with('flash', ['type' => 'error', 'message' => 'خطا در ذخیره‌ی تصویر: ' . $e->getMessage()]);
         }
-        $theme->update(['header_image' => $request->file('header')->store('team-headers', 'public')]);
 
         return back()->with('flash', ['type' => 'success', 'message' => "تصویر هدر «{$theme->name}» به‌روزرسانی شد ✅"]);
+    }
+
+    /** ذخیره‌ی تصویر هدر مستقیم در public/team-headers (بدون نیاز به symlink). */
+    private function saveHeader($file): string
+    {
+        $dir = public_path('team-headers');
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+        }
+        $name = \Illuminate\Support\Str::random(24) . '.' . $file->getClientOriginalExtension();
+        $file->move($dir, $name);
+
+        return 'team-headers/' . $name; // در مرورگر: /team-headers/xxx
     }
 
     public function reports(\App\Services\AnalyticsService $analytics): Response
