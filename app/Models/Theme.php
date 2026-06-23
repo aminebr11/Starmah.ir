@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 class Theme extends Model
 {
     protected $fillable = [
-        'key', 'name', 'emoji', 'skin', 'narrative',
+        'key', 'name', 'emoji', 'header_image', 'skin', 'narrative',
         'content_pools', 'is_active', 'is_premium', 'sort',
     ];
 

@@ -1,5 +1,5 @@
 import { usePage, useForm, router } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
 
 export default function Themes() {
@@ -9,9 +9,16 @@ export default function Themes() {
 
     const { data, setData, post, processing, errors, reset } = useForm({
         name: '', emoji: '🪐', bg1: '#0e1c3d', bg2: '#152a55', p1: '#7c5cff', p2: '#5b3fd6', acc: '#ffd87a',
-        xp_unit: 'امتیاز', league: 'لیگ',
+        xp_unit: 'امتیاز', league: 'لیگ', header: null,
     });
-    const submit = (e) => { e.preventDefault(); post(route('admin.themes.store'), { preserveScroll: true, onSuccess: () => reset() }); };
+    const submit = (e) => { e.preventDefault(); post(route('admin.themes.store'), { forceFormData: true, preserveScroll: true, onSuccess: () => reset() }); };
+
+    // آپلود تصویر هدر برای تیم موجود
+    const headerRefs = useRef({});
+    const uploadHeader = (themeId, file) => {
+        if (!file) return;
+        router.post(route('admin.themes.header', themeId), { header: file }, { forceFormData: true, preserveScroll: true });
+    };
 
     return (
         <DashLayout title="تم‌ها (دنیاها)" roleLabel="ادمین کل" menu={adminMenu} active="themes">
@@ -23,17 +30,27 @@ export default function Themes() {
                     <h3>🎨 دنیاهای موجود</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
                         {themes.map((t) => (
-                            <div key={t.id} style={{ borderRadius: 16, padding: 16, color: '#fff', position: 'relative',
+                            <div key={t.id} style={{ borderRadius: 16, overflow: 'hidden', color: '#fff', position: 'relative',
                                 background: `linear-gradient(135deg,${t.skin?.p2 ?? '#16264f'},${t.skin?.bg1 ?? '#0e1c3d'})`, opacity: t.is_active ? 1 : .5 }}>
-                                <div style={{ fontSize: 28 }}>{t.emoji}</div>
-                                <div style={{ fontWeight: 800, marginTop: 4 }}>{t.name}</div>
-                                <div style={{ fontSize: 12, opacity: .8 }}>{t.is_active ? 'فعال' : 'غیرفعال'}{t.is_premium ? ' · ویژه' : ''}</div>
-                                {t.key !== 'brand' && (
-                                    <button onClick={() => router.post(route('admin.themes.toggle', t.id), {}, { preserveScroll: true })}
-                                        style={{ marginTop: 8, fontSize: 11, padding: '4px 10px', borderRadius: 20, border: '1px solid rgba(255,255,255,.3)', background: 'rgba(255,255,255,.15)', color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
-                                        {t.is_active ? 'غیرفعال کن' : 'فعال کن'}
-                                    </button>
-                                )}
+                                {/* پیش‌نمایش تصویر هدر */}
+                                {t.header
+                                    ? <img src={t.header} alt="" style={{ width: '100%', height: 70, objectFit: 'cover' }} />
+                                    : <div style={{ height: 70, display: 'grid', placeItems: 'center', fontSize: 30, background: 'rgba(0,0,0,.2)' }}>{t.emoji}</div>}
+                                <div style={{ padding: 14 }}>
+                                    <div style={{ fontWeight: 800 }}>{t.name}</div>
+                                    <div style={{ fontSize: 12, opacity: .8 }}>{t.is_active ? 'فعال' : 'غیرفعال'}{t.is_premium ? ' · ویژه' : ''}</div>
+                                    {t.key !== 'brand' && (
+                                        <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                                            <button onClick={() => headerRefs.current[t.id]?.click()}
+                                                style={btnMini}>📷 آپلود هدر</button>
+                                            <button onClick={() => router.post(route('admin.themes.toggle', t.id), {}, { preserveScroll: true })} style={btnMini}>
+                                                {t.is_active ? 'غیرفعال' : 'فعال'}
+                                            </button>
+                                            <input type="file" accept="image/*" hidden ref={(el) => (headerRefs.current[t.id] = el)}
+                                                onChange={(e) => uploadHeader(t.id, e.target.files[0])} />
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -53,6 +70,9 @@ export default function Themes() {
                     </div>
                     <Field label="واحد امتیاز (مثلاً گل/نیترو)" err={errors.xp_unit}><input className="input" value={data.xp_unit} onChange={(e) => setData('xp_unit', e.target.value)} /></Field>
                     <Field label="نام لیگ/مرحله" err={errors.league}><input className="input" value={data.league} onChange={(e) => setData('league', e.target.value)} /></Field>
+                    <Field label="تصویر هدر تیم (اختیاری)" err={errors.header}>
+                        <input type="file" accept="image/*" onChange={(e) => setData('header', e.target.files[0])} style={{ fontFamily: 'inherit', fontSize: 13 }} />
+                    </Field>
 
                     {/* پیش‌نمایش */}
                     <div style={{ borderRadius: 16, padding: 16, color: '#fff', marginBottom: 12,
@@ -67,6 +87,8 @@ export default function Themes() {
         </DashLayout>
     );
 }
+
+const btnMini = { fontSize: 11, padding: '4px 10px', borderRadius: 20, border: '1px solid rgba(255,255,255,.3)', background: 'rgba(255,255,255,.15)', color: '#fff', cursor: 'pointer', fontFamily: 'inherit' };
 
 function Field({ label, err, children }) {
     return <div className="field"><label>{label}</label>{children}{err && <div style={{ color: '#e8505b', fontSize: 12, marginTop: 4 }}>{err}</div>}</div>;

@@ -1,8 +1,8 @@
 import { usePage } from '@inertiajs/react';
 
 /**
- * هدر تیمی — دقیقاً مطابق طرح ۴ هدر تصویر.
- * کلاس تیم (fire-strikers / blue-thunders / ...) از theme.key می‌آید و CSS عینِ پیشنهاد اعمال می‌شود.
+ * هدر تیمی. اگر تصویر هدر آپلود شده باشد، عیناً همان تصویر نمایش داده می‌شود؛
+ * در غیر این صورت نسخه‌ی گرادیانی با CSS اختصاصی تیم.
  */
 const SOCIAL = {
     'fire-strikers': ['📸', '✈️', '🎮'],
@@ -17,6 +17,22 @@ export default function TeamHeader() {
     const key = theme?.key ?? '';
     const nav = skin.nav ?? ['HOME', 'ABOUT', 'PLAYERS', 'MATCHES', 'GALLERY', 'CONTACT'];
 
+    // اگر تصویر هدر اختصاصی هست → همان را نشان بده
+    if (theme?.header) {
+        return (
+            <div className={`team-header ${key}`} style={{ padding: 0 }}>
+                <img src={theme.header} alt={theme?.name} style={{ width: '100%', display: 'block' }} />
+                <nav style={{ background: `linear-gradient(90deg, ${skin.hdr1 ?? '#16264f'}, ${skin.hdr2 ?? '#0e1c3d'})` }}>
+                    {nav.map((n, i) => <a key={i}>{n}</a>)}
+                    <span className="th-social" style={{ padding: 0, marginInlineStart: 'auto' }}>
+                        {(SOCIAL[key] ?? ['📸', '✈️', '🎮']).map((s, i) => <span key={i}>{s}</span>)}
+                    </span>
+                </nav>
+            </div>
+        );
+    }
+
+    // نسخه‌ی گرادیانی (وقتی تصویری آپلود نشده)
     return (
         <div className={`team-header ${key}`}>
             <div className="th-glow" />

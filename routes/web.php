@@ -43,6 +43,7 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::get('/themes', [PlatformController::class, 'themes'])->name('themes');
     Route::post('/themes', [PlatformController::class, 'storeTheme'])->name('themes.store');
     Route::post('/themes/{theme}/toggle', [PlatformController::class, 'toggleTheme'])->name('themes.toggle');
+    Route::post('/themes/{theme}/header', [PlatformController::class, 'uploadHeader'])->name('themes.header');
     Route::get('/reports', [PlatformController::class, 'reports'])->name('reports');
     Route::get('/settings', [PlatformController::class, 'settings'])->name('settings');
 });

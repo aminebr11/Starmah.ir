@@ -40,6 +40,7 @@ class PlatformController extends Controller
             'themes' => Theme::orderBy('sort')->get()->map(fn ($t) => [
                 'id' => $t->id, 'key' => $t->key, 'name' => $t->name, 'emoji' => $t->emoji,
                 'skin' => $t->skin, 'is_active' => $t->is_active, 'is_premium' => $t->is_premium,
+                'header' => $t->header_image ? \Illuminate\Support\Facades\Storage::url($t->header_image) : null,
             ]),
         ]);
     }
@@ -56,12 +57,17 @@ class PlatformController extends Controller
             'acc'      => ['required', 'string', 'max:9'],
             'xp_unit'  => ['required', 'string', 'max:20'],
             'league'   => ['required', 'string', 'max:30'],
+            'header'   => ['nullable', 'image', 'max:4096'],
         ]);
+
+        $header = $request->hasFile('header')
+            ? $request->file('header')->store('team-headers', 'public') : null;
 
         Theme::create([
             'key'   => Str::slug($data['name']) ?: Str::lower(Str::random(6)),
             'name'  => $data['name'],
             'emoji' => $data['emoji'],
+            'header_image' => $header,
             'sort'  => Theme::max('sort') + 1,
             'skin'  => [
                 'bg1' => $data['bg1'], 'bg2' => $data['bg2'],
@@ -88,6 +94,19 @@ class PlatformController extends Controller
             $theme->update(['is_active' => ! $theme->is_active]);
         }
         return back();
+    }
+
+    /** آپلود/جایگزینی تصویر هدر یک تیم موجود. */
+    public function uploadHeader(Request $request, Theme $theme): RedirectResponse
+    {
+        $request->validate(['header' => ['required', 'image', 'max:4096']]);
+
+        if ($theme->header_image) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($theme->header_image);
+        }
+        $theme->update(['header_image' => $request->file('header')->store('team-headers', 'public')]);
+
+        return back()->with('flash', ['type' => 'success', 'message' => "تصویر هدر «{$theme->name}» به‌روزرسانی شد ✅"]);
     }
 
     public function reports(\App\Services\AnalyticsService $analytics): Response
