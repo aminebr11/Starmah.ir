@@ -14,9 +14,10 @@ use Inertia\Response;
 /** کارنامه: تسلط مهارت، نتایج اخیر، انضباط، نشان‌ها. */
 class ProgressController extends Controller
 {
-    public function __invoke(Request $request): Response
+    public function __invoke(Request $request, \App\Services\AnalyticsService $analytics): Response
     {
         $user = $request->user();
+        $summary = $analytics->studentSummary($user);
 
         $mastery = SkillMastery::with('skill.topic')
             ->where('student_id', $user->id)
@@ -59,6 +60,7 @@ class ProgressController extends Controller
             'mastery'    => $mastery,
             'recent'     => $recent,
             'points_log' => $pointsLog,
+            'summary'    => $summary,
             'discipline' => $discipline,
             'badges'     => $user->badges()->get()->map(fn ($b) => ['name' => $b->name, 'emoji' => $b->emoji]),
         ]);

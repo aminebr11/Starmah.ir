@@ -67,6 +67,11 @@ Route::middleware(['auth', 'role:student'])->group(function () {
 
     Route::get('/progress', ProgressController::class)->name('progress');
     Route::get('/leaderboard', LeaderboardController::class)->name('leaderboard');
+    Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'studentView'])->name('schedule');
+
+    Route::get('/exams', [ExamController::class, 'index'])->name('exams');
+    Route::get('/exams/{assignment}/take', [ExamController::class, 'take'])->name('exams.take');
+    Route::post('/exams/{assignment}/submit', [ExamController::class, 'submit'])->name('exams.submit');
 });
 
 /* ---------------- معلم ---------------- */
@@ -79,6 +84,10 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::get('/gradebook', [TeacherDashboardController::class, 'gradebook'])->name('gradebook');
     Route::get('/discipline', [TeacherDashboardController::class, 'discipline'])->name('discipline');
     Route::get('/materials', [TeacherDashboardController::class, 'materials'])->name('materials');
+    Route::get('/reports', [TeacherDashboardController::class, 'reports'])->name('reports');
+    Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'manage'])->name('schedule');
+    Route::post('/schedule', [\App\Http\Controllers\ScheduleController::class, 'store'])->name('schedule.store');
+    Route::delete('/schedule/{scheduleEntry}', [\App\Http\Controllers\ScheduleController::class, 'destroy'])->name('schedule.destroy');
     Route::get('/assignments/create', [AssignmentController::class, 'create'])->name('assignments.create');
     Route::post('/assignments', [AssignmentController::class, 'store'])->name('assignments.store');
     Route::post('/discipline', [DisciplineController::class, 'store'])->name('discipline.store');

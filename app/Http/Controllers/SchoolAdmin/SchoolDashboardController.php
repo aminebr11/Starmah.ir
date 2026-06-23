@@ -52,11 +52,10 @@ class SchoolDashboardController extends Controller
         return Inertia::render('SchoolAdmin/Announcements');
     }
 
-    public function reports(Request $request): Response
+    public function reports(Request $request, \App\Services\AnalyticsService $analytics): Response
     {
-        $schoolId = $request->user()->school_id;
         return Inertia::render('SchoolAdmin/Reports', [
-            'classes' => Classroom::where('school_id', $schoolId)->withCount('students')->get(['id', 'name']),
+            'report' => $request->user()->school ? $analytics->schoolReport($request->user()->school) : null,
         ]);
     }
 }

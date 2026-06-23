@@ -15,8 +15,10 @@ export default function ThemedDash({ title, active = '', children, actions = nul
     const menu = [
         { key: 'home', label: 'خانه', icon: '🏠', href: '/dashboard' },
         { key: 'practice', label: 'مأموریت و بازی', icon: '🎮', href: '/practice' },
+        { key: 'exams', label: 'آزمون‌های من', icon: '💻', href: '/exams' },
         { key: 'board', label: 'رقابت تیم‌ها', icon: '🏆', href: '/leaderboard' },
         { key: 'progress', label: 'کارنامه‌ی من', icon: '📈', href: '/progress' },
+        { key: 'schedule', label: 'برنامه کلاسی', icon: '🗓️', href: '/schedule' },
         { key: 'messages', label: 'پیام‌ها', icon: '💌', href: '/messages' },
         { key: 'profile', label: 'پروفایل من', icon: '👤', href: '/profile' },
     ];

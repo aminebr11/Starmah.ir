@@ -90,10 +90,10 @@ class PlatformController extends Controller
         return back();
     }
 
-    public function reports(): Response
+    public function reports(\App\Services\AnalyticsService $analytics): Response
     {
         return Inertia::render('Admin/Reports', [
-            'top_schools' => School::withCount('users')->orderByDesc('users_count')->limit(8)->get(['id', 'name', 'city']),
+            'report' => $analytics->platformReport(),
         ]);
     }
 

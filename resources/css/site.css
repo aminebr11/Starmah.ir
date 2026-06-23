@@ -302,3 +302,8 @@ img{max-width:100%;display:block}
 
 /* group selection grid */
 @media(max-width:600px){ .teams-grid{grid-template-columns:1fr!important} }
+
+/* prevent wide tables from breaking the dashboard layout */
+.dash{overflow-x:hidden}
+.dash-main{max-width:100%}
+.panel{overflow-x:auto}

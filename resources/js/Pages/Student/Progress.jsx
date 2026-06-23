@@ -6,7 +6,9 @@ const card = { background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,
 
 /** کارنامه‌ی من — تسلط، نمرات، امتیازهای گرفته/ازدست‌رفته، انضباط، نشان‌ها. */
 export default function Progress() {
-    const { stats = {}, mastery = [], recent = [], points_log = [], discipline = [], badges = [] } = usePage().props;
+    const { stats = {}, mastery = [], recent = [], points_log = [], summary = {}, discipline = [], badges = [] } = usePage().props;
+    const byType = summary.by_type ?? [];
+    const maxType = Math.max(1, ...byType.map((x) => x.points));
 
     return (
         <ThemedDash title="کارنامه‌ی من" active="progress">
@@ -15,6 +17,21 @@ export default function Progress() {
                 <Stat b={`${fa(stats.avg ?? 0)}٪`} s="میانگین تسلط" />
                 <Stat b={`⭐${fa(stats.stars ?? 0)}`} s="ستاره انضباط" />
                 <Stat b={fa(stats.badges ?? 0)} s="نشان" />
+            </div>
+
+            <Title>🎯 امتیازهای من از کجا آمده؟</Title>
+            <div style={{ ...card, display: 'grid', gap: 12 }}>
+                {byType.length ? byType.map((x, i) => (
+                    <div key={i}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                            <b style={{ fontSize: 13 }}>{x.label}</b><span style={{ opacity: .7, fontSize: 12 }}>{fa(x.points)} امتیاز</span>
+                        </div>
+                        <div style={{ height: 9, borderRadius: 8, background: 'rgba(255,255,255,.12)', overflow: 'hidden' }}>
+                            <div style={{ width: `${(x.points / maxType) * 100}%`, height: '100%', background: 'linear-gradient(90deg,var(--p1),var(--acc))' }} />
+                        </div>
+                    </div>
+                )) : <span style={{ opacity: .7 }}>هنوز امتیازی نگرفتی.</span>}
+                <div style={{ textAlign: 'center', opacity: .8, fontSize: 13, marginTop: 4 }}>📅 امتیاز این هفته: <b style={{ color: 'var(--acc)' }}>{fa(summary.week_points ?? 0)}</b></div>
             </div>
 
             <Title>📊 تسلط بر مهارت‌ها</Title>

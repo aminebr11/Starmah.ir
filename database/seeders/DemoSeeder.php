@@ -97,6 +97,27 @@ class DemoSeeder extends Seeder
             Badge::updateOrCreate(['key' => $key], ['name' => $label, 'emoji' => $emoji]);
         }
 
+        // برنامه‌ی کلاسی نمونه (شنبه تا چهارشنبه)
+        $sched = [
+            [0, 'ریاضی', '۸:۰۰ - ۹:۰۰'], [0, 'فارسی', '۹:۳۰ - ۱۰:۳۰'],
+            [1, 'علوم', '۸:۰۰ - ۹:۰۰'], [1, 'هنر', '۱۰:۰۰ - ۱۱:۰۰'],
+            [2, 'ریاضی', '۸:۰۰ - ۹:۰۰'], [2, 'ورزش', '۱۱:۰۰ - ۱۲:۰۰'],
+            [3, 'اجتماعی', '۹:۰۰ - ۱۰:۰۰'], [4, 'املا', '۸:۰۰ - ۹:۰۰'],
+        ];
+        foreach ($sched as $i => [$day, $title, $time]) {
+            \App\Models\ScheduleEntry::updateOrCreate(
+                ['classroom_id' => $classroom->id, 'day_of_week' => $day, 'title' => $title],
+                ['school_id' => $school->id, 'time_range' => $time, 'period' => $i + 1]
+            );
+        }
+
+        // یک آزمون منتشرشده‌ی نمونه
+        \App\Models\Assignment::updateOrCreate(
+            ['classroom_id' => $classroom->id, 'title' => 'آزمون ضرب و تقسیم'],
+            ['school_id' => $school->id, 'teacher_id' => $teacher->id, 'type' => 'exam',
+             'skill_ids' => null, 'question_count' => 5, 'is_published' => true]
+        );
+
         // فعالیت‌های نمونه‌ی کلاس (با امتیاز)
         foreach ([
             ['game', 'بازی ریاضی هفته', 50],

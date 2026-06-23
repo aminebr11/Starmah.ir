@@ -85,6 +85,16 @@ class TeacherDashboardController extends Controller
         return Inertia::render('Teacher/Materials');
     }
 
+    /** گزارش کلی کلاس (تحلیل عملکرد). */
+    public function reports(Request $request, \App\Services\AnalyticsService $analytics): Response
+    {
+        $classroom = Classroom::where('teacher_id', $request->user()->id)->first();
+        return Inertia::render('Teacher/Reports', [
+            'classroom' => $classroom?->only('name'),
+            'report'    => $classroom ? $analytics->classroomReport($classroom) : null,
+        ]);
+    }
+
     public function show(Request $request, Classroom $classroom): Response
     {
         abort_unless($classroom->teacher_id === $request->user()->id, 403);

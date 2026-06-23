@@ -1,0 +1,77 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Classroom;
+use App\Models\ScheduleEntry;
+use App\Support\Jalali;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
+
+/** برنامه‌ی کلاسی هفتگی — مدیریت توسط معلم، نمایش به دانش‌آموز (تاریخ شمسی). */
+class ScheduleController extends Controller
+{
+    /** معلم: مدیریت برنامه */
+    public function manage(Request $request): Response
+    {
+        $classroom = Classroom::where('teacher_id', $request->user()->id)->first();
+        return Inertia::render('Teacher/Schedule', [
+            'classroom' => $classroom?->only('id', 'name'),
+            'days'      => Jalali::weekdays(),
+            'entries'   => $this->entriesFor($classroom),
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $classroom = Classroom::where('teacher_id', $request->user()->id)->firstOrFail();
+        $data = $request->validate([
+            'day_of_week' => ['required', 'integer', 'min:0', 'max:6'],
+            'title'       => ['required', 'string', 'max:80'],
+            'time_range'  => ['nullable', 'string', 'max:40'],
+            'period'      => ['nullable', 'integer', 'min:1', 'max:12'],
+        ]);
+        ScheduleEntry::create([
+            'school_id'    => $request->user()->school_id,
+            'classroom_id' => $classroom->id,
+            ...$data,
+        ]);
+        return back()->with('flash', 'به برنامه اضافه شد ✅');
+    }
+
+    public function destroy(Request $request, ScheduleEntry $scheduleEntry): RedirectResponse
+    {
+        abort_unless($scheduleEntry->school_id === $request->user()->school_id, 403);
+        $scheduleEntry->delete();
+        return back();
+    }
+
+    /** دانش‌آموز: نمای برنامه‌ی کلاسش */
+    public function studentView(Request $request): Response
+    {
+        $classroom = $request->user()->classrooms()->first();
+        $todayIdx = ((int) now()->format('w') + 1) % 7; // 0=شنبه
+        return Inertia::render('Student/Schedule', [
+            'days'    => Jalali::weekdays(),
+            'today'   => $todayIdx,
+            'jtoday'  => Jalali::format(now(), true),
+            'entries' => $this->entriesFor($classroom),
+        ]);
+    }
+
+    private function entriesFor(?Classroom $classroom): array
+    {
+        if (! $classroom) {
+            return [];
+        }
+        return ScheduleEntry::where('classroom_id', $classroom->id)
+            ->orderBy('day_of_week')->orderBy('period')->get()
+            ->groupBy('day_of_week')
+            ->map(fn ($g) => $g->map(fn ($e) => [
+                'id' => $e->id, 'title' => $e->title, 'time' => $e->time_range, 'period' => $e->period,
+            ])->values())
+            ->toArray();
+    }
+}
