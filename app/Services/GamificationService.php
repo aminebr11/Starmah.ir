@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\ActivityResult;
+use App\Models\ActivityAward;
 use App\Models\Badge;
+use App\Models\ClassActivity;
 use App\Models\Season;
 use App\Models\SkillMastery;
 use App\Models\User;
@@ -56,6 +58,42 @@ class GamificationService
 
             return ['xp' => $xp, 'badges' => $badges];
         });
+    }
+
+    /**
+     * اعطای امتیازِ یک فعالیت کلاسی به یک دانش‌آموز (یک‌بار).
+     * هم در activity_awards ثبت می‌شود هم در دفترکل XP می‌نشیند.
+     *
+     * @return bool آیا امتیاز داده شد (false اگر قبلاً داده شده بود)
+     */
+    public function awardActivity(ClassActivity $activity, User $student, ?User $by = null): bool
+    {
+        $exists = ActivityAward::where('class_activity_id', $activity->id)
+            ->where('student_id', $student->id)->exists();
+        if ($exists) {
+            return false;
+        }
+
+        DB::transaction(function () use ($activity, $student, $by) {
+            $award = ActivityAward::create([
+                'class_activity_id' => $activity->id,
+                'student_id'        => $student->id,
+                'points'            => $activity->points,
+                'awarded_by'        => $by?->id,
+            ]);
+
+            XpEntry::create([
+                'student_id'  => $student->id,
+                'season_id'   => $this->activeSeasonId($student),
+                'amount'      => $activity->points,
+                'reason'      => ClassActivity::typeLabel($activity->type) . ' — ' . $activity->title,
+                'source_type' => ActivityAward::class,
+                'source_id'   => $award->id,
+                'awarded_by'  => $by?->id,
+            ]);
+        });
+
+        return true;
     }
 
     /** اعطای XP دستی (توسط معلم/ادمین) */

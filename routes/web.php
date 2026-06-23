@@ -73,6 +73,9 @@ Route::middleware(['auth', 'role:student'])->group(function () {
 Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')->group(function () {
     Route::get('/', [TeacherDashboardController::class, 'index'])->name('dashboard');
     Route::get('/class/{classroom}', [TeacherDashboardController::class, 'show'])->name('classroom');
+    Route::get('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'index'])->name('activities');
+    Route::post('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'store'])->name('activities.store');
+    Route::post('/activities/{classActivity}/award', [\App\Http\Controllers\Teacher\ActivityController::class, 'award'])->name('activities.award');
     Route::get('/gradebook', [TeacherDashboardController::class, 'gradebook'])->name('gradebook');
     Route::get('/discipline', [TeacherDashboardController::class, 'discipline'])->name('discipline');
     Route::get('/materials', [TeacherDashboardController::class, 'materials'])->name('materials');

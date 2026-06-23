@@ -96,6 +96,19 @@ class DemoSeeder extends Seeder
         ] as [$key, $label, $emoji]) {
             Badge::updateOrCreate(['key' => $key], ['name' => $label, 'emoji' => $emoji]);
         }
+
+        // فعالیت‌های نمونه‌ی کلاس (با امتیاز)
+        foreach ([
+            ['game', 'بازی ریاضی هفته', 50],
+            ['exam', 'آزمون ضرب', 100],
+            ['podcast', 'پادکست داستان شب', 30],
+            ['homework', 'تکلیف صفحه ۲۴', 40],
+        ] as [$type, $title, $points]) {
+            \App\Models\ClassActivity::updateOrCreate(
+                ['classroom_id' => $classroom->id, 'title' => $title],
+                ['school_id' => $school->id, 'teacher_id' => $teacher->id, 'type' => $type, 'points' => $points, 'scheduled_at' => now()]
+            );
+        }
     }
 
     private function makeUser(?School $school, string $role, string $name, string $phone, array $extra = []): User

@@ -6,7 +6,7 @@ const card = { background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,
 
 /** کارنامه‌ی من — تسلط، نمرات، امتیازهای گرفته/ازدست‌رفته، انضباط، نشان‌ها. */
 export default function Progress() {
-    const { stats = {}, mastery = [], recent = [], discipline = [], badges = [] } = usePage().props;
+    const { stats = {}, mastery = [], recent = [], points_log = [], discipline = [], badges = [] } = usePage().props;
 
     return (
         <ThemedDash title="کارنامه‌ی من" active="progress">
@@ -47,6 +47,21 @@ export default function Progress() {
                         </div>
                     );
                 }) : <span style={{ opacity: .7 }}>—</span>}
+            </div>
+
+            <Title>🧾 دفتر امتیاز من (کجا گرفتم / کجا از دست دادم)</Title>
+            <div style={{ ...card, display: 'grid', gap: 8 }}>
+                {points_log.length ? points_log.map((e, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: i < points_log.length - 1 ? '1px solid rgba(255,255,255,.08)' : 0, paddingBottom: 6 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                            <span>{e.amount >= 0 ? '➕' : '➖'}</span>{e.reason}
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <b style={{ color: e.amount >= 0 ? '#7be05a' : '#ff8d8d' }}>{e.amount >= 0 ? '+' : ''}{fa(e.amount)}</b>
+                            <span style={{ opacity: .6, fontSize: 12 }}>{e.date}</span>
+                        </span>
+                    </div>
+                )) : <span style={{ opacity: .7 }}>هنوز امتیازی ثبت نشده.</span>}
             </div>
 
             <Title>🏅 نشان‌ها</Title>

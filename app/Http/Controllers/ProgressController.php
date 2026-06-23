@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\ActivityResult;
 use App\Models\DisciplineRecord;
 use App\Models\SkillMastery;
+use App\Models\XpEntry;
+use App\Support\Jalali;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -37,7 +39,15 @@ class ProgressController extends Controller
             ]);
 
         $discipline = DisciplineRecord::where('student_id', $user->id)->latest()->limit(10)->get()
-            ->map(fn ($d) => ['type' => $d->type, 'points' => $d->points, 'note' => $d->note, 'date' => $d->created_at?->format('Y/m/d')]);
+            ->map(fn ($d) => ['type' => $d->type, 'points' => $d->points, 'note' => $d->note, 'date' => Jalali::format($d->created_at)]);
+
+        // دفتر امتیاز: هر جا امتیاز گرفته یا از دست داده (با تاریخ شمسی)
+        $pointsLog = XpEntry::where('student_id', $user->id)->latest()->limit(20)->get()
+            ->map(fn ($e) => [
+                'amount' => $e->amount,
+                'reason' => $e->reason ?? 'امتیاز',
+                'date'   => Jalali::format($e->created_at),
+            ]);
 
         return Inertia::render('Student/Progress', [
             'stats' => [
@@ -48,6 +58,7 @@ class ProgressController extends Controller
             ],
             'mastery'    => $mastery,
             'recent'     => $recent,
+            'points_log' => $pointsLog,
             'discipline' => $discipline,
             'badges'     => $user->badges()->get()->map(fn ($b) => ['name' => $b->name, 'emoji' => $b->emoji]),
         ]);
