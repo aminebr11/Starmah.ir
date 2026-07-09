@@ -23,13 +23,15 @@ class PlatformController extends Controller
         return Inertia::render('Admin/Overview', [
             'stats' => [
                 'schools'  => School::count(),
+                'active_schools' => School::where('status', 'active')->count(),
                 'pending'  => SchoolRequest::where('status', 'pending')->count(),
                 'students' => User::role(Roles::STUDENT)->count(),
                 'teachers' => User::role(Roles::TEACHER)->count(),
                 'classes'  => Classroom::count(),
                 'themes'   => Theme::where('is_active', true)->count(),
+                'total_xp' => (int) \Illuminate\Support\Facades\DB::table('xp_ledger')->sum('amount'),
             ],
-            'recent_schools' => School::latest()->limit(5)->get(['id', 'name', 'city', 'status', 'plan']),
+            'recent_schools' => School::latest()->limit(6)->get(['id', 'name', 'city', 'status', 'plan']),
             'recent_requests' => SchoolRequest::where('status', 'pending')->latest()->limit(5)->get(),
         ]);
     }

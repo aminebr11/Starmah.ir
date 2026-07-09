@@ -18,13 +18,21 @@ class SchoolDashboardController extends Controller
         $schoolId = $request->user()->school_id;
         $school = $request->user()->school;
 
+        $students = User::role(Roles::STUDENT)->where('school_id', $schoolId)->count();
+
+        $topStudents = User::role(Roles::STUDENT)->where('school_id', $schoolId)->get()
+            ->map(fn ($s) => ['name' => $s->name, 'xp' => $s->totalXp()])
+            ->sortByDesc('xp')->take(5)->values();
+
         return Inertia::render('SchoolAdmin/Overview', [
             'school' => $school?->only('name', 'city', 'plan', 'status', 'seats'),
             'stats' => [
                 'teachers' => User::role(Roles::TEACHER)->where('school_id', $schoolId)->count(),
-                'students' => User::role(Roles::STUDENT)->where('school_id', $schoolId)->count(),
+                'students' => $students,
                 'classes'  => Classroom::where('school_id', $schoolId)->count(),
+                'seats'    => $school?->seats,
             ],
+            'topStudents' => $topStudents,
             'classes' => Classroom::where('school_id', $schoolId)->withCount('students')->with('teacher:id,name')->get()
                 ->map(fn ($c) => ['name' => $c->name, 'teacher' => $c->teacher?->name, 'students' => $c->students_count, 'code' => $c->join_code]),
         ]);
