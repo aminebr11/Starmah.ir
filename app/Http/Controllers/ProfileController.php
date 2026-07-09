@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\Roles;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -10,22 +11,50 @@ use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 use Inertia\Response;
 
-/** پروفایل من — مشاهده و ویرایش اطلاعات، آواتار و رمز (همه‌ی نقش‌ها). */
+/** پروفایل من — مشاهده و ویرایش اطلاعات کامل، آواتار و رمز (همه‌ی نقش‌ها). */
 class ProfileController extends Controller
 {
     public function edit(Request $request): Response
     {
         $u = $request->user();
+        $role = $u->getRoleNames()->first();
+        $s = $u->settings ?? [];
+
+        // آمار مختصر بر اساس نقش
+        $stats = [];
+        if ($role === Roles::STUDENT) {
+            $stats = [
+                ['ic' => '⭐', 'label' => 'امتیاز', 'value' => $u->totalXp()],
+                ['ic' => '🏛️', 'label' => 'کلاس‌ها', 'value' => $u->classrooms()->count()],
+            ];
+        } elseif ($role === Roles::TEACHER) {
+            $stats = [
+                ['ic' => '🏛️', 'label' => 'کلاس‌ها', 'value' => $u->teachingClassrooms()->count()],
+                ['ic' => '🎓', 'label' => 'دانش‌آموزان', 'value' => $u->teachingClassrooms()->withCount('students')->get()->sum('students_count')],
+            ];
+        }
+
         return Inertia::render('Profile/Edit', [
             'profile' => [
-                'name'   => $u->name,
-                'phone'  => $u->phone,
-                'email'  => $u->email,
-                'grade'  => $u->grade,
-                'avatar' => $u->avatar ? Storage::url($u->avatar) : null,
-                'role'   => $u->getRoleNames()->first(),
-                'school' => $u->school?->name,
+                'name'        => $u->name,
+                'phone'       => $u->phone,
+                'email'       => $u->email,
+                'grade'       => $u->grade,
+                'national_id' => $u->national_id,
+                'avatar'      => $u->avatar ? Storage::url($u->avatar) : null,
+                'role'        => $role,
+                'school'      => $u->school?->name,
+                // اطلاعات تکمیلی (در settings)
+                'bio'              => $s['bio'] ?? '',
+                'birth_date'       => $s['birth_date'] ?? '',
+                'address'          => $s['address'] ?? '',
+                'guardian_name'    => $s['guardian_name'] ?? '',
+                'guardian_phone'   => $s['guardian_phone'] ?? '',
+                'specialty'        => $s['specialty'] ?? '',
+                'experience_years' => $s['experience_years'] ?? '',
+                'education'        => $s['education'] ?? '',
             ],
+            'stats' => $stats,
         ]);
     }
 
@@ -33,9 +62,19 @@ class ProfileController extends Controller
     {
         $u = $request->user();
         $data = $request->validate([
-            'name'   => ['required', 'string', 'max:100'],
-            'email'  => ['nullable', 'email', 'max:120'],
-            'avatar' => ['nullable', 'image', 'max:2048'], // حداکثر ۲ مگابایت
+            'name'        => ['required', 'string', 'max:100'],
+            'email'       => ['nullable', 'email', 'max:120'],
+            'national_id' => ['nullable', 'string', 'max:10'],
+            'avatar'      => ['nullable', 'image', 'max:2048'], // حداکثر ۲ مگابایت
+            // اطلاعات تکمیلی
+            'bio'              => ['nullable', 'string', 'max:500'],
+            'birth_date'       => ['nullable', 'string', 'max:30'],
+            'address'          => ['nullable', 'string', 'max:250'],
+            'guardian_name'    => ['nullable', 'string', 'max:100'],
+            'guardian_phone'   => ['nullable', 'string', 'max:20'],
+            'specialty'        => ['nullable', 'string', 'max:100'],
+            'experience_years' => ['nullable', 'string', 'max:20'],
+            'education'        => ['nullable', 'string', 'max:100'],
         ]);
 
         if ($request->hasFile('avatar')) {
@@ -47,6 +86,14 @@ class ProfileController extends Controller
 
         $u->name = $data['name'];
         $u->email = $data['email'] ?? null;
+        $u->national_id = $data['national_id'] ?? null;
+
+        // اطلاعات تکمیلی در settings ذخیره می‌شود (بدون نیاز به مایگریشن)
+        $settings = $u->settings ?? [];
+        foreach (['bio', 'birth_date', 'address', 'guardian_name', 'guardian_phone', 'specialty', 'experience_years', 'education'] as $key) {
+            $settings[$key] = $data[$key] ?? null;
+        }
+        $u->settings = $settings;
         $u->save();
 
         return back()->with('flash', 'پروفایل به‌روزرسانی شد ✅');

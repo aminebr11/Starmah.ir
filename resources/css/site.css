@@ -304,6 +304,37 @@ img{max-width:100%;display:block}
 @media(max-width:980px){.tools-grid{grid-template-columns:repeat(2,1fr)!important}}
 @media(max-width:520px){.tools-grid{grid-template-columns:1fr!important}}
 
+/* ---- پروفایل من ---- */
+.profile-hero{position:relative;overflow:hidden;display:flex;align-items:center;gap:24px;flex-wrap:wrap;
+  border-radius:24px;padding:28px 30px;color:#fff;
+  background:linear-gradient(135deg,#16264f,#070f24);box-shadow:var(--shadow-lg)}
+.profile-hero-stars{position:absolute;inset:0;z-index:0;opacity:.5;
+  background-image:radial-gradient(1.5px 1.5px at 20% 30%,#fff,transparent),
+    radial-gradient(1.5px 1.5px at 70% 20%,#cfe0ff,transparent),
+    radial-gradient(1px 1px at 85% 60%,#ffe9b0,transparent),
+    radial-gradient(1.5px 1.5px at 90% 35%,#fff,transparent)}
+.profile-avatar{position:relative;z-index:2;flex:none}
+.profile-avatar-img{width:104px;height:104px;border-radius:50%;overflow:hidden;display:grid;place-items:center;font-size:44px;
+  background:linear-gradient(135deg,var(--gold),var(--gold-2));border:4px solid rgba(255,255,255,.85);
+  box-shadow:0 16px 36px -14px rgba(0,0,0,.7)}
+.profile-avatar-img img{width:100%;height:100%;object-fit:cover}
+.profile-avatar-btn{position:absolute;bottom:2px;insetInlineStart:2px;inset-inline-start:2px;
+  background:var(--navy-700);color:#fff;border:2px solid #fff;border-radius:50%;width:34px;height:34px;cursor:pointer;font-size:15px}
+.profile-hero-body{position:relative;z-index:2;min-width:0}
+.profile-hero-body h1{font-size:clamp(22px,3vw,30px);margin:0 0 10px;color:#fff}
+.profile-hero-meta{display:flex;align-items:center;gap:14px;flex-wrap:wrap;color:#c4d2f0;font-size:14px}
+.profile-hero-stats{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
+.profile-stat{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:10px 16px;text-align:center}
+.profile-stat b{display:block;color:#ffd87a;font-size:18px;font-weight:800}
+.profile-stat span{color:#9fb1d8;font-size:12px}
+.profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.profile-col-full{grid-column:1 / -1}
+@media(max-width:640px){
+  .profile-hero{padding:22px;justify-content:center;text-align:center}
+  .profile-hero-meta,.profile-hero-stats{justify-content:center}
+  .profile-grid{grid-template-columns:1fr}
+}
+
 /* responsive 2-col dashboard grids */
 @media(max-width:760px){
   .themes-grid{grid-template-columns:1fr!important}
