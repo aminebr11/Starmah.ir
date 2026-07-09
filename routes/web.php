@@ -94,7 +94,10 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/discipline/topics', [DisciplineController::class, 'storeTopic'])->name('discipline.topics');
     Route::delete('/discipline/topics/{disciplineTopic}', [DisciplineController::class, 'destroyTopic'])->name('discipline.topics.destroy');
     Route::post('/discipline/record', [DisciplineController::class, 'record'])->name('discipline.record');
-    Route::get('/materials', [TeacherDashboardController::class, 'materials'])->name('materials');
+    // محتوای کلاس: جزوه/فایل، پادکست، گالری، تکلیف (بارگذاری واقعی)
+    Route::get('/materials', [\App\Http\Controllers\Teacher\ClassContentController::class, 'index'])->name('materials');
+    Route::post('/materials', [\App\Http\Controllers\Teacher\ClassContentController::class, 'store'])->name('materials.store');
+    Route::delete('/materials/{classContent}', [\App\Http\Controllers\Teacher\ClassContentController::class, 'destroy'])->name('materials.destroy');
     Route::get('/reports', [TeacherDashboardController::class, 'reports'])->name('reports');
     Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'manage'])->name('schedule');
     Route::post('/schedule', [\App\Http\Controllers\ScheduleController::class, 'store'])->name('schedule.store');

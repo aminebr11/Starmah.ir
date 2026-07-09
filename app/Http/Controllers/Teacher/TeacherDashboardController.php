@@ -80,11 +80,6 @@ class TeacherDashboardController extends Controller
         ]);
     }
 
-    public function materials(Request $request): Response
-    {
-        return Inertia::render('Teacher/Materials');
-    }
-
     /** گزارش کلی کلاس (تحلیل عملکرد). */
     public function reports(Request $request, \App\Services\AnalyticsService $analytics): Response
     {

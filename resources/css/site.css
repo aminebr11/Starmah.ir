@@ -295,6 +295,15 @@ img{max-width:100%;display:block}
 }
 @media(max-width:520px){.dash-cards{grid-template-columns:1fr}}
 
+/* ---- کارت‌های ابزار (پیشخوان معلم/ادمین) ---- */
+.tool-card{display:block;background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;
+  box-shadow:var(--shadow);transition:.22s;color:var(--ink)}
+.tool-card:hover{transform:translateY(-4px);border-color:var(--gold);box-shadow:0 26px 50px -24px rgba(16,32,80,.4)}
+.tool-ic{width:52px;height:52px;border-radius:15px;display:grid;place-items:center;font-size:26px;margin-bottom:12px;
+  box-shadow:inset 0 2px 5px rgba(255,255,255,.6)}
+@media(max-width:980px){.tools-grid{grid-template-columns:repeat(2,1fr)!important}}
+@media(max-width:520px){.tools-grid{grid-template-columns:1fr!important}}
+
 /* responsive 2-col dashboard grids */
 @media(max-width:760px){
   .themes-grid{grid-template-columns:1fr!important}
