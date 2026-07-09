@@ -21,6 +21,9 @@ use Inertia\Inertia;
 
 Route::get('/', WelcomeController::class)->name('welcome');
 
+// صفحه‌ی درباره‌ی معلم/کلاس — عمومی
+Route::get('/about', fn () => Inertia::render('About'))->name('about');
+
 // نقطه‌ی ورود مشترک — بر اساس نقش هدایت می‌شود
 Route::get('/dashboard', HomeController::class)->middleware('auth')->name('dashboard');
 

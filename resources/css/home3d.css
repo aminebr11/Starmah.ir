@@ -303,3 +303,79 @@
 /* پس‌زمینه‌ی تیره‌ی کل صفحه‌ی کیهانی — تا هدرِ شفافِ بالای صفحه کِرِم دیده نشود
    و هیرو به‌صورت یکپارچه زیر نوار ناوبری امتداد یابد */
 .web-cosmic{background:#070f24;min-height:100vh}
+
+/* =========================================================
+   صفحه‌ی «درباره من»
+   ========================================================= */
+.about-hero{min-height:auto;padding:120px 0 46px}
+
+/* کارت پروفایل معلم */
+.about-profile{display:grid;grid-template-columns:auto 1fr;gap:32px;align-items:center;
+  border-radius:28px;padding:34px;
+  background:linear-gradient(160deg,rgba(255,255,255,.1),rgba(255,255,255,.03));
+  border:1px solid rgba(255,255,255,.15);
+  box-shadow:0 34px 70px -30px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.2)}
+.about-avatar{position:relative;width:170px;height:170px;flex:none}
+.about-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover;position:relative;z-index:2;
+  border:4px solid rgba(255,255,255,.85);box-shadow:0 20px 44px -16px rgba(0,0,0,.7)}
+.about-avatar-glow{position:absolute;inset:-14px;border-radius:50%;z-index:1;
+  background:radial-gradient(circle,rgba(245,181,63,.55),transparent 68%);filter:blur(6px);
+  animation:sm-breathe 6s ease-in-out infinite}
+.about-profile-body h2{font-size:clamp(26px,3.4vw,36px);color:#fff;margin:8px 0 12px;font-weight:800}
+.about-profile-body p{color:#c6d5f5;margin:0 0 18px;font-size:16px;line-height:2;max-width:640px}
+.about-badges{display:flex;gap:12px;flex-wrap:wrap}
+.about-badges span{background:rgba(245,181,63,.13);border:1px solid rgba(245,181,63,.35);
+  color:#ffd87a;font-weight:800;font-size:13.5px;padding:9px 16px;border-radius:40px}
+
+/* گرید سه‌ستونه‌ی کارت‌ها (فلسفه/ویژگی‌ها) */
+.about-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.about-grid3 .sm-b{min-height:0}
+
+/* اهداف (کارت‌های شماره‌دار) */
+.about-goals{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.about-goal{display:flex;gap:18px;align-items:flex-start;border-radius:22px;padding:26px;
+  background:linear-gradient(160deg,rgba(255,255,255,.09),rgba(255,255,255,.03));
+  border:1px solid rgba(255,255,255,.14);box-shadow:0 24px 50px -28px rgba(0,0,0,.7)}
+.about-goal-num{flex:none;width:58px;height:58px;border-radius:16px;display:grid;place-items:center;
+  font-weight:800;font-size:22px;color:#3a2700;
+  background:linear-gradient(135deg,#ffe9b8,#f5b53f);box-shadow:0 12px 26px -12px rgba(245,181,63,.8), inset 0 2px 4px rgba(255,255,255,.6)}
+.about-goal h3{margin:4px 0 8px;color:#fff;font-size:19px}
+.about-goal p{margin:0;color:#a9bade;font-size:14.5px;line-height:1.9}
+
+/* نقش والدین */
+.about-parents{position:relative;overflow:hidden;border-radius:30px;padding:44px;
+  background:linear-gradient(135deg,#16264f,#0a1836);
+  border:1px solid rgba(255,255,255,.12);box-shadow:0 40px 90px -30px rgba(0,0,0,.85)}
+.about-parents h2{color:#fff;font-size:clamp(24px,3.2vw,34px);margin:0 0 12px}
+.about-parents-lead{color:#c6d5f5;font-size:16.5px;line-height:2;max-width:760px;margin:0 0 24px}
+.about-parents-lead b{color:#fff}
+.about-parent-list{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.about-parent-item{display:flex;align-items:center;gap:10px;color:#eaf1ff;font-weight:700;font-size:15px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:13px 16px}
+.about-parent-item span{font-size:16px}
+
+/* ارتباط با ما */
+.about-contact{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+.about-contact-card{text-align:center;border-radius:22px;padding:26px 18px;
+  background:linear-gradient(160deg,rgba(255,255,255,.1),rgba(255,255,255,.03));
+  border:1px solid rgba(255,255,255,.15);box-shadow:0 24px 50px -28px rgba(0,0,0,.7);transition:transform .25s,border-color .25s}
+.about-contact-card:hover{transform:translateY(-5px);border-color:rgba(245,181,63,.5)}
+.about-contact-ic{width:58px;height:58px;margin:0 auto 12px;border-radius:16px;display:grid;place-items:center;font-size:28px;
+  background:linear-gradient(135deg,#ffe9b8,#f5b53f);box-shadow:inset 0 2px 6px rgba(255,255,255,.55)}
+.about-contact-t{color:#fff;font-weight:800;font-size:16px;margin-bottom:6px}
+.about-contact-d{color:#a9bade;font-size:14px;direction:ltr;unicode-bidi:plaintext}
+
+@media(max-width:900px){
+  .about-profile{grid-template-columns:1fr;text-align:center;justify-items:center}
+  .about-profile-body p{margin-inline:auto}
+  .about-badges{justify-content:center}
+  .about-grid3{grid-template-columns:1fr 1fr}
+  .about-goals{grid-template-columns:1fr}
+  .about-contact{grid-template-columns:1fr 1fr}
+}
+@media(max-width:600px){
+  .about-hero{padding:100px 0 32px}
+  .about-grid3{grid-template-columns:1fr}
+  .about-parent-list{grid-template-columns:1fr}
+  .about-contact{grid-template-columns:1fr}
+}
