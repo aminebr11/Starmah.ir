@@ -16,7 +16,7 @@ export default function Overview() {
     ];
 
     return (
-        <DashLayout title="پیشخان ادمین کل" roleLabel="ادمین کل" menu={adminMenu} active="home">
+        <DashLayout title="پیشخوان ادمین کل" roleLabel="ادمین کل" menu={adminMenu} active="home">
             <div className="dash-cards" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
                 {cards.map((c) => (
                     <div key={c.lbl} className="dcard">

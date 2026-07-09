@@ -11,7 +11,7 @@ export default function Dashboard() {
         { ic: '⭐', lbl: 'ستاره‌های داده‌شده', val: totals.stars, c: '#d4f5ef' },
     ];
     return (
-        <DashLayout title="پیشخان معلم" roleLabel="معلم" menu={teacherMenu} active="home"
+        <DashLayout title="پیشخوان معلم" roleLabel="معلم" menu={teacherMenu} active="home"
             actions={<Link href={route('teacher.assignments.create')} className="btn btn-sm">➕ تکلیف جدید</Link>}>
             <div className="dash-cards">
                 {cards.map((c) => (

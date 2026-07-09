@@ -58,7 +58,7 @@ export default function DashLayout({ title, roleLabel, menu = [], active = '', c
 }
 
 export const adminMenu = [
-    { key: 'home', label: 'پیشخان', icon: '📊', href: '/admin' },
+    { key: 'home', label: 'پیشخوان', icon: '📊', href: '/admin' },
     { key: 'schools', label: 'مدارس', icon: '🏫', href: '/admin/schools' },
     { key: 'themes', label: 'تم‌ها (دنیاها)', icon: '🎨', href: '/admin/themes' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/admin/reports' },
@@ -66,7 +66,7 @@ export const adminMenu = [
 ];
 
 export const schoolMenu = [
-    { key: 'home', label: 'پیشخان مدرسه', icon: '📊', href: '/school' },
+    { key: 'home', label: 'پیشخوان مدرسه', icon: '📊', href: '/school' },
     { key: 'teachers', label: 'معلم‌ها و کلاس‌ها', icon: '👩‍🏫', href: '/school/teachers' },
     { key: 'students', label: 'دانش‌آموزان', icon: '🎓', href: '/school/students' },
     { key: 'announcements', label: 'اطلاعیه‌ها', icon: '📢', href: '/school/announcements' },
@@ -74,7 +74,7 @@ export const schoolMenu = [
 ];
 
 export const teacherMenu = [
-    { key: 'home', label: 'پیشخان', icon: '📊', href: '/teacher' },
+    { key: 'home', label: 'پیشخوان', icon: '📊', href: '/teacher' },
     { key: 'activities', label: 'فعالیت‌ها و امتیاز', icon: '🎯', href: '/teacher/activities' },
     { key: 'exams', label: 'آزمون‌ساز (AI)', icon: '📝', href: '/teacher/exams' },
     { key: 'schedule', label: 'برنامه کلاسی', icon: '🗓️', href: '/teacher/schedule' },

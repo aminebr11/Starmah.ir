@@ -11,7 +11,7 @@ export default function Overview() {
         { ic: '🏛️', lbl: 'کلاس‌ها', val: stats.classes, c: '#fff3d6' },
     ];
     return (
-        <DashLayout title={`پیشخان مدرسه${school ? ` — ${school.name}` : ''}`} roleLabel="مدیر مدرسه" menu={schoolMenu} active="home"
+        <DashLayout title={`پیشخوان مدرسه${school ? ` — ${school.name}` : ''}`} roleLabel="مدیر مدرسه" menu={schoolMenu} active="home"
             actions={<Link href={route('school.teachers')} className="btn btn-sm">➕ معلم جدید</Link>}>
             <div className="dash-cards" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
                 {cards.map((c) => (

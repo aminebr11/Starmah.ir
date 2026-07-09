@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
-/** پیشخان و تنظیمات پلتفرم (سوپرادمین). */
+/** پیشخوان و تنظیمات پلتفرم (سوپرادمین). */
 class PlatformController extends Controller
 {
     public function overview(): Response

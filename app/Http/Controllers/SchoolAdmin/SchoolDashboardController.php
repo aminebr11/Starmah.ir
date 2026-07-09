@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
-/** پیشخان و صفحات مدیر مدرسه (فقط مدرسه‌ی خودش). */
+/** پیشخوان و صفحات مدیر مدرسه (فقط مدرسه‌ی خودش). */
 class SchoolDashboardController extends Controller
 {
     public function overview(Request $request): Response
