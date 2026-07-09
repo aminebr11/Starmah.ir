@@ -151,6 +151,42 @@ class PlatformController extends Controller
 
     public function settings(): Response
     {
-        return Inertia::render('Admin/Settings');
+        // برای امنیت، کلید کامل را نمایش نمی‌دهیم؛ فقط اینکه تنظیم شده یا نه
+        $mask = fn ($v) => $v ? '••••••••' . mb_substr($v, -4) : '';
+        return Inertia::render('Admin/Settings', [
+            'settings' => [
+                'ai_provider'    => \App\Models\Setting::get('ai_provider', 'anthropic'),
+                'anthropic_set'  => (bool) \App\Models\Setting::get('anthropic_key'),
+                'openai_set'     => (bool) \App\Models\Setting::get('openai_key'),
+                'anthropic_hint' => $mask(\App\Models\Setting::get('anthropic_key')),
+                'openai_hint'    => $mask(\App\Models\Setting::get('openai_key')),
+                'anthropic_model'=> \App\Models\Setting::get('anthropic_model', 'claude-haiku-4-5-20251001'),
+                'openai_model'   => \App\Models\Setting::get('openai_model', 'gpt-4o-mini'),
+            ],
+        ]);
+    }
+
+    public function storeSettings(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'ai_provider'     => ['required', 'in:anthropic,openai'],
+            'anthropic_key'   => ['nullable', 'string', 'max:200'],
+            'openai_key'      => ['nullable', 'string', 'max:200'],
+            'anthropic_model' => ['nullable', 'string', 'max:80'],
+            'openai_model'    => ['nullable', 'string', 'max:80'],
+        ]);
+
+        \App\Models\Setting::put('ai_provider', $data['ai_provider']);
+        \App\Models\Setting::put('anthropic_model', $data['anthropic_model'] ?: 'claude-haiku-4-5-20251001');
+        \App\Models\Setting::put('openai_model', $data['openai_model'] ?: 'gpt-4o-mini');
+        // کلیدها فقط در صورت وارد شدن مقدار جدید، به‌روزرسانی می‌شوند (خالی = بدون تغییر)
+        if (! empty($data['anthropic_key'])) {
+            \App\Models\Setting::put('anthropic_key', $data['anthropic_key']);
+        }
+        if (! empty($data['openai_key'])) {
+            \App\Models\Setting::put('openai_key', $data['openai_key']);
+        }
+
+        return back()->with('flash', 'تنظیمات ذخیره شد ✅');
     }
 }

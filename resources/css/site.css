@@ -355,6 +355,21 @@ img{max-width:100%;display:block}
 .sched-form{align-items:end}
 @media(max-width:760px){.sched-form{grid-template-columns:1fr!important}}
 
+/* ---- تخته‌ی برنامه‌ی هفتگی ---- */
+.sched-board{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
+.sched-day{background:var(--cream);border:1px solid var(--line);border-radius:14px;padding:8px;min-height:120px}
+.sched-day-head{font-weight:800;color:var(--navy-700);text-align:center;font-size:13px;padding:6px 0 8px;border-bottom:2px solid var(--line);margin-bottom:8px}
+.sched-card{position:relative;border:1px solid;border-radius:11px;padding:9px 10px 8px;margin-bottom:7px;box-shadow:0 4px 10px -6px rgba(0,0,0,.25)}
+.sched-period{display:inline-block;font-size:10px;font-weight:800;opacity:.7;margin-bottom:2px}
+.sched-del{position:absolute;top:5px;insetInlineStart:5px;inset-inline-start:5px;border:0;background:rgba(255,255,255,.6);border-radius:6px;width:18px;height:18px;cursor:pointer;font-size:11px;line-height:1;color:#c02942}
+.sched-empty{color:var(--muted-2);font-size:12px;text-align:center;padding-top:10px}
+@media(max-width:900px){
+  .sched-board{grid-template-columns:repeat(3,1fr)}
+}
+@media(max-width:560px){
+  .sched-board{grid-template-columns:repeat(2,1fr)}
+}
+
 /* ---------- PRINT ---------- */
 @media print{
   .dash-side,.dash-mobilebtn,.dash-topbar .btn,.no-print,.dash-topbar>div:last-child{display:none!important}

@@ -50,12 +50,18 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::put('/plans/{plan}', [\App\Http\Controllers\Admin\PlanController::class, 'update'])->name('plans.update');
     Route::post('/plans/{plan}/toggle', [\App\Http\Controllers\Admin\PlanController::class, 'toggle'])->name('plans.toggle');
     Route::delete('/plans/{plan}', [\App\Http\Controllers\Admin\PlanController::class, 'destroy'])->name('plans.destroy');
+    // دروس/کتاب‌های مقاطع
+    Route::get('/curriculum', [\App\Http\Controllers\Admin\CurriculumController::class, 'index'])->name('curriculum');
+    Route::post('/curriculum', [\App\Http\Controllers\Admin\CurriculumController::class, 'store'])->name('curriculum.store');
+    Route::put('/curriculum/{curriculumBook}', [\App\Http\Controllers\Admin\CurriculumController::class, 'update'])->name('curriculum.update');
+    Route::delete('/curriculum/{curriculumBook}', [\App\Http\Controllers\Admin\CurriculumController::class, 'destroy'])->name('curriculum.destroy');
     Route::get('/themes', [PlatformController::class, 'themes'])->name('themes');
     Route::post('/themes', [PlatformController::class, 'storeTheme'])->name('themes.store');
     Route::post('/themes/{theme}/toggle', [PlatformController::class, 'toggleTheme'])->name('themes.toggle');
     Route::post('/themes/{theme}/header', [PlatformController::class, 'uploadHeader'])->name('themes.header');
     Route::get('/reports', [PlatformController::class, 'reports'])->name('reports');
     Route::get('/settings', [PlatformController::class, 'settings'])->name('settings');
+    Route::post('/settings', [PlatformController::class, 'storeSettings'])->name('settings.store');
 });
 
 /* ---------------- مدیر مدرسه ---------------- */
@@ -65,6 +71,10 @@ Route::middleware(['auth', 'role:school_admin'])->prefix('school')->name('school
     Route::post('/teachers', [SchoolTeacherController::class, 'store'])->name('teachers.store');
     Route::get('/students', [SchoolDashboardController::class, 'students'])->name('students');
     Route::get('/announcements', [SchoolDashboardController::class, 'announcements'])->name('announcements');
+    Route::post('/announcements', [SchoolDashboardController::class, 'storeAnnouncement'])->name('announcements.store');
+    Route::delete('/announcements/{message}', [SchoolDashboardController::class, 'destroyAnnouncement'])->name('announcements.destroy');
+    Route::post('/announcements/ai', [SchoolDashboardController::class, 'aiAnnouncement'])->name('announcements.ai');
+    Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'schoolView'])->name('schedule');
     Route::get('/reports', [SchoolDashboardController::class, 'reports'])->name('reports');
 });
 

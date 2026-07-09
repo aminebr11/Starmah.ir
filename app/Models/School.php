@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class School extends Model
 {
     protected $fillable = [
-        'name', 'slug', 'city', 'logo', 'plan', 'plan_id', 'status',
+        'name', 'slug', 'city', 'level', 'logo', 'plan', 'plan_id', 'status',
         'seats', 'subscription_ends_at', 'branding', 'settings',
     ];
 

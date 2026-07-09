@@ -1,26 +1,61 @@
+import { usePage, useForm } from '@inertiajs/react';
+import { useState, useEffect } from 'react';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
-
-const ROWS = [
-    ['🤖', 'هوش مصنوعی', 'کلید Claude/OpenAI برای تولید محتوا', 'به‌زودی'],
-    ['💬', 'پیامک', 'سرویس پیامک برای ورود و اطلاع‌رسانی', 'به‌زودی'],
-    ['💳', 'درگاه پرداخت', 'تنظیم درگاه و پلن‌های اشتراک', 'به‌زودی'],
-    ['🏷️', 'پلن‌ها و قیمت‌گذاری', 'تعریف پلن‌های مدارس', 'به‌زودی'],
-    ['🌐', 'تنظیمات عمومی', 'نام، لوگو و اطلاعات پلتفرم', 'به‌زودی'],
-];
+import PasswordInput from '@/Components/PasswordInput';
 
 export default function Settings() {
+    const { settings = {}, flash } = usePage().props;
+    const [banner, setBanner] = useState(null);
+    useEffect(() => { if (flash?.flash) setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); }, [flash]);
+
+    const form = useForm({
+        ai_provider: settings.ai_provider || 'anthropic',
+        anthropic_key: '', openai_key: '',
+        anthropic_model: settings.anthropic_model || 'claude-haiku-4-5-20251001',
+        openai_model: settings.openai_model || 'gpt-4o-mini',
+    });
+    const submit = (e) => { e.preventDefault(); form.post(route('admin.settings.store'), { preserveScroll: true, onSuccess: () => { form.setData('anthropic_key', ''); form.setData('openai_key', ''); } }); };
+
     return (
         <DashLayout title="تنظیمات پلتفرم" roleLabel="ادمین کل" menu={adminMenu} active="settings">
-            <div className="panel">
-                <h3>⚙️ تنظیمات و دسترسی‌ها</h3>
-                {ROWS.map(([ic, t, d, s]) => (
-                    <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0', borderBottom: '1px solid var(--line)' }}>
-                        <div style={{ fontSize: 26 }}>{ic}</div>
-                        <div style={{ flex: 1 }}><div style={{ fontWeight: 700 }}>{t}</div><div style={{ color: 'var(--muted)', fontSize: 13 }}>{d}</div></div>
-                        <span className="tag tag-info">{s}</span>
+            {banner && <div className="panel" style={{ borderColor: 'var(--gold)', background: '#fff8e8' }}><b>{banner}</b></div>}
+
+            <form onSubmit={submit} className="panel" style={{ maxWidth: 680 }}>
+                <h3>🤖 هوش مصنوعی (Claude و ChatGPT)</h3>
+                <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 0 }}>
+                    کلید API را وارد کنید تا «تولید اطلاعیه با هوش مصنوعی» و «آزمون‌ساز هوشمند» فعال شود.
+                    کلیدها امن ذخیره می‌شوند و کامل نمایش داده نمی‌شوند.
+                </p>
+
+                <div className="field"><label>سرویس پیش‌فرض</label>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button type="button" onClick={() => form.setData('ai_provider', 'anthropic')} className={`tag ${form.data.ai_provider === 'anthropic' ? 'tag-warn' : 'tag-info'}`} style={{ cursor: 'pointer', border: 0, fontFamily: 'inherit', padding: '10px 16px' }}>🟣 Claude (Anthropic)</button>
+                        <button type="button" onClick={() => form.setData('ai_provider', 'openai')} className={`tag ${form.data.ai_provider === 'openai' ? 'tag-warn' : 'tag-info'}`} style={{ cursor: 'pointer', border: 0, fontFamily: 'inherit', padding: '10px 16px' }}>🟢 ChatGPT (OpenAI)</button>
                     </div>
-                ))}
-            </div>
+                </div>
+
+                <div style={{ border: '1px solid var(--line)', borderRadius: 16, padding: 16, margin: '14px 0' }}>
+                    <div style={{ fontWeight: 800, marginBottom: 10 }}>🟣 Claude — Anthropic {settings.anthropic_set && <span className="tag tag-ok" style={{ marginInlineStart: 8 }}>تنظیم‌شده {settings.anthropic_hint}</span>}</div>
+                    <div className="field"><label>کلید API (خالی بگذارید تا تغییر نکند)</label>
+                        <PasswordInput value={form.data.anthropic_key} autoComplete="off" placeholder="sk-ant-..." onChange={(e) => form.setData('anthropic_key', e.target.value)} />
+                    </div>
+                    <div className="field" style={{ marginBottom: 0 }}><label>مدل</label>
+                        <input className="input" value={form.data.anthropic_model} onChange={(e) => form.setData('anthropic_model', e.target.value)} dir="ltr" />
+                    </div>
+                </div>
+
+                <div style={{ border: '1px solid var(--line)', borderRadius: 16, padding: 16, margin: '14px 0' }}>
+                    <div style={{ fontWeight: 800, marginBottom: 10 }}>🟢 ChatGPT — OpenAI {settings.openai_set && <span className="tag tag-ok" style={{ marginInlineStart: 8 }}>تنظیم‌شده {settings.openai_hint}</span>}</div>
+                    <div className="field"><label>کلید API (خالی بگذارید تا تغییر نکند)</label>
+                        <PasswordInput value={form.data.openai_key} autoComplete="off" placeholder="sk-..." onChange={(e) => form.setData('openai_key', e.target.value)} />
+                    </div>
+                    <div className="field" style={{ marginBottom: 0 }}><label>مدل</label>
+                        <input className="input" value={form.data.openai_model} onChange={(e) => form.setData('openai_model', e.target.value)} dir="ltr" />
+                    </div>
+                </div>
+
+                <button type="submit" disabled={form.processing} className="btn">💾 ذخیره‌ی تنظیمات</button>
+            </form>
         </DashLayout>
     );
 }

@@ -3,7 +3,7 @@ import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 export default function Dashboard() {
-    const { auth, classrooms = [], totals = {} } = usePage().props;
+    const { auth, classrooms = [], totals = {}, announcements = [] } = usePage().props;
     const name = auth?.user?.name || 'معلم عزیز';
 
     const cards = [
@@ -47,6 +47,19 @@ export default function Dashboard() {
                         <div className="lbl">{c.lbl}</div><div className="val">{fa(c.val ?? 0)}</div></div>
                 ))}
             </div>
+
+            {/* اطلاعیه‌های مدرسه */}
+            {announcements.length > 0 && (
+                <div className="panel" style={{ marginTop: 20, borderColor: 'var(--gold)' }}>
+                    <h3>📢 اطلاعیه‌های مدرسه</h3>
+                    {announcements.map((a) => (
+                        <div key={a.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
+                            <div style={{ fontWeight: 800 }}>{a.title} <span style={{ color: 'var(--muted-2)', fontWeight: 400, fontSize: 12 }}>· {fa(a.date)}</span></div>
+                            <div style={{ color: 'var(--muted)', fontSize: 13.5, whiteSpace: 'pre-wrap', marginTop: 2 }}>{a.body}</div>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {/* ابزارها */}
             <div className="panel" style={{ marginTop: 20 }}>

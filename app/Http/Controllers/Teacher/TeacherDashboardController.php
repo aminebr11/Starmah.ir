@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
+use App\Models\Announcement;
 use App\Models\Assignment;
 use App\Models\Classroom;
 use App\Models\DisciplineRecord;
@@ -24,8 +25,16 @@ class TeacherDashboardController extends Controller
                 'join_code' => $c->join_code, 'students' => $c->students_count,
             ]);
 
+        $announcements = Announcement::whereIn('audience', ['teachers', 'all'])
+            ->with('sender:id,name')->latest()->limit(5)->get()
+            ->map(fn ($a) => [
+                'id' => $a->id, 'title' => $a->title, 'body' => $a->body,
+                'sender' => $a->sender?->name, 'date' => $a->created_at?->format('Y/m/d'),
+            ]);
+
         return Inertia::render('Teacher/Dashboard', [
             'classrooms' => $classrooms,
+            'announcements' => $announcements,
             'totals' => [
                 'classrooms'  => $classrooms->count(),
                 'students'    => $classrooms->sum('students'),

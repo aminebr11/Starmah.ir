@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Classroom;
+use App\Models\CurriculumBook;
 use App\Models\ScheduleEntry;
 use App\Support\Jalali;
 use Illuminate\Http\RedirectResponse;
@@ -17,10 +18,36 @@ class ScheduleController extends Controller
     public function manage(Request $request): Response
     {
         $classroom = Classroom::where('teacher_id', $request->user()->id)->first();
+        $level = $request->user()->school?->level;
+
+        // درس‌های پایه‌ی این کلاس برای انتخاب سریع
+        $books = ($classroom && $classroom->grade)
+            ? CurriculumBook::where('level', $level)->where('grade', $classroom->grade)->where('is_active', true)
+                ->orderBy('sort')->get()->map(fn ($b) => ['name' => $b->name, 'icon' => $b->icon])->values()
+            : collect();
+
         return Inertia::render('Teacher/Schedule', [
-            'classroom' => $classroom?->only('id', 'name'),
+            'classroom' => $classroom?->only('id', 'name', 'grade'),
             'days'      => Jalali::weekdays(),
             'entries'   => $this->entriesFor($classroom),
+            'books'     => $books,
+        ]);
+    }
+
+    /** مدیر مدرسه: نمای برنامه‌ی همه‌ی کلاس‌ها */
+    public function schoolView(Request $request): Response
+    {
+        $schoolId = $request->user()->school_id;
+        $classes = Classroom::where('school_id', $schoolId)->with('teacher:id,name')->get()
+            ->map(fn ($c) => [
+                'id' => $c->id, 'name' => $c->name, 'grade' => $c->grade,
+                'teacher' => $c->teacher?->name,
+                'entries' => $this->entriesFor($c),
+            ])->values();
+
+        return Inertia::render('SchoolAdmin/Schedule', [
+            'days'    => Jalali::weekdays(),
+            'classes' => $classes,
         ]);
     }
 

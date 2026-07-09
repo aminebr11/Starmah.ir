@@ -4,7 +4,7 @@ import WebLayout from '@/Layouts/WebLayout';
 export default function RegisterSchool() {
     const { data, setData, post, processing, errors } = useForm({
         school_name: '', manager_name: '', manager_phone: '', manager_email: '',
-        city: '', classes_count: 1, note: '',
+        city: '', level: 'دبستان', classes_count: 1, note: '',
     });
     const submit = (e) => { e.preventDefault(); post(route('register.school.store')); };
 
@@ -38,9 +38,18 @@ export default function RegisterSchool() {
                                 <input className="input" value={data.city} onChange={(e) => setData('city', e.target.value)} />
                             </Field>
                         </div>
-                        <Field label="تعداد کلاس‌ها" error={errors.classes_count}>
-                            <input type="number" min="1" max="200" className="input" value={data.classes_count} onChange={(e) => setData('classes_count', e.target.value)} />
-                        </Field>
+                        <div className="grid grid-2-form">
+                            <Field label="مقطع تحصیلی" error={errors.level}>
+                                <select className="input" value={data.level} onChange={(e) => setData('level', e.target.value)}>
+                                    <option value="دبستان">دبستان</option>
+                                    <option value="متوسطه اول">متوسطه اول</option>
+                                    <option value="متوسطه دوم">متوسطه دوم</option>
+                                </select>
+                            </Field>
+                            <Field label="تعداد کلاس‌ها" error={errors.classes_count}>
+                                <input type="number" min="1" max="200" className="input" value={data.classes_count} onChange={(e) => setData('classes_count', e.target.value)} />
+                            </Field>
+                        </div>
                         <Field label="توضیحات (اختیاری)" error={errors.note}>
                             <textarea className="input" rows="3" value={data.note} onChange={(e) => setData('note', e.target.value)} />
                         </Field>

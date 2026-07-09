@@ -3,9 +3,13 @@
 namespace App\Http\Controllers\SchoolAdmin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Announcement;
 use App\Models\Classroom;
 use App\Models\User;
+use App\Services\AiContentService;
+use App\Support\Levels;
 use App\Support\Roles;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -55,9 +59,61 @@ class SchoolDashboardController extends Controller
         return Inertia::render('SchoolAdmin/Students', ['students' => $students]);
     }
 
-    public function announcements(): Response
+    public function announcements(Request $request): Response
     {
-        return Inertia::render('SchoolAdmin/Announcements');
+        $schoolId = $request->user()->school_id;
+        $audienceFa = ['teachers' => 'معلم‌ها', 'students' => 'دانش‌آموزان', 'all' => 'همه'];
+
+        $list = Announcement::where('school_id', $schoolId)->with('sender:id,name')->latest()->get()
+            ->map(fn ($a) => [
+                'id' => $a->id, 'title' => $a->title, 'body' => $a->body,
+                'audience' => $audienceFa[$a->audience] ?? $a->audience,
+                'grade' => $a->grade, 'sender' => $a->sender?->name,
+                'date' => $a->created_at?->format('Y/m/d'),
+            ]);
+
+        return Inertia::render('SchoolAdmin/Announcements', [
+            'announcements' => $list,
+            'grades' => Levels::grades($request->user()->school?->level),
+            'aiReady' => app(AiContentService::class)->isConfigured(),
+        ]);
+    }
+
+    public function storeAnnouncement(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'title'    => ['required', 'string', 'max:120'],
+            'body'     => ['required', 'string', 'max:3000'],
+            'audience' => ['required', 'in:teachers,students,all'],
+            'grade'    => ['nullable', 'string', 'max:30'],
+        ]);
+
+        Announcement::create([
+            'school_id' => $request->user()->school_id,
+            'sender_id' => $request->user()->id,
+            ...$data,
+        ]);
+
+        return back()->with('flash', 'اطلاعیه ارسال شد ✅');
+    }
+
+    public function destroyAnnouncement(Request $request, Announcement $announcement): RedirectResponse
+    {
+        abort_unless($announcement->school_id === $request->user()->school_id, 403);
+        $announcement->delete();
+        return back()->with('flash', 'اطلاعیه حذف شد.');
+    }
+
+    /** تولید متن اطلاعیه با هوش مصنوعی. */
+    public function aiAnnouncement(Request $request, AiContentService $ai): RedirectResponse
+    {
+        $data = $request->validate(['topic' => ['required', 'string', 'max:300']]);
+        try {
+            $text = $ai->generate('یک اطلاعیه‌ی مدرسه درباره‌ی این موضوع بنویس: ' . $data['topic']);
+            return back()->with('flash', ['type' => 'ai', 'message' => $text]);
+        } catch (\Throwable $e) {
+            return back()->with('flash', ['type' => 'error', 'message' => $e->getMessage()]);
+        }
     }
 
     public function reports(Request $request, \App\Services\AnalyticsService $analytics): Response

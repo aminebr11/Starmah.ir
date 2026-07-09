@@ -4,7 +4,9 @@ namespace App\Http\Controllers\SchoolAdmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Classroom;
+use App\Models\CurriculumBook;
 use App\Models\User;
+use App\Support\Levels;
 use App\Support\Roles;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,6 +22,8 @@ class TeacherController extends Controller
     public function index(Request $request): Response
     {
         $schoolId = $request->user()->school_id;
+        $school = $request->user()->school;
+        $level = $school?->level;
 
         $teachers = User::role(Roles::TEACHER)->where('school_id', $schoolId)
             ->withCount('teachingClassrooms')->get()
@@ -27,14 +31,23 @@ class TeacherController extends Controller
                 $class = Classroom::where('teacher_id', $t->id)->first();
                 return [
                     'id' => $t->id, 'name' => $t->name, 'phone' => $t->phone,
-                    'class_name' => $class?->name, 'join_code' => $class?->join_code,
+                    'class_name' => $class?->name, 'grade' => $class?->grade, 'join_code' => $class?->join_code,
                     'students' => $class ? $class->students()->count() : 0,
                 ];
             });
 
+        // دروس هر پایه‌ی مقطعِ این مدرسه (باز شدن دروس هنگام انتخاب پایه)
+        $booksByGrade = CurriculumBook::where('level', $level)->where('is_active', true)
+            ->orderBy('sort')->get()
+            ->groupBy('grade')
+            ->map(fn ($g) => $g->map(fn ($b) => ['name' => $b->name, 'icon' => $b->icon])->values())
+            ->toArray();
+
         return Inertia::render('SchoolAdmin/Teachers', [
-            'teachers' => $teachers,
-            'school'   => $request->user()->school?->only('name', 'plan', 'seats'),
+            'teachers'     => $teachers,
+            'school'       => $school?->only('name', 'plan', 'seats', 'level'),
+            'grades'       => Levels::grades($level),
+            'booksByGrade' => $booksByGrade,
         ]);
     }
 
@@ -44,6 +57,7 @@ class TeacherController extends Controller
             'name'       => ['required', 'string', 'max:100'],
             'phone'      => ['required', 'string', 'max:20'],
             'class_name' => ['required', 'string', 'max:60'],
+            'grade'      => ['nullable', 'string', 'max:30'],
             'password'   => ['nullable', 'string', 'min:6'],
         ]);
 
@@ -80,6 +94,7 @@ class TeacherController extends Controller
                 'school_id'  => $schoolId,
                 'teacher_id' => $teacher->id,
                 'name'       => $data['class_name'],
+                'grade'      => $data['grade'] ?? null,
                 'join_code'  => Str::upper(Str::random(6)),
             ]);
         });

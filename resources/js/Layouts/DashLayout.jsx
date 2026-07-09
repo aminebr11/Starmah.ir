@@ -61,6 +61,7 @@ export const adminMenu = [
     { key: 'home', label: 'پیشخوان', icon: '📊', href: '/admin' },
     { key: 'schools', label: 'مدارس', icon: '🏫', href: '/admin/schools' },
     { key: 'plans', label: 'طرح‌های اشتراک', icon: '🎟️', href: '/admin/plans' },
+    { key: 'curriculum', label: 'دروس و کتاب‌ها', icon: '📚', href: '/admin/curriculum' },
     { key: 'themes', label: 'تم‌ها (دنیاها)', icon: '🎨', href: '/admin/themes' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/admin/reports' },
     { key: 'settings', label: 'تنظیمات پلتفرم', icon: '⚙️', href: '/admin/settings' },
@@ -70,6 +71,7 @@ export const schoolMenu = [
     { key: 'home', label: 'پیشخوان مدرسه', icon: '📊', href: '/school' },
     { key: 'teachers', label: 'معلم‌ها و کلاس‌ها', icon: '👩‍🏫', href: '/school/teachers' },
     { key: 'students', label: 'دانش‌آموزان', icon: '🎓', href: '/school/students' },
+    { key: 'schedule', label: 'برنامه‌ی کلاس‌ها', icon: '🗓️', href: '/school/schedule' },
     { key: 'announcements', label: 'اطلاعیه‌ها', icon: '📢', href: '/school/announcements' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/school/reports' },
 ];

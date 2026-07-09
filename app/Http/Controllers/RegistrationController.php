@@ -38,6 +38,7 @@ class RegistrationController extends Controller
             'manager_phone' => ['required', 'string', 'max:20'],
             'manager_email' => ['nullable', 'email'],
             'city'          => ['nullable', 'string', 'max:80'],
+            'level'         => ['required', 'in:دبستان,متوسطه اول,متوسطه دوم'],
             'classes_count' => ['required', 'integer', 'min:1', 'max:200'],
             'note'          => ['nullable', 'string', 'max:500'],
         ]);

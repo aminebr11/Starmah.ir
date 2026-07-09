@@ -9,7 +9,7 @@ class SchoolRequest extends Model
 {
     protected $fillable = [
         'school_name', 'manager_name', 'manager_phone', 'manager_email',
-        'city', 'classes_count', 'note', 'status', 'school_id', 'reviewed_by',
+        'city', 'level', 'classes_count', 'note', 'status', 'school_id', 'reviewed_by',
     ];
 
     public function school(): BelongsTo { return $this->belongsTo(School::class); }

@@ -60,6 +60,7 @@ class SchoolApprovalController extends Controller
                 'name'    => $schoolRequest->school_name,
                 'slug'    => Str::slug($schoolRequest->school_name) . '-' . Str::lower(Str::random(4)),
                 'city'    => $schoolRequest->city,
+                'level'   => $schoolRequest->level,
                 'plan'    => $plan->key,
                 'plan_id' => $plan->id,
                 'status'  => 'active',
