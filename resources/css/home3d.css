@@ -1,0 +1,305 @@
+/* =========================================================
+   ستاره ماه — صفحه‌ی اول سه‌بعدی (نسخه‌ی کیهانیِ کودکانه)
+   همه‌ی کلاس‌ها با پیشوند sm- تا با بقیه‌ی سایت تداخل نکند.
+   بهینه برای موبایل + دسکتاپ · RTL · احترام به reduced-motion
+   ========================================================= */
+.sm{
+  --gold:#f5b53f; --gold-2:#e09b22; --gold-l:#ffd87a;
+  --sky:#5b8def; --cyan:#3ad0ff; --pink:#ff6b9d; --violet:#8b7cf6; --green:#22c55e;
+  --navy-1:#0a1733; --navy-0:#060d20; --ink:#12203f;
+  position:relative;
+  background:
+    radial-gradient(1200px 700px at 80% -8%, #16264f 0%, transparent 60%),
+    radial-gradient(900px 600px at 8% 6%, #10224b 0%, transparent 55%),
+    linear-gradient(180deg,#070f24 0%, #091531 46%, #0a1836 100%);
+  color:#eaf1ff;
+  overflow-x:clip;
+}
+.sm ::selection{background:rgba(245,181,63,.35)}
+.sm-wrap{max-width:1200px;margin:0 auto;padding:0 20px}
+
+/* ستاره‌های پس‌زمینه‌ی کل صفحه (CSS، سبک) */
+.sm-stars{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.7;
+  background-image:
+    radial-gradient(1.6px 1.6px at 15% 22%,#fff,transparent),
+    radial-gradient(1.4px 1.4px at 72% 14%,#cfe0ff,transparent),
+    radial-gradient(1.2px 1.2px at 42% 68%,#fff,transparent),
+    radial-gradient(1.8px 1.8px at 86% 52%,#ffe9b0,transparent),
+    radial-gradient(1.2px 1.2px at 60% 86%,#fff,transparent),
+    radial-gradient(1.3px 1.3px at 28% 48%,#cfe0ff,transparent),
+    radial-gradient(1.7px 1.7px at 92% 30%,#fff,transparent),
+    radial-gradient(1.2px 1.2px at 8% 78%,#bfe9ff,transparent);
+  background-size:auto;animation:sm-tw 5s ease-in-out infinite alternate}
+@keyframes sm-tw{from{opacity:.45}to{opacity:.85}}
+
+/* ================= HERO ================= */
+.sm-hero{position:relative;z-index:2;min-height:clamp(560px,88vh,900px);
+  display:flex;align-items:center;padding:96px 0 40px;perspective:1400px}
+.cosmic-canvas{position:absolute;inset:0;z-index:0;pointer-events:none}
+/* هاله‌های شناور برای موبایل و پس‌زمینه‌ی هیرو */
+.sm-aurora{position:absolute;border-radius:50%;filter:blur(80px);z-index:0;pointer-events:none;
+  animation:sm-drift 18s ease-in-out infinite}
+.sm-aurora.g{width:min(46vw,460px);aspect-ratio:1;background:#caa12e;opacity:.34;top:-10%;inset-inline-end:-6%}
+.sm-aurora.b{width:min(42vw,420px);aspect-ratio:1;background:#1e4fd0;opacity:.4;bottom:-16%;inset-inline-start:-8%;animation-delay:-6s}
+.sm-aurora.p{width:min(30vw,300px);aspect-ratio:1;background:#8b3cf6;opacity:.3;top:40%;inset-inline-start:34%;animation-delay:-10s}
+@keyframes sm-drift{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(26px,-22px) scale(1.14)}}
+
+.sm-hero-grid{position:relative;z-index:3;display:grid;grid-template-columns:1.02fr .98fr;
+  gap:34px;align-items:center;width:100%}
+
+/* --- متن --- */
+.sm-eyebrow{display:inline-flex;align-items:center;gap:9px;
+  background:rgba(245,181,63,.12);border:1px solid rgba(245,181,63,.4);
+  color:var(--gold-l);font-weight:800;font-size:13px;padding:8px 16px;border-radius:40px;
+  box-shadow:0 0 0 4px rgba(245,181,63,.05), 0 10px 30px -14px rgba(245,181,63,.5);
+  backdrop-filter:blur(6px)}
+.sm-eyebrow .d{width:8px;height:8px;border-radius:50%;background:var(--gold);
+  box-shadow:0 0 12px var(--gold);animation:sm-pulse 1.8s ease-in-out infinite}
+@keyframes sm-pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:.6}}
+
+.sm-h1{font-size:clamp(29px,4.4vw,50px);line-height:1.22;font-weight:800;letter-spacing:-1px;
+  margin:18px 0 16px;color:#fff;text-shadow:0 14px 40px rgba(0,0,0,.5)}
+.sm-grad{background:linear-gradient(120deg,var(--gold-l),var(--gold) 42%,#fff 92%);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.sm-moon{display:inline-block;filter:drop-shadow(0 6px 16px rgba(245,181,63,.6));
+  animation:sm-swing 5s ease-in-out infinite;transform-origin:bottom center}
+@keyframes sm-swing{0%,100%{transform:rotate(-9deg)}50%{transform:rotate(9deg)}}
+.sm-lead{color:#c6d5f5;font-size:clamp(15px,1.7vw,18.5px);max-width:560px;margin:0 0 30px;line-height:1.9}
+.sm-lead b{color:#fff}
+
+.sm-cta{display:flex;gap:14px;flex-wrap:wrap}
+.sm-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  border:0;cursor:pointer;font-family:inherit;font-weight:800;font-size:16px;padding:15px 28px;border-radius:18px;
+  color:#3a2700;background:linear-gradient(135deg,var(--gold-l),var(--gold) 55%,var(--gold-2));
+  box-shadow:0 16px 34px -12px rgba(245,181,63,.75), inset 0 2px 0 rgba(255,255,255,.55);
+  transition:transform .2s, box-shadow .2s; overflow:hidden; text-decoration:none}
+.sm-btn:hover{transform:translateY(-4px) scale(1.02);box-shadow:0 24px 46px -14px rgba(245,181,63,.85), inset 0 2px 0 rgba(255,255,255,.6)}
+.sm-btn::after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent,rgba(255,255,255,.55),transparent);transform:translateX(-160%);transition:.6s}
+.sm-btn:hover::after{transform:translateX(160%)}
+.sm-btn.ghost{color:#eaf1ff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.28);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.15);backdrop-filter:blur(10px)}
+.sm-btn.ghost:hover{background:rgba(255,255,255,.16)}
+
+.sm-hint{margin-top:16px;color:#cdd8ef;font-size:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sm-hint a{color:var(--gold-l);font-weight:800}
+.sm-trust{display:flex;align-items:center;gap:14px;margin-top:26px;color:#9fb1d8;font-size:13.5px}
+.sm-ava{display:flex}
+.sm-ava span{width:36px;height:36px;border-radius:50%;border:2px solid #0a1733;display:grid;place-items:center;
+  font-size:17px;margin-inline-start:-11px;background:linear-gradient(135deg,var(--gold),var(--gold-2));
+  box-shadow:0 6px 14px -6px rgba(0,0,0,.6)}
+
+/* --- صحنه‌ی سه‌بعدیِ شخصیت (تیلت با ماوس) --- */
+.sm-stage{position:relative;display:grid;place-items:center;min-height:clamp(320px,46vh,520px);
+  transform-style:preserve-3d;transition:transform .2s ease-out;
+  transform:rotateX(var(--ry,0deg)) rotateY(var(--rx,0deg))}
+.sm-orbit-ring{position:absolute;width:min(78%,420px);aspect-ratio:1;border-radius:50%;
+  border:1.5px dashed rgba(255,255,255,.16);transform:translateZ(-40px) rotateX(72deg);
+  box-shadow:0 0 60px rgba(90,141,239,.25) inset}
+.sm-orbit-ring.r2{width:min(96%,520px);border-color:rgba(245,181,63,.14);transform:translateZ(-80px) rotateX(76deg)}
+.sm-halo{position:absolute;width:min(80%,400px);aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(circle,rgba(245,181,63,.45),rgba(90,141,239,.12) 55%,transparent 72%);
+  filter:blur(6px);transform:translateZ(-30px);animation:sm-breathe 6s ease-in-out infinite}
+@keyframes sm-breathe{0%,100%{transform:translateZ(-30px) scale(1);opacity:.9}50%{transform:translateZ(-30px) scale(1.08);opacity:1}}
+
+.sm-hero-img{position:relative;z-index:3;width:min(88%,440px);border-radius:50%;
+  transform:translateZ(60px);
+  filter:drop-shadow(0 40px 70px rgba(0,0,0,.6));animation:sm-bob 6s ease-in-out infinite}
+@keyframes sm-bob{0%,100%{transform:translateZ(60px) translateY(0)}50%{transform:translateZ(60px) translateY(-16px)}}
+
+/* نشان‌های شناور (چیپ‌های شیشه‌ای سه‌بعدی) */
+.sm-chip{position:absolute;z-index:4;display:flex;align-items:center;gap:9px;
+  background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);
+  backdrop-filter:blur(14px);border-radius:16px;padding:11px 15px;color:#fff;font-weight:800;font-size:13.5px;
+  box-shadow:0 18px 40px -16px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.35)}
+.sm-chip b{color:var(--gold-l)}
+.sm-chip.c1{top:6%;inset-inline-start:-4%;transform:translateZ(110px);animation:sm-bob 5.5s ease-in-out infinite}
+.sm-chip.c2{bottom:12%;inset-inline-end:-6%;transform:translateZ(120px);animation:sm-bob 6.5s ease-in-out infinite;animation-delay:-2s}
+.sm-chip.c3{top:44%;inset-inline-start:-9%;transform:translateZ(90px);animation:sm-bob 7.5s ease-in-out infinite;animation-delay:-4s}
+
+/* عناصر تصویریِ سه‌بعدیِ CSS (سیاره، موشک، جام) — بدون فایل تصویر */
+.sm-planet{position:absolute;border-radius:50%;
+  background:radial-gradient(circle at 32% 28%,#fff6, transparent 42%),
+    radial-gradient(circle at 30% 26%,#ffe6a8,var(--pl,#f5b53f) 46%,#9a6a12 100%);
+  box-shadow:inset -10px -12px 26px rgba(0,0,0,.45), 0 18px 40px -14px rgba(0,0,0,.6),0 0 40px var(--gl,rgba(245,181,63,.5))}
+.sm-planet .ring{position:absolute;inset:-26% -8%;border-radius:50%;border:6px solid rgba(255,255,255,.35);
+  transform:rotate(28deg) rotateX(74deg);box-shadow:0 0 18px rgba(255,255,255,.25)}
+.sm-planet.p1{width:78px;height:78px;top:2%;inset-inline-end:4%;--pl:#5b8def;--gl:rgba(91,141,239,.6);transform:translateZ(80px);animation:sm-float 8s ease-in-out infinite}
+.sm-planet.p2{width:52px;height:52px;bottom:6%;inset-inline-start:2%;--pl:#ff8fb4;--gl:rgba(255,107,157,.55);transform:translateZ(70px);animation:sm-float 9s ease-in-out infinite;animation-delay:-3s}
+.sm-rocket{position:absolute;z-index:4;font-size:40px;top:14%;inset-inline-end:-2%;transform:translateZ(130px);
+  filter:drop-shadow(0 10px 18px rgba(0,0,0,.5));animation:sm-fly 7s ease-in-out infinite}
+@keyframes sm-fly{0%,100%{transform:translateZ(130px) translateY(0) rotate(-8deg)}50%{transform:translateZ(130px) translateY(-22px) rotate(6deg)}}
+@keyframes sm-float{0%,100%{transform:translateZ(70px) translateY(0) rotate(0)}50%{transform:translateZ(70px) translateY(-18px) rotate(8deg)}}
+.sm-spark{position:absolute;z-index:4;animation:sm-float 6s ease-in-out infinite}
+
+/* ================= MARQUEE ================= */
+.sm-marquee{position:relative;z-index:2;overflow:hidden;margin-top:26px;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent);
+          mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent)}
+.sm-marquee-track{display:flex;gap:14px;width:max-content;animation:sm-scroll 30s linear infinite}
+@keyframes sm-scroll{to{transform:translateX(-50%)}}
+.sm-subj{display:inline-flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);
+  border-radius:40px;padding:11px 20px;font-weight:800;color:#eaf1ff;white-space:nowrap;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+
+/* ================= SECTIONS ================= */
+.sm-section{position:relative;z-index:2;padding:84px 0}
+.sm-head{text-align:center;max-width:680px;margin:0 auto 46px}
+.sm-kicker{display:inline-block;background:rgba(245,181,63,.14);color:var(--gold-l);
+  font-weight:800;font-size:12.5px;padding:7px 16px;border-radius:40px;margin-bottom:14px;
+  border:1px solid rgba(245,181,63,.3);letter-spacing:.4px}
+.sm-head h2{font-size:clamp(25px,3.6vw,40px);font-weight:800;color:#fff;margin:0 0 12px;letter-spacing:-.6px;
+  text-shadow:0 10px 30px rgba(0,0,0,.4)}
+.sm-head p{color:#a9bade;margin:0;font-size:16.5px}
+
+/* پایه‌ی افکت تیلت سه‌بعدی برای کارت‌ها */
+.sm-tilt{transform-style:preserve-3d;transition:transform .25s ease-out;will-change:transform}
+
+/* ---- دنیاهای علاقه ---- */
+.sm-worlds{display:grid;grid-template-columns:1fr 1fr;gap:22px;perspective:1200px}
+.sm-world{position:relative;overflow:hidden;border-radius:28px;padding:32px;min-height:230px;color:#fff;
+  display:flex;flex-direction:column;justify-content:flex-end;cursor:pointer;
+  box-shadow:0 30px 60px -26px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.18)}
+.sm-world .em{position:absolute;top:-18px;inset-inline-end:-10px;font-size:150px;opacity:.28;
+  transform:translateZ(30px) rotate(-12deg);transition:.4s;filter:drop-shadow(0 12px 24px rgba(0,0,0,.5))}
+.sm-world:hover .em{transform:translateZ(60px) rotate(0) scale(1.06);opacity:.4}
+.sm-world.football{background:linear-gradient(135deg,#12b45a,#0a2a18)}
+.sm-world.cars{background:linear-gradient(135deg,#0b86ff,#081226)}
+.sm-world h3{font-size:25px;font-weight:800;margin:0 0 6px;transform:translateZ(40px)}
+.sm-world p{margin:0;color:rgba(255,255,255,.88);font-size:14.5px;transform:translateZ(30px)}
+.sm-world .tags{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;transform:translateZ(50px)}
+.sm-world .tags span{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);
+  border-radius:22px;padding:6px 13px;font-size:12.5px;font-weight:800}
+
+/* ---- بنتوی امکانات (کارت‌های کِلِی سه‌بعدی) ---- */
+.sm-bento{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:186px;gap:20px;perspective:1200px}
+.sm-b{position:relative;overflow:hidden;border-radius:24px;padding:24px;cursor:pointer;text-decoration:none;
+  background:linear-gradient(160deg,rgba(255,255,255,.09),rgba(255,255,255,.03));
+  border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 24px 50px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.18);
+  transition:transform .25s, border-color .25s, box-shadow .25s}
+.sm-b:hover{transform:translateY(-6px);border-color:rgba(245,181,63,.6);
+  box-shadow:0 34px 60px -26px rgba(245,181,63,.4), inset 0 1px 0 rgba(255,255,255,.22)}
+.sm-b .ic{width:60px;height:60px;border-radius:18px;display:grid;place-items:center;font-size:30px;margin-bottom:14px;
+  box-shadow:inset 0 2px 6px rgba(255,255,255,.55), 0 12px 24px -12px rgba(0,0,0,.6);transform:translateZ(30px)}
+.sm-b h3{margin:0 0 6px;font-size:18px;color:#fff}
+.sm-b p{margin:0;color:#a9bade;font-size:13.5px}
+.sm-b.wide{grid-column:span 2}
+.sm-b.dark{background:radial-gradient(circle at 82% 18%,#1c356e,#0a1836);border-color:rgba(255,255,255,.1)}
+.ic-gold{background:linear-gradient(135deg,#ffe9b8,#f5b53f)}
+.ic-pink{background:linear-gradient(135deg,#ffd0e0,#ff6b9d)}
+.ic-teal{background:linear-gradient(135deg,#bff0e6,#2dd4bf)}
+.ic-blue{background:linear-gradient(135deg,#cfe2ff,#5b8def)}
+.ic-purple{background:linear-gradient(135deg,#ddd6ff,#8b7cf6)}
+
+/* ---- آمار (کارت‌های شیشه‌ای) ---- */
+.sm-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.sm-stat{position:relative;overflow:hidden;text-align:center;border-radius:22px;padding:28px 18px;
+  background:linear-gradient(160deg,rgba(255,255,255,.1),rgba(255,255,255,.03));
+  border:1px solid rgba(255,255,255,.15);box-shadow:0 24px 50px -28px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.2)}
+.sm-stat::before{content:"";position:absolute;top:0;inset-inline:0;height:4px;
+  background:linear-gradient(90deg,var(--gold),var(--cyan))}
+.sm-stat b{display:block;font-size:42px;font-weight:800;color:#fff;line-height:1;
+  text-shadow:0 8px 22px rgba(245,181,63,.35)}
+.sm-stat span{color:#a9bade;font-size:13.5px;margin-top:8px;display:block}
+
+/* ---- ستاره‌های هفته (پُدیوم) ---- */
+.sm-lb{max-width:600px;margin:0 auto;border-radius:26px;padding:16px;
+  background:linear-gradient(160deg,rgba(255,255,255,.1),rgba(255,255,255,.03));
+  border:1px solid rgba(255,255,255,.15);box-shadow:0 34px 70px -30px rgba(0,0,0,.8)}
+.sm-lb-row{display:flex;align-items:center;gap:15px;padding:15px 16px;border-radius:16px;transition:.2s}
+.sm-lb-row:hover{background:rgba(255,255,255,.06)}
+.sm-lb-row+.sm-lb-row{border-top:1px solid rgba(255,255,255,.08)}
+.sm-rank{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;font-weight:800;color:#fff;
+  background:rgba(255,255,255,.12);flex:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.2)}
+.sm-rank.g1{background:linear-gradient(135deg,#ffd23f,#e0a400);color:#3a2700;box-shadow:0 8px 20px -6px #e0a400}
+.sm-rank.g2{background:linear-gradient(135deg,#e6ecf6,#aeb7c7);color:#2a3350}
+.sm-rank.g3{background:linear-gradient(135deg,#f0c79a,#d79a5b);color:#3a2700}
+.sm-lb-name{font-weight:800;color:#fff}
+.sm-xp{margin-inline-start:auto;font-weight:800;color:var(--gold-l);font-size:16px}
+
+/* ---- مراحل ---- */
+.sm-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;perspective:1000px}
+.sm-step{position:relative;border-radius:24px;padding:30px;text-align:center;
+  background:linear-gradient(160deg,rgba(255,255,255,.09),rgba(255,255,255,.03));
+  border:1px solid rgba(255,255,255,.14);box-shadow:0 24px 50px -28px rgba(0,0,0,.7)}
+.sm-num{width:52px;height:52px;border-radius:16px;margin:0 auto 16px;display:grid;place-items:center;
+  font-weight:800;font-size:22px;color:var(--gold-l);
+  background:linear-gradient(135deg,#16264f,#0a1836);box-shadow:inset 0 2px 6px rgba(255,255,255,.15),0 12px 24px -12px rgba(0,0,0,.7)}
+.sm-step h3{margin:0 0 8px;color:#fff;font-size:19px}
+.sm-step p{margin:0;color:#a9bade;font-size:14px}
+
+/* ---- CTA پایانی ---- */
+.sm-cta-band{position:relative;overflow:hidden;border-radius:34px;padding:64px 40px;text-align:center;
+  background:linear-gradient(135deg,#16264f,#070f24);
+  box-shadow:0 40px 90px -30px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.12);
+  border:1px solid rgba(255,255,255,.1)}
+.sm-cta-band h2{position:relative;z-index:2;color:#fff;font-size:clamp(25px,3.6vw,38px);margin:0 0 12px}
+.sm-cta-band p{position:relative;z-index:2;color:#c4d2f0;margin:0 0 26px;font-size:16px}
+.sm-cta-glow{position:absolute;width:340px;height:340px;border-radius:50%;
+  background:radial-gradient(circle,rgba(245,181,63,.4),transparent 65%);
+  top:-120px;inset-inline-end:-80px;filter:blur(8px)}
+
+/* ================= REVEAL ================= */
+.sm-reveal{opacity:0;transform:translateY(34px);transition:.8s cubic-bezier(.2,.7,.2,1)}
+.sm-reveal.in{opacity:1;transform:none}
+
+/* ================= RESPONSIVE ================= */
+@media(max-width:980px){
+  .sm-hero{min-height:auto;padding:84px 0 24px}
+  .sm-hero-grid{grid-template-columns:1fr;text-align:center;gap:20px}
+  .sm-lead{margin-inline:auto}
+  .sm-cta,.sm-hint,.sm-trust{justify-content:center}
+  .sm-stage{order:-1;min-height:340px;transform:none!important}
+  .sm-bento{grid-template-columns:repeat(2,1fr);grid-auto-rows:172px}
+  .sm-stats{grid-template-columns:repeat(2,1fr)}
+  .sm-steps{grid-template-columns:1fr}
+}
+@media(max-width:600px){
+  .sm-section{padding:56px 0}
+  .sm-worlds{grid-template-columns:1fr}
+  .sm-bento{grid-template-columns:1fr}.sm-b.wide{grid-column:span 1}
+  .sm-stats{grid-template-columns:1fr 1fr}
+  .sm-chip.c3{display:none}
+  .sm-hero-img{width:78%}
+  .sm-cta-band{padding:48px 22px}
+}
+/* روی موبایل/تاچ افکت‌های تیلت و شناوریِ سنگین ساده می‌شوند */
+@media(hover:none){
+  .sm-stage{transform:none!important}
+  .sm-hero-img{transform:translateZ(0)!important}
+}
+@media(prefers-reduced-motion:reduce){
+  .sm *{animation:none!important}
+  .sm-reveal{opacity:1;transform:none}
+}
+
+/* =========================================================
+   هدر شیشه‌ایِ تیره برای صفحه‌ی اولِ سه‌بعدی (variant=cosmic)
+   ========================================================= */
+.nav-cosmic{background:transparent;border-bottom:1px solid transparent;
+  transition:background .3s, border-color .3s, box-shadow .3s, backdrop-filter .3s}
+.nav-cosmic.scrolled{background:rgba(9,19,45,.72);border-bottom:1px solid rgba(255,255,255,.1);
+  backdrop-filter:blur(16px) saturate(1.3);
+  box-shadow:0 16px 40px -22px rgba(0,0,0,.8)}
+.nav-cosmic .nav-logo{color:#fff;text-shadow:0 6px 20px rgba(0,0,0,.5)}
+.nav-cosmic .nav-logo img{filter:drop-shadow(0 6px 16px rgba(245,181,63,.65));
+  animation:sm-bob 6s ease-in-out infinite}
+.nav-cosmic .nav-menu a{color:#dbe6ff}
+.nav-cosmic .nav-menu a:hover{background:rgba(255,255,255,.1);color:#fff}
+.nav-cosmic .nav-menu a.active{color:#3a2700}
+.nav-cosmic .btn-ghost{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.24)}
+.nav-cosmic .btn-ghost:hover{background:rgba(255,255,255,.16)}
+.nav-cosmic .hamburger{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.22)}
+/* منوی موبایلِ بازشده روی تم تیره */
+.nav-cosmic .nav-menu.open{background:rgba(10,20,44,.96);border-bottom:1px solid rgba(255,255,255,.1);backdrop-filter:blur(16px)}
+.nav-cosmic .nav-menu.open a{color:#dbe6ff}
+
+/* فوتر: هماهنگ با کیهانِ تیره + کمی درخشش برند */
+.web-cosmic .footer{margin-top:0;background:linear-gradient(180deg,#0a1836,#060d20);
+  border-top:1px solid rgba(255,255,255,.08)}
+.web-cosmic .footer img{filter:drop-shadow(0 8px 20px rgba(245,181,63,.5))}
+
+/* پس‌زمینه‌ی تیره‌ی کل صفحه‌ی کیهانی — تا هدرِ شفافِ بالای صفحه کِرِم دیده نشود
+   و هیرو به‌صورت یکپارچه زیر نوار ناوبری امتداد یابد */
+.web-cosmic{background:#070f24;min-height:100vh}

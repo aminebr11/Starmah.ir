@@ -9,12 +9,14 @@ export const NAV = [
     { key: 'schools', label: 'برای مدارس', href: '/register/school' },
 ];
 
-/** چیدمان وب عمومی: نوار ناوبری بالا (لوگوی برند) + فوتر. ریسپانسیو کامل. */
-export default function WebLayout({ title, active = '', children }) {
+/** چیدمان وب عمومی: نوار ناوبری بالا (لوگوی برند) + فوتر. ریسپانسیو کامل.
+ *  variant="cosmic" → هدر شیشه‌ای تیره برای صفحه‌ی اولِ سه‌بعدی. */
+export default function WebLayout({ title, active = '', variant = '', children }) {
     const { auth } = usePage().props;
     const [open, setOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const user = auth?.user;
+    const cosmic = variant === 'cosmic';
 
     useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 8);
@@ -23,10 +25,10 @@ export default function WebLayout({ title, active = '', children }) {
     }, []);
 
     return (
-        <div dir="rtl">
+        <div dir="rtl" className={cosmic ? 'web-cosmic' : ''}>
             <Head title={title ? `${title} — ستاره ماه` : 'ستاره ماه — آموزش هوشمند بر اساس علاقه'} />
 
-            <header className={`nav ${scrolled ? 'scrolled' : ''}`}>
+            <header className={`nav ${cosmic ? 'nav-cosmic' : ''} ${scrolled ? 'scrolled' : ''}`}>
                 <div className="container nav-inner">
                     <Link href="/" className="nav-logo">
                         <img src="/brand/logo-emblem.png" alt="ستاره ماه" />
