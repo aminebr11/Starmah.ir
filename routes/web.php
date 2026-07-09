@@ -43,6 +43,13 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::get('/schools', [SchoolApprovalController::class, 'index'])->name('schools');
     Route::post('/schools/requests/{schoolRequest}/approve', [SchoolApprovalController::class, 'approve'])->name('schools.approve');
     Route::post('/schools/requests/{schoolRequest}/reject', [SchoolApprovalController::class, 'reject'])->name('schools.reject');
+    Route::post('/schools/{school}/plan', [SchoolApprovalController::class, 'updatePlan'])->name('schools.plan');
+    // طرح‌های اشتراک
+    Route::get('/plans', [\App\Http\Controllers\Admin\PlanController::class, 'index'])->name('plans');
+    Route::post('/plans', [\App\Http\Controllers\Admin\PlanController::class, 'store'])->name('plans.store');
+    Route::put('/plans/{plan}', [\App\Http\Controllers\Admin\PlanController::class, 'update'])->name('plans.update');
+    Route::post('/plans/{plan}/toggle', [\App\Http\Controllers\Admin\PlanController::class, 'toggle'])->name('plans.toggle');
+    Route::delete('/plans/{plan}', [\App\Http\Controllers\Admin\PlanController::class, 'destroy'])->name('plans.destroy');
     Route::get('/themes', [PlatformController::class, 'themes'])->name('themes');
     Route::post('/themes', [PlatformController::class, 'storeTheme'])->name('themes.store');
     Route::post('/themes/{theme}/toggle', [PlatformController::class, 'toggleTheme'])->name('themes.toggle');

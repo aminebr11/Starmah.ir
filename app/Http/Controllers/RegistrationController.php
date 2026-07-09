@@ -91,6 +91,16 @@ class RegistrationController extends Controller
 
         $classroom = Classroom::findOrFail($data['classroom_id']);
 
+        // محدودیت طرح: انقضای اشتراک و سقف دانش‌آموز در هر کلاس
+        $school = $classroom->school;
+        if ($school && $school->isExpired()) {
+            return back()->withErrors(['classroom_id' => 'اشتراک این مدرسه منقضی شده است؛ فعلاً امکان ثبت‌نام نیست.']);
+        }
+        $maxPerClass = $school?->maxStudentsPerClass();
+        if ($maxPerClass !== null && $classroom->students()->count() >= $maxPerClass) {
+            return back()->withErrors(['classroom_id' => "ظرفیت این کلاس (حداکثر {$maxPerClass} دانش‌آموز) تکمیل است."]);
+        }
+
         // جلوگیری از موبایل تکراری در همان مدرسه
         $exists = User::where('school_id', $classroom->school_id)->where('phone', $data['phone'])->exists();
         if ($exists) {

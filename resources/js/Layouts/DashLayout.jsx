@@ -60,6 +60,7 @@ export default function DashLayout({ title, roleLabel, menu = [], active = '', c
 export const adminMenu = [
     { key: 'home', label: 'پیشخوان', icon: '📊', href: '/admin' },
     { key: 'schools', label: 'مدارس', icon: '🏫', href: '/admin/schools' },
+    { key: 'plans', label: 'طرح‌های اشتراک', icon: '🎟️', href: '/admin/plans' },
     { key: 'themes', label: 'تم‌ها (دنیاها)', icon: '🎨', href: '/admin/themes' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/admin/reports' },
     { key: 'settings', label: 'تنظیمات پلتفرم', icon: '⚙️', href: '/admin/settings' },

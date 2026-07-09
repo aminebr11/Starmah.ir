@@ -48,6 +48,16 @@ class TeacherController extends Controller
         ]);
 
         $schoolId = $request->user()->school_id;
+        $school = $request->user()->school;
+
+        // محدودیت طرح: انقضا و سقف تعداد کلاس
+        if ($school && $school->isExpired()) {
+            return back()->withErrors(['class_name' => 'اشتراک مدرسه منقضی شده است؛ برای ادامه طرح را تمدید کنید.']);
+        }
+        if ($school && ! $school->canAddClassroom()) {
+            $max = $school->planModel?->max_classes;
+            return back()->withErrors(['class_name' => "طرح فعلی حداکثر {$max} کلاس را اجازه می‌دهد. برای کلاس بیشتر، از ادمین ارتقای طرح بخواهید."]);
+        }
 
         if (User::where('school_id', $schoolId)->where('phone', $data['phone'])->exists()) {
             return back()->withErrors(['phone' => 'این شماره قبلاً در مدرسه ثبت شده است.']);
