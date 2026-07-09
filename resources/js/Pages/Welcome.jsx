@@ -157,10 +157,6 @@ export default function Welcome() {
                             <span className="sm-spark" style={{ bottom: '14%', insetInlineEnd: '8%', fontSize: 20, transform: 'translateZ(95px)', animationDelay: '-2s' }}>⭐</span>
 
                             <img className="sm-hero-img" src="/brand/logo-illustration.png" alt="ستاره ماه — کودک در مسیر کشف" />
-
-                            <div className="sm-chip c1">⭐ <span>امتیاز امروز: <b>۱۲۴۰</b></span></div>
-                            <div className="sm-chip c2">🏆 <span>رتبه‌ی کلاس: <b>۲</b></span></div>
-                            <div className="sm-chip c3">🔥 <span>زنجیره: <b>۷ روز</b></span></div>
                         </div>
                     </div>
                 </header>
