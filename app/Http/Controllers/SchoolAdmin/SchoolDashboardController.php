@@ -69,9 +69,12 @@ class SchoolDashboardController extends Controller
             ->map(fn ($a) => [
                 'id' => $a->id, 'title' => $a->title, 'body' => $a->body,
                 'audience' => $audienceFa[$a->audience] ?? $a->audience,
-                'grade' => $a->grade, 'sender' => $a->sender?->name,
+                'audience_key' => $a->audience, 'grade' => $a->grade,
+                'recipient_ids' => $a->recipients->pluck('id')->all(),
+                'sender' => $a->sender?->name,
                 'recipients' => $a->audience === 'personal' ? $a->recipients->pluck('name')->all() : [],
                 'date' => Jalali::format($a->created_at),
+                'created_ts' => $a->created_at?->timestamp,
             ]);
 
         // فهرست افراد برای پیام شخصی (معلم‌ها و دانش‌آموزان مدرسه)
@@ -120,6 +123,41 @@ class SchoolDashboardController extends Controller
         }
 
         return back()->with('flash', 'اطلاعیه ارسال شد ✅');
+    }
+
+    public function updateAnnouncement(Request $request, Announcement $announcement): RedirectResponse
+    {
+        abort_unless($announcement->school_id === $request->user()->school_id, 403);
+
+        $data = $request->validate([
+            'title'          => ['required', 'string', 'max:120'],
+            'body'           => ['required', 'string', 'max:3000'],
+            'audience'       => ['required', 'in:teachers,students,all,personal'],
+            'grade'          => ['nullable', 'string', 'max:30'],
+            'recipient_ids'  => ['nullable', 'array'],
+            'recipient_ids.*'=> ['integer'],
+        ]);
+
+        if ($data['audience'] === 'personal' && empty($data['recipient_ids'])) {
+            return back()->withErrors(['recipient_ids' => 'برای پیام شخصی حداقل یک نفر را انتخاب کنید.']);
+        }
+
+        $announcement->update([
+            'title'    => $data['title'],
+            'body'     => $data['body'],
+            'audience' => $data['audience'],
+            'grade'    => $data['audience'] === 'personal' ? null : ($data['grade'] ?? null),
+        ]);
+
+        if ($data['audience'] === 'personal') {
+            $ids = User::where('school_id', $request->user()->school_id)
+                ->whereIn('id', $data['recipient_ids'])->pluck('id')->all();
+            $announcement->recipients()->sync($ids);
+        } else {
+            $announcement->recipients()->sync([]);
+        }
+
+        return back()->with('flash', 'اطلاعیه ویرایش شد ✅');
     }
 
     public function destroyAnnouncement(Request $request, Announcement $announcement): RedirectResponse

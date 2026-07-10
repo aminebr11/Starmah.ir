@@ -72,7 +72,8 @@ Route::middleware(['auth', 'role:school_admin'])->prefix('school')->name('school
     Route::get('/students', [SchoolDashboardController::class, 'students'])->name('students');
     Route::get('/announcements', [SchoolDashboardController::class, 'announcements'])->name('announcements');
     Route::post('/announcements', [SchoolDashboardController::class, 'storeAnnouncement'])->name('announcements.store');
-    Route::delete('/announcements/{message}', [SchoolDashboardController::class, 'destroyAnnouncement'])->name('announcements.destroy');
+    Route::put('/announcements/{announcement}', [SchoolDashboardController::class, 'updateAnnouncement'])->name('announcements.update');
+    Route::delete('/announcements/{announcement}', [SchoolDashboardController::class, 'destroyAnnouncement'])->name('announcements.destroy');
     Route::post('/announcements/ai', [SchoolDashboardController::class, 'aiAnnouncement'])->name('announcements.ai');
     Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'schoolView'])->name('schedule');
     Route::get('/reports', [SchoolDashboardController::class, 'reports'])->name('reports');

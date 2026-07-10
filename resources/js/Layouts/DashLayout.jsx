@@ -21,11 +21,15 @@ export default function DashLayout({ title, roleLabel, menu = [], active = '', c
                     <div>ستاره ماه<div className="dash-role">{roleLabel}</div></div>
                 </Link>
                 <nav className="dash-nav">
-                    {menu.map((m) => (
-                        <Link key={m.key} href={m.href} className={active === m.key ? 'active' : ''} onClick={() => setOpen(false)}>
-                            <span className="ic">{m.icon}</span>{m.label}
-                            {m.key === 'notices' && unreadNotices > 0 && <span className="nav-badge">{unreadNotices}</span>}
-                        </Link>
+                    {menu.map((m, idx) => (
+                        m.divider ? (
+                            <div key={`d${idx}`} className="dash-nav-section">{m.divider}</div>
+                        ) : (
+                            <Link key={m.key} href={m.href} className={active === m.key ? 'active' : ''} onClick={() => setOpen(false)}>
+                                <span className="ic">{m.icon}</span>{m.label}
+                                {m.key === 'notices' && unreadNotices > 0 && <span className="nav-badge">{unreadNotices}</span>}
+                            </Link>
+                        )
                     ))}
                     <Link href={route('profile.edit')} className={active === 'profile' ? 'active' : ''} onClick={() => setOpen(false)}>
                         <span className="ic">👤</span>پروفایل من
@@ -83,12 +87,13 @@ export const schoolMenu = [
 export const teacherMenu = [
     { key: 'home', label: 'پیشخوان', icon: '📊', href: '/teacher' },
     { key: 'attendance', label: 'حضور و غیاب', icon: '✅', href: '/teacher/attendance' },
-    { key: 'activities', label: 'فعالیت‌ها و امتیاز', icon: '🎯', href: '/teacher/activities' },
-    { key: 'exams', label: 'آزمون‌ساز (AI)', icon: '📝', href: '/teacher/exams' },
     { key: 'schedule', label: 'برنامه کلاسی', icon: '🗓️', href: '/teacher/schedule' },
-    { key: 'gradebook', label: 'دفتر نمره', icon: '📔', href: '/teacher/gradebook' },
-    { key: 'discipline', label: 'انضباط', icon: '⭐', href: '/teacher/discipline' },
+    { key: 'gradebook', label: 'دفتر کلاسی', icon: '📔', href: '/teacher/gradebook' },
+    { key: 'exams', label: 'آزمون‌ها', icon: '📝', href: '/teacher/exams' },
+    { key: 'activities', label: 'بازی‌ها', icon: '🎮', href: '/teacher/activities' },
+    { key: 'discipline', label: 'دفتر انضباط', icon: '⭐', href: '/teacher/discipline' },
+    { key: 'materials', label: 'مطالب و محتوا', icon: '📚', href: '/teacher/materials' },
+    { divider: 'سایر منوها (قابلیت‌های آینده)' },
     { key: 'notices', label: 'اعلان‌ها', icon: '📢', href: '/notices' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/teacher/reports' },
-    { key: 'materials', label: 'مطالب و محتوا', icon: '📚', href: '/teacher/materials' },
 ];

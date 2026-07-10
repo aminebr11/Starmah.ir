@@ -13,6 +13,9 @@ export default function Announcements() {
     const [search, setSearch] = useState('');
     const [listFilter, setListFilter] = useState('all');
     const [listSearch, setListSearch] = useState('');
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
+    const [editingId, setEditingId] = useState(null);
 
     const form = useForm({ title: '', body: '', audience: 'all', grade: '', recipient_ids: [] });
 
@@ -21,8 +24,17 @@ export default function Announcements() {
         if (listFilter === 'personal' && !isPersonal) return false;
         if (listFilter === 'public' && isPersonal) return false;
         if (listSearch && !((a.title || '').includes(listSearch) || (a.body || '').includes(listSearch))) return false;
+        if (dateFrom && a.created_ts && a.created_ts < Math.floor(new Date(dateFrom).getTime() / 1000)) return false;
+        if (dateTo && a.created_ts && a.created_ts > Math.floor(new Date(dateTo).getTime() / 1000) + 86400) return false;
         return true;
     });
+
+    const startEdit = (a) => {
+        setEditingId(a.id);
+        form.setData({ title: a.title, body: a.body, audience: a.audience_key || 'all', grade: a.grade || '', recipient_ids: a.recipient_ids || [] });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    const cancelEdit = () => { setEditingId(null); form.reset(); form.clearErrors(); };
 
     const toggleRecipient = (id) => {
         const cur = form.data.recipient_ids;
@@ -39,7 +51,12 @@ export default function Announcements() {
         else if (f.message) setBanner({ ok: true, msg: f.message });
     }, [flash]);
 
-    const submit = (e) => { e.preventDefault(); form.post(route('school.announcements.store'), { preserveScroll: true, onSuccess: () => { form.reset(); setBanner({ ok: true, msg: 'اطلاعیه ارسال شد ✅' }); } }); };
+    const submit = (e) => {
+        e.preventDefault();
+        const opts = { preserveScroll: true, onSuccess: () => { form.reset(); setEditingId(null); } };
+        if (editingId) form.put(route('school.announcements.update', editingId), opts);
+        else form.post(route('school.announcements.store'), { ...opts, onSuccess: () => { form.reset(); setBanner({ ok: true, msg: 'اطلاعیه ارسال شد ✅' }); } });
+    };
     const del = (id) => { if (confirm('این اطلاعیه حذف شود؟')) router.delete(route('school.announcements.destroy', id), { preserveScroll: true }); };
     const genAI = () => {
         if (!topic.trim()) { alert('موضوع اطلاعیه را بنویسید'); return; }
@@ -63,7 +80,7 @@ export default function Announcements() {
             <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 20, alignItems: 'start' }} className="themes-grid">
                 {/* سازنده‌ی اطلاعیه */}
                 <form onSubmit={submit} className="panel">
-                    <h3>📢 اطلاعیه‌ی جدید</h3>
+                    <h3>{editingId ? '✏️ ویرایش اطلاعیه' : '📢 اطلاعیه‌ی جدید'}</h3>
 
                     {/* دستیار هوش مصنوعی */}
                     <div style={{ background: 'linear-gradient(135deg,#f3efff,#fff)', border: '1px solid #e3dcff', borderRadius: 14, padding: 14, marginBottom: 14 }}>
@@ -118,7 +135,10 @@ export default function Announcements() {
                     <Field label="متن اطلاعیه" err={form.errors.body}>
                         <textarea className="input" rows="6" value={form.data.body} onChange={(e) => form.setData('body', e.target.value)} placeholder="متن اطلاعیه را بنویسید یا با دکمه‌ی «بنویس» تولید کنید…" />
                     </Field>
-                    <button type="submit" disabled={form.processing} className="btn" style={{ width: '100%' }}>📤 ارسال اطلاعیه</button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <button type="submit" disabled={form.processing} className="btn" style={{ flex: 1 }}>{editingId ? '💾 ذخیره‌ی ویرایش' : '📤 ارسال اطلاعیه'}</button>
+                        {editingId && <button type="button" onClick={cancelEdit} className="btn btn-ghost">انصراف</button>}
+                    </div>
                 </form>
 
                 {/* فهرست اطلاعیه‌ها */}
@@ -127,16 +147,27 @@ export default function Announcements() {
                         <h3 style={{ margin: 0 }}>🗂️ ارسال‌شده ({fa(announcements.length)})</h3>
                         <input className="input" value={listSearch} onChange={(e) => setListSearch(e.target.value)} placeholder="🔍 جست‌وجو…" style={{ marginInlineStart: 'auto', width: 'auto', maxWidth: 180, padding: '8px 12px' }} />
                     </div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
                         {[['all', 'همه'], ['public', '📢 عمومی'], ['personal', '✉️ شخصی']].map(([v, t]) => (
                             <button key={v} onClick={() => setListFilter(v)} className={`tag ${listFilter === v ? 'tag-warn' : 'tag-info'}`} style={{ cursor: 'pointer', border: 0, fontFamily: 'inherit', padding: '7px 13px' }}>{t}</button>
                         ))}
                     </div>
+                    {/* فیلتر بازه‌ی تاریخ */}
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12, fontSize: 13, color: 'var(--muted)' }}>
+                        <span>از:</span><input type="date" className="input" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ width: 'auto', padding: '7px 9px' }} />
+                        <span>تا:</span><input type="date" className="input" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ width: 'auto', padding: '7px 9px' }} />
+                        {(dateFrom || dateTo) && <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="btn btn-ghost btn-sm">پاک کردن</button>}
+                    </div>
                     {filteredList.length === 0 && <p style={{ color: 'var(--muted)' }}>موردی برای نمایش نیست.</p>}
                     {filteredList.map((a) => (
-                        <div key={a.id} style={{ border: '1px solid var(--line)', borderRadius: 14, padding: 14, marginBottom: 10, position: 'relative' }}>
-                            <button onClick={() => del(a.id)} title="حذف" style={{ position: 'absolute', top: 10, insetInlineStart: 10, border: 0, background: 'none', color: '#e8505b', cursor: 'pointer', fontSize: 15 }}>✕</button>
-                            <div style={{ fontWeight: 800 }}>{a.title}</div>
+                        <div key={a.id} style={{ border: '1px solid var(--line)', borderRadius: 14, padding: 14, marginBottom: 10 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                                <div style={{ fontWeight: 800 }}>{a.title}</div>
+                                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                                    <button onClick={() => startEdit(a)} title="ویرایش" style={{ border: 0, background: 'none', cursor: 'pointer', fontSize: 15 }}>✏️</button>
+                                    <button onClick={() => del(a.id)} title="حذف" style={{ border: 0, background: 'none', color: '#e8505b', cursor: 'pointer', fontSize: 15 }}>🗑️</button>
+                                </div>
+                            </div>
                             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '6px 0' }}>
                                 <span className="tag tag-info">{a.audience}</span>
                                 {a.grade && <span className="tag tag-warn">پایه {a.grade}</span>}
