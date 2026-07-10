@@ -86,8 +86,8 @@ export default function Edit() {
                             <Field label="کد ملی" err={info.errors.national_id}>
                                 <input className="input" value={info.data.national_id} onChange={(e) => info.setData('national_id', e.target.value)} placeholder="۱۰ رقم" inputMode="numeric" />
                             </Field>
-                            <Field label="تاریخ تولد" err={info.errors.birth_date}>
-                                <input className="input" value={info.data.birth_date} onChange={(e) => info.setData('birth_date', e.target.value)} placeholder="مثلاً ۱۳۹۲/۰۵/۱۴" />
+                            <Field label={`تاریخ تولد${profile.jbirth ? ` (${profile.jbirth})` : ''}`} err={info.errors.birth_date}>
+                                <input type="date" className="input" value={info.data.birth_date || ''} onChange={(e) => info.setData('birth_date', e.target.value)} />
                             </Field>
                             <Field label="ایمیل (اختیاری)" err={info.errors.email}>
                                 <input className="input" value={info.data.email} onChange={(e) => info.setData('email', e.target.value)} dir="ltr" />

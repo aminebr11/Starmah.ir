@@ -16,6 +16,7 @@ class DashboardController extends Controller
     public function __invoke(Request $request, ThemeEngine $engine): Response
     {
         $user = $request->user();
+        app(\App\Services\BirthdayService::class)->runForSchool($user->school_id);
         $theme = $engine->for($user);
         $classroom = $user->classrooms()->with('teacher')->first();
 

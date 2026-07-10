@@ -17,6 +17,7 @@ class TeacherDashboardController extends Controller
     public function index(Request $request): Response
     {
         $teacher = $request->user();
+        app(\App\Services\BirthdayService::class)->runForSchool($teacher->school_id);
 
         $classrooms = Classroom::withCount('students')
             ->where('teacher_id', $teacher->id)
