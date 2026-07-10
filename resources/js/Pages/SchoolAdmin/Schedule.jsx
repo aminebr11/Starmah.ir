@@ -30,12 +30,15 @@ export default function Schedule() {
                                     <div key={i} className="sched-day">
                                         <div className="sched-day-head">{d}</div>
                                         {(c.entries[i] ?? []).map((e) => {
+                                            if (e.kind === 'recess') {
+                                                return <div key={e.id} className="sched-recess">☕ {e.title}{e.time && <span dir="ltr" style={{ opacity: .8, fontSize: 10, display: 'block' }}>{fa(e.time)}</span>}</div>;
+                                            }
                                             const [bg, fg] = colorFor(e.title);
                                             return (
                                                 <div key={e.id} className="sched-card" style={{ background: bg, color: fg, borderColor: fg + '33' }}>
                                                     {e.period && <span className="sched-period">زنگ {fa(e.period)}</span>}
                                                     <div style={{ fontWeight: 800, fontSize: 13 }}>{e.title}</div>
-                                                    {e.time && <div style={{ fontSize: 11, opacity: .85 }}>⏰ {e.time}</div>}
+                                                    {e.time && <div style={{ fontSize: 11, opacity: .85 }}>⏰ <span dir="ltr" style={{ display: 'inline-block' }}>{fa(e.time)}</span></div>}
                                                 </div>
                                             );
                                         })}

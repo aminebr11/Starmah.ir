@@ -56,16 +56,48 @@ class ScheduleController extends Controller
         $classroom = Classroom::where('teacher_id', $request->user()->id)->firstOrFail();
         $data = $request->validate([
             'day_of_week' => ['required', 'integer', 'min:0', 'max:6'],
-            'title'       => ['required', 'string', 'max:80'],
-            'time_range'  => ['nullable', 'string', 'max:40'],
+            'kind'        => ['required', 'in:class,recess'],
+            'title'       => ['nullable', 'string', 'max:80'],
+            'start_time'  => ['required', 'date_format:H:i'],
+            'end_time'    => ['required', 'date_format:H:i', 'after:start_time'],
             'period'      => ['nullable', 'integer', 'min:1', 'max:12'],
         ]);
+
+        $title = $data['kind'] === 'recess' ? ($data['title'] ?: 'زنگ تفریح') : $data['title'];
+        if ($data['kind'] === 'class' && empty($title)) {
+            return back()->withErrors(['title' => 'برای درس، عنوان لازم است.']);
+        }
+
+        // 🔔 هشدار تداخل: بررسی هم‌پوشانیِ زمانی با برنامه‌های همان روز
+        $newStart = $this->toMinutes($data['start_time']);
+        $newEnd = $this->toMinutes($data['end_time']);
+        $overlap = ScheduleEntry::where('classroom_id', $classroom->id)
+            ->where('day_of_week', $data['day_of_week'])
+            ->whereNotNull('start_time')->whereNotNull('end_time')->get()
+            ->first(fn ($e) => $newStart < $this->toMinutes($e->end_time) && $newEnd > $this->toMinutes($e->start_time));
+        if ($overlap) {
+            return back()->withErrors(['start_time' => "⏰ در این بازه، «{$overlap->title}» ({$overlap->time_range}) از قبل ثبت شده است."]);
+        }
+
         ScheduleEntry::create([
             'school_id'    => $request->user()->school_id,
             'classroom_id' => $classroom->id,
-            ...$data,
+            'day_of_week'  => $data['day_of_week'],
+            'kind'         => $data['kind'],
+            'title'        => $title,
+            'start_time'   => $data['start_time'],
+            'end_time'     => $data['end_time'],
+            'time_range'   => $data['start_time'] . ' - ' . $data['end_time'],
+            'period'       => $data['period'] ?? null,
         ]);
+
         return back()->with('flash', 'به برنامه اضافه شد ✅');
+    }
+
+    private function toMinutes(string $hm): int
+    {
+        [$h, $m] = array_map('intval', explode(':', $hm) + [1 => 0]);
+        return $h * 60 + $m;
     }
 
     public function destroy(Request $request, ScheduleEntry $scheduleEntry): RedirectResponse
@@ -94,10 +126,11 @@ class ScheduleController extends Controller
             return [];
         }
         return ScheduleEntry::where('classroom_id', $classroom->id)
-            ->orderBy('day_of_week')->orderBy('period')->get()
+            ->orderBy('day_of_week')->orderByRaw('start_time IS NULL, start_time')->orderBy('period')->get()
             ->groupBy('day_of_week')
             ->map(fn ($g) => $g->map(fn ($e) => [
                 'id' => $e->id, 'title' => $e->title, 'time' => $e->time_range, 'period' => $e->period,
+                'kind' => $e->kind ?? 'class', 'start' => $e->start_time, 'end' => $e->end_time,
             ])->values())
             ->toArray();
     }
