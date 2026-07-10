@@ -51,7 +51,7 @@ class SchoolDashboardController extends Controller
             ->map(function ($s) {
                 $class = $s->classrooms()->with('teacher:id,name')->first();
                 return [
-                    'id' => $s->id, 'name' => $s->name, 'phone' => $s->phone,
+                    'id' => $s->id, 'name' => $s->name, 'phone' => $s->phone, 'national_id' => $s->national_id,
                     'class' => $class?->name, 'teacher' => $class?->teacher?->name,
                     'xp' => $s->totalXp(),
                 ];

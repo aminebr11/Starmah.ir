@@ -1,4 +1,4 @@
-import { usePage, useForm } from '@inertiajs/react';
+import { usePage, useForm, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import DashLayout, { schoolMenu } from '@/Layouts/DashLayout';
 
@@ -11,6 +11,12 @@ export default function Teachers() {
 
     const { data, setData, post, processing, errors, reset } = useForm({ name: '', phone: '', class_name: '', grade: '', password: '' });
     const submit = (e) => { e.preventDefault(); post(route('school.teachers.store'), { preserveScroll: true, onSuccess: () => reset() }); };
+
+    const edit = useForm({ name: '', phone: '', class_name: '', grade: '', password: '' });
+    const [editId, setEditId] = useState(null);
+    const startEdit = (t) => { setEditId(t.id); edit.setData({ name: t.name || '', phone: t.phone || '', class_name: t.class_name || '', grade: t.grade || '', password: '' }); edit.clearErrors(); };
+    const saveEdit = (e) => { e.preventDefault(); edit.put(route('manage.users.update', editId), { preserveScroll: true, onSuccess: () => setEditId(null) }); };
+    const delTeacher = (t) => { if (confirm(`معلم «${t.name}» و کلاسش حذف شود؟ این کار برگشت‌ناپذیر است.`)) router.delete(route('manage.users.destroy', t.id), { preserveScroll: true }); };
 
     const gradeBooks = data.grade ? (booksByGrade[data.grade] || []) : [];
     const [tq, setTq] = useState('');
@@ -62,12 +68,39 @@ export default function Teachers() {
                     {teachers.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز معلمی ساخته نشده.</p>}
                     {teachers.length > 0 && shownTeachers.length === 0 && <p style={{ color: 'var(--muted)' }}>معلمی با این نام پیدا نشد.</p>}
                     {shownTeachers.map((t) => (
-                        <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
-                            <div><div style={{ fontWeight: 800 }}>{t.name}</div><div style={{ color: 'var(--muted)', fontSize: 13 }}>{t.phone} · {t.class_name ?? 'بدون کلاس'}{t.grade ? ` · پایه ${t.grade}` : ''}</div></div>
-                            <div style={{ textAlign: 'left' }}>
-                                <span className="tag tag-info">کد: {t.join_code}</span>
-                                <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>{fa(t.students)} دانش‌آموز</div>
+                        <div key={t.id} style={{ padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                                <div><div style={{ fontWeight: 800 }}>{t.name}</div><div style={{ color: 'var(--muted)', fontSize: 13 }}>{t.phone} · {t.class_name ?? 'بدون کلاس'}{t.grade ? ` · پایه ${t.grade}` : ''}</div></div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <div style={{ textAlign: 'left' }}>
+                                        <span className="tag tag-info">کد: {t.join_code}</span>
+                                        <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>{fa(t.students)} دانش‌آموز</div>
+                                    </div>
+                                    <button onClick={() => (editId === t.id ? setEditId(null) : startEdit(t))} className="btn btn-ghost btn-sm" title="ویرایش">✏️</button>
+                                    <button onClick={() => delTeacher(t)} className="btn btn-ghost btn-sm" title="حذف" style={{ color: '#e8505b' }}>🗑️</button>
+                                </div>
                             </div>
+
+                            {editId === t.id && (
+                                <form onSubmit={saveEdit} style={{ marginTop: 12, background: 'var(--cream)', borderRadius: 12, padding: 14 }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                        <Field label="نام معلم" err={edit.errors.name}><input className="input" value={edit.data.name} onChange={(e) => edit.setData('name', e.target.value)} /></Field>
+                                        <Field label="موبایل" err={edit.errors.phone}><input className="input" value={edit.data.phone} onChange={(e) => edit.setData('phone', e.target.value)} dir="ltr" /></Field>
+                                        <Field label="نام کلاس" err={edit.errors.class_name}><input className="input" value={edit.data.class_name} onChange={(e) => edit.setData('class_name', e.target.value)} /></Field>
+                                        <Field label="پایه" err={edit.errors.grade}>
+                                            <select className="input" value={edit.data.grade} onChange={(e) => edit.setData('grade', e.target.value)}>
+                                                <option value="">— انتخاب پایه —</option>
+                                                {grades.map((g) => <option key={g} value={g}>{g}</option>)}
+                                            </select>
+                                        </Field>
+                                        <Field label="رمز جدید (اختیاری)" err={edit.errors.password}><input className="input" value={edit.data.password} onChange={(e) => edit.setData('password', e.target.value)} placeholder="بدون تغییر" /></Field>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                                        <button type="submit" disabled={edit.processing} className="btn btn-sm">💾 ذخیره</button>
+                                        <button type="button" onClick={() => setEditId(null)} className="btn btn-ghost btn-sm">انصراف</button>
+                                    </div>
+                                </form>
+                            )}
                         </div>
                     ))}
                 </div>

@@ -109,6 +109,8 @@ class TeacherDashboardController extends Controller
         $students = $classroom->students()->get()->map(fn ($s) => [
             'id'   => $s->id,
             'name' => $s->name,
+            'phone' => $s->phone,
+            'national_id' => $s->national_id,
             'xp'   => $s->totalXp(),
             'avg'  => (int) round($s->skillMastery()->avg('mastery') ?? 0),
         ])->sortByDesc('xp')->values();
@@ -117,5 +119,15 @@ class TeacherDashboardController extends Controller
             'classroom' => ['id' => $classroom->id, 'name' => $classroom->name, 'join_code' => $classroom->join_code],
             'students'  => $students,
         ]);
+    }
+
+    /** میان‌بر: کلاسِ خودِ معلم (برای منوی «دانش‌آموزان من»). */
+    public function myClass(Request $request): Response
+    {
+        $classroom = Classroom::where('teacher_id', $request->user()->id)->first();
+        if (! $classroom) {
+            return Inertia::render('Teacher/Classroom', ['classroom' => null, 'students' => []]);
+        }
+        return $this->show($request, $classroom);
     }
 }

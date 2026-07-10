@@ -1,4 +1,4 @@
-import { usePage, router } from '@inertiajs/react';
+import { usePage, router, Link } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
 
@@ -87,9 +87,9 @@ export default function Schools() {
             <div className="panel">
                 <h3>🏫 مدارس ({fa(schools.length)})</h3>
                 <table className="tbl">
-                    <thead><tr><th>نام</th><th>شهر</th><th>طرح</th><th>انقضا</th><th>کاربر</th><th>کلاس</th><th>تغییر طرح</th></tr></thead>
+                    <thead><tr><th>نام</th><th>شهر</th><th>طرح</th><th>انقضا</th><th>کاربر</th><th>کلاس</th><th>تغییر طرح</th><th>مدیریت</th></tr></thead>
                     <tbody>
-                        {schools.length === 0 && <tr><td colSpan="7" style={{ color: 'var(--muted)' }}>مدرسه‌ای ثبت نشده.</td></tr>}
+                        {schools.length === 0 && <tr><td colSpan="8" style={{ color: 'var(--muted)' }}>مدرسه‌ای ثبت نشده.</td></tr>}
                         {schools.map((s) => (
                             <tr key={s.id}>
                                 <td style={{ fontWeight: 700 }}>{s.name}</td><td>{s.city ?? '—'}</td>
@@ -102,6 +102,7 @@ export default function Schools() {
                                         {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                                     </select>
                                 </td>
+                                <td><Link href={route('admin.schools.manage', s.id)} className="btn btn-ghost btn-sm">👁️ مدیریت</Link></td>
                             </tr>
                         ))}
                     </tbody>

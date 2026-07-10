@@ -88,6 +88,7 @@ export const schoolMenu = [
 
 export const teacherMenu = [
     { key: 'home', label: 'پیشخوان', icon: '📊', href: '/teacher' },
+    { key: 'class', label: 'دانش‌آموزان من', icon: '🎓', href: '/teacher/students' },
     { key: 'attendance', label: 'حضور و غیاب', icon: '✅', href: '/teacher/attendance' },
     { key: 'attreport', label: 'گزارش حضور و غیاب', icon: '📋', href: '/teacher/attendance-report' },
     { key: 'schedule', label: 'برنامه کلاسی', icon: '🗓️', href: '/teacher/schedule' },

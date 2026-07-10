@@ -42,6 +42,7 @@ Route::middleware('guest')->group(function () {
 Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [PlatformController::class, 'overview'])->name('overview');
     Route::get('/schools', [SchoolApprovalController::class, 'index'])->name('schools');
+    Route::get('/schools/{school}/manage', [\App\Http\Controllers\Admin\SchoolManageController::class, 'show'])->name('schools.manage');
     Route::post('/schools/requests/{schoolRequest}/approve', [SchoolApprovalController::class, 'approve'])->name('schools.approve');
     Route::post('/schools/requests/{schoolRequest}/reject', [SchoolApprovalController::class, 'reject'])->name('schools.reject');
     Route::post('/schools/{school}/plan', [SchoolApprovalController::class, 'updatePlan'])->name('schools.plan');
@@ -116,6 +117,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::get('/attendance/monthly-sheet', [\App\Http\Controllers\AttendanceController::class, 'monthlySheet'])->name('attendance.monthly');
     Route::get('/attendance-report', [\App\Http\Controllers\AttendanceReportController::class, 'index'])->name('attendance.report');
     Route::get('/class/{classroom}', [TeacherDashboardController::class, 'show'])->name('classroom');
+    Route::get('/students', [TeacherDashboardController::class, 'myClass'])->name('students');
     Route::get('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'index'])->name('activities');
     Route::post('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'store'])->name('activities.store');
     Route::post('/activities/{classActivity}/award', [\App\Http\Controllers\Teacher\ActivityController::class, 'award'])->name('activities.award');
@@ -153,6 +155,12 @@ Route::middleware('auth')->group(function () {
 
     // کارتابل اعلان‌ها/پیام‌ها (معلم و دانش‌آموز)
     Route::get('/notices', \App\Http\Controllers\NoticeController::class)->name('notices');
+
+    // مدیریت کاربران و کلاس‌ها (کنترل دسترسی نقش‌محور داخل کنترلر)
+    Route::put('/manage/users/{user}', [\App\Http\Controllers\ManagementController::class, 'updateUser'])->name('manage.users.update');
+    Route::delete('/manage/users/{user}', [\App\Http\Controllers\ManagementController::class, 'destroyUser'])->name('manage.users.destroy');
+    Route::put('/manage/classrooms/{classroom}', [\App\Http\Controllers\ManagementController::class, 'updateClassroom'])->name('manage.classrooms.update');
+    Route::delete('/manage/classrooms/{classroom}', [\App\Http\Controllers\ManagementController::class, 'destroyClassroom'])->name('manage.classrooms.destroy');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update');
