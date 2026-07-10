@@ -81,12 +81,14 @@ export const schoolMenu = [
     { key: 'students', label: 'دانش‌آموزان', icon: '🎓', href: '/school/students' },
     { key: 'schedule', label: 'برنامه‌ی کلاس‌ها', icon: '🗓️', href: '/school/schedule' },
     { key: 'announcements', label: 'اطلاعیه‌ها', icon: '📢', href: '/school/announcements' },
+    { key: 'attreport', label: 'گزارش حضور و غیاب', icon: '📋', href: '/school/attendance-report' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/school/reports' },
 ];
 
 export const teacherMenu = [
     { key: 'home', label: 'پیشخوان', icon: '📊', href: '/teacher' },
     { key: 'attendance', label: 'حضور و غیاب', icon: '✅', href: '/teacher/attendance' },
+    { key: 'attreport', label: 'گزارش حضور و غیاب', icon: '📋', href: '/teacher/attendance-report' },
     { key: 'schedule', label: 'برنامه کلاسی', icon: '🗓️', href: '/teacher/schedule' },
     { key: 'gradebook', label: 'دفتر کلاسی', icon: '📔', href: '/teacher/gradebook' },
     { key: 'exams', label: 'آزمون‌ها', icon: '📝', href: '/teacher/exams' },

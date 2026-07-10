@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\PlatformController;
 use App\Http\Controllers\Admin\SchoolApprovalController;
+use App\Http\Controllers\ExamController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\SchoolAdmin\SchoolDashboardController;
@@ -77,6 +78,7 @@ Route::middleware(['auth', 'role:school_admin'])->prefix('school')->name('school
     Route::post('/announcements/ai', [SchoolDashboardController::class, 'aiAnnouncement'])->name('announcements.ai');
     Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'schoolView'])->name('schedule');
     Route::get('/reports', [SchoolDashboardController::class, 'reports'])->name('reports');
+    Route::get('/attendance-report', [\App\Http\Controllers\AttendanceReportController::class, 'index'])->name('attendance.report');
 });
 
 /* ---------------- دانش‌آموز ---------------- */
@@ -103,6 +105,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     // حضور و غیاب
     Route::get('/attendance', [\App\Http\Controllers\Teacher\AttendanceController::class, 'index'])->name('attendance');
     Route::post('/attendance', [\App\Http\Controllers\Teacher\AttendanceController::class, 'store'])->name('attendance.store');
+    Route::get('/attendance-report', [\App\Http\Controllers\AttendanceReportController::class, 'index'])->name('attendance.report');
     Route::get('/class/{classroom}', [TeacherDashboardController::class, 'show'])->name('classroom');
     Route::get('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'index'])->name('activities');
     Route::post('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'store'])->name('activities.store');
@@ -129,6 +132,9 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::get('/exams', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'index'])->name('exams');
     Route::post('/exams/generate', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'generate'])->name('exams.generate');
     Route::post('/exams', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'store'])->name('exams.store');
+    Route::put('/exams/{assignment}', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'update'])->name('exams.update');
+    Route::delete('/exams/{assignment}', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'destroy'])->name('exams.destroy');
+    Route::get('/exams/{assignment}/report', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'report'])->name('exams.report');
 });
 
 /* ---------------- مشترک ---------------- */

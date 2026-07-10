@@ -5,7 +5,7 @@ import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 export default function Gradebook() {
-    const { classroom, students = [], columns = [], flash } = usePage().props;
+    const { classroom, subjects = [], students = [], columns = [], flash } = usePage().props;
     const [banner, setBanner] = useState(null);
     const [showCol, setShowCol] = useState(false);
     const [edits, setEdits] = useState({});
@@ -33,6 +33,14 @@ export default function Gradebook() {
             {showCol && (
                 <form onSubmit={addCol} className="panel no-print">
                     <h3>➕ ستون نمره‌ی جدید</h3>
+                    {subjects.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                            {subjects.map((s) => (
+                                <button type="button" key={s.name} className="tag tag-info" style={{ cursor: 'pointer', border: 0, fontFamily: 'inherit' }}
+                                    onClick={() => colForm.setData('title', s.name)}>{s.icon || '📘'} {s.name}</button>
+                            ))}
+                        </div>
+                    )}
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: 10, alignItems: 'end' }} className="sched-form">
                         <div className="field"><label>عنوان</label><input className="input" value={colForm.data.title} onChange={(e) => colForm.setData('title', e.target.value)} placeholder="مثلاً: آزمون ریاضی مهر" /></div>
                         <div className="field"><label>نوع</label>

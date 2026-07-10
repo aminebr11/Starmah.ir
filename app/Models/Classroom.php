@@ -21,4 +21,19 @@ class Classroom extends Model
         return $this->belongsToMany(User::class, 'classroom_student', 'classroom_id', 'student_id')
             ->withPivot('joined_at');
     }
+
+    /**
+     * درس‌های این کلاس از بانک درس‌های همان مقطع/پایه (منبع واحد برای همه‌ی بخش‌ها).
+     * @return array<int, array{name:string, icon:?string}>
+     */
+    public function subjectNames(): array
+    {
+        $level = $this->school?->level;
+        if (! $this->grade || ! $level) {
+            return [];
+        }
+        return CurriculumBook::where('level', $level)->where('grade', $this->grade)->where('is_active', true)
+            ->orderBy('sort')->get()
+            ->map(fn ($b) => ['name' => $b->name, 'icon' => $b->icon])->values()->all();
+    }
 }

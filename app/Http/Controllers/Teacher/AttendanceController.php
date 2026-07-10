@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Announcement;
 use App\Models\AttendanceRecord;
 use App\Models\Classroom;
+use App\Services\GamificationService;
 use App\Support\Jalali;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -68,7 +69,7 @@ class AttendanceController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, GamificationService $game): RedirectResponse
     {
         $teacher = $request->user();
         $classroom = Classroom::where('teacher_id', $teacher->id)->firstOrFail();
@@ -89,10 +90,15 @@ class AttendanceController extends Controller
             if (! in_array($r['student_id'], $studentIds, true)) {
                 continue;
             }
-            AttendanceRecord::updateOrCreate(
+            $record = AttendanceRecord::updateOrCreate(
                 ['classroom_id' => $classroom->id, 'student_id' => $r['student_id'], 'date' => $date],
                 ['school_id' => $teacher->school_id, 'status' => $r['status'], 'note' => $r['note'] ?? null, 'recorded_by' => $teacher->id]
             );
+
+            // موتور واحد XP: امتیاز حضور و غیاب (idempotent؛ فقط هنگام ثبت یا تغییر وضعیت)
+            if ($record->wasRecentlyCreated || $record->wasChanged('status')) {
+                $game->awardForAttendance($record, $teacher);
+            }
 
             // اعلان غیبت به دانش‌آموز (بدون تکرار برای همان روز)
             if (in_array($r['status'], ['absent', 'late'], true)) {

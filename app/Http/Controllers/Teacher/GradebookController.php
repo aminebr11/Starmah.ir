@@ -32,6 +32,7 @@ class GradebookController extends Controller
 
         return Inertia::render('Teacher/Gradebook', [
             'classroom' => $classroom?->only('name'),
+            'subjects'  => $classroom ? $classroom->subjectNames() : [],
             'students'  => $students,
             'columns'   => $columns,
         ]);
