@@ -13,6 +13,8 @@ export default function Teachers() {
     const submit = (e) => { e.preventDefault(); post(route('school.teachers.store'), { preserveScroll: true, onSuccess: () => reset() }); };
 
     const gradeBooks = data.grade ? (booksByGrade[data.grade] || []) : [];
+    const [tq, setTq] = useState('');
+    const shownTeachers = teachers.filter((t) => !tq || (t.name || '').includes(tq) || (t.class_name || '').includes(tq) || (t.phone || '').includes(tq));
 
     return (
         <DashLayout title="معلم‌ها و کلاس‌ها" roleLabel="مدیر مدرسه" menu={schoolMenu} active="teachers">
@@ -53,9 +55,13 @@ export default function Teachers() {
                 </form>
 
                 <div className="panel">
-                    <h3>👩‍🏫 معلم‌ها ({fa(teachers.length)})</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                        <h3 style={{ margin: 0 }}>👩‍🏫 معلم‌ها ({fa(teachers.length)})</h3>
+                        <input className="input" value={tq} onChange={(e) => setTq(e.target.value)} placeholder="🔍 جست‌وجوی نام/کلاس…" style={{ marginInlineStart: 'auto', width: 'auto', maxWidth: 200, padding: '8px 12px' }} />
+                    </div>
                     {teachers.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز معلمی ساخته نشده.</p>}
-                    {teachers.map((t) => (
+                    {teachers.length > 0 && shownTeachers.length === 0 && <p style={{ color: 'var(--muted)' }}>معلمی با این نام پیدا نشد.</p>}
+                    {shownTeachers.map((t) => (
                         <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
                             <div><div style={{ fontWeight: 800 }}>{t.name}</div><div style={{ color: 'var(--muted)', fontSize: 13 }}>{t.phone} · {t.class_name ?? 'بدون کلاس'}{t.grade ? ` · پایه ${t.grade}` : ''}</div></div>
                             <div style={{ textAlign: 'left' }}>

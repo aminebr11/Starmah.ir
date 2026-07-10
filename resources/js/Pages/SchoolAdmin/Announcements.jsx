@@ -11,8 +11,18 @@ export default function Announcements() {
     const [topic, setTopic] = useState('');
     const [aiLoading, setAiLoading] = useState(false);
     const [search, setSearch] = useState('');
+    const [listFilter, setListFilter] = useState('all');
+    const [listSearch, setListSearch] = useState('');
 
     const form = useForm({ title: '', body: '', audience: 'all', grade: '', recipient_ids: [] });
+
+    const filteredList = announcements.filter((a) => {
+        const isPersonal = a.audience === 'پیام شخصی';
+        if (listFilter === 'personal' && !isPersonal) return false;
+        if (listFilter === 'public' && isPersonal) return false;
+        if (listSearch && !((a.title || '').includes(listSearch) || (a.body || '').includes(listSearch))) return false;
+        return true;
+    });
 
     const toggleRecipient = (id) => {
         const cur = form.data.recipient_ids;
@@ -113,9 +123,17 @@ export default function Announcements() {
 
                 {/* فهرست اطلاعیه‌ها */}
                 <div className="panel">
-                    <h3>🗂️ اطلاعیه‌های ارسال‌شده ({fa(announcements.length)})</h3>
-                    {announcements.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز اطلاعیه‌ای ارسال نشده.</p>}
-                    {announcements.map((a) => (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                        <h3 style={{ margin: 0 }}>🗂️ ارسال‌شده ({fa(announcements.length)})</h3>
+                        <input className="input" value={listSearch} onChange={(e) => setListSearch(e.target.value)} placeholder="🔍 جست‌وجو…" style={{ marginInlineStart: 'auto', width: 'auto', maxWidth: 180, padding: '8px 12px' }} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                        {[['all', 'همه'], ['public', '📢 عمومی'], ['personal', '✉️ شخصی']].map(([v, t]) => (
+                            <button key={v} onClick={() => setListFilter(v)} className={`tag ${listFilter === v ? 'tag-warn' : 'tag-info'}`} style={{ cursor: 'pointer', border: 0, fontFamily: 'inherit', padding: '7px 13px' }}>{t}</button>
+                        ))}
+                    </div>
+                    {filteredList.length === 0 && <p style={{ color: 'var(--muted)' }}>موردی برای نمایش نیست.</p>}
+                    {filteredList.map((a) => (
                         <div key={a.id} style={{ border: '1px solid var(--line)', borderRadius: 14, padding: 14, marginBottom: 10, position: 'relative' }}>
                             <button onClick={() => del(a.id)} title="حذف" style={{ position: 'absolute', top: 10, insetInlineStart: 10, border: 0, background: 'none', color: '#e8505b', cursor: 'pointer', fontSize: 15 }}>✕</button>
                             <div style={{ fontWeight: 800 }}>{a.title}</div>
