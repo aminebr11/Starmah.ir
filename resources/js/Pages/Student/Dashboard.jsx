@@ -6,7 +6,7 @@ import TeamHeader from '@/Components/TeamHeader';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 export default function Dashboard() {
-    const { auth, theme, me = {}, groups = [], sample } = usePage().props;
+    const { auth, theme, me = {}, groups = [], sample, notices = [] } = usePage().props;
     const w = (k, d = '') => theme?.narrative?.[k] ?? d;
     const skin = theme?.skin ?? {};
     const [picked, setPicked] = useState(null);
@@ -42,6 +42,25 @@ export default function Dashboard() {
                 <Stat b={me.rank_group ? `#${fa(me.rank_group)}` : '—'} s="رتبه در تیم" />
                 <Stat b={fa(me.badges ?? 0)} s="نشان" />
             </div>
+
+            {/* اعلان‌ها و پیام‌ها */}
+            {notices.length > 0 && (
+                <div style={{ ...card, marginTop: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                        <div style={{ fontWeight: 800 }}>📢 اعلان‌ها و پیام‌ها</div>
+                        <Link href="/notices" style={{ marginInlineStart: 'auto', color: 'var(--acc)', fontWeight: 700, fontSize: 13 }}>همه ←</Link>
+                    </div>
+                    {notices.map((n) => (
+                        <Link key={n.id} href="/notices" style={{ display: 'block', padding: '9px 0', borderTop: '1px solid rgba(255,255,255,.12)', color: 'inherit' }}>
+                            <div style={{ fontWeight: 700, fontSize: 14 }}>
+                                {n.personal ? '✉️ ' : '📢 '}{n.title}
+                                <span style={{ opacity: .7, fontWeight: 400, fontSize: 12, marginInlineStart: 6 }}>· {n.date}</span>
+                            </div>
+                            <div style={{ opacity: .82, fontSize: 12.5, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>{n.body}</div>
+                        </Link>
+                    ))}
+                </div>
+            )}
 
             {/* رقابت تیم‌ها */}
             <SectionTitle>🏆 رقابت تیم‌های کلاس</SectionTitle>

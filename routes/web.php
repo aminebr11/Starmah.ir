@@ -132,6 +132,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
     Route::post('/messages', [MessageController::class, 'store'])->name('messages.store');
 
+    // کارتابل اعلان‌ها/پیام‌ها (معلم و دانش‌آموز)
+    Route::get('/notices', \App\Http\Controllers\NoticeController::class)->name('notices');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');

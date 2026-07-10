@@ -51,12 +51,18 @@ export default function Dashboard() {
             {/* اطلاعیه‌های مدرسه */}
             {announcements.length > 0 && (
                 <div className="panel" style={{ marginTop: 20, borderColor: 'var(--gold)' }}>
-                    <h3>📢 اطلاعیه‌های مدرسه</h3>
+                    <h3>📢 اعلان‌ها و پیام‌ها
+                        <Link href="/notices" className="btn btn-ghost btn-sm" style={{ marginInlineStart: 'auto' }}>همه ←</Link>
+                    </h3>
                     {announcements.map((a) => (
-                        <div key={a.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
-                            <div style={{ fontWeight: 800 }}>{a.title} <span style={{ color: 'var(--muted-2)', fontWeight: 400, fontSize: 12 }}>· {fa(a.date)}</span></div>
-                            <div style={{ color: 'var(--muted)', fontSize: 13.5, whiteSpace: 'pre-wrap', marginTop: 2 }}>{a.body}</div>
-                        </div>
+                        <Link key={a.id} href="/notices" style={{ display: 'block', padding: '10px 0', borderBottom: '1px solid var(--line)', color: 'var(--ink)' }}>
+                            <div style={{ fontWeight: 800 }}>
+                                {a.personal ? '✉️ ' : '📢 '}{a.title}
+                                {a.personal && <span className="tag" style={{ marginInlineStart: 6, background: '#efe9ff', color: '#4c2fb0', fontSize: 11 }}>شخصی</span>}
+                                <span style={{ color: 'var(--muted-2)', fontWeight: 400, fontSize: 12, marginInlineStart: 6 }}>· {a.date}</span>
+                            </div>
+                            <div style={{ color: 'var(--muted)', fontSize: 13.5, whiteSpace: 'pre-wrap', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{a.body}</div>
+                        </Link>
                     ))}
                 </div>
             )}

@@ -44,7 +44,19 @@ class HandleInertiaRequests extends Middleware
             'flash' => ['flash' => fn () => $request->session()->get('flash')],
             // اعلان‌های زنگوله‌ی دانش‌آموز: موارد انضباطی ۲۴ ساعت اخیر
             'notifications' => fn () => $this->studentNotifications($user),
+            // شمار پیام‌های شخصیِ خوانده‌نشده (برای نشان روی منوی اعلان‌ها)
+            'unreadNotices' => fn () => $this->unreadNotices($user),
         ];
+    }
+
+    /** تعداد پیام‌های شخصیِ خوانده‌نشده‌ی کاربر. */
+    private function unreadNotices($user): int
+    {
+        if (! $user) {
+            return 0;
+        }
+        return \Illuminate\Support\Facades\DB::table('announcement_recipients')
+            ->where('user_id', $user->id)->whereNull('read_at')->count();
     }
 
     /** موارد انضباطی ۲۴ ساعت اخیر برای زنگوله‌ی دانش‌آموز. */

@@ -7,6 +7,7 @@ use App\Models\Announcement;
 use App\Models\Classroom;
 use App\Models\User;
 use App\Services\AiContentService;
+use App\Support\Jalali;
 use App\Support\Levels;
 use App\Support\Roles;
 use Illuminate\Http\RedirectResponse;
@@ -62,19 +63,27 @@ class SchoolDashboardController extends Controller
     public function announcements(Request $request): Response
     {
         $schoolId = $request->user()->school_id;
-        $audienceFa = ['teachers' => 'معلم‌ها', 'students' => 'دانش‌آموزان', 'all' => 'همه'];
+        $audienceFa = ['teachers' => 'معلم‌ها', 'students' => 'دانش‌آموزان', 'all' => 'همه', 'personal' => 'پیام شخصی'];
 
-        $list = Announcement::where('school_id', $schoolId)->with('sender:id,name')->latest()->get()
+        $list = Announcement::where('school_id', $schoolId)->with('sender:id,name', 'recipients:id,name')->latest()->get()
             ->map(fn ($a) => [
                 'id' => $a->id, 'title' => $a->title, 'body' => $a->body,
                 'audience' => $audienceFa[$a->audience] ?? $a->audience,
                 'grade' => $a->grade, 'sender' => $a->sender?->name,
-                'date' => $a->created_at?->format('Y/m/d'),
+                'recipients' => $a->audience === 'personal' ? $a->recipients->pluck('name')->all() : [],
+                'date' => Jalali::format($a->created_at),
             ]);
+
+        // فهرست افراد برای پیام شخصی (معلم‌ها و دانش‌آموزان مدرسه)
+        $people = User::where('school_id', $schoolId)
+            ->whereHas('roles', fn ($q) => $q->whereIn('name', [Roles::TEACHER, Roles::STUDENT]))
+            ->orderBy('name')->get()
+            ->map(fn ($u) => ['id' => $u->id, 'name' => $u->name, 'role' => $u->getRoleNames()->first()]);
 
         return Inertia::render('SchoolAdmin/Announcements', [
             'announcements' => $list,
-            'grades' => Levels::grades($request->user()->school?->level),
+            'people'  => $people->values(),
+            'grades'  => Levels::grades($request->user()->school?->level),
             'aiReady' => app(AiContentService::class)->isConfigured(),
         ]);
     }
@@ -82,17 +91,33 @@ class SchoolDashboardController extends Controller
     public function storeAnnouncement(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'title'    => ['required', 'string', 'max:120'],
-            'body'     => ['required', 'string', 'max:3000'],
-            'audience' => ['required', 'in:teachers,students,all'],
-            'grade'    => ['nullable', 'string', 'max:30'],
+            'title'          => ['required', 'string', 'max:120'],
+            'body'           => ['required', 'string', 'max:3000'],
+            'audience'       => ['required', 'in:teachers,students,all,personal'],
+            'grade'          => ['nullable', 'string', 'max:30'],
+            'recipient_ids'  => ['nullable', 'array'],
+            'recipient_ids.*'=> ['integer'],
         ]);
 
-        Announcement::create([
+        if ($data['audience'] === 'personal' && empty($data['recipient_ids'])) {
+            return back()->withErrors(['recipient_ids' => 'برای پیام شخصی حداقل یک نفر را انتخاب کنید.']);
+        }
+
+        $announcement = Announcement::create([
             'school_id' => $request->user()->school_id,
             'sender_id' => $request->user()->id,
-            ...$data,
+            'title'     => $data['title'],
+            'body'      => $data['body'],
+            'audience'  => $data['audience'],
+            'grade'     => $data['audience'] === 'personal' ? null : ($data['grade'] ?? null),
         ]);
+
+        if ($data['audience'] === 'personal') {
+            // فقط افراد همین مدرسه
+            $ids = User::where('school_id', $request->user()->school_id)
+                ->whereIn('id', $data['recipient_ids'])->pluck('id')->all();
+            $announcement->recipients()->sync($ids);
+        }
 
         return back()->with('flash', 'اطلاعیه ارسال شد ✅');
     }
@@ -109,7 +134,7 @@ class SchoolDashboardController extends Controller
     {
         $data = $request->validate(['topic' => ['required', 'string', 'max:300']]);
         try {
-            $text = $ai->generate('یک اطلاعیه‌ی مدرسه درباره‌ی این موضوع بنویس: ' . $data['topic']);
+            $text = $ai->generate('یک اطلاعیه‌ی مدرسه‌ی کوتاه و رسمی درباره‌ی این موضوع بنویس: ' . $data['topic'], $data['topic']);
             return back()->with('flash', ['type' => 'ai', 'message' => $text]);
         } catch (\Throwable $e) {
             return back()->with('flash', ['type' => 'error', 'message' => $e->getMessage()]);

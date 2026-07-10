@@ -8,7 +8,7 @@ import { useState } from 'react';
  * props: title, roleLabel, menu:[{key,label,icon,href}], active, children
  */
 export default function DashLayout({ title, roleLabel, menu = [], active = '', children, actions = null }) {
-    const { auth } = usePage().props;
+    const { auth, unreadNotices = 0 } = usePage().props;
     const [open, setOpen] = useState(false);
 
     return (
@@ -24,6 +24,7 @@ export default function DashLayout({ title, roleLabel, menu = [], active = '', c
                     {menu.map((m) => (
                         <Link key={m.key} href={m.href} className={active === m.key ? 'active' : ''} onClick={() => setOpen(false)}>
                             <span className="ic">{m.icon}</span>{m.label}
+                            {m.key === 'notices' && unreadNotices > 0 && <span className="nav-badge">{unreadNotices}</span>}
                         </Link>
                     ))}
                     <Link href={route('profile.edit')} className={active === 'profile' ? 'active' : ''} onClick={() => setOpen(false)}>
@@ -83,6 +84,7 @@ export const teacherMenu = [
     { key: 'schedule', label: 'برنامه کلاسی', icon: '🗓️', href: '/teacher/schedule' },
     { key: 'gradebook', label: 'دفتر نمره', icon: '📔', href: '/teacher/gradebook' },
     { key: 'discipline', label: 'انضباط', icon: '⭐', href: '/teacher/discipline' },
+    { key: 'notices', label: 'اعلان‌ها', icon: '📢', href: '/notices' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/teacher/reports' },
     { key: 'materials', label: 'مطالب و محتوا', icon: '📚', href: '/teacher/materials' },
 ];

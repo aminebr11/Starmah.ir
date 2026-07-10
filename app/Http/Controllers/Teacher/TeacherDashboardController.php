@@ -7,6 +7,7 @@ use App\Models\Announcement;
 use App\Models\Assignment;
 use App\Models\Classroom;
 use App\Models\DisciplineRecord;
+use App\Support\Jalali;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -25,11 +26,12 @@ class TeacherDashboardController extends Controller
                 'join_code' => $c->join_code, 'students' => $c->students_count,
             ]);
 
-        $announcements = Announcement::whereIn('audience', ['teachers', 'all'])
+        $announcements = Announcement::forUser($teacher)
             ->with('sender:id,name')->latest()->limit(5)->get()
             ->map(fn ($a) => [
                 'id' => $a->id, 'title' => $a->title, 'body' => $a->body,
-                'sender' => $a->sender?->name, 'date' => $a->created_at?->format('Y/m/d'),
+                'personal' => $a->audience === 'personal',
+                'sender' => $a->sender?->name, 'date' => Jalali::format($a->created_at),
             ]);
 
         return Inertia::render('Teacher/Dashboard', [
@@ -80,7 +82,7 @@ class TeacherDashboardController extends Controller
             ->map(fn ($r) => [
                 'student' => $r->student?->name, 'type' => $r->type,
                 'points' => $r->points, 'note' => $r->note,
-                'date' => $r->created_at?->format('Y/m/d'),
+                'date' => Jalali::format($r->created_at),
             ]);
 
         return Inertia::render('Teacher/Discipline', [

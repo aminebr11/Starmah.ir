@@ -9,7 +9,7 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
  * لوگوی سایت بالا قرار دارد. ریسپانسیو.
  */
 export default function ThemedDash({ title, active = '', children, actions = null }) {
-    const { auth, theme, notifications = [] } = usePage().props;
+    const { auth, theme, notifications = [], unreadNotices = 0 } = usePage().props;
     const skin = theme?.skin ?? {};
     const vars = useMemo(() => cssVars(skin), [theme?.id]);
     const [open, setOpen] = useState(false);
@@ -23,6 +23,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
         { key: 'progress', label: 'کارنامه‌ی من', icon: '📈', href: '/progress' },
         { key: 'discipline', label: 'موارد انضباطی', icon: '⭐', href: '/my-discipline' },
         { key: 'schedule', label: 'برنامه کلاسی', icon: '🗓️', href: '/schedule' },
+        { key: 'notices', label: 'اعلان‌ها', icon: '📢', href: '/notices' },
         { key: 'messages', label: 'پیام‌ها', icon: '💌', href: '/messages' },
         { key: 'profile', label: 'پروفایل من', icon: '👤', href: '/profile' },
     ];
@@ -41,6 +42,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
                         <Link key={m.key} href={m.href} className={active === m.key ? 'active' : ''} onClick={() => setOpen(false)}
                             style={active === m.key ? { background: 'linear-gradient(135deg,var(--p1),var(--p2))', color: '#fff' } : {}}>
                             <span className="ic">{m.icon}</span>{m.label}
+                            {m.key === 'notices' && unreadNotices > 0 && <span className="nav-badge">{fa(unreadNotices)}</span>}
                         </Link>
                     ))}
                     <button onClick={() => router.post(route('logout'))}

@@ -36,7 +36,7 @@ class ProgressController extends Controller
                 'score'    => $r->score,
                 'max'      => $r->max_score,
                 'accuracy' => $r->accuracy,
-                'date'     => $r->created_at?->format('Y/m/d'),
+                'date'     => Jalali::format($r->created_at),
             ]);
 
         $discipline = DisciplineRecord::where('student_id', $user->id)->latest()->limit(10)->get()

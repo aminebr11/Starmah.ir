@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Teacher;
 use App\Http\Controllers\Controller;
 use App\Models\ClassContent;
 use App\Models\Classroom;
+use App\Support\Jalali;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -30,8 +31,8 @@ class ClassContentController extends Controller
                 'description' => $c->description,
                 'url'   => $c->file_path ? Storage::disk('public')->url($c->file_path) : $c->external_url,
                 'is_file' => (bool) $c->file_path,
-                'due_at'  => $c->due_at?->format('Y/m/d'),
-                'date'    => $c->created_at?->format('Y/m/d'),
+                'due_at'  => $c->due_at ? Jalali::format($c->due_at) : null,
+                'date'    => Jalali::format($c->created_at),
             ]);
 
         $classrooms = Classroom::where('teacher_id', $teacher->id)

@@ -32,18 +32,33 @@ class AiContentService
         return (bool) ($this->provider() === 'openai' ? $this->openaiKey() : $this->anthropicKey());
     }
 
-    /** تولید یک متن کوتاه از روی درخواست کاربر. در صورت نبود کلید، خطای قابل‌فهم می‌دهد. */
-    public function generate(string $prompt): string
+    /**
+     * تولید متن. اگر کلید واقعی تنظیم باشد از هوش مصنوعی استفاده می‌کند؛
+     * در غیر این صورت (یا در صورت خطای شبکه) یک «پیش‌نویس محلی» برمی‌گرداند تا دکمه همیشه کار کند.
+     */
+    public function generate(string $prompt, ?string $topic = null): string
     {
         $provider = $this->provider();
+        try {
+            if ($provider === 'openai' && $this->openaiKey()) {
+                return $this->viaOpenAI($this->openaiKey(), $prompt);
+            }
+            if ($this->anthropicKey()) {
+                return $this->viaClaude($this->anthropicKey(), $prompt);
+            }
+        } catch (\Throwable $e) {
+            // در صورت خطا به پیش‌نویس محلی می‌رویم
+        }
+        return $this->localDraft($topic ?: $prompt);
+    }
 
-        if ($provider === 'openai' && $this->openaiKey()) {
-            return $this->viaOpenAI($this->openaiKey(), $prompt);
-        }
-        if ($this->anthropicKey()) {
-            return $this->viaClaude($this->anthropicKey(), $prompt);
-        }
-        throw new \RuntimeException('کلید API هوش مصنوعی تنظیم نشده است. ادمین کل باید آن را در «تنظیمات پلتفرم» وارد کند.');
+    /** پیش‌نویس ساده‌ی محلی (بدون نیاز به کلید API). قابل ویرایش توسط کاربر. */
+    private function localDraft(string $topic): string
+    {
+        $topic = trim($topic);
+        return "اولیای گرامی و دانش‌آموزان عزیز،\n\n"
+            . "به اطلاع می‌رساند که «{$topic}». خواهشمند است موارد لازم را در نظر داشته باشید و در صورت هرگونه سؤال با دفتر مدرسه در تماس باشید.\n\n"
+            . "با احترام،\nمدیریت مدرسه";
     }
 
     private function systemPrompt(): string

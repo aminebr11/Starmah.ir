@@ -3,15 +3,22 @@ import { useState, useEffect } from 'react';
 import DashLayout, { schoolMenu } from '@/Layouts/DashLayout';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
-const AUD = [['all', '👥 همه'], ['teachers', '👩‍🏫 معلم‌ها'], ['students', '🎓 دانش‌آموزان']];
+const AUD = [['all', '👥 همه'], ['teachers', '👩‍🏫 معلم‌ها'], ['students', '🎓 دانش‌آموزان'], ['personal', '✉️ پیام شخصی']];
 
 export default function Announcements() {
-    const { announcements = [], grades = [], aiReady = false, flash } = usePage().props;
+    const { announcements = [], grades = [], people = [], aiReady = false, flash } = usePage().props;
     const [banner, setBanner] = useState(null);
     const [topic, setTopic] = useState('');
     const [aiLoading, setAiLoading] = useState(false);
+    const [search, setSearch] = useState('');
 
-    const form = useForm({ title: '', body: '', audience: 'all', grade: '' });
+    const form = useForm({ title: '', body: '', audience: 'all', grade: '', recipient_ids: [] });
+
+    const toggleRecipient = (id) => {
+        const cur = form.data.recipient_ids;
+        form.setData('recipient_ids', cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
+    };
+    const filteredPeople = people.filter((p) => p.name.includes(search));
 
     useEffect(() => {
         const f = flash?.flash;
@@ -27,7 +34,16 @@ export default function Announcements() {
     const genAI = () => {
         if (!topic.trim()) { alert('موضوع اطلاعیه را بنویسید'); return; }
         setAiLoading(true);
-        router.post(route('school.announcements.ai'), { topic }, { preserveScroll: true, onFinish: () => setAiLoading(false) });
+        router.post(route('school.announcements.ai'), { topic }, {
+            preserveState: true,   // مهم: تا عنوان/مخاطب پاک نشود
+            preserveScroll: true,
+            onSuccess: (page) => {
+                const f = page.props?.flash?.flash;
+                if (f?.type === 'ai') { form.setData('body', f.message); setBanner({ ok: true, msg: '✨ متن تولید شد — عنوان را هم پر کنید و ارسال بزنید.' }); }
+                else if (f?.type === 'error') setBanner({ ok: false, msg: f.message });
+            },
+            onFinish: () => setAiLoading(false),
+        });
     };
 
     return (
@@ -42,14 +58,11 @@ export default function Announcements() {
                     {/* دستیار هوش مصنوعی */}
                     <div style={{ background: 'linear-gradient(135deg,#f3efff,#fff)', border: '1px solid #e3dcff', borderRadius: 14, padding: 14, marginBottom: 14 }}>
                         <div style={{ fontWeight: 800, color: '#4c2fb0', marginBottom: 8 }}>🤖 نگارش با هوش مصنوعی</div>
-                        {aiReady ? (
-                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                <input className="input" style={{ flex: 1, minWidth: 180 }} value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="موضوع: مثلاً تعطیلی روز پنجشنبه" />
-                                <button type="button" onClick={genAI} disabled={aiLoading} className="btn btn-sm">{aiLoading ? 'در حال نوشتن…' : '✨ بنویس'}</button>
-                            </div>
-                        ) : (
-                            <div style={{ color: 'var(--muted)', fontSize: 13 }}>برای فعال‌سازی، ادمین کل باید کلید API را در «تنظیمات پلتفرم» وارد کند.</div>
-                        )}
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <input className="input" style={{ flex: 1, minWidth: 180 }} value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="موضوع: مثلاً تعطیلی روز پنجشنبه" />
+                            <button type="button" onClick={genAI} disabled={aiLoading} className="btn btn-sm">{aiLoading ? 'در حال نوشتن…' : '✨ بنویس'}</button>
+                        </div>
+                        {!aiReady && <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 6 }}>💡 برای کیفیت بهتر، ادمین کل کلید API را در «تنظیمات پلتفرم» وارد کند (فعلاً پیش‌نویس ساده تولید می‌شود).</div>}
                     </div>
 
                     <Field label="عنوان" err={form.errors.title}>
@@ -61,13 +74,37 @@ export default function Announcements() {
                                 {AUD.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                             </select>
                         </Field>
-                        <Field label="فقط یک پایه (اختیاری)">
-                            <select className="input" value={form.data.grade} onChange={(e) => form.setData('grade', e.target.value)}>
-                                <option value="">همه‌ی پایه‌ها</option>
-                                {grades.map((g) => <option key={g} value={g}>{g}</option>)}
-                            </select>
-                        </Field>
+                        {form.data.audience !== 'personal' && (
+                            <Field label="فقط یک پایه (اختیاری)">
+                                <select className="input" value={form.data.grade} onChange={(e) => form.setData('grade', e.target.value)}>
+                                    <option value="">همه‌ی پایه‌ها</option>
+                                    {grades.map((g) => <option key={g} value={g}>{g}</option>)}
+                                </select>
+                            </Field>
+                        )}
                     </div>
+
+                    {/* انتخاب گیرندگان برای پیام شخصی */}
+                    {form.data.audience === 'personal' && (
+                        <Field label={`گیرندگان (${fa(form.data.recipient_ids.length)} نفر انتخاب شده)`} err={form.errors.recipient_ids}>
+                            <input className="input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="🔍 جست‌وجوی نام…" style={{ marginBottom: 8 }} />
+                            <div style={{ maxHeight: 190, overflowY: 'auto', border: '1px solid var(--line)', borderRadius: 12, padding: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                {filteredPeople.length === 0 && <div style={{ color: 'var(--muted)', fontSize: 13, padding: 6 }}>کسی پیدا نشد.</div>}
+                                {filteredPeople.map((p) => {
+                                    const sel = form.data.recipient_ids.includes(p.id);
+                                    return (
+                                        <button type="button" key={p.id} onClick={() => toggleRecipient(p.id)}
+                                            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 10, cursor: 'pointer', textAlign: 'right', fontFamily: 'inherit',
+                                                border: sel ? '1px solid var(--gold)' : '1px solid transparent', background: sel ? '#fff8e8' : 'transparent' }}>
+                                            <span>{sel ? '✅' : (p.role === 'teacher' ? '👩‍🏫' : '🎓')}</span>
+                                            <span style={{ fontWeight: 700, flex: 1 }}>{p.name}</span>
+                                            <span className="tag tag-info" style={{ fontSize: 11 }}>{p.role === 'teacher' ? 'معلم' : 'دانش‌آموز'}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </Field>
+                    )}
                     <Field label="متن اطلاعیه" err={form.errors.body}>
                         <textarea className="input" rows="6" value={form.data.body} onChange={(e) => form.setData('body', e.target.value)} placeholder="متن اطلاعیه را بنویسید یا با دکمه‌ی «بنویس» تولید کنید…" />
                     </Field>
@@ -85,8 +122,11 @@ export default function Announcements() {
                             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '6px 0' }}>
                                 <span className="tag tag-info">{a.audience}</span>
                                 {a.grade && <span className="tag tag-warn">پایه {a.grade}</span>}
-                                <span style={{ color: 'var(--muted-2)', fontSize: 12, alignSelf: 'center' }}>{fa(a.date)}</span>
+                                <span style={{ color: 'var(--muted-2)', fontSize: 12, alignSelf: 'center' }}>{a.date}</span>
                             </div>
+                            {a.recipients?.length > 0 && (
+                                <div style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 4 }}>👥 {a.recipients.join('، ')}</div>
+                            )}
                             <div style={{ color: 'var(--muted)', fontSize: 13.5, whiteSpace: 'pre-wrap' }}>{a.body}</div>
                         </div>
                     ))}
