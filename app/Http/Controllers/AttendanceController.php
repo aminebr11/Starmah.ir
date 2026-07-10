@@ -37,6 +37,7 @@ class AttendanceController extends Controller
             'destroyDay'   => "$p.attendance.day.destroy",
             'destroyOne'   => "$p.attendance.one.destroy",
             'report'       => "$p.attendance.report",
+            'monthlySheet' => "$p.attendance.monthly",
         ];
     }
 
@@ -106,6 +107,33 @@ class AttendanceController extends Controller
             'jdate'       => Jalali::format($carbon, true),
             'hasRecords'  => $hasRecords,
             'recentDates' => $recentDates,
+        ]);
+    }
+
+    /** فرم خالی حضور و غیاب ماهانه برای چاپ (اسامی دانش‌آموزان × روزهای ماه). */
+    public function monthlySheet(Request $request): Response
+    {
+        $classrooms = $this->classrooms($request);
+        $classroomId = (int) $request->query('classroom_id') ?: ($classrooms->first()->id ?? 0);
+        $classroom = $classrooms->firstWhere('id', $classroomId);
+
+        $students = collect();
+        if ($classroom) {
+            $students = Classroom::find($classroom->id)->students()->orderBy('name')
+                ->get(['users.id', 'name'])->map(fn ($s) => $s->name)->values();
+        }
+
+        return Inertia::render('Attendance/MonthlySheet', [
+            'role'        => $this->isTeacher($request) ? 'teacher' : 'school_admin',
+            'routes'      => $this->routeNames($request),
+            'classrooms'  => $classrooms,
+            'classroomId' => $classroomId,
+            'classroom'   => $classroom,
+            'students'    => $students,
+            'meta'        => [
+                'school'  => $request->user()->school?->name,
+                'teacher' => $classroom?->teacher_id ? \App\Models\User::find($classroom->teacher_id)?->name : null,
+            ],
         ]);
     }
 

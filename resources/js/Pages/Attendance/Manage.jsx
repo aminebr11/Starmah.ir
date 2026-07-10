@@ -46,7 +46,10 @@ export default function Manage() {
 
     return (
         <DashLayout title="ثبت حضور و غیاب" roleLabel={roleLabel} menu={menu} active="attendance"
-            actions={classroom && <Link href={route(routes.report)} className="btn btn-ghost btn-sm">📋 گزارش‌گیری</Link>}>
+            actions={classroom && <>
+                <Link href={route(routes.monthlySheet, { classroom_id: classroomId })} className="btn btn-ghost btn-sm">🗓️ فرم خالی ماهانه</Link>
+                <Link href={route(routes.report)} className="btn btn-ghost btn-sm">📋 گزارش‌گیری</Link>
+            </>}>
             {banner && <div className="panel" style={{ borderColor: 'var(--gold)', background: '#fff8e8' }}><b>{banner}</b></div>}
 
             {noClass ? (

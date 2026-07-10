@@ -487,3 +487,43 @@ img{max-width:100%;display:block}
 
 /* عنوان تیم با فونت اختصاصی هر تیم اعمال می‌شود؛ زیرنویس فارسی فونت وزیر */
 .creeper-warriors .th-title{font-size:clamp(18px,3vw,30px);letter-spacing:1px}
+
+/* =========================================================
+   چاپ حرفه‌ای گزارش‌ها + فرم خالی ماهانه
+   ========================================================= */
+/* صفحه‌بندی جدول‌ها هنگام چاپ */
+@media print {
+  .tbl thead { display: table-header-group; }   /* تکرار سربرگ در هر صفحه */
+  .tbl tr, .msheet-tbl tr { page-break-inside: avoid; }
+  .panel { page-break-inside: auto; }
+  /* حالت‌های چاپ گزارش حضور و غیاب */
+  .rep-print-list .rep-summary { display: none !important; }
+  .rep-print-summary .rep-list { display: none !important; }
+}
+
+/* انتخاب حالت چاپ */
+.print-mode { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.print-mode .pm-btn { cursor: pointer; border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 7px 12px; font-family: inherit; font-size: 13px; font-weight: 700; color: var(--muted); }
+.print-mode .pm-btn.on { background: var(--navy-700, #0f2a5e); color: #fff; border-color: var(--navy-700, #0f2a5e); }
+
+/* فرم خالی ماهانه */
+.msheet-head { display: flex; align-items: center; gap: 14px; border-bottom: 2px solid #0f2a5e; padding-bottom: 12px; margin-bottom: 12px; }
+.msheet-head img { width: 54px; height: 54px; object-fit: contain; }
+.msheet-title { font-size: 20px; font-weight: 800; color: #0f2a5e; }
+.msheet-sub { font-size: 13px; color: #334; margin-top: 3px; }
+.msheet-meta { font-size: 12px; color: #334; line-height: 1.9; text-align: left; }
+.msheet-tbl { width: 100%; border-collapse: collapse; }
+.msheet-tbl th, .msheet-tbl td { border: 1px solid #b9c2d0; text-align: center; font-size: 11px; padding: 0; height: 26px; min-width: 22px; }
+.msheet-tbl th { background: #eef3fb; color: #22406e; font-weight: 700; padding: 3px 1px; }
+.msheet-tbl .msheet-wd { font-size: 9px; color: #7488a8; font-weight: 700; }
+.msheet-tbl .msheet-name { text-align: right; white-space: nowrap; min-width: 130px; padding: 0 8px; font-weight: 700; background: #fafbfe; position: sticky; inset-inline-start: 0; }
+.msheet-tbl .msheet-fri { background: #fdeef0; }
+.msheet-tbl thead .msheet-fri { background: #fbdfe3; }
+.msheet-legend { margin-top: 10px; font-size: 12px; color: #445; }
+
+@media print {
+  /* فرم ماهانه در حالت افقی و تمام‌عرض چاپ شود */
+  .msheet-wrap { }
+  @page msheet { size: A4 landscape; margin: 8mm; }
+  .msheet-name { position: static !important; }
+}

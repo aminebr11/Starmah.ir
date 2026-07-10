@@ -53,13 +53,14 @@ class TeacherController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $level = $request->user()->school?->level;
         $data = $request->validate([
             'name'       => ['required', 'string', 'max:100'],
             'phone'      => ['required', 'string', 'max:20'],
             'class_name' => ['required', 'string', 'max:60'],
-            'grade'      => ['nullable', 'string', 'max:30'],
+            'grade'      => ['required', 'string', \Illuminate\Validation\Rule::in(Levels::grades($level) ?: Levels::allGrades())],
             'password'   => ['nullable', 'string', 'min:6'],
-        ]);
+        ], [], ['grade' => 'پایه']);
 
         $schoolId = $request->user()->school_id;
         $school = $request->user()->school;

@@ -83,6 +83,7 @@ Route::middleware(['auth', 'role:school_admin'])->prefix('school')->name('school
     Route::post('/attendance', [\App\Http\Controllers\AttendanceController::class, 'store'])->name('attendance.store');
     Route::delete('/attendance/day', [\App\Http\Controllers\AttendanceController::class, 'destroyDay'])->name('attendance.day.destroy');
     Route::delete('/attendance/one', [\App\Http\Controllers\AttendanceController::class, 'destroyOne'])->name('attendance.one.destroy');
+    Route::get('/attendance/monthly-sheet', [\App\Http\Controllers\AttendanceController::class, 'monthlySheet'])->name('attendance.monthly');
     Route::get('/attendance-report', [\App\Http\Controllers\AttendanceReportController::class, 'index'])->name('attendance.report');
 });
 
@@ -112,6 +113,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/attendance', [\App\Http\Controllers\AttendanceController::class, 'store'])->name('attendance.store');
     Route::delete('/attendance/day', [\App\Http\Controllers\AttendanceController::class, 'destroyDay'])->name('attendance.day.destroy');
     Route::delete('/attendance/one', [\App\Http\Controllers\AttendanceController::class, 'destroyOne'])->name('attendance.one.destroy');
+    Route::get('/attendance/monthly-sheet', [\App\Http\Controllers\AttendanceController::class, 'monthlySheet'])->name('attendance.monthly');
     Route::get('/attendance-report', [\App\Http\Controllers\AttendanceReportController::class, 'index'])->name('attendance.report');
     Route::get('/class/{classroom}', [TeacherDashboardController::class, 'show'])->name('classroom');
     Route::get('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'index'])->name('activities');

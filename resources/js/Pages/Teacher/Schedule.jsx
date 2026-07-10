@@ -44,17 +44,12 @@ export default function Schedule() {
                     <button type="button" onClick={() => form.setData('kind', 'recess')} className={`tag ${isRecess ? 'tag-warn' : 'tag-info'}`} style={{ cursor: 'pointer', border: 0, fontFamily: 'inherit', padding: '9px 16px' }}>☕ زنگ تفریح</button>
                 </div>
 
-                {!isRecess && books.length > 0 && (
-                    <div style={{ marginBottom: 12 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>انتخاب سریع از دروس پایه:</div>
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                            {books.map((b, i) => (
-                                <button type="button" key={i} onClick={() => form.setData('title', b.name)}
-                                    className={`tag ${form.data.title === b.name ? 'tag-warn' : 'tag-info'}`} style={{ cursor: 'pointer', border: 0, fontFamily: 'inherit', padding: '7px 12px' }}>
-                                    {b.icon} {b.name}
-                                </button>
-                            ))}
-                        </div>
+                {/* اعلان راهنما وقتی درسِ پایه در دسترس نیست (پایه‌ی کلاس نامشخص یا کتابی ثبت نشده) */}
+                {!isRecess && books.length === 0 && (
+                    <div style={{ marginBottom: 12, background: '#fff8e8', border: '1px solid var(--gold)', borderRadius: 12, padding: '10px 14px', fontSize: 13, color: '#8a5a00' }}>
+                        ⚠️ برای این کلاس درسی از بانک دروس پیدا نشد.
+                        {classroom.grade ? ' لطفاً از ادمین کل بخواهید دروسِ این پایه را در «دروس و کتاب‌ها» ثبت کند.' : ' ابتدا باید پایه‌ی کلاس تعیین شود (بخش معلم‌ها و کلاس‌ها).'}
+                        {' '}می‌توانید فعلاً عنوان درس را دستی وارد کنید.
                     </div>
                 )}
 
@@ -64,8 +59,21 @@ export default function Schedule() {
                             {days.map((d, i) => <option key={i} value={i}>{d}</option>)}
                         </select>
                     </div>
-                    <div className="field"><label>{isRecess ? 'عنوان (اختیاری)' : 'درس / موضوع'}</label>
-                        <input className="input" value={form.data.title} onChange={(e) => form.setData('title', e.target.value)} placeholder={isRecess ? 'زنگ تفریح' : 'مثلاً: ریاضی'} />
+                    <div className="field"><label>{isRecess ? 'عنوان (اختیاری)' : 'درس (از بانک دروسِ پایه)'}</label>
+                        {(!isRecess && books.length > 0) ? (
+                            <select className="input" value={books.some((b) => b.name === form.data.title) ? form.data.title : (form.data.title ? '__custom' : '')}
+                                onChange={(e) => { const v = e.target.value; form.setData('title', v === '__custom' ? ' ' : (v === '' ? '' : v)); }}>
+                                <option value="">— انتخاب درس —</option>
+                                {books.map((b, i) => <option key={i} value={b.name}>{b.icon} {b.name}</option>)}
+                                <option value="__custom">✏️ سایر (دستی)…</option>
+                            </select>
+                        ) : (
+                            <input className="input" value={form.data.title} onChange={(e) => form.setData('title', e.target.value)} placeholder={isRecess ? 'زنگ تفریح' : 'مثلاً: ریاضی'} />
+                        )}
+                        {/* ورودی دستی وقتی «سایر» انتخاب شده یا درس در بانک نیست */}
+                        {!isRecess && books.length > 0 && form.data.title && !books.some((b) => b.name === form.data.title) && (
+                            <input className="input" style={{ marginTop: 6 }} value={form.data.title.trim()} onChange={(e) => form.setData('title', e.target.value)} placeholder="عنوان درس (دستی)" autoFocus />
+                        )}
                         {form.errors.title && <div style={{ color: '#e8505b', fontSize: 12, marginTop: 4 }}>{form.errors.title}</div>}
                     </div>
                     <div className="field"><label>از ساعت</label>

@@ -27,11 +27,17 @@ export default function AttendanceReport() {
     const set = (k, v) => setF((s) => ({ ...s, [k]: v, ...(k === 'classroom_id' ? { student_id: '' } : {}) }));
     const apply = () => router.get(route(routeName), f, { preserveState: true, preserveScroll: true });
 
+    const [printMode, setPrintMode] = useState('both'); // list | summary | both
+    const monthlyRoute = role === 'teacher' ? 'teacher.attendance.monthly' : 'school.attendance.monthly';
+
     const maxDay = Math.max(1, ...daily.map((d) => d.present + d.absent + d.late));
 
     return (
         <DashLayout title="گزارش حضور و غیاب" roleLabel={role === 'teacher' ? 'معلم' : 'مدیر مدرسه'} menu={menu} active="attreport"
-            actions={<button onClick={() => window.print()} className="btn btn-sm no-print">🖨️ چاپ گزارش</button>}>
+            actions={<>
+                <Link href={route(monthlyRoute, { classroom_id: f.classroom_id })} className="btn btn-ghost btn-sm no-print">🗓️ فرم خالی ماهانه</Link>
+                <button onClick={() => window.print()} className="btn btn-sm no-print">🖨️ چاپ گزارش</button>
+            </>}>
 
             {/* ===== فیلترها ===== */}
             <div className="panel no-print">
@@ -65,8 +71,17 @@ export default function AttendanceReport() {
                             onClick={() => { const [from, to] = fn(); setF((s) => ({ ...s, from, to })); }}>{label}</button>
                     ))}
                 </div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14, alignItems: 'center', borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700 }}>🖨️ محتوای چاپ:</span>
+                    <div className="print-mode">
+                        {[['both', 'کامل (جدول + گزارش کلی)'], ['list', 'فقط جدول تفکیکی'], ['summary', 'فقط گزارش کلی']].map(([v, t]) => (
+                            <button key={v} type="button" className={`pm-btn ${printMode === v ? 'on' : ''}`} onClick={() => setPrintMode(v)}>{t}</button>
+                        ))}
+                    </div>
+                </div>
             </div>
 
+            <div className={`rep-print-${printMode}`}>
             {/* ===== سربرگ چاپ (فقط هنگام چاپ دیده می‌شود) ===== */}
             <div className="report-print-head">
                 <img src="/brand/logo-emblem.png" alt="" />
@@ -83,7 +98,7 @@ export default function AttendanceReport() {
             <div className="report-print-range">بازه‌ی گزارش: از {jfrom} تا {jto}</div>
 
             {/* ===== کارت‌های خلاصه ===== */}
-            <div className="report-cards">
+            <div className="report-cards rep-summary">
                 {[['👥 دانش‌آموزان', summary.students, 'var(--navy-700)'], ['📅 روزهای ثبت‌شده', summary.days, 'var(--navy-700)'],
                   ['✅ حضور', summary.present, '#22c55e'], ['❌ غیبت', summary.absent, '#ef4444'],
                   ['⏰ تأخیر', summary.late, '#f59e0b'], ['📝 مرخصی', summary.excused, '#3b82f6']].map(([t, v, c]) => (
@@ -96,7 +111,7 @@ export default function AttendanceReport() {
 
             {/* ===== نمودار روزانه ===== */}
             {daily.length > 0 && (
-                <div className="panel printable">
+                <div className="panel printable rep-summary">
                     <h3 className="print-title" style={{ marginTop: 0 }}>نمودار روزانه</h3>
                     <h3 className="no-print" style={{ marginTop: 0 }}>📊 نمودار روزانه (حضور / تأخیر / غیبت)</h3>
                     <div className="report-chart">
@@ -120,7 +135,7 @@ export default function AttendanceReport() {
             )}
 
             {/* ===== جدول تفکیکی دانش‌آموزان ===== */}
-            <div className="panel printable">
+            <div className="panel printable rep-list">
                 <h3 className="no-print" style={{ marginTop: 0 }}>📋 جدول تفکیکی</h3>
                 {rows.length === 0 ? <p className="no-print" style={{ color: 'var(--muted)' }}>در این بازه رکوردی ثبت نشده.</p> : (
                     <div style={{ overflowX: 'auto' }}>
@@ -154,6 +169,7 @@ export default function AttendanceReport() {
                     <div>امضای مدیر مدرسه<span /></div>
                     <div>مهر مدرسه<span /></div>
                 </div>
+            </div>
             </div>
         </DashLayout>
     );
