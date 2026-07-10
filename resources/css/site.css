@@ -272,6 +272,15 @@ img{max-width:100%;display:block}
 .dash-nav a.active{background:linear-gradient(135deg,var(--gold),var(--gold-2));color:#3a2700}
 .dash-nav .ic{font-size:18px;width:22px;text-align:center}
 .nav-badge{margin-inline-start:auto;background:#e8505b;color:#fff;font-size:11px;font-weight:800;min-width:20px;height:20px;border-radius:20px;display:inline-grid;place-items:center;padding:0 6px}
+
+/* کادر اعلانِ چشمک‌زن (اعلان نخوانده) */
+@keyframes sm-blink{0%,100%{box-shadow:0 0 0 0 rgba(232,80,91,.55);border-color:#e8505b}50%{box-shadow:0 0 0 6px rgba(232,80,91,0);border-color:#ff8a94}}
+.notice-blink{animation:sm-blink 1.3s ease-in-out infinite;border:2px solid #e8505b!important}
+/* زنگوله‌ی اعلان در تاپ‌بار */
+.bell-btn{position:relative;border:1px solid var(--line);background:#fff;border-radius:12px;width:42px;height:42px;cursor:pointer;font-size:19px;display:grid;place-items:center}
+.bell-btn.ring{animation:sm-ring 1.6s ease-in-out infinite;transform-origin:top center}
+@keyframes sm-ring{0%,60%,100%{transform:rotate(0)}70%{transform:rotate(14deg)}80%{transform:rotate(-12deg)}90%{transform:rotate(8deg)}}
+.bell-dot{position:absolute;top:-5px;insetInlineStart:-5px;inset-inline-start:-5px;background:#e8505b;color:#fff;font-size:10px;font-weight:800;min-width:18px;height:18px;border-radius:20px;display:grid;place-items:center;padding:0 5px;border:2px solid #fff}
 .dash-main{flex:1;padding:26px 30px;min-width:0}
 .dash-topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;gap:12px;flex-wrap:wrap}
 .dash-topbar h1{font-size:24px;font-weight:800;color:var(--navy-800);margin:0}

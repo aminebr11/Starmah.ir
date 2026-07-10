@@ -47,6 +47,9 @@ export default function DashLayout({ title, roleLabel, menu = [], active = '', c
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         {actions}
+                        <Link href="/notices" className={`bell-btn ${unreadNotices > 0 ? 'ring' : ''}`} title="اعلان‌ها و پیام‌ها">
+                            🔔{unreadNotices > 0 && <span className="bell-dot">{unreadNotices}</span>}
+                        </Link>
                         <Link href={route('profile.edit')} className="btn btn-ghost btn-sm" title="پروفایل من">
                             👤 {auth?.user?.name}
                         </Link>

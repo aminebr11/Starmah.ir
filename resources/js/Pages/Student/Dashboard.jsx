@@ -6,7 +6,7 @@ import TeamHeader from '@/Components/TeamHeader';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 export default function Dashboard() {
-    const { auth, theme, me = {}, groups = [], sample, notices = [] } = usePage().props;
+    const { auth, theme, me = {}, groups = [], sample, notices = [], unreadNotices = 0 } = usePage().props;
     const w = (k, d = '') => theme?.narrative?.[k] ?? d;
     const skin = theme?.skin ?? {};
     const [picked, setPicked] = useState(null);
@@ -45,9 +45,11 @@ export default function Dashboard() {
 
             {/* اعلان‌ها و پیام‌ها */}
             {notices.length > 0 && (
-                <div style={{ ...card, marginTop: 14 }}>
+                <div className={unreadNotices > 0 ? 'notice-blink' : ''} style={{ ...card, marginTop: 14 }}>
                     <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
-                        <div style={{ fontWeight: 800 }}>📢 اعلان‌ها و پیام‌ها</div>
+                        <div style={{ fontWeight: 800 }}>🔔 اعلان‌ها و پیام‌ها
+                            {unreadNotices > 0 && <span className="tag" style={{ background: '#e8505b', color: '#fff', marginInlineStart: 8, fontSize: 11 }}>{fa(unreadNotices)} نخوانده</span>}
+                        </div>
                         <Link href="/notices" style={{ marginInlineStart: 'auto', color: 'var(--acc)', fontWeight: 700, fontSize: 13 }}>همه ←</Link>
                     </div>
                     {notices.map((n) => (
