@@ -2,6 +2,7 @@ import { usePage, useForm, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import axios from 'axios';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
+import JalaliDatePicker from '@/Components/JalaliDatePicker';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const DIFF = { easy: ['ساده', '#22c55e'], medium: ['متوسط', '#f59e0b'], hard: ['دشوار', '#ef4444'] };
@@ -98,7 +99,7 @@ export default function ExamBuilder() {
                         </select>
                     </div>
                     <div className="field"><label>مدت (دقیقه)</label><input type="number" min="1" max="300" className="input" value={form.data.duration} onChange={(e) => form.setData('duration', e.target.value)} placeholder="مثلاً ۲۰" /></div>
-                    <div className="field"><label>زمان‌بندی برگزاری (اختیاری)</label><input type="datetime-local" className="input" value={form.data.scheduled_at} onChange={(e) => form.setData('scheduled_at', e.target.value)} /></div>
+                    <div className="field"><label>زمان‌بندی برگزاری (اختیاری)</label><JalaliDatePicker withTime value={form.data.scheduled_at} onChange={(v) => form.setData('scheduled_at', v)} placeholder="تاریخ و ساعت" /></div>
                 </div>
 
                 {mode === 'ai' && (

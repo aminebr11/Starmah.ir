@@ -1,6 +1,7 @@
 import { usePage, useForm, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import DashLayout, { schoolMenu } from '@/Layouts/DashLayout';
+import JalaliDatePicker from '@/Components/JalaliDatePicker';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const AUD = [['all', '👥 همه'], ['teachers', '👩‍🏫 معلم‌ها'], ['students', '🎓 دانش‌آموزان'], ['personal', '✉️ پیام شخصی']];
@@ -154,8 +155,8 @@ export default function Announcements() {
                     </div>
                     {/* فیلتر بازه‌ی تاریخ */}
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12, fontSize: 13, color: 'var(--muted)' }}>
-                        <span>از:</span><input type="date" className="input" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ width: 'auto', padding: '7px 9px' }} />
-                        <span>تا:</span><input type="date" className="input" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ width: 'auto', padding: '7px 9px' }} />
+                        <span>از:</span><span style={{ width: 150, display: 'inline-block' }}><JalaliDatePicker value={dateFrom} onChange={setDateFrom} placeholder="از تاریخ" /></span>
+                        <span>تا:</span><span style={{ width: 150, display: 'inline-block' }}><JalaliDatePicker value={dateTo} onChange={setDateTo} placeholder="تا تاریخ" /></span>
                         {(dateFrom || dateTo) && <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="btn btn-ghost btn-sm">پاک کردن</button>}
                     </div>
                     {filteredList.length === 0 && <p style={{ color: 'var(--muted)' }}>موردی برای نمایش نیست.</p>}

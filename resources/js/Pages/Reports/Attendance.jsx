@@ -1,6 +1,15 @@
 import { usePage, router, Link } from '@inertiajs/react';
 import { useState } from 'react';
 import DashLayout, { teacherMenu, schoolMenu } from '@/Layouts/DashLayout';
+import JalaliDatePicker from '@/Components/JalaliDatePicker';
+
+const iso = (d) => d.toISOString().slice(0, 10);
+const PRESETS = [
+    ['این هفته', () => { const n = new Date(); const s = new Date(n); s.setDate(n.getDate() - ((n.getDay() + 1) % 7)); return [iso(s), iso(n)]; }],
+    ['این ماه', () => { const n = new Date(); return [iso(new Date(n.getFullYear(), n.getMonth(), 1)), iso(n)]; }],
+    ['۳ ماه اخیر', () => { const n = new Date(); const s = new Date(n); s.setMonth(n.getMonth() - 3); return [iso(s), iso(n)]; }],
+    ['امسال', () => { const n = new Date(); const s = new Date(n); s.setFullYear(n.getFullYear() - 1); return [iso(s), iso(n)]; }],
+];
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const STATUS = { present: ['حضور', '#22c55e'], absent: ['غیبت', '#ef4444'], late: ['تأخیر', '#f59e0b'], excused: ['مرخصی', '#3b82f6'] };
@@ -45,9 +54,16 @@ export default function AttendanceReport() {
                             {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v[0]}</option>)}
                         </select>
                     </div>
-                    <div className="field"><label>از تاریخ</label><input type="date" className="input" value={f.from} onChange={(e) => set('from', e.target.value)} /></div>
-                    <div className="field"><label>تا تاریخ</label><input type="date" className="input" value={f.to} onChange={(e) => set('to', e.target.value)} /></div>
+                    <div className="field"><label>از تاریخ</label><JalaliDatePicker value={f.from} onChange={(v) => set('from', v)} placeholder="از تاریخ" /></div>
+                    <div className="field"><label>تا تاریخ</label><JalaliDatePicker value={f.to} onChange={(v) => set('to', v)} placeholder="تا تاریخ" /></div>
                     <button onClick={apply} className="btn" style={{ alignSelf: 'end' }}>اعمال فیلتر</button>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+                    <span style={{ fontSize: 12, color: 'var(--muted)', alignSelf: 'center' }}>بازه‌ی سریع:</span>
+                    {PRESETS.map(([label, fn]) => (
+                        <button key={label} type="button" className="tag tag-info" style={{ cursor: 'pointer', border: 0, fontFamily: 'inherit' }}
+                            onClick={() => { const [from, to] = fn(); setF((s) => ({ ...s, from, to })); }}>{label}</button>
+                    ))}
                 </div>
             </div>
 

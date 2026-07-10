@@ -1,6 +1,7 @@
 import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import { useState, useEffect, useRef } from 'react';
 import PasswordInput from '@/Components/PasswordInput';
+import JalaliDatePicker from '@/Components/JalaliDatePicker';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const ROLE_FA = { super_admin: 'ادمین کل', school_admin: 'مدیر مدرسه', teacher: 'معلم', student: 'دانش‌آموز', parent: 'والد' };
@@ -87,7 +88,7 @@ export default function Edit() {
                                 <input className="input" value={info.data.national_id} onChange={(e) => info.setData('national_id', e.target.value)} placeholder="۱۰ رقم" inputMode="numeric" />
                             </Field>
                             <Field label={`تاریخ تولد${profile.jbirth ? ` (${profile.jbirth})` : ''}`} err={info.errors.birth_date}>
-                                <input type="date" className="input" value={info.data.birth_date || ''} onChange={(e) => info.setData('birth_date', e.target.value)} />
+                                <JalaliDatePicker value={info.data.birth_date || ''} onChange={(v) => info.setData('birth_date', v)} placeholder="انتخاب تاریخ تولد" />
                             </Field>
                             <Field label="ایمیل (اختیاری)" err={info.errors.email}>
                                 <input className="input" value={info.data.email} onChange={(e) => info.setData('email', e.target.value)} dir="ltr" />

@@ -1,6 +1,7 @@
 import { usePage, useForm, router } from '@inertiajs/react';
 import { useState, useEffect, useRef } from 'react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
+import JalaliDatePicker from '@/Components/JalaliDatePicker';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -77,7 +78,7 @@ export default function Materials() {
                     )}
                     {tab === 'homework' && (
                         <Field label="مهلت تحویل (اختیاری)">
-                            <input type="date" className="input" value={form.data.due_at} onChange={(e) => form.setData('due_at', e.target.value)} />
+                            <JalaliDatePicker value={form.data.due_at} onChange={(v) => form.setData('due_at', v)} placeholder="انتخاب مهلت" />
                         </Field>
                     )}
                     <Field label={`فایل — ${active.hint}`} err={form.errors.file}>

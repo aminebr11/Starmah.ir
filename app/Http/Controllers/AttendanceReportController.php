@@ -77,8 +77,9 @@ class AttendanceReportController extends Controller
         $students = $classroom->students()->get(['users.id', 'name'])
             ->map(fn ($s) => ['id' => $s->id, 'name' => $s->name])->values();
 
+        // مقایسه‌ی تاریخ‌محور (ستون date به‌صورت datetime ذخیره می‌شود؛ whereDate مرز روز را درست شامل می‌کند)
         $records = AttendanceRecord::where('classroom_id', $classroom->id)
-            ->whereBetween('date', [$from, $to])
+            ->whereDate('date', '>=', $from)->whereDate('date', '<=', $to)
             ->when($studentId, fn ($q) => $q->where('student_id', $studentId))
             ->when($status, fn ($q) => $q->where('status', $status))
             ->get(['student_id', 'status', 'date']);

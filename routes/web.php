@@ -78,6 +78,11 @@ Route::middleware(['auth', 'role:school_admin'])->prefix('school')->name('school
     Route::post('/announcements/ai', [SchoolDashboardController::class, 'aiAnnouncement'])->name('announcements.ai');
     Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'schoolView'])->name('schedule');
     Route::get('/reports', [SchoolDashboardController::class, 'reports'])->name('reports');
+    // ثبت حضور و غیاب توسط مدیر مدرسه (همه‌ی کلاس‌ها)
+    Route::get('/attendance', [\App\Http\Controllers\AttendanceController::class, 'record'])->name('attendance');
+    Route::post('/attendance', [\App\Http\Controllers\AttendanceController::class, 'store'])->name('attendance.store');
+    Route::delete('/attendance/day', [\App\Http\Controllers\AttendanceController::class, 'destroyDay'])->name('attendance.day.destroy');
+    Route::delete('/attendance/one', [\App\Http\Controllers\AttendanceController::class, 'destroyOne'])->name('attendance.one.destroy');
     Route::get('/attendance-report', [\App\Http\Controllers\AttendanceReportController::class, 'index'])->name('attendance.report');
 });
 
@@ -103,8 +108,10 @@ Route::middleware(['auth', 'role:student'])->group(function () {
 Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')->group(function () {
     Route::get('/', [TeacherDashboardController::class, 'index'])->name('dashboard');
     // حضور و غیاب
-    Route::get('/attendance', [\App\Http\Controllers\Teacher\AttendanceController::class, 'index'])->name('attendance');
-    Route::post('/attendance', [\App\Http\Controllers\Teacher\AttendanceController::class, 'store'])->name('attendance.store');
+    Route::get('/attendance', [\App\Http\Controllers\AttendanceController::class, 'record'])->name('attendance');
+    Route::post('/attendance', [\App\Http\Controllers\AttendanceController::class, 'store'])->name('attendance.store');
+    Route::delete('/attendance/day', [\App\Http\Controllers\AttendanceController::class, 'destroyDay'])->name('attendance.day.destroy');
+    Route::delete('/attendance/one', [\App\Http\Controllers\AttendanceController::class, 'destroyOne'])->name('attendance.one.destroy');
     Route::get('/attendance-report', [\App\Http\Controllers\AttendanceReportController::class, 'index'])->name('attendance.report');
     Route::get('/class/{classroom}', [TeacherDashboardController::class, 'show'])->name('classroom');
     Route::get('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'index'])->name('activities');

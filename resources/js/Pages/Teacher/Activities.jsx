@@ -1,6 +1,7 @@
 import { usePage, useForm, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
+import JalaliDatePicker from '@/Components/JalaliDatePicker';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const TYPES = [['game', '🎮 بازی'], ['exam', '📝 آزمون'], ['homework', '📚 تکلیف'], ['podcast', '🎧 پادکست'], ['online_exam', '💻 آزمون آنلاین'], ['custom', '⭐ فعالیت']];
@@ -51,7 +52,7 @@ export default function Activities() {
                             <input type="number" min="1" max="1000" className="input" value={form.data.points} onChange={(e) => form.setData('points', e.target.value)} />
                         </Field>
                         <Field label="تاریخ (اختیاری)">
-                            <input type="date" className="input" value={form.data.scheduled_at} onChange={(e) => form.setData('scheduled_at', e.target.value)} />
+                            <JalaliDatePicker value={form.data.scheduled_at} onChange={(v) => form.setData('scheduled_at', v)} />
                         </Field>
                     </div>
                     <button type="submit" disabled={form.processing} className="btn" style={{ width: '100%' }}>ثبت فعالیت</button>
