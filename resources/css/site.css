@@ -183,6 +183,10 @@ img{max-width:100%;display:block}
 .footer a{color:var(--gold-light)}
 .footer-bottom{border-top:1px solid rgba(255,255,255,.1);margin-top:26px;padding-top:18px;text-align:center;font-size:13px;color:#7f90b6}
 
+/* ---------- CARD (کارت عمومی فرم‌ها) ---------- */
+.card{background:#fff;border:1px solid var(--line);border-radius:22px;padding:30px;box-shadow:var(--shadow);box-sizing:border-box}
+@media(max-width:480px){.card{padding:22px;border-radius:18px}}
+
 /* ---------- AUTH ---------- */
 .auth-wrap{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 80% 10%,#16264f,#0a1733)}
 .auth-card{width:100%;max-width:420px;background:#fff;border-radius:24px;padding:34px;box-shadow:0 40px 90px -28px rgba(0,0,0,.6)}

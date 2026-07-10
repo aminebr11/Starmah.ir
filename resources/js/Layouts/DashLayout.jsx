@@ -79,6 +79,7 @@ export const schoolMenu = [
 
 export const teacherMenu = [
     { key: 'home', label: 'پیشخوان', icon: '📊', href: '/teacher' },
+    { key: 'attendance', label: 'حضور و غیاب', icon: '✅', href: '/teacher/attendance' },
     { key: 'activities', label: 'فعالیت‌ها و امتیاز', icon: '🎯', href: '/teacher/activities' },
     { key: 'exams', label: 'آزمون‌ساز (AI)', icon: '📝', href: '/teacher/exams' },
     { key: 'schedule', label: 'برنامه کلاسی', icon: '🗓️', href: '/teacher/schedule' },
