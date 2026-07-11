@@ -46,6 +46,31 @@ export default function Gradebook() {
     const st = form.data.score_type;
     const opts = st === 'descriptive' ? descriptiveOptions : st === 'homework' ? homeworkOptions : [];
 
+    // فیلترهای سوابق
+    const [fLesson, setFLesson] = useState('');
+    const [fType, setFType] = useState('');
+    const [fStudent, setFStudent] = useState('');
+    const [fq, setFq] = useState('');
+    const filtered = activities.filter((a) =>
+        (!fLesson || a.lesson === fLesson) &&
+        (!fType || a.score_type === fType) &&
+        (!fStudent || a.grades?.[fStudent]) &&
+        (!fq || (a.title || '').includes(fq) || (a.topic || '').includes(fq)));
+
+    // ویرایشِ یک فعالیت
+    const [editAct, setEditAct] = useState(null);
+    const [erows, setErows] = useState({});
+    const optsFor = (type) => type === 'descriptive' ? descriptiveOptions : type === 'homework' ? homeworkOptions : [];
+    const startEditAct = (a) => {
+        const r = {}; students.forEach((s) => { const g = a.grades?.[s.id]; r[s.id] = { score: g?.score ?? '', text: g?.text ?? '', feedback: g?.feedback ?? '' }; });
+        setErows(r); setEditAct(a.id);
+    };
+    const setERow = (sid, patch) => setErows((r) => ({ ...r, [sid]: { ...r[sid], ...patch } }));
+    const saveEditAct = (a) => {
+        const grades = students.map((s) => ({ student_id: s.id, ...erows[s.id] }));
+        router.post(route('teacher.gradebook.grades', a.id), { grades }, { preserveScroll: true, onSuccess: () => setEditAct(null) });
+    };
+
     if (!classroom) return <DashLayout title="دفتر کلاسی" roleLabel="معلم" menu={teacherMenu} active="gradebook"><div className="panel">ابتدا کلاس بساز.</div></DashLayout>;
 
     return (
@@ -138,38 +163,92 @@ export default function Gradebook() {
                         <button onClick={() => window.print()} className="btn btn-ghost btn-sm" style={{ marginInlineStart: 'auto' }}>🖨️ پرینت</button>
                     </div>
                     <h3 className="print-title">دفتر کلاسی — {classroom?.name}</h3>
-                    {activities.length === 0 && <p className="no-print" style={{ color: 'var(--muted)' }}>هنوز فعالیتی ثبت نشده. از تب «ثبت فعالیت» شروع کن.</p>}
-                    {activities.map((a) => (
-                        <div key={a.id} style={{ border: '1px solid var(--line)', borderRadius: 14, padding: 14, marginBottom: 12 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-                                <b>{a.title}</b>
-                                {a.lesson && <span className="tag tag-info">{a.lesson}</span>}
-                                {a.topic && <span style={{ color: 'var(--muted)', fontSize: 12 }}>· {a.topic}</span>}
-                                <span className="tag" style={{ background: '#eef2fb', color: 'var(--navy-700)' }}>{TYPES.find((t) => t.v === a.score_type)?.t || a.score_type}</span>
-                                {a.jdate && <span style={{ color: 'var(--muted)', fontSize: 12 }}>📅 {a.jdate}</span>}
-                                <button onClick={() => del(a.id)} className="btn btn-ghost btn-sm no-print" style={{ color: '#e8505b', marginInlineStart: 'auto' }}>🗑️ حذف</button>
-                            </div>
-                            <div style={{ overflowX: 'auto' }}>
-                                <table className="tbl">
-                                    <thead><tr><th>دانش‌آموز</th><th>{a.score_type === 'numeric' ? `نمره (از ${fa(a.max)})` : 'ارزیابی'}</th><th>بازخورد</th></tr></thead>
-                                    <tbody>
-                                        {students.map((s) => {
-                                            const g = a.grades?.[s.id];
-                                            const val = a.score_type === 'numeric' ? (g?.score != null ? fa(g.score) : '—') : (g?.text || '—');
-                                            const col = RATING_COLOR[g?.text];
-                                            return (
-                                                <tr key={s.id}>
-                                                    <td style={{ fontWeight: 700 }}>{s.name}</td>
-                                                    <td>{col ? <span style={{ background: col[0], color: col[1], borderRadius: 8, padding: '3px 10px', fontWeight: 700, fontSize: 13 }}>{ICON[g.text] || ''} {val}</span> : val}</td>
-                                                    <td style={{ color: 'var(--muted)', fontSize: 13 }}>{g?.feedback || '—'}</td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
+
+                    {/* فیلترها */}
+                    {activities.length > 0 && (
+                        <div className="no-print" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12, background: 'var(--cream)', padding: 12, borderRadius: 12 }}>
+                            <select className="input" style={{ width: 'auto' }} value={fLesson} onChange={(e) => setFLesson(e.target.value)}>
+                                <option value="">همه‌ی درس‌ها</option>
+                                {[...new Set(activities.map((a) => a.lesson).filter(Boolean))].map((l) => <option key={l} value={l}>{l}</option>)}
+                            </select>
+                            <select className="input" style={{ width: 'auto' }} value={fType} onChange={(e) => setFType(e.target.value)}>
+                                <option value="">همه‌ی انواع</option>
+                                {TYPES.map((t) => <option key={t.v} value={t.v}>{t.t}</option>)}
+                            </select>
+                            <select className="input" style={{ width: 'auto' }} value={fStudent} onChange={(e) => setFStudent(e.target.value)}>
+                                <option value="">همه‌ی دانش‌آموزان</option>
+                                {students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            </select>
+                            <input className="input" style={{ width: 'auto', flex: 1, minWidth: 140 }} value={fq} onChange={(e) => setFq(e.target.value)} placeholder="🔍 عنوان یا موضوع…" />
+                            {(fLesson || fType || fStudent || fq) && <button onClick={() => { setFLesson(''); setFType(''); setFStudent(''); setFq(''); }} className="btn btn-ghost btn-sm">پاک کردن</button>}
                         </div>
-                    ))}
+                    )}
+
+                    {activities.length === 0 && <p className="no-print" style={{ color: 'var(--muted)' }}>هنوز فعالیتی ثبت نشده. از تب «ثبت فعالیت» شروع کن.</p>}
+                    {activities.length > 0 && filtered.length === 0 && <p className="no-print" style={{ color: 'var(--muted)' }}>با این فیلترها موردی پیدا نشد.</p>}
+
+                    {filtered.map((a) => {
+                        const editing = editAct === a.id;
+                        const rowStudents = fStudent ? students.filter((s) => String(s.id) === String(fStudent)) : students;
+                        const aopts = optsFor(a.score_type);
+                        return (
+                            <div key={a.id} style={{ border: '1px solid var(--line)', borderRadius: 14, padding: 14, marginBottom: 12 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                                    <b>{a.title}</b>
+                                    {a.lesson && <span className="tag tag-info">{a.lesson}</span>}
+                                    {a.topic && <span style={{ color: 'var(--muted)', fontSize: 12 }}>· {a.topic}</span>}
+                                    <span className="tag" style={{ background: '#eef2fb', color: 'var(--navy-700)' }}>{TYPES.find((t) => t.v === a.score_type)?.t || a.score_type}</span>
+                                    {a.jdate && <span style={{ color: 'var(--muted)', fontSize: 12 }}>📅 {a.jdate}</span>}
+                                    <div className="no-print" style={{ marginInlineStart: 'auto', display: 'flex', gap: 6 }}>
+                                        {editing ? <>
+                                            <button onClick={() => saveEditAct(a)} className="btn btn-sm">💾 ذخیره</button>
+                                            <button onClick={() => setEditAct(null)} className="btn btn-ghost btn-sm">انصراف</button>
+                                        </> : <>
+                                            <button onClick={() => startEditAct(a)} className="btn btn-ghost btn-sm">✏️ ویرایش</button>
+                                            <button onClick={() => del(a.id)} className="btn btn-ghost btn-sm" style={{ color: '#e8505b' }}>🗑️ حذف</button>
+                                        </>}
+                                    </div>
+                                </div>
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table className="tbl">
+                                        <thead><tr><th>دانش‌آموز</th><th>{a.score_type === 'numeric' ? `نمره (از ${fa(a.max)})` : 'ارزیابی'}</th><th>بازخورد</th></tr></thead>
+                                        <tbody>
+                                            {rowStudents.map((s) => {
+                                                const g = a.grades?.[s.id];
+                                                if (editing) {
+                                                    const er = erows[s.id] || {};
+                                                    return (
+                                                        <tr key={s.id}>
+                                                            <td style={{ fontWeight: 700 }}>{s.name}</td>
+                                                            <td>
+                                                                {a.score_type === 'numeric' ? (
+                                                                    <input type="number" step="0.25" max={a.max} value={er.score ?? ''} onChange={(e) => setERow(s.id, { score: e.target.value })} className="grade-input" style={{ width: 80 }} placeholder="—" />
+                                                                ) : (
+                                                                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                                                        {aopts.map((o) => { const on = er.text === o; const rc = RATING_COLOR[o] || ['#eee', '#333']; return <button type="button" key={o} onClick={() => setERow(s.id, { text: on ? '' : o })} style={{ cursor: 'pointer', fontFamily: 'inherit', fontSize: 11.5, fontWeight: 700, padding: '5px 8px', borderRadius: 8, border: on ? `2px solid ${rc[1]}` : '1px solid var(--line)', background: on ? rc[0] : '#fff', color: on ? rc[1] : 'var(--muted)' }}>{ICON[o] || ''} {o}</button>; })}
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                            <td><input value={er.feedback ?? ''} onChange={(e) => setERow(s.id, { feedback: e.target.value })} className="grade-input" style={{ width: '100%' }} placeholder="بازخورد" /></td>
+                                                        </tr>
+                                                    );
+                                                }
+                                                const val = a.score_type === 'numeric' ? (g?.score != null ? fa(g.score) : '—') : (g?.text || '—');
+                                                const col = RATING_COLOR[g?.text];
+                                                return (
+                                                    <tr key={s.id}>
+                                                        <td style={{ fontWeight: 700 }}>{s.name}</td>
+                                                        <td>{col ? <span style={{ background: col[0], color: col[1], borderRadius: 8, padding: '3px 10px', fontWeight: 700, fontSize: 13 }}>{ICON[g.text] || ''} {val}</span> : val}</td>
+                                                        <td style={{ color: 'var(--muted)', fontSize: 13 }}>{g?.feedback || '—'}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             )}
         </DashLayout>

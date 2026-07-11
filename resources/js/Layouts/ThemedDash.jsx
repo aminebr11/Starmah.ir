@@ -21,6 +21,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
         { key: 'exams', label: 'آزمون‌های من', icon: '💻', href: '/exams' },
         { key: 'board', label: 'رقابت تیم‌ها', icon: '🏆', href: '/leaderboard' },
         { key: 'progress', label: 'کارنامه‌ی من', icon: '📈', href: '/progress' },
+        { key: 'grades', label: 'نمرات کلاسی', icon: '📔', href: '/my-grades' },
         { key: 'discipline', label: 'موارد انضباطی', icon: '⭐', href: '/my-discipline' },
         { key: 'schedule', label: 'برنامه کلاسی', icon: '🗓️', href: '/schedule' },
         { key: 'notices', label: 'اعلان‌ها', icon: '📢', href: '/notices' },

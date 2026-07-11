@@ -104,6 +104,7 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::get('/leaderboard', LeaderboardController::class)->name('leaderboard');
     Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'studentView'])->name('schedule');
     Route::get('/my-discipline', [\App\Http\Controllers\StudentDisciplineController::class, 'index'])->name('my.discipline');
+    Route::get('/my-grades', [\App\Http\Controllers\StudentGradesController::class, 'index'])->name('my.grades');
 
     Route::get('/exams', [ExamController::class, 'index'])->name('exams');
     Route::get('/exams/{assignment}/take', [ExamController::class, 'take'])->name('exams.take');

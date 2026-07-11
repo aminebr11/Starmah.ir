@@ -121,8 +121,35 @@ class GradebookController extends Controller
                 ['grade_column_id' => $col->id, 'student_id' => $g['student_id']],
                 ['score' => $g['score'] ?? null, 'text' => $g['text'] ?? null, 'feedback' => $g['feedback'] ?? null]
             );
+            $changed = $grade->wasRecentlyCreated || $grade->wasChanged('score') || $grade->wasChanged('text');
             $game->awardForGrade($grade, $col, $teacher);
+            if ($changed) {
+                $this->notifyGrade($col, $grade, $teacher);
+            }
         }
+    }
+
+    /** اعلانِ نمره در کارتابلِ دانش‌آموز. */
+    private function notifyGrade(GradeColumn $col, Grade $grade, $teacher): void
+    {
+        $type = $col->score_type ?: $col->type;
+        $value = $type === 'numeric'
+            ? ($grade->score !== null ? "{$grade->score} از {$col->max}" : '—')
+            : ($grade->text ?: '—');
+        $lesson = $col->lesson ? $col->lesson . ' — ' : '';
+        $body = "نمره‌ی جدید: {$lesson}{$col->title}\nارزیابی: {$value}";
+        if ($grade->feedback) {
+            $body .= "\nبازخورد معلم: {$grade->feedback}";
+        }
+
+        $ann = \App\Models\Announcement::create([
+            'school_id' => $col->school_id,
+            'sender_id' => $teacher->id,
+            'title'     => '📔 نمره‌ی کلاسی — ' . ($col->lesson ?: $col->title),
+            'audience'  => 'personal',
+            'body'      => $body,
+        ]);
+        $ann->recipients()->sync([$grade->student_id]);
     }
 
     public function destroyColumn(Request $request, GradeColumn $gradeColumn): RedirectResponse
