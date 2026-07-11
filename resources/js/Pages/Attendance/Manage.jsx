@@ -14,7 +14,7 @@ const STATUSES = [
 const stMap = Object.fromEntries(STATUSES.map((s) => [s.v, s]));
 
 export default function Manage() {
-    const { role, routes, classrooms = [], classroomId, classroom, students = [], date, jdate, hasRecords, recentDates = [], flash } = usePage().props;
+    const { role, routes, classrooms = [], classroomId, classroom, students = [], date, jdate, hasRecords, recentGroups = [], flash } = usePage().props;
     const menu = role === 'teacher' ? teacherMenu : schoolMenu;
     const roleLabel = role === 'teacher' ? 'معلم' : 'مدیر مدرسه';
     const [banner, setBanner] = useState(null);
@@ -48,7 +48,7 @@ export default function Manage() {
         <DashLayout title="ثبت حضور و غیاب" roleLabel={roleLabel} menu={menu} active="attendance"
             actions={classroom && <>
                 <Link href={route(routes.monthlySheet, { classroom_id: classroomId })} className="btn btn-ghost btn-sm">🗓️ فرم خالی ماهانه</Link>
-                <Link href={route(routes.report)} className="btn btn-ghost btn-sm">📋 گزارش‌گیری</Link>
+                <Link href={route(routes.report)} className="btn btn-ghost btn-sm">📋 سوابق و گزارشات</Link>
             </>}>
             {banner && <div className="panel" style={{ borderColor: 'var(--gold)', background: '#fff8e8' }}><b>{banner}</b></div>}
 
@@ -96,9 +96,10 @@ export default function Manage() {
                                 return (
                                     <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 10px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', borderRight: `4px solid ${sc.on}`, borderRadius: 4, marginBottom: 4, background: sc.bg + '55' }}>
                                         <div style={{ flex: 1, minWidth: 140 }}>
-                                            <div style={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <div style={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                                                 {s.name}
                                                 {s.recorded && <span title="ثبت‌شده" style={{ fontSize: 10, color: '#22b573' }}>● ثبت‌شده</span>}
+                                                {s.by && <span style={{ fontSize: 10.5, color: 'var(--muted)', fontWeight: 600 }}>✍️ {s.by.role}: {s.by.name}</span>}
                                             </div>
                                             {(s.absent > 0 || s.late > 0) && (
                                                 <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>
@@ -127,21 +128,67 @@ export default function Manage() {
                             )}
                         </div>
 
-                        {/* سوابق اخیر */}
+                        {/* سوابق اخیر — دسته‌بندی بر اساس سال ← ماه */}
                         <div className="panel">
                             <h3>🗓️ سوابق اخیر</h3>
-                            {recentDates.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز سابقه‌ای ثبت نشده.</p>}
-                            {recentDates.map((d) => (
-                                <button key={d.date} onClick={() => changeDate(d.date)}
-                                    style={{ width: '100%', textAlign: 'right', fontFamily: 'inherit', cursor: 'pointer', border: d.date === date ? '1px solid var(--gold)' : '1px solid var(--line)', background: d.date === date ? '#fff8e8' : '#fff', borderRadius: 12, padding: '11px 13px', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontWeight: 700 }}>{d.jdate}</span>
-                                    <span className={`tag ${d.absents > 0 ? 'tag-warn' : 'tag-ok'}`}>{d.absents > 0 ? `${fa(d.absents)} غایب` : 'همه حاضر'}</span>
-                                </button>
+                            {recentGroups.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز سابقه‌ای ثبت نشده.</p>}
+                            {recentGroups.map((y) => (
+                                <RecentYear key={y.year} y={y} date={date} changeDate={changeDate} multiYear={recentGroups.length > 1} />
                             ))}
                         </div>
                     </div>
                 </>
             )}
         </DashLayout>
+    );
+}
+
+/** یک سالِ سوابق؛ اگر بیش از یک سال باشد، عنوان سال هم نمایش داده می‌شود. */
+function RecentYear({ y, date, changeDate, multiYear }) {
+    return (
+        <div style={{ marginBottom: multiYear ? 10 : 0 }}>
+            {multiYear && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '6px 0 8px', fontWeight: 900, color: 'var(--navy-700)' }}>
+                    <span style={{ width: 6, height: 16, borderRadius: 4, background: 'linear-gradient(var(--gold),var(--gold-2))' }} />
+                    سال {y.year}
+                </div>
+            )}
+            {y.months.map((m, i) => (
+                <RecentMonth key={m.label} m={m} date={date} changeDate={changeDate} defaultOpen={i === 0} />
+            ))}
+        </div>
+    );
+}
+
+/** یک ماهِ سوابق — جمع‌شونده. روزهای همان ماه زیر آن می‌آیند. */
+function RecentMonth({ m, date, changeDate, defaultOpen }) {
+    const [open, setOpen] = useState(defaultOpen);
+    const totalAbsents = m.days.reduce((a, d) => a + d.absents, 0);
+    return (
+        <div style={{ border: '1px solid var(--line)', borderRadius: 12, marginBottom: 8, overflow: 'hidden' }}>
+            <button onClick={() => setOpen(!open)}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: '#f7f9fd', border: 0, fontFamily: 'inherit', cursor: 'pointer', fontWeight: 800, color: 'var(--navy-700)' }}>
+                <span style={{ fontSize: 12, opacity: .6 }}>{open ? '▼' : '◄'}</span>
+                📅 {m.label}
+                <span style={{ marginInlineStart: 'auto', display: 'flex', gap: 6 }}>
+                    <span className="tag tag-info" style={{ fontSize: 11 }}>{fa(m.days.length)} روز</span>
+                    {totalAbsents > 0 && <span className="tag tag-warn" style={{ fontSize: 11 }}>{fa(totalAbsents)} غیبت</span>}
+                </span>
+            </button>
+            {open && (
+                <div style={{ padding: 8 }}>
+                    {m.days.map((d) => (
+                        <button key={d.date} onClick={() => changeDate(d.date)}
+                            style={{ width: '100%', textAlign: 'right', fontFamily: 'inherit', cursor: 'pointer', border: d.date === date ? '1px solid var(--gold)' : '1px solid var(--line)', background: d.date === date ? '#fff8e8' : '#fff', borderRadius: 10, padding: '9px 11px', marginBottom: 6 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontWeight: 700 }}>{d.weekday} {d.short}</span>
+                                <span className={`tag ${d.absents > 0 ? 'tag-warn' : 'tag-ok'}`} style={{ fontSize: 11 }}>{d.absents > 0 ? `${fa(d.absents)} غایب` : 'همه حاضر'}</span>
+                            </div>
+                            {d.by && <div style={{ fontSize: 10.5, color: 'var(--muted)', marginTop: 3, textAlign: 'right' }}>✍️ آخرین ثبت/اصلاح: {d.by.role} {d.by.name}</div>}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
     );
 }

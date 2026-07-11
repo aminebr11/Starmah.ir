@@ -33,7 +33,7 @@ export default function AttendanceReport() {
     const maxDay = Math.max(1, ...daily.map((d) => d.present + d.absent + d.late));
 
     return (
-        <DashLayout title="گزارش حضور و غیاب" roleLabel={role === 'teacher' ? 'معلم' : 'مدیر مدرسه'} menu={menu} active="attreport"
+        <DashLayout title="سوابق و گزارشات حضور و غیاب" roleLabel={role === 'teacher' ? 'معلم' : 'مدیر مدرسه'} menu={menu} active="attendance"
             actions={<>
                 <Link href={route(monthlyRoute, { classroom_id: f.classroom_id })} className="btn btn-ghost btn-sm no-print">🗓️ فرم خالی ماهانه</Link>
                 <button onClick={() => window.print()} className="btn btn-sm no-print">🖨️ چاپ گزارش</button>

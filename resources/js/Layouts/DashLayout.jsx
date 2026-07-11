@@ -54,9 +54,12 @@ export default function DashLayout({ title, roleLabel, menu = [], active = '', c
                         <Link href="/notices" className={`bell-btn ${unreadNotices > 0 ? 'ring' : ''}`} title="اعلان‌ها و پیام‌ها">
                             🔔{unreadNotices > 0 && <span className="bell-dot">{unreadNotices}</span>}
                         </Link>
-                        <Link href={route('profile.edit')} className="btn btn-ghost btn-sm" title="پروفایل من">
-                            👤 {auth?.user?.name}
-                        </Link>
+                        <div className="user-chip">
+                            <Link href={route('profile.edit')} className="user-chip-name" title="پروفایل من">
+                                <span className="ic">👤</span><span className="nm">{auth?.user?.name}</span>
+                            </Link>
+                            <button onClick={() => router.post(route('logout'))} className="user-chip-out" title="خروج از حساب">🚪</button>
+                        </div>
                     </div>
                 </div>
                 {children}
@@ -81,8 +84,7 @@ export const schoolMenu = [
     { key: 'students', label: 'دانش‌آموزان', icon: '🎓', href: '/school/students' },
     { key: 'schedule', label: 'برنامه‌ی کلاس‌ها', icon: '🗓️', href: '/school/schedule' },
     { key: 'announcements', label: 'اطلاعیه‌ها', icon: '📢', href: '/school/announcements' },
-    { key: 'attendance', label: 'ثبت حضور و غیاب', icon: '✅', href: '/school/attendance' },
-    { key: 'attreport', label: 'گزارش حضور و غیاب', icon: '📋', href: '/school/attendance-report' },
+    { key: 'attendance', label: 'حضور و غیاب', icon: '✅', href: '/school/attendance' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/school/reports' },
 ];
 
@@ -90,7 +92,6 @@ export const teacherMenu = [
     { key: 'home', label: 'پیشخوان', icon: '📊', href: '/teacher' },
     { key: 'class', label: 'دانش‌آموزان من', icon: '🎓', href: '/teacher/students' },
     { key: 'attendance', label: 'حضور و غیاب', icon: '✅', href: '/teacher/attendance' },
-    { key: 'attreport', label: 'گزارش حضور و غیاب', icon: '📋', href: '/teacher/attendance-report' },
     { key: 'schedule', label: 'برنامه کلاسی', icon: '🗓️', href: '/teacher/schedule' },
     { key: 'gradebook', label: 'دفتر کلاسی', icon: '📔', href: '/teacher/gradebook' },
     { key: 'exams', label: 'آزمون‌ها', icon: '📝', href: '/teacher/exams' },

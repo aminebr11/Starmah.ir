@@ -62,7 +62,7 @@ class AttendanceController extends Controller
         try { $carbon = Carbon::parse($date); } catch (\Throwable $e) { $carbon = now(); $date = now()->toDateString(); }
 
         $students = collect();
-        $recentDates = collect();
+        $recentGroups = [];
 
         if ($classroom) {
             $real = Classroom::find($classroom->id); // برای رابطه‌ها
@@ -73,41 +73,95 @@ class AttendanceController extends Controller
                 ->selectRaw('student_id, status, COUNT(*) as c')->groupBy('student_id', 'status')->get()
                 ->groupBy('student_id');
 
-            $students = $real->students()->get(['users.id', 'name'])->map(function ($s) use ($today, $stats) {
+            // نگاشتِ ثبت‌کننده‌ها (نام + نقش) — برای نمایش «چه کسی ثبت/اصلاح کرده»
+            $recorders = $this->recorderMap($classroom->id);
+
+            $students = $real->students()->get(['users.id', 'name'])->map(function ($s) use ($today, $stats, $recorders) {
                 $st = $stats->get($s->id) ?? collect();
+                $rec = $today->get($s->id);
                 return [
                     'id' => $s->id, 'name' => $s->name,
-                    'status' => $today->get($s->id)?->status ?? 'present',
-                    'recorded' => $today->has($s->id),
+                    'status' => $rec?->status ?? 'present',
+                    'recorded' => (bool) $rec,
+                    'by' => $rec ? ($recorders[$rec->recorded_by] ?? null) : null,
                     'absent' => (int) ($st->firstWhere('status', 'absent')->c ?? 0),
                     'late'   => (int) ($st->firstWhere('status', 'late')->c ?? 0),
                 ];
             })->values();
 
-            $recentDates = AttendanceRecord::where('classroom_id', $classroom->id)
-                ->selectRaw('date, SUM(status="absent") as absents, COUNT(*) as total')
-                ->groupBy('date')->orderByDesc('date')->limit(14)->get()
-                ->map(fn ($r) => [
-                    'date' => Carbon::parse($r->date)->toDateString(),
-                    'jdate' => Jalali::format(Carbon::parse($r->date)),
-                    'absents' => (int) $r->absents, 'total' => (int) $r->total,
-                ]);
+            $recentGroups = $this->recentGroups($classroom->id, $recorders);
         }
 
         $hasRecords = $students->contains(fn ($s) => $s['recorded']);
 
         return Inertia::render('Attendance/Manage', [
-            'role'        => $this->isTeacher($request) ? 'teacher' : 'school_admin',
-            'routes'      => $this->routeNames($request),
-            'classrooms'  => $classrooms,
-            'classroomId' => $classroomId,
-            'classroom'   => $classroom,
-            'students'    => $students,
-            'date'        => $date,
-            'jdate'       => Jalali::format($carbon, true),
-            'hasRecords'  => $hasRecords,
-            'recentDates' => $recentDates,
+            'role'         => $this->isTeacher($request) ? 'teacher' : 'school_admin',
+            'routes'       => $this->routeNames($request),
+            'classrooms'   => $classrooms,
+            'classroomId'  => $classroomId,
+            'classroom'    => $classroom,
+            'students'     => $students,
+            'date'         => $date,
+            'jdate'        => Jalali::format($carbon, true),
+            'hasRecords'   => $hasRecords,
+            'recentGroups' => $recentGroups,
         ]);
+    }
+
+    /** نگاشت شناسه‌ی ثبت‌کننده به نام و نقشِ فارسی. */
+    private function recorderMap(int $classroomId): array
+    {
+        $ids = AttendanceRecord::where('classroom_id', $classroomId)
+            ->whereNotNull('recorded_by')->distinct()->pluck('recorded_by');
+        return \App\Models\User::whereIn('id', $ids)->with('roles:id,name')->get()
+            ->mapWithKeys(fn ($u) => [$u->id => ['name' => $u->name, 'role' => $this->roleLabel($u)]])->all();
+    }
+
+    private function roleLabel(\App\Models\User $u): string
+    {
+        $r = $u->roles->pluck('name')->first();
+        return ['super_admin' => 'ادمین کل', 'school_admin' => 'مدیر مدرسه', 'teacher' => 'معلم', 'student' => 'دانش‌آموز'][$r] ?? 'کاربر';
+    }
+
+    /**
+     * سوابق اخیر، دسته‌بندی‌شده بر اساس سال ← ماهِ شمسی (فقط ماه‌ها/سال‌هایی که رکورد دارند).
+     */
+    private function recentGroups(int $classroomId, array $recorders): array
+    {
+        $records = AttendanceRecord::where('classroom_id', $classroomId)
+            ->orderByDesc('date')->orderByDesc('updated_at')
+            ->get(['date', 'status', 'recorded_by', 'updated_at']);
+
+        $byDate = $records->groupBy(fn ($r) => Carbon::parse($r->date)->toDateString());
+        $years = [];
+
+        foreach ($byDate as $ds => $recs) {
+            $c = Carbon::parse($ds);
+            $p = Jalali::ymParts($c);
+            $latest = $recs->first(); // آخرین ویرایش همان روز
+            $day = [
+                'date' => $ds,
+                'day' => $p['day'], 'weekday' => $p['weekday'], 'short' => $p['short'],
+                'absents' => $recs->where('status', 'absent')->count(),
+                'total' => $recs->count(),
+                'by' => $latest && $latest->recorded_by ? ($recorders[$latest->recorded_by] ?? null) : null,
+            ];
+            $yk = (string) $p['jy'];
+            $mk = $p['jy'] . '-' . str_pad((string) $p['jm'], 2, '0', STR_PAD_LEFT);
+            $years[$yk]['year'] = $p['year'];
+            $years[$yk]['jy'] = $p['jy'];
+            $years[$yk]['months'][$mk]['label'] = $p['monthLabel'];
+            $years[$yk]['months'][$mk]['jm'] = $p['jm'];
+            $years[$yk]['months'][$mk]['days'][] = $day;
+        }
+
+        // مرتب‌سازی: سال نزولی، ماه نزولی
+        krsort($years);
+        return array_values(array_map(function ($y) {
+            krsort($y['months']);
+            $y['months'] = array_values($y['months']);
+            return $y;
+        }, $years));
     }
 
     /** فرم خالی حضور و غیاب ماهانه برای چاپ (اسامی دانش‌آموزان × روزهای ماه). */

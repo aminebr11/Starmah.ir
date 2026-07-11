@@ -57,4 +57,21 @@ class Jalali
     {
         return self::WEEKDAYS;
     }
+
+    /** اجزای تاریخ شمسی + برچسب‌های آماده برای دسته‌بندی. */
+    public static function ymParts($date): array
+    {
+        [$jy, $jm, $jd] = self::fromGregorian((int) $date->format('Y'), (int) $date->format('n'), (int) $date->format('j'));
+        $w = ((int) $date->format('w') + 1) % 7;
+
+        return [
+            'jy' => $jy, 'jm' => $jm, 'jd' => $jd,
+            'year' => self::fa((string) $jy),
+            'month' => self::MONTHS[$jm],
+            'monthLabel' => self::fa(self::MONTHS[$jm] . ' ' . $jy),
+            'day' => self::fa((string) $jd),
+            'weekday' => self::WEEKDAYS[$w],
+            'short' => self::fa($jd . ' ' . self::MONTHS[$jm]),
+        ];
+    }
 }

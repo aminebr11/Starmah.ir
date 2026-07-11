@@ -522,8 +522,29 @@ img{max-width:100%;display:block}
 .msheet-legend { margin-top: 10px; font-size: 12px; color: #445; }
 
 @media print {
-  /* فرم ماهانه در حالت افقی و تمام‌عرض چاپ شود */
-  .msheet-wrap { }
-  @page msheet { size: A4 landscape; margin: 8mm; }
-  .msheet-name { position: static !important; }
+  /* فرم خالی ماهانه: کامل و دقیق در یک صفحه‌ی A4 عمودی (portrait) */
+  @page { size: A4 portrait; margin: 7mm; }
+  .msheet-wrap { box-shadow: none !important; border: 0 !important; padding: 0 !important; }
+  .msheet-tbl { table-layout: fixed; width: 100%; }
+  .msheet-tbl th, .msheet-tbl td { font-size: 8px; height: 6.1mm; padding: 0; min-width: 0; overflow: hidden; }
+  .msheet-tbl .msheet-name { position: static !important; width: 29mm; font-size: 8.5px; padding: 0 3px; text-overflow: ellipsis; }
+  .msheet-tbl .msheet-wd { font-size: 6px; }
+  .msheet-head { padding-bottom: 8px; margin-bottom: 8px; }
+  .msheet-head img { width: 40px; height: 40px; }
+  .msheet-title { font-size: 15px; }
+  .msheet-sub, .msheet-meta { font-size: 10px; }
+  .msheet-legend { margin-top: 6px; font-size: 9px; }
+  .report-signs { margin-top: 20px !important; font-size: 11px; }
+}
+
+/* ===== چیپِ کاربر + خروج در تاپ‌بار (ریسپانسیو، روی موبایل هم دیده می‌شود) ===== */
+.user-chip{display:inline-flex;align-items:stretch;border:1px solid var(--line);border-radius:13px;overflow:hidden;background:#fff;box-shadow:var(--shadow)}
+.user-chip-name{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;font-weight:700;font-size:13px;color:var(--navy-800);max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-chip-name:hover{background:var(--cream)}
+.user-chip-name .ic{flex:none}
+.user-chip-out{border:0;border-inline-start:1px solid var(--line);background:#fff;color:#e8505b;cursor:pointer;font-size:16px;padding:0 13px;font-family:inherit;transition:.18s}
+.user-chip-out:hover{background:#fdecec}
+@media (max-width:600px){
+  .user-chip-name{max-width:104px;padding:8px 10px}
+  .user-chip-name .nm{max-width:74px;overflow:hidden;text-overflow:ellipsis}
 }
