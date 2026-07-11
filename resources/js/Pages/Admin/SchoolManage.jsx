@@ -6,21 +6,53 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
 
 /** ادمین کل: مدیریت کامل داده‌های یک مدرسه. */
 export default function SchoolManage() {
-    const { school, grades = [], admins = [], teachers = [], students = [], classes = [], flash } = usePage().props;
+    const { school, levels = [], grades = [], admins = [], teachers = [], students = [], classes = [], flash } = usePage().props;
     const [banner, setBanner] = useState(null);
     useEffect(() => { if (flash?.flash) setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); }, [flash]);
+
+    const STATUS = { pending: 'در انتظار', active: 'فعال', suspended: 'معلق' };
+    const sch = useForm({ name: school?.name || '', city: school?.city || '', level: school?.level || '', status: school?.status || 'active' });
+    const [editSchool, setEditSchool] = useState(false);
+    const saveSchool = (e) => { e.preventDefault(); sch.put(route('admin.schools.update', school.id), { preserveScroll: true, onSuccess: () => setEditSchool(false) }); };
 
     return (
         <DashLayout title={`مدیریت مدرسه — ${school?.name}`} roleLabel="ادمین کل" menu={adminMenu} active="schools"
             actions={<Link href={route('admin.schools')} className="btn btn-ghost btn-sm">← فهرست مدارس</Link>}>
             {banner && <div className="panel" style={{ borderColor: 'var(--gold)', background: '#fff8e8' }}><b>{banner}</b></div>}
 
-            <div className="panel" style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-                <h3 style={{ margin: 0 }}>🏫 {school?.name}</h3>
-                {school?.city && <span className="tag tag-info">📍 {school.city}</span>}
-                {school?.level && <span className="tag tag-info">مقطع: {school.level}</span>}
-                <span className="tag tag-info">وضعیت: {school?.status}</span>
-                <span style={{ color: 'var(--muted)', marginInlineStart: 'auto' }}>{fa(teachers.length)} معلم · {fa(classes.length)} کلاس · {fa(students.length)} دانش‌آموز</span>
+            <div className="panel">
+                <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <h3 style={{ margin: 0 }}>🏫 {school?.name}</h3>
+                    {school?.city && <span className="tag tag-info">📍 {school.city}</span>}
+                    {school?.level && <span className="tag tag-info">مقطع: {school.level}</span>}
+                    <span className="tag tag-info">وضعیت: {STATUS[school?.status] ?? school?.status}</span>
+                    <button onClick={() => setEditSchool(!editSchool)} className="btn btn-ghost btn-sm" style={{ marginInlineStart: 'auto' }}>✏️ ویرایش مدرسه</button>
+                    <span style={{ color: 'var(--muted)' }}>{fa(teachers.length)} معلم · {fa(classes.length)} کلاس · {fa(students.length)} دانش‌آموز</span>
+                </div>
+
+                {editSchool && (
+                    <form onSubmit={saveSchool} style={{ marginTop: 14, background: 'var(--cream)', borderRadius: 12, padding: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 12, alignItems: 'end' }}>
+                        <div className="field" style={{ margin: 0 }}><label>نام مدرسه</label><input className="input" value={sch.data.name} onChange={(e) => sch.setData('name', e.target.value)} />{sch.errors.name && <Err>{sch.errors.name}</Err>}</div>
+                        <div className="field" style={{ margin: 0 }}><label>شهر</label><input className="input" value={sch.data.city} onChange={(e) => sch.setData('city', e.target.value)} />{sch.errors.city && <Err>{sch.errors.city}</Err>}</div>
+                        <div className="field" style={{ margin: 0 }}><label>نوع / مقطع مدرسه</label>
+                            <select className="input" value={sch.data.level} onChange={(e) => sch.setData('level', e.target.value)}>
+                                <option value="">— انتخاب مقطع —</option>
+                                {levels.map((l) => <option key={l} value={l}>{l}</option>)}
+                            </select>
+                            {sch.errors.level && <Err>{sch.errors.level}</Err>}
+                        </div>
+                        <div className="field" style={{ margin: 0 }}><label>وضعیت</label>
+                            <select className="input" value={sch.data.status} onChange={(e) => sch.setData('status', e.target.value)}>
+                                {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                            </select>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <button type="submit" disabled={sch.processing} className="btn btn-sm">💾 ذخیره</button>
+                            <button type="button" onClick={() => setEditSchool(false)} className="btn btn-ghost btn-sm">انصراف</button>
+                        </div>
+                        <div style={{ gridColumn: '1 / -1', fontSize: 12, color: 'var(--muted)' }}>⚠️ تغییر مقطع مدرسه، بانک درس‌ها و پایه‌های مجاز کلاس‌ها را عوض می‌کند.</div>
+                    </form>
+                )}
             </div>
 
             {/* مدیر مدرسه */}
@@ -133,3 +165,4 @@ function Section({ title, children }) {
     return <div className="panel"><h3 style={{ marginTop: 0 }}>{title}</h3>{children}</div>;
 }
 function Empty({ children }) { return <p style={{ color: 'var(--muted)' }}>{children}</p>; }
+function Err({ children }) { return <div style={{ color: '#e8505b', fontSize: 12, marginTop: 4 }}>{children}</div>; }

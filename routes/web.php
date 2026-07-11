@@ -43,6 +43,7 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::get('/', [PlatformController::class, 'overview'])->name('overview');
     Route::get('/schools', [SchoolApprovalController::class, 'index'])->name('schools');
     Route::get('/schools/{school}/manage', [\App\Http\Controllers\Admin\SchoolManageController::class, 'show'])->name('schools.manage');
+    Route::put('/schools/{school}', [\App\Http\Controllers\Admin\SchoolManageController::class, 'update'])->name('schools.update');
     Route::post('/schools/requests/{schoolRequest}/approve', [SchoolApprovalController::class, 'approve'])->name('schools.approve');
     Route::post('/schools/requests/{schoolRequest}/reject', [SchoolApprovalController::class, 'reject'])->name('schools.reject');
     Route::post('/schools/{school}/plan', [SchoolApprovalController::class, 'updatePlan'])->name('schools.plan');
