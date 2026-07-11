@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\Classroom;
 use App\Models\User;
 use App\Support\Levels;
@@ -89,6 +90,9 @@ class ManagementController extends Controller
             }
         }
 
+        $roleFa = $user->hasRole(Roles::TEACHER) ? 'معلم' : ($user->hasRole(Roles::STUDENT) ? 'دانش‌آموز' : 'کاربر');
+        AuditLog::record($actor, "ویرایش {$roleFa}", "«{$user->name}» ویرایش شد");
+
         return back()->with('flash', "اطلاعات «{$user->name}» به‌روزرسانی شد ✅");
     }
 
@@ -99,12 +103,15 @@ class ManagementController extends Controller
         abort_if($user->id === $actor->id, 403, 'حذف حساب خودتان ممکن نیست.');
 
         $name = $user->name;
+        $roleFa = $user->hasRole(Roles::TEACHER) ? 'معلم' : ($user->hasRole(Roles::STUDENT) ? 'دانش‌آموز' : 'کاربر');
 
         // اگر معلم است، کلاس‌هایش هم حذف می‌شوند (دانش‌آموزان از کلاس آزاد می‌شوند)
         if ($user->hasRole(Roles::TEACHER)) {
             Classroom::where('teacher_id', $user->id)->get()->each->delete();
         }
         $user->delete();
+
+        AuditLog::record($actor, "حذف {$roleFa}", "«{$name}» حذف شد");
 
         return back()->with('flash', "«{$name}» حذف شد 🗑️");
     }
@@ -121,6 +128,7 @@ class ManagementController extends Controller
         ], [], ['grade' => 'پایه']);
 
         $classroom->update(['name' => $data['name'], 'grade' => $data['grade']]);
+        AuditLog::record($actor, 'ویرایش کلاس', "کلاس «{$classroom->name}» (پایه {$classroom->grade}) ویرایش شد");
 
         return back()->with('flash', 'کلاس به‌روزرسانی شد ✅');
     }
@@ -129,8 +137,49 @@ class ManagementController extends Controller
     {
         $actor = $request->user();
         abort_unless($this->canManageClassroom($actor, $classroom), 403);
+        $name = $classroom->name;
         $classroom->delete();
+        AuditLog::record($actor, 'حذف کلاس', "کلاس «{$name}» حذف شد");
 
         return back()->with('flash', 'کلاس حذف شد 🗑️');
+    }
+
+    /** جابه‌جایی دانش‌آموز به کلاسِ دیگر (مدیر/ادمین). */
+    public function moveStudent(Request $request, User $user): RedirectResponse
+    {
+        $actor = $request->user();
+        abort_unless($this->canManageUser($actor, $user) && $user->hasRole(Roles::STUDENT), 403);
+
+        $data = $request->validate(['classroom_id' => ['required', 'integer']]);
+        $target = Classroom::findOrFail($data['classroom_id']);
+        abort_unless($this->canManageClassroom($actor, $target), 403);
+
+        // از کلاس‌های فعلیِ همان مدرسه جدا و به کلاس هدف متصل شود
+        $schoolClassIds = Classroom::where('school_id', $target->school_id)->pluck('id');
+        $user->classrooms()->detach($schoolClassIds);
+        $user->classrooms()->attach($target->id, ['joined_at' => now()]);
+
+        AuditLog::record($actor, 'تغییر کلاس دانش‌آموز', "«{$user->name}» به کلاس «{$target->name}» منتقل شد");
+
+        return back()->with('flash', "«{$user->name}» به کلاس «{$target->name}» منتقل شد ✅");
+    }
+
+    /** تغییر معلمِ یک کلاس (مدیر/ادمین). */
+    public function reassignTeacher(Request $request, Classroom $classroom): RedirectResponse
+    {
+        $actor = $request->user();
+        abort_unless($this->canManageClassroom($actor, $classroom), 403);
+
+        $data = $request->validate(['teacher_id' => ['required', 'integer']]);
+        $teacher = User::findOrFail($data['teacher_id']);
+        abort_unless($teacher->school_id === $classroom->school_id && $teacher->hasRole(Roles::TEACHER), 403);
+
+        // اگر معلم مقصد کلاس دیگری داشته باشد، به همان می‌ماند؛ این کلاس به او هم اضافه می‌شود
+        $old = $classroom->teacher?->name;
+        $classroom->update(['teacher_id' => $teacher->id]);
+
+        AuditLog::record($actor, 'تغییر معلمِ کلاس', "معلمِ کلاس «{$classroom->name}» از «" . ($old ?? '—') . "» به «{$teacher->name}» تغییر کرد");
+
+        return back()->with('flash', "معلمِ کلاس «{$classroom->name}» به «{$teacher->name}» تغییر کرد ✅");
     }
 }

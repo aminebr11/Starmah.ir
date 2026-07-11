@@ -165,6 +165,8 @@ Route::middleware('auth')->group(function () {
     Route::delete('/manage/users/{user}', [\App\Http\Controllers\ManagementController::class, 'destroyUser'])->name('manage.users.destroy');
     Route::put('/manage/classrooms/{classroom}', [\App\Http\Controllers\ManagementController::class, 'updateClassroom'])->name('manage.classrooms.update');
     Route::delete('/manage/classrooms/{classroom}', [\App\Http\Controllers\ManagementController::class, 'destroyClassroom'])->name('manage.classrooms.destroy');
+    Route::post('/manage/users/{user}/move', [\App\Http\Controllers\ManagementController::class, 'moveStudent'])->name('manage.users.move');
+    Route::post('/manage/classrooms/{classroom}/teacher', [\App\Http\Controllers\ManagementController::class, 'reassignTeacher'])->name('manage.classrooms.teacher');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update');

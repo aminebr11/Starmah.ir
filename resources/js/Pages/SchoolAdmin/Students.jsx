@@ -1,69 +1,160 @@
 import { usePage, useForm, router } from '@inertiajs/react';
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import DashLayout, { schoolMenu } from '@/Layouts/DashLayout';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 export default function Students() {
-    const { students = [], flash } = usePage().props;
+    const { students = [], classrooms = [], teachers = [], school, audit = [], flash } = usePage().props;
     const [banner, setBanner] = useState(null);
     useEffect(() => { if (flash?.flash) setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); }, [flash]);
 
     const [q, setQ] = useState('');
+    const [printId, setPrintId] = useState(null);
+    const printedAt = new Date().toLocaleDateString('fa-IR');
+
+    // چاپِ لیستِ یک کلاس
+    useEffect(() => {
+        if (printId !== null) {
+            const t = setTimeout(() => { window.print(); setPrintId(null); }, 120);
+            return () => clearTimeout(t);
+        }
+    }, [printId]);
+
     const edit = useForm({ name: '', phone: '', national_id: '', password: '' });
     const [editId, setEditId] = useState(null);
     const startEdit = (s) => { setEditId(s.id); edit.setData({ name: s.name || '', phone: s.phone || '', national_id: s.national_id || '', password: '' }); edit.clearErrors(); };
     const saveEdit = (e) => { e.preventDefault(); edit.put(route('manage.users.update', editId), { preserveScroll: true, onSuccess: () => setEditId(null) }); };
     const del = (s) => { if (confirm(`دانش‌آموز «${s.name}» حذف شود؟`)) router.delete(route('manage.users.destroy', s.id), { preserveScroll: true }); };
+    const moveStudent = (s, cid) => { if (cid && router.post(route('manage.users.move', s.id), { classroom_id: cid }, { preserveScroll: true })); };
+    const reassignTeacher = (cid, tid) => { if (tid) router.post(route('manage.classrooms.teacher', cid), { teacher_id: tid }, { preserveScroll: true }); };
 
     const shown = students.filter((s) => !q || (s.name || '').includes(q) || (s.phone || '').includes(q) || (s.class || '').includes(q));
 
+    // گروه‌بندی بر اساس کلاس
+    const groups = classrooms.map((c) => ({ cls: c, list: shown.filter((s) => s.classroom_id === c.id) }));
+    const noClass = shown.filter((s) => !s.classroom_id);
+
+    const printClass = classrooms.find((c) => c.id === printId);
+    const printList = printClass ? students.filter((s) => s.classroom_id === printClass.id) : [];
+
     return (
         <DashLayout title="دانش‌آموزان" roleLabel="مدیر مدرسه" menu={schoolMenu} active="students">
-            {banner && <div className="panel" style={{ borderColor: 'var(--gold)', background: '#fff8e8' }}><b>{banner}</b></div>}
-            <div className="panel">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
-                    <h3 style={{ margin: 0 }}>🎓 دانش‌آموزان مدرسه ({fa(students.length)})</h3>
-                    <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔍 جست‌وجو…" style={{ marginInlineStart: 'auto', width: 'auto', maxWidth: 220, padding: '8px 12px' }} />
+            {banner && <div className="panel no-print" style={{ borderColor: 'var(--gold)', background: '#fff8e8' }}><b>{banner}</b></div>}
+
+            <div className="panel no-print" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0 }}>🎓 دانش‌آموزان مدرسه ({fa(students.length)})</h3>
+                <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔍 جست‌وجو…" style={{ marginInlineStart: 'auto', width: 'auto', maxWidth: 240, padding: '8px 12px' }} />
+            </div>
+
+            {students.length === 0 && <div className="panel no-print"><p style={{ color: 'var(--muted)' }}>هنوز دانش‌آموزی ثبت‌نام نکرده.</p></div>}
+
+            {/* هر کلاس در یک بخش */}
+            {groups.map(({ cls, list }) => (
+                <div key={cls.id} className="panel no-print">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
+                        <h3 style={{ margin: 0 }}>🏫 {cls.name}{cls.grade ? ` — پایه ${cls.grade}` : ''} <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--muted)' }}>({fa(list.length)} دانش‌آموز)</span></h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginInlineStart: 'auto', flexWrap: 'wrap' }}>
+                            <label style={{ fontSize: 12.5, color: 'var(--muted)' }}>معلم:</label>
+                            <select className="input" style={{ width: 'auto', padding: '7px 10px', fontSize: 13 }} value={cls.teacher_id ?? ''} onChange={(e) => reassignTeacher(cls.id, e.target.value)}>
+                                <option value="">— انتخاب معلم —</option>
+                                {teachers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                            </select>
+                            <button onClick={() => setPrintId(cls.id)} className="btn btn-ghost btn-sm">🖨️ چاپ لیست کلاس</button>
+                        </div>
+                    </div>
+                    <StudentTable list={list} classrooms={classrooms} currentClassId={cls.id} {...{ editId, edit, startEdit, saveEdit, del, moveStudent }} />
                 </div>
-                {students.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز دانش‌آموزی ثبت‌نام نکرده.</p>}
-                {students.length > 0 && (
+            ))}
+
+            {noClass.length > 0 && (
+                <div className="panel no-print">
+                    <h3 style={{ marginTop: 0 }}>❓ بدون کلاس ({fa(noClass.length)})</h3>
+                    <StudentTable list={noClass} classrooms={classrooms} currentClassId={0} {...{ editId, edit, startEdit, saveEdit, del, moveStudent }} />
+                </div>
+            )}
+
+            {/* سوابق تغییرات */}
+            <div className="panel no-print">
+                <h3 style={{ marginTop: 0 }}>📋 سوابق تغییرات (چه کسی چه چیزی را تغییر داد)</h3>
+                {audit.length === 0 ? <p style={{ color: 'var(--muted)' }}>هنوز تغییری ثبت نشده.</p> : (
                     <div style={{ overflowX: 'auto' }}>
                         <table className="tbl">
-                            <thead><tr><th>#</th><th>نام</th><th>موبایل</th><th>کلاس</th><th>معلم</th><th>امتیاز</th><th style={{ textAlign: 'left' }}>عملیات</th></tr></thead>
-                            <tbody>{shown.map((s, i) => (
-                                <Fragment key={s.id}>
-                                    <tr>
-                                        <td>{fa(i + 1)}</td><td style={{ fontWeight: 700 }}>{s.name}</td><td dir="ltr">{s.phone}</td>
-                                        <td>{s.class ?? '—'}</td><td>{s.teacher ?? '—'}</td><td style={{ color: 'var(--gold-2)', fontWeight: 800 }}>{fa(s.xp)}</td>
-                                        <td style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>
-                                            <button onClick={() => (editId === s.id ? setEditId(null) : startEdit(s))} className="btn btn-ghost btn-sm" title="ویرایش">✏️</button>
-                                            <button onClick={() => del(s)} className="btn btn-ghost btn-sm" title="حذف" style={{ color: '#e8505b', marginInlineStart: 4 }}>🗑️</button>
-                                        </td>
-                                    </tr>
-                                    {editId === s.id && (
-                                        <tr><td colSpan={7} style={{ background: 'var(--cream)' }}>
-                                            <form onSubmit={saveEdit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10, alignItems: 'end', padding: 8 }}>
-                                                <Field label="نام" err={edit.errors.name}><input className="input" value={edit.data.name} onChange={(e) => edit.setData('name', e.target.value)} /></Field>
-                                                <Field label="موبایل" err={edit.errors.phone}><input className="input" value={edit.data.phone} onChange={(e) => edit.setData('phone', e.target.value)} dir="ltr" /></Field>
-                                                <Field label="کد ملی" err={edit.errors.national_id}><input className="input" value={edit.data.national_id} onChange={(e) => edit.setData('national_id', e.target.value)} dir="ltr" /></Field>
-                                                <Field label="رمز جدید (اختیاری)" err={edit.errors.password}><input className="input" value={edit.data.password} onChange={(e) => edit.setData('password', e.target.value)} placeholder="بدون تغییر" /></Field>
-                                                <div style={{ display: 'flex', gap: 8 }}>
-                                                    <button type="submit" disabled={edit.processing} className="btn btn-sm">💾 ذخیره</button>
-                                                    <button type="button" onClick={() => setEditId(null)} className="btn btn-ghost btn-sm">انصراف</button>
-                                                </div>
-                                            </form>
-                                        </td></tr>
-                                    )}
-                                </Fragment>
+                            <thead><tr><th>زمان</th><th>کاربر</th><th>اقدام</th><th>توضیح</th></tr></thead>
+                            <tbody>{audit.map((a, i) => (
+                                <tr key={i}><td style={{ whiteSpace: 'nowrap', fontSize: 12.5, color: 'var(--muted)' }}>{a.when}</td>
+                                    <td style={{ fontWeight: 700 }}>{a.actor} <span style={{ fontSize: 11, color: 'var(--muted)' }}>({a.role})</span></td>
+                                    <td><span className="tag tag-info">{a.action}</span></td><td style={{ fontSize: 13 }}>{a.summary}</td></tr>
                             ))}</tbody>
                         </table>
                     </div>
                 )}
             </div>
+
+            {/* ===== لیستِ چاپِ کلاس (فقط هنگام چاپ) ===== */}
+            {printClass && (
+                <div className="roster-print">
+                    <div className="roster-head">
+                        <img src="/brand/logo-emblem.png" alt="" />
+                        <div style={{ flex: 1, textAlign: 'center' }}>
+                            <div className="rh-title">لیست دانش‌آموزان کلاس</div>
+                            <div className="rh-sub">{school?.name} — {printClass.name}{printClass.grade ? ` (پایه ${printClass.grade})` : ''}</div>
+                        </div>
+                        <div className="rh-meta"><div>معلم: <b>{printClass.teacher || '—'}</b></div><div>تعداد: <b>{fa(printList.length)}</b></div><div>تاریخ چاپ: {printedAt}</div></div>
+                    </div>
+                    <table className="roster-tbl">
+                        <thead><tr><th>#</th><th>نام و نام خانوادگی</th><th>کد ملی</th><th>موبایل</th><th>تاریخ تولد</th><th>نام ولی</th><th>تلفن ولی</th></tr></thead>
+                        <tbody>{printList.map((s, i) => (
+                            <tr key={s.id}><td>{fa(i + 1)}</td><td>{s.name}</td><td>{s.national_id || '—'}</td><td dir="ltr">{s.phone || '—'}</td>
+                                <td>{s.jbirth || '—'}</td><td>{s.guardian_name || '—'}</td><td dir="ltr">{s.guardian_phone || '—'}</td></tr>
+                        ))}</tbody>
+                    </table>
+                    <div className="roster-signs"><div>امضای معلم<span /></div><div>امضای مدیر مدرسه<span /></div><div>مهر مدرسه<span /></div></div>
+                </div>
+            )}
         </DashLayout>
     );
 }
 
-function Field({ label, err, children }) {
+function StudentTable({ list, classrooms, currentClassId, editId, edit, startEdit, saveEdit, del, moveStudent }) {
+    if (list.length === 0) return <p style={{ color: 'var(--muted)' }}>دانش‌آموزی در این کلاس نیست.</p>;
+    return (
+        <div style={{ overflowX: 'auto' }}>
+            <table className="tbl">
+                <thead><tr><th>#</th><th>نام</th><th>موبایل</th><th>کد ملی</th><th>امتیاز</th><th>تغییر کلاس</th><th style={{ textAlign: 'left' }}>عملیات</th></tr></thead>
+                <tbody>{list.map((s, i) => (
+                    <Fragment key={s.id}>
+                        <tr>
+                            <td>{fa(i + 1)}</td><td style={{ fontWeight: 700 }}>{s.name}</td><td dir="ltr">{s.phone || '—'}</td><td dir="ltr">{s.national_id || '—'}</td>
+                            <td style={{ color: 'var(--gold-2)', fontWeight: 800 }}>{fa(s.xp)}</td>
+                            <td>
+                                <select className="input" style={{ width: 'auto', padding: '6px 9px', fontSize: 12.5 }} value="" onChange={(e) => moveStudent(s, e.target.value)}>
+                                    <option value="">انتقال به…</option>
+                                    {classrooms.filter((c) => c.id !== currentClassId).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
+                            </td>
+                            <td style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>
+                                <button onClick={() => (editId === s.id ? startEdit({ id: null }) : startEdit(s))} className="btn btn-ghost btn-sm" title="ویرایش">✏️</button>
+                                <button onClick={() => del(s)} className="btn btn-ghost btn-sm" title="حذف" style={{ color: '#e8505b', marginInlineStart: 4 }}>🗑️</button>
+                            </td>
+                        </tr>
+                        {editId === s.id && (
+                            <tr><td colSpan={7} style={{ background: 'var(--cream)' }}>
+                                <form onSubmit={saveEdit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10, alignItems: 'end', padding: 8 }}>
+                                    <F label="نام" err={edit.errors.name}><input className="input" value={edit.data.name} onChange={(e) => edit.setData('name', e.target.value)} /></F>
+                                    <F label="موبایل" err={edit.errors.phone}><input className="input" value={edit.data.phone} onChange={(e) => edit.setData('phone', e.target.value)} dir="ltr" /></F>
+                                    <F label="کد ملی" err={edit.errors.national_id}><input className="input" value={edit.data.national_id} onChange={(e) => edit.setData('national_id', e.target.value)} dir="ltr" /></F>
+                                    <F label="رمز جدید (اختیاری)"><input className="input" value={edit.data.password} onChange={(e) => edit.setData('password', e.target.value)} placeholder="بدون تغییر" /></F>
+                                    <div style={{ display: 'flex', gap: 8 }}><button type="submit" disabled={edit.processing} className="btn btn-sm">💾 ذخیره</button></div>
+                                </form>
+                            </td></tr>
+                        )}
+                    </Fragment>
+                ))}</tbody>
+            </table>
+        </div>
+    );
+}
+
+function F({ label, err, children }) {
     return <div className="field" style={{ margin: 0 }}><label>{label}</label>{children}{err && <div style={{ color: '#e8505b', fontSize: 12, marginTop: 4 }}>{err}</div>}</div>;
 }

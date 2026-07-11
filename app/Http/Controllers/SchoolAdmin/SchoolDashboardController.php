@@ -50,14 +50,34 @@ class SchoolDashboardController extends Controller
         $students = User::role(Roles::STUDENT)->where('school_id', $schoolId)->get()
             ->map(function ($s) {
                 $class = $s->classrooms()->with('teacher:id,name')->first();
+                $settings = $s->settings ?? [];
                 return [
                     'id' => $s->id, 'name' => $s->name, 'phone' => $s->phone, 'national_id' => $s->national_id,
-                    'class' => $class?->name, 'teacher' => $class?->teacher?->name,
+                    'birth_date' => $s->birth_date?->toDateString(),
+                    'jbirth' => $s->birth_date ? Jalali::format($s->birth_date) : null,
+                    'guardian_name' => $settings['guardian_name'] ?? null, 'guardian_phone' => $settings['guardian_phone'] ?? null,
+                    'classroom_id' => $class?->id, 'class' => $class?->name, 'teacher' => $class?->teacher?->name,
                     'xp' => $s->totalXp(),
                 ];
-            })->sortByDesc('xp')->values();
+            })->sortBy('name', SORT_NATURAL)->values();
 
-        return Inertia::render('SchoolAdmin/Students', ['students' => $students]);
+        $classrooms = Classroom::with('teacher:id,name')->get()
+            ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name, 'grade' => $c->grade,
+                'teacher' => $c->teacher?->name, 'teacher_id' => $c->teacher_id])->values();
+
+        $teachers = User::role(Roles::TEACHER)->where('school_id', $schoolId)
+            ->get(['id', 'name'])->map(fn ($t) => ['id' => $t->id, 'name' => $t->name])->values();
+
+        $audit = \App\Models\AuditLog::where('school_id', $schoolId)->latest()->limit(40)->get()
+            ->map(fn ($a) => [
+                'actor' => $a->actor_name, 'role' => $a->actor_role, 'action' => $a->action,
+                'summary' => $a->summary, 'when' => Jalali::format($a->created_at, true),
+            ]);
+
+        return Inertia::render('SchoolAdmin/Students', [
+            'students' => $students, 'classrooms' => $classrooms, 'teachers' => $teachers,
+            'school' => $request->user()->school?->only('name', 'level'), 'audit' => $audit,
+        ]);
     }
 
     public function announcements(Request $request): Response
