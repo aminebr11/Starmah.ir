@@ -78,7 +78,10 @@ Route::middleware(['auth', 'role:school_admin'])->prefix('school')->name('school
     Route::put('/announcements/{announcement}', [SchoolDashboardController::class, 'updateAnnouncement'])->name('announcements.update');
     Route::delete('/announcements/{announcement}', [SchoolDashboardController::class, 'destroyAnnouncement'])->name('announcements.destroy');
     Route::post('/announcements/ai', [SchoolDashboardController::class, 'aiAnnouncement'])->name('announcements.ai');
-    Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'schoolView'])->name('schedule');
+    Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'manage'])->name('schedule');
+    Route::post('/schedule', [\App\Http\Controllers\ScheduleController::class, 'store'])->name('schedule.store');
+    Route::delete('/schedule/{scheduleEntry}', [\App\Http\Controllers\ScheduleController::class, 'destroy'])->name('schedule.destroy');
+    Route::get('/schedule-overview', [\App\Http\Controllers\ScheduleController::class, 'schoolView'])->name('schedule.overview');
     Route::get('/reports', [SchoolDashboardController::class, 'reports'])->name('reports');
     // ثبت حضور و غیاب توسط مدیر مدرسه (همه‌ی کلاس‌ها)
     Route::get('/attendance', [\App\Http\Controllers\AttendanceController::class, 'record'])->name('attendance');

@@ -548,3 +548,7 @@ img{max-width:100%;display:block}
   .user-chip-name{max-width:104px;padding:8px 10px}
   .user-chip-name .nm{max-width:74px;overflow:hidden;text-overflow:ellipsis}
 }
+
+/* بج تاریخِ خاص روی کارت برنامه */
+.sched-datebadge{display:inline-block;margin-top:5px;font-size:10px;font-weight:800;background:rgba(0,0,0,.06);border-radius:8px;padding:2px 7px}
+.sched-recess .sched-datebadge{background:rgba(0,0,0,.12)}
