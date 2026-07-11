@@ -1,13 +1,16 @@
-import { usePage, Link } from '@inertiajs/react';
+import { usePage, Link, router } from '@inertiajs/react';
+import { useState } from 'react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const pctColor = (p) => p === null ? 'var(--muted)' : p >= 75 ? '#16a34a' : p >= 50 ? '#d97706' : '#dc2626';
+const SCORE_OPTS = [[1, '✅ کامل'], [0.5, '➗ نیمه'], [0, '❌ غلط']];
 
 /** کارنامه و تحلیل نتایج یک آزمون — میانگین، درصد قبولی، توزیع نمرات و مقایسه‌ی دانش‌آموزان. */
 export default function ExamReport() {
-    const { exam, classroom, rows = [], summary = {}, buckets = {}, printedAt } = usePage().props;
+    const { exam, classroom, rows = [], summary = {}, buckets = {}, hasDesc = false, printedAt } = usePage().props;
     const maxBucket = Math.max(1, ...Object.values(buckets));
+    const descStudents = rows.filter((r) => r.done && (r.descAnswers || []).length > 0);
 
     return (
         <DashLayout title="نتایج آزمون" roleLabel="معلم" menu={teacherMenu} active="exams"
@@ -77,6 +80,55 @@ export default function ExamReport() {
                 </div>
                 <div className="report-signs"><div>امضای معلم<span /></div><div>امضای مدیر مدرسه<span /></div></div>
             </div>
+
+            {/* تصحیح دستیِ پاسخ‌های تشریحی */}
+            {hasDesc && (
+                <div className="panel no-print">
+                    <h3 style={{ marginTop: 0 }}>✍️ تصحیح پاسخ‌های تشریحی</h3>
+                    {descStudents.length === 0 ? <p style={{ color: 'var(--muted)' }}>هنوز کسی پاسخ تشریحی نداده است.</p>
+                        : descStudents.map((r) => <DescGrader key={r.id} exam={exam} r={r} />)}
+                </div>
+            )}
         </DashLayout>
+    );
+}
+
+/** تصحیح پاسخ‌های تشریحیِ یک دانش‌آموز. */
+function DescGrader({ exam, r }) {
+    const [open, setOpen] = useState(false);
+    const [scores, setScores] = useState(() => Object.fromEntries(r.descAnswers.map((d) => [d.i, d.score ?? 1])));
+    const [busy, setBusy] = useState(false);
+    const save = () => {
+        setBusy(true);
+        router.post(route('teacher.exams.grade', exam.id),
+            { student_id: r.id, scores: r.descAnswers.map((d) => ({ i: d.i, score: scores[d.i] ?? 0 })) },
+            { preserveScroll: true, onFinish: () => setBusy(false), onSuccess: () => setOpen(false) });
+    };
+    return (
+        <div style={{ border: '1px solid var(--line)', borderRadius: 12, padding: 12, marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <b>{r.name}</b>
+                {r.descGraded ? <span className="tag tag-ok" style={{ fontSize: 11 }}>تصحیح‌شده</span> : <span className="tag tag-warn" style={{ fontSize: 11 }}>در انتظار تصحیح</span>}
+                <span style={{ color: 'var(--muted)', fontSize: 12 }}>نمره‌ی فعلی: {fa(r.score)} از {fa(r.max)}</span>
+                <button onClick={() => setOpen(!open)} className="btn btn-ghost btn-sm" style={{ marginInlineStart: 'auto' }}>{open ? 'بستن' : '✍️ تصحیح'}</button>
+            </div>
+            {open && (
+                <div style={{ marginTop: 10 }}>
+                    {r.descAnswers.map((d) => (
+                        <div key={d.i} style={{ background: 'var(--cream)', borderRadius: 10, padding: 12, marginBottom: 8 }}>
+                            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>❓ {d.prompt}</div>
+                            <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', fontSize: 14, minHeight: 40, whiteSpace: 'pre-wrap' }}>{d.answer || <span style={{ color: 'var(--muted)' }}>— بدون پاسخ —</span>}</div>
+                            <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                                {SCORE_OPTS.map(([v, t]) => (
+                                    <button key={v} type="button" onClick={() => setScores((s) => ({ ...s, [d.i]: v }))}
+                                        className={`tag ${scores[d.i] === v ? 'tag-ok' : 'tag-info'}`} style={{ cursor: 'pointer', border: 0, fontFamily: 'inherit', padding: '7px 12px' }}>{t}</button>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                    <button onClick={save} disabled={busy} className="btn btn-sm">💾 ثبت تصحیح و اعلام نتیجه</button>
+                </div>
+            )}
+        </div>
     );
 }

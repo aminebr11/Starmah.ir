@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
+use App\Models\Announcement;
 use App\Models\Assignment;
 use App\Models\Classroom;
+use App\Models\ExamQuestion;
 use App\Services\AiExamService;
+use App\Services\GamificationService;
 use App\Support\Jalali;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -25,12 +28,54 @@ class ExamBuilderController extends Controller
             ->whereIn('type', ['exam', 'quiz'])->latest()->get()
             ->map(fn ($a) => $this->examSummary($a));
 
+        $bank = ExamQuestion::where('teacher_id', $teacher->id)->latest()->get()
+            ->map(fn ($q) => [
+                'id' => $q->id, 'type' => $q->type, 'lesson' => $q->lesson, 'prompt' => $q->prompt,
+                'choices' => $q->choices ?? [],
+            ]);
+
         return Inertia::render('Teacher/ExamBuilder', [
             'classroom' => $classroom?->only('id', 'name'),
             'subjects'  => $classroom ? $classroom->subjectNames() : [],
             'exams'     => $exams,
+            'bank'      => $bank,
             'aiEnabled' => (bool) (env('ANTHROPIC_API_KEY') || env('OPENAI_API_KEY')),
         ]);
+    }
+
+    /** ذخیره‌ی یک یا چند سؤال در بانک سؤالات. */
+    public function saveToBank(Request $request): RedirectResponse
+    {
+        $teacher = $request->user();
+        $data = $request->validate([
+            'lesson'             => ['nullable', 'string', 'max:80'],
+            'questions'          => ['required', 'array', 'min:1'],
+            'questions.*.type'   => ['nullable', 'in:mc,tf,desc'],
+            'questions.*.prompt' => ['required', 'string'],
+            'questions.*.choices'=> ['nullable', 'array'],
+        ]);
+        $classroom = Classroom::where('teacher_id', $teacher->id)->first();
+
+        foreach ($data['questions'] as $q) {
+            ExamQuestion::create([
+                'school_id'  => $teacher->school_id,
+                'teacher_id' => $teacher->id,
+                'type'       => $q['type'] ?? 'mc',
+                'lesson'     => $data['lesson'] ?? null,
+                'grade'      => $classroom?->grade,
+                'prompt'     => $q['prompt'],
+                'choices'    => $q['choices'] ?? [],
+            ]);
+        }
+
+        return back()->with('flash', count($data['questions']) . ' سؤال به بانک اضافه شد ✅');
+    }
+
+    public function deleteFromBank(Request $request, ExamQuestion $examQuestion): RedirectResponse
+    {
+        abort_unless($examQuestion->teacher_id === $request->user()->id, 403);
+        $examQuestion->delete();
+        return back()->with('flash', 'سؤال از بانک حذف شد');
     }
 
     private function examSummary(Assignment $a): array
@@ -115,13 +160,27 @@ class ExamBuilderController extends Controller
         $students = $classroom ? $classroom->students()->get(['users.id', 'name']) : collect();
         $subs = $assignment->submissions()->get()->keyBy('student_id');
 
-        $rows = $students->map(function ($s) use ($subs) {
+        // سؤال‌های تشریحیِ آزمون (برای تصحیح دستی)
+        $descQuestions = collect($assignment->config['questions'] ?? [])
+            ->map(fn ($q, $i) => ['i' => $i, 'type' => $q['type'] ?? 'mc', 'prompt' => $q['prompt']])
+            ->filter(fn ($q) => $q['type'] === 'desc')->values();
+
+        $rows = $students->map(function ($s) use ($subs, $descQuestions) {
             $sub = $subs->get($s->id);
             $pct = $sub && $sub->max_score ? (int) round($sub->score / $sub->max_score * 100) : null;
+            // پاسخ‌های تشریحیِ این دانش‌آموز
+            $answers = collect($sub?->answers ?? [])->keyBy('i');
+            $descAnswers = $descQuestions->map(fn ($q) => [
+                'i' => $q['i'], 'prompt' => $q['prompt'],
+                'answer' => $answers[$q['i']]['value'] ?? '',
+                'score' => $answers[$q['i']]['score'] ?? null,
+            ]);
             return [
                 'id' => $s->id, 'name' => $s->name,
                 'done' => (bool) $sub,
                 'score' => $sub?->score, 'max' => $sub?->max_score, 'percent' => $pct,
+                'descGraded' => (bool) ($sub?->desc_graded),
+                'descAnswers' => $descAnswers,
                 'jdate' => $sub?->submitted_at ? Jalali::format($sub->submitted_at, true) : null,
             ];
         })->sortByDesc(fn ($r) => $r['percent'] ?? -1)->values();
@@ -149,8 +208,68 @@ class ExamBuilderController extends Controller
             'rows'     => $rows,
             'summary'  => $summary,
             'buckets'  => $buckets,
+            'hasDesc'  => $descQuestions->isNotEmpty(),
             'printedAt'=> Jalali::format(now(), true),
         ]);
+    }
+
+    /** تصحیحِ دستیِ پاسخ‌های تشریحیِ یک دانش‌آموز (هر پاسخ ۰ تا ۱). */
+    public function gradeDescriptive(Request $request, Assignment $assignment, GamificationService $game): RedirectResponse
+    {
+        abort_unless($assignment->teacher_id === $request->user()->id, 403);
+        $data = $request->validate([
+            'student_id'      => ['required', 'integer'],
+            'scores'          => ['required', 'array'],
+            'scores.*.i'      => ['required', 'integer'],
+            'scores.*.score'  => ['required', 'numeric', 'min:0', 'max:1'],
+        ]);
+
+        $sub = $assignment->submissions()->where('student_id', $data['student_id'])->firstOrFail();
+
+        // نوشتن نمره‌ی هر پاسخِ تشریحی داخل answers
+        $scoreByI = collect($data['scores'])->keyBy('i');
+        $answers = collect($sub->answers ?? [])->map(function ($a) use ($scoreByI) {
+            if (($a['type'] ?? 'mc') === 'desc' && $scoreByI->has($a['i'])) {
+                $a['score'] = (float) $scoreByI[$a['i']]['score'];
+            }
+            return $a;
+        })->all();
+
+        $descCount = collect($answers)->where('type', 'desc')->count();
+        $descCorrect = collect($answers)->where('type', 'desc')->sum(fn ($a) => (float) ($a['score'] ?? 0));
+
+        $autoScore = (float) ($sub->auto_score ?? $sub->score);
+        $autoMax = (int) ($sub->auto_max ?? $sub->max_score);
+        $total = $autoScore + $descCorrect;
+        $maxTotal = $autoMax + $descCount;
+        $accuracy = $maxTotal ? round($total / $maxTotal * 100, 2) : 0;
+
+        $sub->update([
+            'answers' => $answers, 'score' => $total, 'max_score' => $maxTotal,
+            'accuracy' => $accuracy, 'desc_graded' => true,
+        ]);
+
+        // XP اضافیِ بخش تشریحی (idempotent بر اساس منبعِ Submission)
+        \App\Models\XpEntry::where('source_type', \App\Models\AssignmentSubmission::class)
+            ->where('source_id', $sub->id)->delete();
+        $descXp = $descCount ? (int) round($descCorrect / $descCount * 20) : 0;
+        if ($descXp !== 0) {
+            $student = \App\Models\User::find($data['student_id']);
+            if ($student) {
+                $game->award($student, $descXp, '✍️ تصحیح تشریحیِ آزمون — ' . $assignment->title,
+                    $request->user(), \App\Models\AssignmentSubmission::class, $sub->id);
+            }
+        }
+
+        // اعلانِ نتیجه‌ی نهایی به دانش‌آموز
+        $ann = Announcement::create([
+            'school_id' => $assignment->school_id, 'sender_id' => $assignment->teacher_id,
+            'title' => '✅ تصحیح آزمون — ' . $assignment->title, 'audience' => 'personal',
+            'body' => "آزمونِ «{$assignment->title}» تصحیح شد.\nنمره‌ی نهایی: {$total} از {$maxTotal} ({$accuracy}٪)",
+        ]);
+        $ann->recipients()->sync([$data['student_id']]);
+
+        return back()->with('flash', 'پاسخ‌های تشریحی تصحیح و نتیجه اعلام شد ✅');
     }
 
     private function validated(Request $request): array

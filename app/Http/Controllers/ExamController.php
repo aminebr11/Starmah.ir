@@ -118,6 +118,7 @@ class ExamController extends Controller
         AssignmentSubmission::updateOrCreate(
             ['assignment_id' => $assignment->id, 'student_id' => $user->id],
             ['score' => $correct, 'max_score' => $auto, 'accuracy' => $accuracy,
+             'auto_score' => $correct, 'auto_max' => $auto, 'desc_graded' => false,
              'answers' => $stored, 'status' => 'completed', 'submitted_at' => now()]
         );
 

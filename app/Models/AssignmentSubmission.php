@@ -10,9 +10,10 @@ class AssignmentSubmission extends Model
     protected $fillable = [
         'assignment_id', 'student_id', 'score', 'max_score',
         'accuracy', 'answers', 'status', 'submitted_at',
+        'auto_score', 'auto_max', 'desc_graded',
     ];
 
-    protected $casts = ['answers' => 'array', 'submitted_at' => 'datetime'];
+    protected $casts = ['answers' => 'array', 'submitted_at' => 'datetime', 'desc_graded' => 'boolean'];
 
     public function assignment(): BelongsTo { return $this->belongsTo(Assignment::class); }
     public function student(): BelongsTo { return $this->belongsTo(User::class, 'student_id'); }

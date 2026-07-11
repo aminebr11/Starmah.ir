@@ -152,6 +152,9 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::put('/exams/{assignment}', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'update'])->name('exams.update');
     Route::delete('/exams/{assignment}', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'destroy'])->name('exams.destroy');
     Route::get('/exams/{assignment}/report', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'report'])->name('exams.report');
+    Route::post('/exams/{assignment}/grade-descriptive', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'gradeDescriptive'])->name('exams.grade');
+    Route::post('/exam-bank', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'saveToBank'])->name('exams.bank.store');
+    Route::delete('/exam-bank/{examQuestion}', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'deleteFromBank'])->name('exams.bank.destroy');
 });
 
 /* ---------------- مشترک ---------------- */

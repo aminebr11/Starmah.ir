@@ -14,14 +14,26 @@ const emptyQ = (type = 'mc') => {
 };
 
 export default function ExamBuilder() {
-    const { classroom, subjects = [], exams = [], aiEnabled, flash } = usePage().props;
+    const { classroom, subjects = [], exams = [], bank = [], aiEnabled, flash } = usePage().props;
     const [mode, setMode] = useState('ai'); // ai | manual
     const [topic, setTopic] = useState('');
     const [aiCount, setAiCount] = useState(5);
     const [busy, setBusy] = useState(false);
     const [editId, setEditId] = useState(null);
+    const [showBank, setShowBank] = useState(false);
+    const [bankLesson, setBankLesson] = useState('');
 
     const form = useForm({ title: '', type: 'exam', subject: '', difficulty: 'medium', duration: '', scheduled_at: '', publish: true, questions: [] });
+
+    // بانک سؤالات
+    const insertFromBank = (q) => form.setData('questions', [...form.data.questions, { type: q.type, prompt: q.prompt, choices: (q.choices || []).map((c) => ({ ...c })) }]);
+    const saveBank = () => {
+        if (!form.data.questions.length) { alert('سؤالی برای ذخیره وجود ندارد'); return; }
+        router.post(route('teacher.exams.bank.store'), { lesson: form.data.subject || topic, questions: form.data.questions }, { preserveScroll: true, preserveState: true });
+    };
+    const delBank = (id) => { if (confirm('این سؤال از بانک حذف شود؟')) router.delete(route('teacher.exams.bank.destroy', id), { preserveScroll: true, preserveState: true }); };
+    const bankShown = bank.filter((q) => !bankLesson || q.lesson === bankLesson);
+    const bankLessons = [...new Set(bank.map((q) => q.lesson).filter(Boolean))];
 
     const generate = async () => {
         if (!topic.trim()) { alert('موضوع آزمون را بنویس'); return; }
@@ -153,6 +165,8 @@ export default function ExamBuilder() {
                     <button type="button" onClick={() => addQ('mc')} className="btn btn-ghost btn-sm">➕ چهارگزینه‌ای</button>
                     <button type="button" onClick={() => addQ('tf')} className="btn btn-ghost btn-sm">➕ درست/نادرست</button>
                     <button type="button" onClick={() => addQ('desc')} className="btn btn-ghost btn-sm">➕ تشریحی</button>
+                    <button type="button" onClick={() => setShowBank(!showBank)} className="btn btn-ghost btn-sm">🏦 بانک سؤالات ({fa(bank.length)})</button>
+                    {form.data.questions.length > 0 && <button type="button" onClick={saveBank} className="btn btn-ghost btn-sm">💾 ذخیره در بانک</button>}
                     <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
                         <input type="checkbox" checked={form.data.publish} onChange={(e) => form.setData('publish', e.target.checked)} /> انتشار برای دانش‌آموزان
                     </label>
@@ -161,6 +175,32 @@ export default function ExamBuilder() {
                     </button>
                 </div>
             </form>
+
+            {/* بانک سؤالات */}
+            {showBank && (
+                <div className="panel">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <h3 style={{ margin: 0 }}>🏦 بانک سؤالات</h3>
+                        {bankLessons.length > 0 && (
+                            <select className="input" style={{ width: 'auto' }} value={bankLesson} onChange={(e) => setBankLesson(e.target.value)}>
+                                <option value="">همه‌ی درس‌ها</option>
+                                {bankLessons.map((l) => <option key={l} value={l}>{l}</option>)}
+                            </select>
+                        )}
+                        <span style={{ color: 'var(--muted)', fontSize: 12, marginInlineStart: 'auto' }}>سؤال‌های ذخیره‌شده را در آزمون بازاستفاده کن.</span>
+                    </div>
+                    {bankShown.length === 0 && <p style={{ color: 'var(--muted)', marginTop: 10 }}>بانک خالی است. با «💾 ذخیره در بانک» سؤال اضافه کن.</p>}
+                    {bankShown.map((q) => (
+                        <div key={q.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
+                            <span className="tag tag-info" style={{ fontSize: 11 }}>{QTYPE[q.type]}</span>
+                            {q.lesson && <span style={{ color: 'var(--muted)', fontSize: 12 }}>{q.lesson}</span>}
+                            <span style={{ flex: 1, minWidth: 140 }}>{q.prompt || '—'}</span>
+                            <button onClick={() => insertFromBank(q)} className="btn btn-ghost btn-sm">➕ افزودن به آزمون</button>
+                            <button onClick={() => delBank(q.id)} className="btn btn-ghost btn-sm" style={{ color: '#e8505b' }}>🗑️</button>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             <div className="panel">
                 <h3>📚 آزمون‌های ساخته‌شده</h3>
