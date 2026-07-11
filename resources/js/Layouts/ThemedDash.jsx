@@ -29,6 +29,15 @@ export default function ThemedDash({ title, active = '', children, actions = nul
         { key: 'profile', label: 'پروفایل من', icon: '👤', href: '/profile' },
     ];
 
+    // نوار پایین موبایل — ۵ مقصد اصلی بچه‌ها (انگشت‌پسند)
+    const bottomNav = [
+        { key: 'home', label: 'خانه', icon: '🏠', href: '/dashboard' },
+        { key: 'practice', label: 'بازی', icon: '🎮', href: '/practice' },
+        { key: 'exams', label: 'آزمون', icon: '💻', href: '/exams' },
+        { key: 'board', label: 'رقابت', icon: '🏆', href: '/leaderboard' },
+        { key: 'notices', label: 'اعلان‌ها', icon: '📢', href: '/notices' },
+    ];
+
     return (
         <div dir="rtl" className="dash" style={{ ...vars, background: 'linear-gradient(180deg,var(--bg1),var(--bg2))' }}>
             <Head title={title ? `${title} — ستاره ماه` : 'ستاره ماه'} />
@@ -55,7 +64,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
 
             {open && <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 90 }} />}
 
-            <main className="dash-main" style={{ color: '#fff' }}>
+            <main className="dash-main kids" style={{ color: '#fff' }}>
                 <div className="dash-topbar">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <button className="dash-mobilebtn" onClick={() => setOpen(true)} style={{ background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.2)', color: '#fff' }}>☰</button>
@@ -92,6 +101,16 @@ export default function ThemedDash({ title, active = '', children, actions = nul
                 </div>
                 {children}
             </main>
+
+            {/* نوار بازی‌گونه‌ی پایین — فقط موبایل */}
+            <nav className="bottom-nav">
+                {bottomNav.map((m) => (
+                    <Link key={m.key} href={m.href} className={active === m.key ? 'on' : ''}>
+                        <span className="bic">{m.icon}</span>{m.label}
+                        {m.key === 'notices' && unreadNotices > 0 && <span className="bdot">{fa(unreadNotices)}</span>}
+                    </Link>
+                ))}
+            </nav>
         </div>
     );
 }

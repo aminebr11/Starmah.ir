@@ -4,9 +4,14 @@ import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 export default function Classroom() {
-    const { classroom, students = [], flash } = usePage().props;
+    const { classroom, students = [], themes = [], flash } = usePage().props;
     const [banner, setBanner] = useState(null);
     useEffect(() => { if (flash?.flash) setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); }, [flash]);
+
+    // تغییر تیم دانش‌آموز — فقط معلم مجاز است
+    const setTeam = (s, themeId) => {
+        if (themeId) router.post(route('teacher.students.team', s.id), { theme_id: themeId }, { preserveScroll: true });
+    };
 
     const edit = useForm({ name: '', phone: '', national_id: '', password: '' });
     const [editId, setEditId] = useState(null);
@@ -25,7 +30,7 @@ export default function Classroom() {
                 {students.length > 0 && (
                     <div style={{ overflowX: 'auto' }}>
                         <table className="tbl">
-                            <thead><tr><th>#</th><th>نام</th><th>موبایل</th><th>امتیاز</th><th>تسلط</th><th style={{ textAlign: 'left' }}>عملیات</th></tr></thead>
+                            <thead><tr><th>#</th><th>نام</th><th>موبایل</th><th>تیم / گروه</th><th>امتیاز</th><th>تسلط</th><th style={{ textAlign: 'left' }}>عملیات</th></tr></thead>
                             <tbody>
                                 {students.map((s, i) => (
                                     <Fragment key={s.id}>
@@ -33,6 +38,13 @@ export default function Classroom() {
                                             <td style={{ width: 30 }}>{fa(i + 1)}</td>
                                             <td style={{ fontWeight: 700 }}>{s.name}</td>
                                             <td dir="ltr">{s.phone || '—'}</td>
+                                            <td>
+                                                <select className="input" style={{ width: 'auto', padding: '6px 9px', fontSize: 12.5 }}
+                                                    value={s.theme_id ?? ''} onChange={(e) => setTeam(s, e.target.value)}>
+                                                    <option value="" disabled>— بدون تیم —</option>
+                                                    {themes.map((t) => <option key={t.id} value={t.id}>{t.emoji} {t.name}</option>)}
+                                                </select>
+                                            </td>
                                             <td style={{ color: 'var(--gold-2)', fontWeight: 800 }}>{fa(s.xp)}</td>
                                             <td>تسلط {fa(s.avg)}٪</td>
                                             <td style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>
@@ -41,7 +53,7 @@ export default function Classroom() {
                                             </td>
                                         </tr>
                                         {editId === s.id && (
-                                            <tr><td colSpan={6} style={{ background: 'var(--cream)' }}>
+                                            <tr><td colSpan={7} style={{ background: 'var(--cream)' }}>
                                                 <form onSubmit={saveEdit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10, alignItems: 'end', padding: 8 }}>
                                                     <Field label="نام" err={edit.errors.name}><input className="input" value={edit.data.name} onChange={(e) => edit.setData('name', e.target.value)} /></Field>
                                                     <Field label="موبایل" err={edit.errors.phone}><input className="input" value={edit.data.phone} onChange={(e) => edit.setData('phone', e.target.value)} dir="ltr" /></Field>

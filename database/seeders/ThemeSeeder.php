@@ -48,7 +48,7 @@ class ThemeSeeder extends Seeder
                 'pools' => ['team' => ['کریپرها', 'جنگجوها'], 'unit' => ['زمرد', 'بلوک'], 'hero' => ['ماینر', 'سازنده']],
             ],
             [
-                'key' => 'super-speed', 'name' => 'تیم هوپر اسپید', 'subtitle' => 'SUPER SPEED',
+                'key' => 'super-speed', 'name' => 'تیم سوپر اسپید', 'subtitle' => 'SUPER SPEED',
                 'emoji' => '🏎️', 'sort' => 4, 'tagline' => 'ماشین‌ها · سرعت و هیجان',
                 'skin' => ['bg1' => '#0a0e1c', 'bg2' => '#15182e', 'p1' => '#ff2e63', 'p2' => '#0b86ff', 'acc' => '#13e2ff', 'acc2' => '#ffd23f', 'ring' => '#13e2ff', 'mascot' => '🏎️', 'hero' => '🏁', 'character' => '🏎️', 'pattern' => 'speed',
                     'hdr1' => '#1E1E1E', 'hdr2' => '#FF6F00', 'border' => '#FFA500', 'font' => "'Rajdhani', sans-serif", 'hover' => '#FFA500', 'sub_en' => 'RACING TEAM', 'nav' => ['HOME', 'ABOUT', 'DRIVERS', 'RACES', 'GALLERY', 'CONTACT']],

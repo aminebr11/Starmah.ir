@@ -9,11 +9,19 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
-/** انتخاب «دنیای علاقه» توسط دانش‌آموز (onboarding). */
+/**
+ * انتخاب «دنیای علاقه» توسط دانش‌آموز — فقط بار اول (onboarding).
+ * پس از انتخاب، تغییر تیم فقط توسط معلم انجام می‌شود.
+ */
 class ThemeController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response|RedirectResponse
     {
+        // تیم قبلاً انتخاب شده → تغییر فقط توسط معلم ممکن است
+        if ($request->user()->theme_id) {
+            return redirect()->route('dashboard');
+        }
+
         return Inertia::render('Student/ChooseWorld', [
             'themes' => Theme::where('is_active', true)
                 ->where('key', '!=', 'brand')
@@ -30,6 +38,12 @@ class ThemeController extends Controller
 
     public function update(Request $request, ThemeEngine $engine): RedirectResponse
     {
+        // قفل: فقط انتخاب اول آزاد است
+        if ($request->user()->theme_id) {
+            return redirect()->route('dashboard')
+                ->with('flash', 'تغییر تیم فقط توسط معلم انجام می‌شود.');
+        }
+
         $data = $request->validate(['theme_id' => ['required', 'exists:themes,id']]);
         $request->user()->update(['theme_id' => $data['theme_id']]);
 

@@ -106,19 +106,43 @@ class TeacherDashboardController extends Controller
     {
         abort_unless($classroom->teacher_id === $request->user()->id, 403);
 
-        $students = $classroom->students()->get()->map(fn ($s) => [
+        $students = $classroom->students()->with('theme:id,name,emoji')->get()->map(fn ($s) => [
             'id'   => $s->id,
             'name' => $s->name,
             'phone' => $s->phone,
             'national_id' => $s->national_id,
+            'theme_id' => $s->theme_id,
+            'team' => $s->theme ? "{$s->theme->emoji} {$s->theme->name}" : null,
             'xp'   => $s->totalXp(),
             'avg'  => (int) round($s->skillMastery()->avg('mastery') ?? 0),
         ])->sortByDesc('xp')->values();
 
+        $themes = \App\Models\Theme::where('is_active', true)->where('key', '!=', 'brand')
+            ->orderBy('sort')->get(['id', 'name', 'emoji'])
+            ->map(fn ($t) => ['id' => $t->id, 'name' => $t->name, 'emoji' => $t->emoji]);
+
         return Inertia::render('Teacher/Classroom', [
             'classroom' => ['id' => $classroom->id, 'name' => $classroom->name, 'join_code' => $classroom->join_code],
             'students'  => $students,
+            'themes'    => $themes,
         ]);
+    }
+
+    /** تغییر تیم/گروهِ یک دانش‌آموزِ کلاس خودم (فقط معلم؛ دانش‌آموز نمی‌تواند). */
+    public function setTeam(Request $request, \App\Models\User $user): \Illuminate\Http\RedirectResponse
+    {
+        $teacher = $request->user();
+        $inMyClass = Classroom::where('teacher_id', $teacher->id)
+            ->whereHas('students', fn ($q) => $q->where('users.id', $user->id))->exists();
+        abort_unless($inMyClass, 403);
+
+        $data = $request->validate(['theme_id' => ['required', 'exists:themes,id']]);
+        $theme = \App\Models\Theme::where('is_active', true)->findOrFail($data['theme_id']);
+        $user->update(['theme_id' => $theme->id]);
+
+        \App\Models\AuditLog::record($teacher, 'تغییر تیم دانش‌آموز', "تیمِ «{$user->name}» به «{$theme->emoji} {$theme->name}» تغییر کرد");
+
+        return back()->with('flash', "تیمِ «{$user->name}» به «{$theme->name}» تغییر کرد ✅");
     }
 
     /** میان‌بر: کلاسِ خودِ معلم (برای منوی «دانش‌آموزان من»). */

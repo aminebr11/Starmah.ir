@@ -5,136 +5,246 @@ import TeamHeader from '@/Components/TeamHeader';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
+/** مرحله‌بندی: هر ۱۵۰ امتیاز یک مرحله */
+const LEVEL_XP = 150;
+const levelOf = (xp) => Math.floor((xp ?? 0) / LEVEL_XP) + 1;
+const levelProgress = (xp) => ((xp ?? 0) % LEVEL_XP) / LEVEL_XP;
+
+/** تزئین‌های شناور هر تم (بر اساس skin.pattern) */
+const FLOATS = {
+    stars: ['⭐', '✨', '🌙', '☄️'],
+    pitch: ['⚽', '🥅', '🏆', '👟'],
+    blocks: ['🟩', '⛏️', '💎', '🧱'],
+    speed: ['🏎️', '🏁', '💨', '🔥'],
+};
+const FLOAT_POS = [
+    { top: '8%', insetInlineEnd: '5%', fontSize: 26, animationDelay: '0s' },
+    { bottom: '12%', insetInlineEnd: '18%', fontSize: 18, animationDelay: '-2s' },
+    { top: '18%', insetInlineStart: '38%', fontSize: 16, animationDelay: '-4s' },
+    { bottom: '8%', insetInlineStart: '55%', fontSize: 20, animationDelay: '-5.5s' },
+];
+
 export default function Dashboard() {
     const { auth, theme, me = {}, groups = [], sample, notices = [], unreadNotices = 0 } = usePage().props;
     const w = (k, d = '') => theme?.narrative?.[k] ?? d;
     const skin = theme?.skin ?? {};
     const [picked, setPicked] = useState(null);
 
+    const xp = me.xp ?? 0;
+    const level = levelOf(xp);
+    const prog = levelProgress(xp);
+    const toNext = LEVEL_XP - (xp % LEVEL_XP);
+    const R = 52, C = 2 * Math.PI * R;
+
     const maxTotal = Math.max(1, ...groups.map((g) => g.total));
+    const top3 = groups.slice(0, 3);
+    // چیدمان سکو: دوم | اول | سوم
+    const podiumOrder = [top3[1], top3[0], top3[2]].filter(Boolean);
+    const podiumClass = { 0: 'p2', 1: 'p1', 2: 'p3' };
+    const floats = FLOATS[skin.pattern] ?? FLOATS.stars;
+    const myTeam = groups.find((g) => g.mine);
+
+    // کاشی‌های اکشن — رنگ اختصاصی هر کاشی
+    const tiles = [
+        { href: '/practice', em: '🎮', label: 'مأموریت و بازی', t1: skin.p1, t2: skin.p2 },
+        { href: '/exams', em: '💻', label: 'آزمون‌های من', t1: '#7c5cf0', t2: '#4c2fb0' },
+        { href: '/my-grades', em: '📔', label: 'نمرات کلاسی', t1: '#18a97c', t2: '#0d6b4e' },
+        { href: '/schedule', em: '🗓️', label: 'برنامه کلاسی', t1: '#e8862e', t2: '#a5570f' },
+    ];
 
     return (
-        <ThemedDash title="خانه" active="home"
-            actions={<Link href="/world" style={{ ...pill, textDecoration: 'none' }}>🎨 تغییر تیم</Link>}>
-
-            {/* هدر تیمی — مطابق طرح ۴ هدر */}
+        <ThemedDash title="خانه" active="home">
+            {/* هدر تیمی (هویت تیم از طرح قدیم) */}
             <TeamHeader />
 
-            {/* بنر تیم من */}
-            <div style={{ ...card, position: 'relative', overflow: 'hidden', background: 'linear-gradient(120deg,var(--p2),rgba(0,0,0,.2))' }}>
-                <span style={{ position: 'absolute', insetInlineStart: -10, top: -16, fontSize: 100, opacity: .18 }}>{skin.hero}</span>
-                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, alignItems: 'center' }}>
-                    <div>
-                        <div style={{ fontSize: 13, opacity: .85 }}>سلام {auth?.user?.name} 👋 — تیم تو:</div>
-                        <div style={{ fontSize: 26, fontWeight: 800 }}>{skin.character ?? theme?.emoji} {me.group ?? theme?.name}</div>
-                        <div style={{ fontSize: 13, opacity: .85, marginTop: 4 }}>{me.classroom ? `کلاس ${me.classroom}` : ''} · معلم: {me.teacher ?? '—'}</div>
+            {/* ===== کارت قهرمان ===== */}
+            <div className="k3-card" style={{ marginTop: 14, overflow: 'hidden' }}>
+                <div className="k3-floats">
+                    {floats.map((f, i) => <i key={i} style={FLOAT_POS[i]}>{f}</i>)}
+                </div>
+                <div className="k3-hero" style={{ position: 'relative' }}>
+                    {/* آواتار با حلقه‌ی پیشرفت مرحله */}
+                    <div className="k3-avatar">
+                        <svg viewBox="0 0 120 120" width="112" height="112">
+                            <circle cx="60" cy="60" r={R} fill="none" stroke="rgba(255,255,255,.14)" strokeWidth="8" />
+                            <circle cx="60" cy="60" r={R} fill="none" stroke="var(--acc)" strokeWidth="8" strokeLinecap="round"
+                                strokeDasharray={C} strokeDashoffset={C * (1 - prog)}
+                                style={{ transition: 'stroke-dashoffset 1s cubic-bezier(.2,.8,.3,1)', filter: 'drop-shadow(0 0 6px var(--acc))' }} />
+                        </svg>
+                        <div className="face">{skin.character ?? skin.mascot ?? theme?.emoji}</div>
+                        <div className="lvl">{w('level', 'مرحله')} {fa(level)}</div>
                     </div>
-                    <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: 34, fontWeight: 800, color: 'var(--acc)' }}>{fa(me.xp ?? 0)}</div>
+
+                    <div style={{ flex: 1, minWidth: 180 }}>
+                        <div style={{ fontSize: 13.5, opacity: .85 }}>سلام {auth?.user?.name} 👋</div>
+                        <div style={{ fontSize: 24, fontWeight: 900, lineHeight: 1.5 }}>{theme?.emoji} {me.group ?? theme?.name}</div>
+                        <div style={{ fontSize: 12.5, opacity: .8, marginTop: 2 }}>
+                            {me.classroom ? `کلاس ${me.classroom}` : ''}{me.teacher ? ` · معلم: ${me.teacher}` : ''}
+                        </div>
+                        <div style={{ fontSize: 12, marginTop: 8, background: 'rgba(0,0,0,.25)', display: 'inline-block', borderRadius: 20, padding: '4px 12px' }}>
+                            ⚡ {fa(toNext)} {w('xp_unit', 'امتیاز')} تا {w('level', 'مرحله')} {fa(level + 1)}
+                        </div>
+                    </div>
+
+                    <div style={{ textAlign: 'center', flex: 'none' }}>
+                        <div style={{ fontSize: 40, fontWeight: 900, color: 'var(--acc)', textShadow: '0 4px 14px rgba(0,0,0,.4)', lineHeight: 1.2 }}>{fa(xp)}</div>
                         <div style={{ fontSize: 12, opacity: .85 }}>{w('xp_unit', 'امتیاز')} من</div>
                     </div>
                 </div>
+
+                {/* چیپ‌های آمار */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginTop: 16, position: 'relative' }}>
+                    <div className="k3-chip"><b>{me.rank_class ? `#${fa(me.rank_class)}` : '—'}</b><span>رتبه در کلاس ({fa(me.class_size ?? 0)} نفر)</span></div>
+                    <div className="k3-chip"><b>{me.rank_group ? `#${fa(me.rank_group)}` : '—'}</b><span>رتبه در تیم</span></div>
+                    <div className="k3-chip"><b>{fa(me.badges ?? 0)}</b><span>نشان‌های من</span></div>
+                </div>
             </div>
 
-            {/* آمار سریع */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginTop: 14 }}>
-                <Stat b={me.rank_class ? `#${fa(me.rank_class)}` : '—'} s={`رتبه در کلاس (از ${fa(me.class_size ?? 0)})`} />
-                <Stat b={me.rank_group ? `#${fa(me.rank_group)}` : '—'} s="رتبه در تیم" />
-                <Stat b={fa(me.badges ?? 0)} s="نشان" />
+            {/* ===== کاشی‌های اکشن ===== */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 12, marginTop: 16 }}>
+                {tiles.map((t) => (
+                    <Link key={t.href} href={t.href} className="k3-tile" style={{ '--tile': t.t1, '--tile2': t.t2 }}>
+                        <span className="shine" />
+                        <span className="em">{t.em}</span>
+                        {t.label}
+                    </Link>
+                ))}
             </div>
 
-            {/* اعلان‌ها و پیام‌ها */}
+            {/* ===== اعلان‌ها ===== */}
             {notices.length > 0 && (
-                <div className={unreadNotices > 0 ? 'notice-blink' : ''} style={{ ...card, marginTop: 14 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                <div className={`k3-card ${unreadNotices > 0 ? 'notice-blink' : ''}`} style={{ marginTop: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
                         <div style={{ fontWeight: 800 }}>🔔 اعلان‌ها و پیام‌ها
                             {unreadNotices > 0 && <span className="tag" style={{ background: '#e8505b', color: '#fff', marginInlineStart: 8, fontSize: 11 }}>{fa(unreadNotices)} نخوانده</span>}
                         </div>
-                        <Link href="/notices" style={{ marginInlineStart: 'auto', color: 'var(--acc)', fontWeight: 700, fontSize: 13 }}>همه ←</Link>
+                        <Link href="/notices" style={{ marginInlineStart: 'auto', color: 'var(--acc)', fontWeight: 800, fontSize: 13 }}>همه ←</Link>
                     </div>
                     {notices.map((n) => (
-                        <Link key={n.id} href="/notices" style={{ display: 'block', padding: '9px 0', borderTop: '1px solid rgba(255,255,255,.12)', color: 'inherit' }}>
+                        <Link key={n.id} href="/notices" style={{ display: 'block', padding: '9px 0', borderTop: '1px solid rgba(255,255,255,.1)', color: 'inherit' }}>
                             <div style={{ fontWeight: 700, fontSize: 14 }}>
                                 {n.personal ? '✉️ ' : '📢 '}{n.title}
-                                <span style={{ opacity: .7, fontWeight: 400, fontSize: 12, marginInlineStart: 6 }}>· {n.date}</span>
+                                <span style={{ opacity: .65, fontWeight: 400, fontSize: 12, marginInlineStart: 6 }}>· {n.date}</span>
                             </div>
-                            <div style={{ opacity: .82, fontSize: 12.5, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>{n.body}</div>
+                            <div style={{ opacity: .8, fontSize: 12.5, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>{n.body}</div>
                         </Link>
                     ))}
                 </div>
             )}
 
-            {/* رقابت تیم‌ها */}
-            <SectionTitle>🏆 رقابت تیم‌های کلاس</SectionTitle>
-            <div style={{ display: 'grid', gap: 12 }}>
-                {groups.map((g, i) => (
-                    <div key={i} style={{ ...card, padding: 14, border: g.mine ? '2px solid var(--acc)' : '1px solid rgba(255,255,255,.12)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <div style={{ width: 30, textAlign: 'center', fontWeight: 800, color: i === 0 ? '#ffd23f' : 'rgba(255,255,255,.6)' }}>{i === 0 ? '👑' : fa(i + 1)}</div>
-                            <div style={{ width: 42, height: 42, borderRadius: 12, display: 'grid', placeItems: 'center', fontSize: 22, background: g.color }}>{g.emoji}</div>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 800 }}>{g.name} {g.mine && <span style={{ fontSize: 11, color: 'var(--acc)' }}>(تیم تو)</span>}</div>
-                                <div style={{ height: 7, borderRadius: 6, background: 'rgba(255,255,255,.12)', marginTop: 6, overflow: 'hidden' }}>
-                                    <div style={{ width: `${(g.total / maxTotal) * 100}%`, height: '100%', background: g.color }} />
+            {/* ===== دو ستون در دسکتاپ ===== */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(330px,1fr))', gap: 16, marginTop: 20, alignItems: 'start' }}>
+                {/* رقابت تیم‌ها + سکو */}
+                <div className="k3-card">
+                    <SectionTitle>🏆 {w('leaderboard', 'رقابت تیم‌ها')}</SectionTitle>
+                    {top3.length > 0 && (
+                        <div className="podium">
+                            {podiumOrder.map((g, i) => {
+                                const rank = groups.indexOf(g) + 1;
+                                return (
+                                    <div key={g.name} className={`pcol ${podiumClass[i]}`}>
+                                        <span className="pchar" style={{ animationDelay: `${-i}s` }}>{g.emoji}</span>
+                                        <span className="pname">{g.name}</span>
+                                        <span className="pxp">{fa(g.total)} {w('xp_unit', '')}</span>
+                                        <div className="pblock" style={{ '--pc': g.color }}>
+                                            <span className="prank">{rank === 1 ? '👑' : fa(rank)}</span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                    <div style={{ display: 'grid', gap: 8, marginTop: 14 }}>
+                        {groups.map((g, i) => (
+                            <div key={i} className={`k3-teambar ${g.mine ? 'mine' : ''}`}>
+                                <div className="tico" style={{ background: g.color }}>{g.emoji}</div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 800, fontSize: 13.5, display: 'flex', gap: 6, alignItems: 'center' }}>
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.name}</span>
+                                        {g.mine && <span style={{ fontSize: 10, color: 'var(--acc)', flex: 'none' }}>★ تیم تو</span>}
+                                    </div>
+                                    <div className="tbar"><i style={{ width: `${(g.total / maxTotal) * 100}%`, background: g.color }} /></div>
+                                </div>
+                                <div style={{ textAlign: 'center', flex: 'none' }}>
+                                    <div style={{ fontWeight: 800, color: 'var(--acc)', fontSize: 14 }}>{fa(g.total)}</div>
+                                    <div style={{ fontSize: 10, opacity: .65 }}>{fa(g.count)} نفر</div>
                                 </div>
                             </div>
-                            <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontWeight: 800, color: 'var(--acc)' }}>{fa(g.total)}</div>
-                                <div style={{ fontSize: 11, opacity: .7 }}>{fa(g.count)} نفر</div>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-                {groups.length === 0 && <div style={{ ...card }}><span style={{ opacity: .7 }}>هنوز رقابتی شکل نگرفته.</span></div>}
-            </div>
-
-            {/* نفرات برتر تیم من */}
-            {groups.find((g) => g.mine) && (
-                <>
-                    <SectionTitle>⭐ نفرات برتر تیم تو</SectionTitle>
-                    <div style={card}>
-                        {groups.find((g) => g.mine).top.map((m, i) => (
-                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderBottom: i < 4 ? '1px solid rgba(255,255,255,.08)' : 0 }}>
-                                <span style={{ width: 24, fontWeight: 800, color: i === 0 ? '#ffd23f' : 'rgba(255,255,255,.6)' }}>{fa(i + 1)}</span>
-                                <span style={{ flex: 1, fontWeight: m.me ? 800 : 600 }}>{m.me ? `تو (${m.name})` : m.name}</span>
-                                <b style={{ color: 'var(--acc)' }}>{fa(m.xp)}</b>
-                            </div>
                         ))}
+                        {groups.length === 0 && <span style={{ opacity: .7, fontSize: 13 }}>هنوز رقابتی شکل نگرفته.</span>}
                     </div>
-                </>
-            )}
 
-            {/* مأموریت امروز */}
-            <SectionTitle>{w('mission_title', 'مأموریت امروز')}</SectionTitle>
-            {sample ? (
-                <div style={card}>
-                    <div style={{ ...pill, display: 'inline-block', marginBottom: 10 }}>{skin.mascot} {sample.skill}</div>
-                    <div style={{ fontWeight: 800, fontSize: 16, lineHeight: 2.1 }}>{sample.prompt}</div>
-                    <div style={{ display: 'grid', gap: 8, marginTop: 14, gridTemplateColumns: '1fr 1fr' }}>
-                        {sample.choices.map((c, i) => {
-                            const st = picked == null ? '' : c.correct ? 'ok' : (picked === i ? 'no' : '');
-                            return <button key={i} onClick={() => picked == null && setPicked(i)} style={opt(st)}>{fa(c.value)}</button>;
-                        })}
-                    </div>
-                    <Link href={route('practice.start')} style={{ ...btn, marginTop: 14, textDecoration: 'none' }}>▶️ شروع مأموریت کامل</Link>
+                    {/* نفرات برتر تیم من */}
+                    {myTeam && (
+                        <>
+                            <SectionTitle style={{ marginTop: 18 }}>⭐ ستاره‌های تیم تو</SectionTitle>
+                            <div style={{ display: 'grid', gap: 6 }}>
+                                {myTeam.top.map((m, i) => (
+                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 13, background: m.me ? 'rgba(255,255,255,.09)' : 'transparent', border: m.me ? '1px solid var(--acc)' : '1px solid transparent' }}>
+                                        <span className={`k3-medal ${i < 3 ? `m${i + 1}` : ''}`}>{fa(i + 1)}</span>
+                                        <span style={{ flex: 1, fontWeight: m.me ? 900 : 600, fontSize: 14 }}>{m.me ? `تو (${m.name})` : m.name}</span>
+                                        <b style={{ color: 'var(--acc)' }}>{fa(m.xp)}</b>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    )}
                 </div>
-            ) : <div style={card}><span style={{ opacity: .7 }}>هنوز مأموریتی موجود نیست.</span></div>}
+
+                {/* مأموریت امروز */}
+                <div className="k3-card">
+                    <SectionTitle>🎯 {w('mission_title', 'مأموریت امروز')}</SectionTitle>
+                    {sample ? (
+                        <>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 800, padding: '5px 13px', borderRadius: 30, background: 'rgba(0,0,0,.28)', border: '1px solid rgba(255,255,255,.16)', marginBottom: 12 }}>
+                                {skin.mascot} {sample.skill}
+                            </div>
+                            <div style={{ fontWeight: 800, fontSize: 16.5, lineHeight: 2.1 }}>{sample.prompt}</div>
+                            <div style={{ display: 'grid', gap: 9, marginTop: 14, gridTemplateColumns: '1fr 1fr' }}>
+                                {sample.choices.map((c, i) => {
+                                    const st = picked == null ? '' : c.correct ? 'ok' : (picked === i ? 'no' : '');
+                                    return (
+                                        <button key={i} onClick={() => picked == null && setPicked(i)}
+                                            style={{
+                                                padding: 14, borderRadius: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', fontSize: 16, color: '#fff', transition: '.15s',
+                                                background: st === 'ok' ? 'linear-gradient(180deg,#2bb673,#1d8a55)' : st === 'no' ? 'linear-gradient(180deg,#e8505b,#b03340)' : 'rgba(255,255,255,.08)',
+                                                border: '1px solid rgba(255,255,255,.16)',
+                                                boxShadow: st ? '0 4px 0 rgba(0,0,0,.35), inset 0 2px 0 rgba(255,255,255,.25)' : 'inset 0 2px 4px rgba(0,0,0,.25)',
+                                            }}>{fa(c.value)}{st === 'ok' ? ' ✅' : st === 'no' ? ' ❌' : ''}</button>
+                                    );
+                                })}
+                            </div>
+                            {picked != null && (
+                                <div style={{ marginTop: 12, fontWeight: 800, fontSize: 14, color: sample.choices[picked]?.correct ? '#7be05a' : '#ffb3b3' }}>
+                                    {sample.choices[picked]?.correct ? w('reward_title', 'آفرین! 🎉') : 'اشکالی نداره، تو مأموریت جبران کن! 💪'}
+                                </div>
+                            )}
+                            <Link href={route('practice.start')} className="k3-btn" style={{ width: '100%', marginTop: 16, fontSize: 16 }}>
+                                🚀 شروع {w('mission_title', 'مأموریت')}
+                            </Link>
+                        </>
+                    ) : (
+                        <div style={{ opacity: .75, fontSize: 14 }}>
+                            هنوز مأموریتی موجود نیست — از کاشی «🎮 مأموریت و بازی» سر بزن!
+                        </div>
+                    )}
+
+                    {/* دسترسی سریع دوم */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 16 }}>
+                        <Link href="/leaderboard" className="k3-btn ghost" style={{ fontSize: 13.5 }}>🏆 {w('leaderboard', 'جدول رقابت')}</Link>
+                        <Link href="/progress" className="k3-btn ghost" style={{ fontSize: 13.5 }}>📈 کارنامه‌ی من</Link>
+                    </div>
+                </div>
+            </div>
         </ThemedDash>
     );
 }
 
-/* استایل‌های درون‌خطی تم‌دار */
-const card = { background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 18, padding: 18, color: '#fff', backdropFilter: 'blur(6px)' };
-const pill = { fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 30, background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.2)', color: '#fff' };
-const btn = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', border: 0, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 800, fontSize: 15, color: '#fff', padding: 14, borderRadius: 14, background: 'linear-gradient(135deg,var(--p1),var(--p2))' };
-const opt = (st) => ({ padding: 13, borderRadius: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', fontSize: 15, color: '#fff',
-    background: st === 'ok' ? 'rgba(43,182,115,.25)' : st === 'no' ? 'rgba(232,80,91,.25)' : 'rgba(255,255,255,.07)',
-    border: `1.5px solid ${st === 'ok' ? '#2bb673' : st === 'no' ? '#e8505b' : 'rgba(255,255,255,.15)'}` });
-
-function Stat({ b, s }) {
-    return <div style={{ ...card, padding: '12px 8px', textAlign: 'center' }}><b style={{ display: 'block', fontSize: 22, color: 'var(--acc)' }}>{b}</b><span style={{ fontSize: 11, opacity: .7 }}>{s}</span></div>;
-}
-function SectionTitle({ children }) {
-    return <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '22px 4px 12px', fontWeight: 800, fontSize: 16, color: '#fff' }}>
-        <span style={{ width: 5, height: 18, borderRadius: 6, background: 'linear-gradient(var(--p1),var(--acc))' }} />{children}</div>;
+function SectionTitle({ children, style = {} }) {
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '2px 2px 12px', fontWeight: 900, fontSize: 16, color: '#fff', ...style }}>
+            <span style={{ width: 5, height: 18, borderRadius: 6, background: 'linear-gradient(var(--p1),var(--acc))', boxShadow: '0 0 8px var(--acc)' }} />
+            {children}
+        </div>
+    );
 }
