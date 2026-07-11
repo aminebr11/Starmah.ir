@@ -144,6 +144,38 @@ class GamificationService
         return $entry;
     }
 
+    /** جدول امتیازِ دفتر کلاسی (توصیفی/تکلیف). */
+    public const GRADE_XP = [
+        'descriptive' => ['خیلی خوب' => 20, 'خوب' => 15, 'قابل قبول' => 10, 'نیاز به تلاش' => 5, 'غایب' => -5],
+        'homework'    => ['کامل' => 15, 'ناقص' => 8, 'انجام نداده' => -5, 'غایب' => -5],
+    ];
+
+    /**
+     * ثبت امتیازِ یک نمره‌ی دفتر کلاسی (idempotent بر اساس منبعِ Grade).
+     */
+    public function awardForGrade(\App\Models\Grade $grade, \App\Models\GradeColumn $col, ?User $by = null): void
+    {
+        XpEntry::where('source_type', \App\Models\Grade::class)->where('source_id', $grade->id)->delete();
+
+        $amount = 0;
+        $type = $col->score_type ?: $col->type;
+        if ($type === 'numeric') {
+            $max = (float) ($col->max ?: 20);
+            $amount = ($grade->score !== null && $max > 0) ? (int) round(($grade->score / $max) * 20) : 0;
+        } else {
+            $amount = self::GRADE_XP[$type][$grade->text] ?? 0;
+        }
+        if ($amount === 0) {
+            return;
+        }
+        $student = User::find($grade->student_id);
+        if (! $student) {
+            return;
+        }
+        $label = trim(($col->lesson ? $col->lesson . ' — ' : '') . ($col->title ?: 'نمره‌ی کلاسی'));
+        $this->award($student, $amount, '📔 ' . $label, $by, \App\Models\Grade::class, $grade->id);
+    }
+
     /**
      * ثبت امتیاز حضور و غیاب برای یک رکورد (idempotent: امتیاز قبلیِ همان رکورد جایگزین می‌شود).
      */

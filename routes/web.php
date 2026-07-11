@@ -126,7 +126,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'store'])->name('activities.store');
     Route::post('/activities/{classActivity}/award', [\App\Http\Controllers\Teacher\ActivityController::class, 'award'])->name('activities.award');
     Route::get('/gradebook', [\App\Http\Controllers\Teacher\GradebookController::class, 'index'])->name('gradebook');
-    Route::post('/gradebook/columns', [\App\Http\Controllers\Teacher\GradebookController::class, 'storeColumn'])->name('gradebook.columns');
+    Route::post('/gradebook/activities', [\App\Http\Controllers\Teacher\GradebookController::class, 'storeActivity'])->name('gradebook.activities');
     Route::post('/gradebook/columns/{gradeColumn}/grades', [\App\Http\Controllers\Teacher\GradebookController::class, 'saveGrades'])->name('gradebook.grades');
     Route::delete('/gradebook/columns/{gradeColumn}', [\App\Http\Controllers\Teacher\GradebookController::class, 'destroyColumn'])->name('gradebook.columns.destroy');
     Route::get('/discipline', [DisciplineController::class, 'index'])->name('discipline');

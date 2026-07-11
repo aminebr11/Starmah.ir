@@ -10,7 +10,7 @@ class GradeColumn extends Model
 {
     use BelongsToSchool;
 
-    protected $fillable = ['school_id', 'classroom_id', 'teacher_id', 'title', 'type', 'max', 'graded_at'];
+    protected $fillable = ['school_id', 'classroom_id', 'teacher_id', 'title', 'type', 'score_type', 'lesson', 'topic', 'max', 'graded_at'];
     protected $casts = ['graded_at' => 'date'];
 
     public function grades(): HasMany { return $this->hasMany(Grade::class); }

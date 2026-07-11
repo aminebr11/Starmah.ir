@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Grade extends Model
 {
-    protected $fillable = ['grade_column_id', 'student_id', 'score', 'text'];
+    protected $fillable = ['grade_column_id', 'student_id', 'score', 'text', 'feedback'];
 
     public function gradeColumn(): BelongsTo { return $this->belongsTo(GradeColumn::class); }
 }
