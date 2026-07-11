@@ -90,6 +90,7 @@ Route::middleware(['auth', 'role:school_admin'])->prefix('school')->name('school
     Route::delete('/attendance/one', [\App\Http\Controllers\AttendanceController::class, 'destroyOne'])->name('attendance.one.destroy');
     Route::get('/attendance/monthly-sheet', [\App\Http\Controllers\AttendanceController::class, 'monthlySheet'])->name('attendance.monthly');
     Route::get('/attendance-report', [\App\Http\Controllers\AttendanceReportController::class, 'index'])->name('attendance.report');
+    Route::get('/exam-reports', [\App\Http\Controllers\SchoolAdmin\ExamOverviewController::class, 'index'])->name('exam.reports');
 });
 
 /* ---------------- دانش‌آموز ---------------- */

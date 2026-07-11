@@ -6,7 +6,12 @@ import JalaliDatePicker from '@/Components/JalaliDatePicker';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const DIFF = { easy: ['ساده', '#22c55e'], medium: ['متوسط', '#f59e0b'], hard: ['دشوار', '#ef4444'] };
-const emptyQ = () => ({ prompt: '', choices: [{ value: '', correct: true }, { value: '', correct: false }, { value: '', correct: false }, { value: '', correct: false }] });
+const QTYPE = { mc: '🔘 چهارگزینه‌ای', tf: '✔️ درست/نادرست', desc: '✍️ تشریحی' };
+const emptyQ = (type = 'mc') => {
+    if (type === 'tf') return { type: 'tf', prompt: '', choices: [{ value: 'درست', correct: true }, { value: 'نادرست', correct: false }] };
+    if (type === 'desc') return { type: 'desc', prompt: '', choices: [] };
+    return { type: 'mc', prompt: '', choices: [{ value: '', correct: true }, { value: '', correct: false }, { value: '', correct: false }, { value: '', correct: false }] };
+};
 
 export default function ExamBuilder() {
     const { classroom, subjects = [], exams = [], aiEnabled, flash } = usePage().props;
@@ -29,8 +34,9 @@ export default function ExamBuilder() {
         } finally { setBusy(false); }
     };
 
-    const addQ = () => form.setData('questions', [...form.data.questions, emptyQ()]);
+    const addQ = (type = 'mc') => form.setData('questions', [...form.data.questions, emptyQ(type)]);
     const setQ = (i, patch) => form.setData('questions', form.data.questions.map((q, k) => k === i ? { ...q, ...patch } : q));
+    const changeType = (i, type) => form.setData('questions', form.data.questions.map((q, k) => k === i ? emptyQ(type) : q).map((q, k) => k === i ? { ...q, prompt: form.data.questions[i].prompt } : q));
     const setChoice = (i, ci, patch) => setQ(i, { choices: form.data.questions[i].choices.map((c, k) => k === ci ? { ...c, ...patch } : (patch.correct ? { ...c, correct: false } : c)) });
     const removeQ = (i) => form.setData('questions', form.data.questions.filter((_, k) => k !== i));
 
@@ -113,26 +119,40 @@ export default function ExamBuilder() {
                     </div>
                 )}
 
-                {form.data.questions.map((q, i) => (
+                {form.data.questions.map((q, i) => {
+                    const qt = q.type || 'mc';
+                    return (
                     <div key={i} style={{ border: '1px solid var(--line)', borderRadius: 14, padding: 14, marginBottom: 10 }}>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
                             <b style={{ color: 'var(--gold-2)' }}>{fa(i + 1)}.</b>
-                            <input className="input" value={q.prompt} onChange={(e) => setQ(i, { prompt: e.target.value })} placeholder="متن سؤال" />
+                            <input className="input" value={q.prompt} onChange={(e) => setQ(i, { prompt: e.target.value })} placeholder="متن سؤال" style={{ flex: 1, minWidth: 160 }} />
+                            <select className="input" style={{ width: 'auto' }} value={qt} onChange={(e) => changeType(i, e.target.value)}>
+                                {Object.entries(QTYPE).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+                            </select>
                             <button type="button" onClick={() => removeQ(i)} style={{ border: 0, background: 'none', color: '#e8505b', cursor: 'pointer', fontSize: 16 }}>✕</button>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                            {q.choices.map((c, ci) => (
-                                <label key={ci} style={{ display: 'flex', alignItems: 'center', gap: 6, background: c.correct ? '#e3f7ec' : '#f0f3f9', borderRadius: 10, padding: '6px 10px' }}>
-                                    <input type="radio" name={`correct-${i}`} checked={c.correct} onChange={() => setChoice(i, ci, { correct: true })} />
-                                    <input value={c.value} onChange={(e) => setChoice(i, ci, { value: e.target.value })} placeholder={`گزینه ${fa(ci + 1)}`} style={{ border: 0, background: 'none', flex: 1, fontFamily: 'inherit', outline: 'none' }} />
-                                </label>
-                            ))}
-                        </div>
+                        {qt === 'desc' ? (
+                            <div style={{ fontSize: 12.5, color: 'var(--muted)', background: '#f7f9fd', borderRadius: 10, padding: '8px 12px' }}>✍️ سؤال تشریحی — دانش‌آموز پاسخ متنی می‌نویسد و توسط معلم بررسی می‌شود (خودکار تصحیح نمی‌شود).</div>
+                        ) : (
+                            <div style={{ display: 'grid', gridTemplateColumns: qt === 'tf' ? '1fr 1fr' : '1fr 1fr', gap: 8 }}>
+                                {q.choices.map((c, ci) => (
+                                    <label key={ci} style={{ display: 'flex', alignItems: 'center', gap: 6, background: c.correct ? '#e3f7ec' : '#f0f3f9', borderRadius: 10, padding: '6px 10px' }}>
+                                        <input type="radio" name={`correct-${i}`} checked={c.correct} onChange={() => setChoice(i, ci, { correct: true })} />
+                                        {qt === 'tf'
+                                            ? <span style={{ fontWeight: 700 }}>{c.value}</span>
+                                            : <input value={c.value} onChange={(e) => setChoice(i, ci, { value: e.target.value })} placeholder={`گزینه ${fa(ci + 1)}`} style={{ border: 0, background: 'none', flex: 1, fontFamily: 'inherit', outline: 'none' }} />}
+                                    </label>
+                                ))}
+                            </div>
+                        )}
                     </div>
-                ))}
+                    );
+                })}
 
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' }}>
-                    <button type="button" onClick={addQ} className="btn btn-ghost btn-sm">➕ سؤال دستی</button>
+                    <button type="button" onClick={() => addQ('mc')} className="btn btn-ghost btn-sm">➕ چهارگزینه‌ای</button>
+                    <button type="button" onClick={() => addQ('tf')} className="btn btn-ghost btn-sm">➕ درست/نادرست</button>
+                    <button type="button" onClick={() => addQ('desc')} className="btn btn-ghost btn-sm">➕ تشریحی</button>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
                         <input type="checkbox" checked={form.data.publish} onChange={(e) => form.setData('publish', e.target.checked)} /> انتشار برای دانش‌آموزان
                     </label>

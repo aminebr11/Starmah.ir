@@ -52,10 +52,18 @@ class ExamController extends Controller
         $built = $assignment->config['questions'] ?? null;
         if (is_array($built) && $built) {
             foreach ($built as $i => $q) {
-                $correct = collect($q['choices'])->firstWhere('correct', true);
-                $questions[] = ['i' => $i, 'skill' => $assignment->title, 'prompt' => $q['prompt'],
-                    'choices' => array_map(fn ($c) => ['value' => (string) $c['value']], $q['choices'])];
-                $key[$i] = ['answer' => (string) ($correct['value'] ?? '')];
+                $type = $q['type'] ?? 'mc';
+                if ($type === 'desc') {
+                    $questions[] = ['i' => $i, 'type' => 'desc', 'skill' => $assignment->title, 'prompt' => $q['prompt'], 'choices' => []];
+                    $key[$i] = ['type' => 'desc', 'answer' => null];
+                    continue;
+                }
+                $choices = $type === 'tf'
+                    ? [['value' => 'درست'], ['value' => 'نادرست']]
+                    : array_map(fn ($c) => ['value' => (string) $c['value']], $q['choices'] ?? []);
+                $correct = collect($q['choices'] ?? [])->firstWhere('correct', true);
+                $questions[] = ['i' => $i, 'type' => $type, 'skill' => $assignment->title, 'prompt' => $q['prompt'], 'choices' => $choices];
+                $key[$i] = ['type' => $type, 'answer' => (string) ($correct['value'] ?? '')];
             }
         } else {
             // در غیر این صورت از بانک سؤال مهارت‌محور
@@ -66,9 +74,9 @@ class ExamController extends Controller
             for ($i = 0; $i < $count; $i++) {
                 $s = $skills->random(); $q = $s->questions->random();
                 $r = $this->engine->renderQuestion($q, $theme);
-                $questions[] = ['i' => $i, 'skill' => $s->name, 'prompt' => $r['prompt'],
+                $questions[] = ['i' => $i, 'type' => 'mc', 'skill' => $s->name, 'prompt' => $r['prompt'],
                     'choices' => array_map(fn ($c) => ['value' => $c['value']], $r['choices'])];
-                $key[$i] = ['answer' => $r['answer']];
+                $key[$i] = ['type' => 'mc', 'answer' => $r['answer']];
             }
         }
         $request->session()->put("exam.$token", $key);
@@ -89,24 +97,43 @@ class ExamController extends Controller
         abort_if(! $key, 419, 'جلسه منقضی شد');
 
         $user = $request->user();
-        $correct = 0;
-        foreach ($data['answers'] as $ans) {
-            $i = $ans['i'] ?? null;
-            if (isset($key[$i]) && (string) ($ans['value'] ?? '') === (string) $key[$i]['answer']) {
+        $answersById = collect($data['answers'])->keyBy('i');
+        $correct = 0; $auto = 0; $descCount = 0; $stored = [];
+        foreach ($key as $i => $k) {
+            $given = (string) ($answersById[$i]['value'] ?? '');
+            $stored[] = ['i' => $i, 'type' => $k['type'] ?? 'mc', 'value' => $given];
+            if (($k['type'] ?? 'mc') === 'desc') {
+                $descCount++;
+                continue; // تشریحی: خودکار تصحیح نمی‌شود
+            }
+            $auto++;
+            if ($given === (string) $k['answer']) {
                 $correct++;
             }
         }
-        $total = count($key);
-        $points = (int) round($correct / max(1, $total) * 100); // امتیاز بر اساس درصد
+        $total = $auto ?: count($key);
+        $accuracy = $auto ? round($correct / $auto * 100, 2) : 0;
+        $points = (int) round($accuracy);
 
         AssignmentSubmission::updateOrCreate(
             ['assignment_id' => $assignment->id, 'student_id' => $user->id],
-            ['score' => $correct, 'max_score' => $total, 'accuracy' => round($correct / max(1, $total) * 100, 2),
-             'status' => 'completed', 'submitted_at' => now()]
+            ['score' => $correct, 'max_score' => $auto, 'accuracy' => $accuracy,
+             'answers' => $stored, 'status' => 'completed', 'submitted_at' => now()]
         );
 
         $this->game->awardXp($user, $points, '💻 آزمون آنلاین — ' . $assignment->title);
 
-        return response()->json(['correct' => $correct, 'total' => $total, 'points' => $points]);
+        // اعلانِ نتیجه در کارتابلِ دانش‌آموز
+        $body = "آزمون «{$assignment->title}» را دادی.\nنتیجه: {$correct} از {$auto} درست ({$accuracy}٪)";
+        if ($descCount > 0) {
+            $body .= "\n{$descCount} سؤال تشریحی توسط معلم بررسی می‌شود.";
+        }
+        $ann = \App\Models\Announcement::create([
+            'school_id' => $assignment->school_id, 'sender_id' => $assignment->teacher_id,
+            'title' => '💻 نتیجه‌ی آزمون — ' . $assignment->title, 'audience' => 'personal', 'body' => $body,
+        ]);
+        $ann->recipients()->sync([$user->id]);
+
+        return response()->json(['correct' => $correct, 'total' => $auto, 'points' => $points, 'desc' => $descCount]);
     }
 }

@@ -85,6 +85,7 @@ export const schoolMenu = [
     { key: 'schedule', label: 'برنامه‌ی کلاس‌ها', icon: '🗓️', href: '/school/schedule' },
     { key: 'announcements', label: 'اطلاعیه‌ها', icon: '📢', href: '/school/announcements' },
     { key: 'attendance', label: 'حضور و غیاب', icon: '✅', href: '/school/attendance' },
+    { key: 'examreports', label: 'گزارش آزمون‌ها', icon: '📊', href: '/school/exam-reports' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/school/reports' },
 ];
 

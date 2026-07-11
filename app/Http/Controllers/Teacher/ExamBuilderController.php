@@ -163,8 +163,9 @@ class ExamBuilderController extends Controller
             'duration'              => ['nullable', 'integer', 'min:1', 'max:300'],
             'scheduled_at'          => ['nullable', 'date'],
             'questions'             => ['required', 'array', 'min:1'],
+            'questions.*.type'      => ['nullable', 'in:mc,tf,desc'],
             'questions.*.prompt'    => ['required', 'string'],
-            'questions.*.choices'   => ['required', 'array', 'min:2'],
+            'questions.*.choices'   => ['nullable', 'array'],
             'publish'               => ['boolean'],
         ]);
     }

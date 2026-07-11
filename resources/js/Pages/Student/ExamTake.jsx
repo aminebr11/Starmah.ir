@@ -11,30 +11,44 @@ export default function ExamTake() {
     const [idx, setIdx] = useState(0);
     const [answers, setAnswers] = useState([]);
     const [picked, setPicked] = useState(null);
+    const [descText, setDescText] = useState('');
+    const [busy, setBusy] = useState(false);
     const [result, setResult] = useState(null);
     const q = questions[idx];
     const last = idx === questions.length - 1;
+
+    const advance = (next) => { last ? finish(next) : (setPicked(null), setDescText(''), setIdx(idx + 1)); };
 
     const choose = (val) => {
         if (picked != null) return;
         setPicked(val);
         const next = [...answers, { i: q.i, value: val }];
         setAnswers(next);
-        setTimeout(() => last ? finish(next) : (setPicked(null), setIdx(idx + 1)), 350);
+        setTimeout(() => advance(next), 350);
+    };
+    const submitDesc = () => {
+        const next = [...answers, { i: q.i, value: descText.trim() }];
+        setAnswers(next);
+        advance(next);
     };
     const finish = async (all) => {
+        setBusy(true);
         const { data } = await axios.post(route('exams.submit', assignment.id), { token, answers: all });
         setResult(data);
     };
 
     if (result) {
-        const pct = Math.round(result.correct / result.total * 100);
+        const graded = result.total > 0;
+        const pct = graded ? Math.round(result.correct / result.total * 100) : 0;
         return (
             <ThemedDash title="نتیجه آزمون">
                 <div style={{ ...card, textAlign: 'center', maxWidth: 460, margin: '20px auto' }}>
-                    <div style={{ fontSize: 64 }}>{pct >= 50 ? '🎉' : '💪'}</div>
-                    <h2>نمره‌ی تو: {fa(result.correct)} از {fa(result.total)}</h2>
-                    <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--acc)', margin: '10px 0' }}>+{fa(result.points)} امتیاز</div>
+                    <div style={{ fontSize: 64 }}>{graded ? (pct >= 50 ? '🎉' : '💪') : '📝'}</div>
+                    {graded ? <>
+                        <h2>نمره‌ی تو: {fa(result.correct)} از {fa(result.total)}</h2>
+                        <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--acc)', margin: '10px 0' }}>+{fa(result.points)} امتیاز</div>
+                    </> : <h2 style={{ margin: '10px 0' }}>پاسخت ثبت شد ✅</h2>}
+                    {result.desc > 0 && <div style={{ opacity: .8, fontSize: 13, marginBottom: 10 }}>✍️ {fa(result.desc)} سؤال تشریحی توسط معلم بررسی می‌شود.</div>}
                     <button onClick={() => router.visit(route('exams'))} style={{ background: 'linear-gradient(135deg,var(--p1),var(--p2))', color: '#fff', padding: '12px 26px', borderRadius: 14, fontWeight: 800, border: 0, cursor: 'pointer', fontFamily: 'inherit' }}>بازگشت به آزمون‌ها</button>
                 </div>
             </ThemedDash>
@@ -54,14 +68,25 @@ export default function ExamTake() {
                     <div style={{ fontSize: 12, opacity: .8 }}>{skin.mascot} {q.skill}</div>
                     <div style={{ fontWeight: 800, fontSize: 18, lineHeight: 2.1, marginTop: 10 }}>{q.prompt}</div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 14 }}>
-                    {q.choices.map((c, i) => (
-                        <button key={i} onClick={() => choose(c.value)} disabled={picked != null}
-                            style={{ padding: 16, borderRadius: 14, fontWeight: 800, fontSize: 16, color: '#fff', cursor: 'pointer', fontFamily: 'inherit',
-                                background: picked === c.value ? 'rgba(245,181,63,.25)' : 'rgba(255,255,255,.07)',
-                                border: `1.5px solid ${picked === c.value ? 'var(--acc)' : 'rgba(255,255,255,.15)'}` }}>{fa(c.value)}</button>
-                    ))}
-                </div>
+                {q.type === 'desc' ? (
+                    <div style={{ marginTop: 14 }}>
+                        <textarea value={descText} onChange={(e) => setDescText(e.target.value)} rows="5" placeholder="پاسخت را این‌جا بنویس…"
+                            style={{ width: '100%', borderRadius: 14, padding: 14, fontFamily: 'inherit', fontSize: 15, background: 'rgba(255,255,255,.07)', color: '#fff', border: '1.5px solid rgba(255,255,255,.15)', resize: 'vertical' }} />
+                        <button onClick={submitDesc} disabled={busy || !descText.trim()}
+                            style={{ marginTop: 12, width: '100%', background: 'linear-gradient(135deg,var(--p1),var(--p2))', color: '#fff', padding: '14px', borderRadius: 14, fontWeight: 800, border: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 16 }}>
+                            {last ? '✅ پایان آزمون' : 'سؤال بعدی ←'}
+                        </button>
+                    </div>
+                ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: q.type === 'tf' ? '1fr 1fr' : '1fr 1fr', gap: 10, marginTop: 14 }}>
+                        {q.choices.map((c, i) => (
+                            <button key={i} onClick={() => choose(c.value)} disabled={picked != null}
+                                style={{ padding: 16, borderRadius: 14, fontWeight: 800, fontSize: 16, color: '#fff', cursor: 'pointer', fontFamily: 'inherit',
+                                    background: picked === c.value ? 'rgba(245,181,63,.25)' : 'rgba(255,255,255,.07)',
+                                    border: `1.5px solid ${picked === c.value ? 'var(--acc)' : 'rgba(255,255,255,.15)'}` }}>{fa(c.value)}</button>
+                        ))}
+                    </div>
+                )}
             </div>
         </ThemedDash>
     );
