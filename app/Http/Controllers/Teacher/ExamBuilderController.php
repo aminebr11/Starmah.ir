@@ -27,7 +27,20 @@ class ExamBuilderController extends Controller
 
         $exams = Assignment::where('classroom_id', $classroom?->id)
             ->whereIn('type', ['exam', 'quiz'])->latest()->get()
-            ->map(fn ($a) => $this->examSummary($a));
+            ->map(function ($a) {
+                // اگر داده‌ی یک آزمون خراب بود، کل صفحه نباید ۵۰۰ شود
+                try {
+                    return $this->examSummary($a);
+                } catch (\Throwable $e) {
+                    report($e);
+                    return [
+                        'id' => $a->id, 'title' => $a->title, 'type' => $a->type,
+                        'count' => 0, 'published' => (bool) $a->is_published, 'questions' => [],
+                        'duration' => null, 'difficulty' => 'medium', 'subject' => null,
+                        'scheduled_at' => null, 'jscheduled' => null, 'taken' => 0, 'avg' => null,
+                    ];
+                }
+            });
 
         // بانک سؤالات — اگر جدولش هنوز ساخته نشده (آپگرید SQL اجرا نشده) صفحه نباید ۵۰۰ بدهد.
         $bank = Schema::hasTable('exam_questions')
