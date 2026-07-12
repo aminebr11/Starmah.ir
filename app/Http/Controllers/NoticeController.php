@@ -26,9 +26,10 @@ class NoticeController extends Controller
                 'date'     => Jalali::format($a->created_at),
             ]);
 
-        // پیام‌های شخصیِ خوانده‌نشده را خوانده علامت بزن
+        // پیام‌های شخصیِ خوانده‌نشده را خوانده علامت بزن + فید زنگوله را «دیده‌شد»
         \Illuminate\Support\Facades\DB::table('announcement_recipients')
             ->where('user_id', $user->id)->whereNull('read_at')->update(['read_at' => now()]);
+        \App\Support\Notifications::markSeen($user);
 
         $component = $user->hasRole(Roles::TEACHER) ? 'Teacher/Notices' : 'Student/Notices';
 

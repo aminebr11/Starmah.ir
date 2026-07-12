@@ -13,6 +13,7 @@ use App\Support\Jalali;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -28,11 +29,14 @@ class ExamBuilderController extends Controller
             ->whereIn('type', ['exam', 'quiz'])->latest()->get()
             ->map(fn ($a) => $this->examSummary($a));
 
-        $bank = ExamQuestion::where('teacher_id', $teacher->id)->latest()->get()
-            ->map(fn ($q) => [
-                'id' => $q->id, 'type' => $q->type, 'lesson' => $q->lesson, 'prompt' => $q->prompt,
-                'choices' => $q->choices ?? [],
-            ]);
+        // بانک سؤالات — اگر جدولش هنوز ساخته نشده (آپگرید SQL اجرا نشده) صفحه نباید ۵۰۰ بدهد.
+        $bank = Schema::hasTable('exam_questions')
+            ? ExamQuestion::where('teacher_id', $teacher->id)->latest()->get()
+                ->map(fn ($q) => [
+                    'id' => $q->id, 'type' => $q->type, 'lesson' => $q->lesson, 'prompt' => $q->prompt,
+                    'choices' => $q->choices ?? [],
+                ])
+            : collect();
 
         return Inertia::render('Teacher/ExamBuilder', [
             'classroom' => $classroom?->only('id', 'name'),
@@ -47,6 +51,9 @@ class ExamBuilderController extends Controller
     public function saveToBank(Request $request): RedirectResponse
     {
         $teacher = $request->user();
+        if (! Schema::hasTable('exam_questions')) {
+            return back()->with('flash', 'بانک سؤالات هنوز روی سرور فعال نشده — لطفاً آپگرید پایگاه‌داده (upgrade-v7.sql) را اجرا کنید.');
+        }
         $data = $request->validate([
             'lesson'             => ['nullable', 'string', 'max:80'],
             'questions'          => ['required', 'array', 'min:1'],

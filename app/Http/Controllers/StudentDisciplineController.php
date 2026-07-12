@@ -14,6 +14,7 @@ class StudentDisciplineController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
+        \App\Support\Notifications::markSeen($user);
         $attendance = $this->attendanceSummary($user->id);
         $all = DisciplineRecord::where('student_id', $user->id)->latest()->limit(100)->get();
 

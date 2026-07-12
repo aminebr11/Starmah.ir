@@ -106,10 +106,20 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'studentView'])->name('schedule');
     Route::get('/my-discipline', [\App\Http\Controllers\StudentDisciplineController::class, 'index'])->name('my.discipline');
     Route::get('/my-grades', [\App\Http\Controllers\StudentGradesController::class, 'index'])->name('my.grades');
+    // کارت‌های صفحه‌ی خانه: محتوای کلاس، تکالیف، فعالیت‌ها، گزارش‌ها
+    Route::get('/class-content', [\App\Http\Controllers\Student\StudentHubController::class, 'content'])->name('my.content');
+    Route::get('/homework', [\App\Http\Controllers\Student\StudentHubController::class, 'homework'])->name('my.homework');
+    Route::get('/my-activities', [\App\Http\Controllers\Student\StudentHubController::class, 'activities'])->name('my.activities');
+    Route::get('/my-reports', \App\Http\Controllers\Student\StudentReportController::class)->name('my.reports');
 
     Route::get('/exams', [ExamController::class, 'index'])->name('exams');
     Route::get('/exams/{assignment}/take', [ExamController::class, 'take'])->name('exams.take');
     Route::post('/exams/{assignment}/submit', [ExamController::class, 'submit'])->name('exams.submit');
+
+    // بازی‌های دانش‌آموز
+    Route::get('/games', [\App\Http\Controllers\Student\GameController::class, 'index'])->name('games');
+    Route::get('/games/{classActivity}/play', [\App\Http\Controllers\Student\GameController::class, 'play'])->name('games.play');
+    Route::post('/games/{classActivity}/submit', [\App\Http\Controllers\Student\GameController::class, 'submit'])->name('games.submit');
 });
 
 /* ---------------- معلم ---------------- */
@@ -128,6 +138,13 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::get('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'index'])->name('activities');
     Route::post('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'store'])->name('activities.store');
     Route::post('/activities/{classActivity}/award', [\App\Http\Controllers\Teacher\ActivityController::class, 'award'])->name('activities.award');
+    // بازی‌ساز (بانک بازی، انتشار، XP)
+    Route::get('/games', [\App\Http\Controllers\Teacher\GameController::class, 'index'])->name('games');
+    Route::post('/games', [\App\Http\Controllers\Teacher\GameController::class, 'store'])->name('games.store');
+    Route::put('/games/{classActivity}', [\App\Http\Controllers\Teacher\GameController::class, 'update'])->name('games.update');
+    Route::post('/games/{classActivity}/toggle', [\App\Http\Controllers\Teacher\GameController::class, 'toggle'])->name('games.toggle');
+    Route::post('/games/{classActivity}/duplicate', [\App\Http\Controllers\Teacher\GameController::class, 'duplicate'])->name('games.duplicate');
+    Route::delete('/games/{classActivity}', [\App\Http\Controllers\Teacher\GameController::class, 'destroy'])->name('games.destroy');
     Route::get('/gradebook', [\App\Http\Controllers\Teacher\GradebookController::class, 'index'])->name('gradebook');
     Route::post('/gradebook/activities', [\App\Http\Controllers\Teacher\GradebookController::class, 'storeActivity'])->name('gradebook.activities');
     Route::post('/gradebook/columns/{gradeColumn}/grades', [\App\Http\Controllers\Teacher\GradebookController::class, 'saveGrades'])->name('gradebook.grades');
@@ -156,6 +173,9 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/exams/{assignment}/grade-descriptive', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'gradeDescriptive'])->name('exams.grade');
     Route::post('/exam-bank', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'saveToBank'])->name('exams.bank.store');
     Route::delete('/exam-bank/{examQuestion}', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'deleteFromBank'])->name('exams.bank.destroy');
+    // تنظیم مرحله‌ها (سطوح پیشرفت)
+    Route::get('/levels', [\App\Http\Controllers\Teacher\LevelSettingsController::class, 'edit'])->name('levels');
+    Route::post('/levels', [\App\Http\Controllers\Teacher\LevelSettingsController::class, 'update'])->name('levels.update');
 });
 
 /* ---------------- مشترک ---------------- */

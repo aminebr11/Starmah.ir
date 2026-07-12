@@ -42,36 +42,10 @@ class HandleInertiaRequests extends Middleware
             // تم فعال در همه‌ی صفحات در دسترس است تا فرانت ظاهر را بسازد
             'theme' => app(ThemeEngine::class)->presentation($theme),
             'flash' => ['flash' => fn () => $request->session()->get('flash')],
-            // اعلان‌های زنگوله‌ی دانش‌آموز: موارد انضباطی ۲۴ ساعت اخیر
-            'notifications' => fn () => $this->studentNotifications($user),
-            // شمار پیام‌های شخصیِ خوانده‌نشده (برای نشان روی منوی اعلان‌ها)
-            'unreadNotices' => fn () => $this->unreadNotices($user),
+            // فید یکپارچه‌ی اعلان‌ها (اطلاعیه + پیام + موارد انضباطی) برای زنگوله
+            'notifications' => fn () => $user ? \App\Support\Notifications::feed($user) : [],
+            // شمار اعلان‌های خوانده‌نشده (برای نشان روی زنگوله و منوی اعلان‌ها)
+            'unreadNotices' => fn () => $user ? \App\Support\Notifications::unreadCount($user) : 0,
         ];
-    }
-
-    /** تعداد پیام‌های شخصیِ خوانده‌نشده‌ی کاربر. */
-    private function unreadNotices($user): int
-    {
-        if (! $user) {
-            return 0;
-        }
-        return \Illuminate\Support\Facades\DB::table('announcement_recipients')
-            ->where('user_id', $user->id)->whereNull('read_at')->count();
-    }
-
-    /** موارد انضباطی ۲۴ ساعت اخیر برای زنگوله‌ی دانش‌آموز. */
-    private function studentNotifications($user): array
-    {
-        if (! $user || ! $user->hasRole(\App\Support\Roles::STUDENT)) {
-            return [];
-        }
-        return \App\Models\DisciplineRecord::where('student_id', $user->id)
-            ->where('created_at', '>=', now()->subDay())
-            ->latest()->limit(10)->get()
-            ->map(fn ($r) => [
-                'title' => $r->title ?? ($r->points >= 0 ? 'تشویق' : 'تذکر'),
-                'points' => $r->points,
-                'kind' => $r->points >= 0 ? 'positive' : 'negative',
-            ])->all();
     }
 }

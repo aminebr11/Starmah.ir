@@ -65,6 +65,8 @@ class DashboardController extends Controller
         }
 
         return Inertia::render('Student/Dashboard', [
+            'levelXp' => \App\Support\LevelConfig::xpPerLevel($user->school_id),
+            'levelNames' => \App\Support\LevelConfig::names($user->school_id),
             'me' => [
                 'xp' => $user->totalXp(),
                 'badges' => $user->badges()->count(),

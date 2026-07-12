@@ -32,7 +32,7 @@ export default function WebLayout({ title, active = '', variant = '', children }
             <header className={`nav ${cosmic ? 'nav-cosmic' : ''} ${scrolled ? 'scrolled' : ''}`}>
                 <div className="container nav-inner">
                     <Link href="/" className="nav-logo">
-                        <img src="/brand/logo-emblem.png" alt="ستاره ماه" />
+                        <span className="emblem"><img src="/brand/logo-emblem.png" alt="ستاره ماه" /></span>
                         <span>ستاره<span style={{ color: 'var(--gold-2)' }}> ماه</span></span>
                     </Link>
 

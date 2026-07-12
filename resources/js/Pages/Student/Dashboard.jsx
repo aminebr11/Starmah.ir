@@ -5,10 +5,9 @@ import TeamHeader from '@/Components/TeamHeader';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
-/** مرحله‌بندی: هر ۱۵۰ امتیاز یک مرحله */
-const LEVEL_XP = 150;
-const levelOf = (xp) => Math.floor((xp ?? 0) / LEVEL_XP) + 1;
-const levelProgress = (xp) => ((xp ?? 0) % LEVEL_XP) / LEVEL_XP;
+/** مرحله‌بندی: امتیازِ هر مرحله را معلم تنظیم می‌کند (پیش‌فرض ۱۵۰) */
+const levelOf = (xp, step) => Math.floor((xp ?? 0) / step) + 1;
+const levelProgress = (xp, step) => ((xp ?? 0) % step) / step;
 
 /** تزئین‌های شناور هر تم (بر اساس skin.pattern) */
 const FLOATS = {
@@ -25,15 +24,17 @@ const FLOAT_POS = [
 ];
 
 export default function Dashboard() {
-    const { auth, theme, me = {}, groups = [], sample, notices = [], unreadNotices = 0 } = usePage().props;
+    const { auth, theme, me = {}, groups = [], sample, notices = [], notifications = [], unreadNotices = 0, levelXp = 150, levelNames = [] } = usePage().props;
     const w = (k, d = '') => theme?.narrative?.[k] ?? d;
     const skin = theme?.skin ?? {};
     const [picked, setPicked] = useState(null);
 
+    const LEVEL_XP = levelXp || 150;
     const xp = me.xp ?? 0;
-    const level = levelOf(xp);
-    const prog = levelProgress(xp);
+    const level = levelOf(xp, LEVEL_XP);
+    const prog = levelProgress(xp, LEVEL_XP);
     const toNext = LEVEL_XP - (xp % LEVEL_XP);
+    const levelName = levelNames[level - 1] || `${w('level', 'مرحله')} ${fa(level)}`;
     const R = 52, C = 2 * Math.PI * R;
 
     const maxTotal = Math.max(1, ...groups.map((g) => g.total));
@@ -46,10 +47,19 @@ export default function Dashboard() {
 
     // کاشی‌های اکشن — رنگ اختصاصی هر کاشی
     const tiles = [
-        { href: '/practice', em: '🎮', label: 'مأموریت و بازی', t1: skin.p1, t2: skin.p2 },
+        { href: '/practice', em: '🎯', label: 'مأموریت و تمرین', t1: skin.p1, t2: skin.p2 },
+        { href: '/games', em: '🎮', label: 'بازی‌ها', t1: '#e8505b', t2: '#b0333f' },
         { href: '/exams', em: '💻', label: 'آزمون‌های من', t1: '#7c5cf0', t2: '#4c2fb0' },
         { href: '/my-grades', em: '📔', label: 'نمرات کلاسی', t1: '#18a97c', t2: '#0d6b4e' },
-        { href: '/schedule', em: '🗓️', label: 'برنامه کلاسی', t1: '#e8862e', t2: '#a5570f' },
+    ];
+
+    // کارت‌های کلاس من (موارد انضباطی، فعالیت‌ها، محتوا، تکالیف، گزارش‌ها)
+    const cards = [
+        { href: '/my-discipline', em: '⭐', label: 'موارد انضباطی', sub: 'تشویق‌ها و تذکرها', t1: '#f5b53f', t2: '#d98f0f' },
+        { href: '/my-activities', em: '🎁', label: 'فعالیت‌ها و امتیازها', sub: 'تاریخچه‌ی امتیازها', t1: '#2bb673', t2: '#1a8a52' },
+        { href: '/class-content', em: '📚', label: 'محتوای کلاس', sub: 'جزوه، پادکست، گالری', t1: '#3d7bf0', t2: '#2555c0' },
+        { href: '/homework', em: '📝', label: 'تکالیف', sub: 'کارهای در پیش', t1: '#a24cf0', t2: '#6f2fb0' },
+        { href: '/my-reports', em: '📈', label: 'گزارش‌ها و نمودارها', sub: 'تحلیل کامل عملکرد', t1: '#0ea5b7', t2: '#0a7d8a' },
     ];
 
     return (
@@ -72,7 +82,7 @@ export default function Dashboard() {
                                 style={{ transition: 'stroke-dashoffset 1s cubic-bezier(.2,.8,.3,1)', filter: 'drop-shadow(0 0 6px var(--acc))' }} />
                         </svg>
                         <div className="face">{skin.character ?? skin.mascot ?? theme?.emoji}</div>
-                        <div className="lvl">{w('level', 'مرحله')} {fa(level)}</div>
+                        <div className="lvl">{levelName}</div>
                     </div>
 
                     <div style={{ flex: 1, minWidth: 180 }}>
@@ -111,24 +121,41 @@ export default function Dashboard() {
                 ))}
             </div>
 
-            {/* ===== اعلان‌ها ===== */}
-            {notices.length > 0 && (
+            {/* ===== کارت‌های کلاس من ===== */}
+            <div style={{ marginTop: 20 }}>
+                <SectionTitle>🧩 کارت‌های کلاس من</SectionTitle>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12 }}>
+                    {cards.map((c) => (
+                        <Link key={c.href} href={c.href} className="k3-homecard" style={{ '--c1': c.t1, '--c2': c.t2 }}>
+                            <span className="hc-em">{c.em}</span>
+                            <span className="hc-lbl">{c.label}</span>
+                            <span className="hc-sub">{c.sub}</span>
+                        </Link>
+                    ))}
+                </div>
+            </div>
+
+            {/* ===== اعلان‌ها (قالب‌های رنگیِ متنوع + لیبل چشمک‌زنِ جدید) ===== */}
+            {notifications.length > 0 && (
                 <div className={`k3-card ${unreadNotices > 0 ? 'notice-blink' : ''}`} style={{ marginTop: 16 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
-                        <div style={{ fontWeight: 800 }}>🔔 اعلان‌ها و پیام‌ها
-                            {unreadNotices > 0 && <span className="tag" style={{ background: '#e8505b', color: '#fff', marginInlineStart: 8, fontSize: 11 }}>{fa(unreadNotices)} نخوانده</span>}
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+                        <div style={{ fontWeight: 900, fontSize: 16 }}>🔔 اعلان‌ها و پیام‌ها
+                            {unreadNotices > 0 && <span className="new-badge" style={{ marginInlineStart: 8 }}>{fa(unreadNotices)} جدید ✨</span>}
                         </div>
                         <Link href="/notices" style={{ marginInlineStart: 'auto', color: 'var(--acc)', fontWeight: 800, fontSize: 13 }}>همه ←</Link>
                     </div>
-                    {notices.map((n) => (
-                        <Link key={n.id} href="/notices" style={{ display: 'block', padding: '9px 0', borderTop: '1px solid rgba(255,255,255,.1)', color: 'inherit' }}>
-                            <div style={{ fontWeight: 700, fontSize: 14 }}>
-                                {n.personal ? '✉️ ' : '📢 '}{n.title}
-                                <span style={{ opacity: .65, fontWeight: 400, fontSize: 12, marginInlineStart: 6 }}>· {n.date}</span>
-                            </div>
-                            <div style={{ opacity: .8, fontSize: 12.5, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>{n.body}</div>
-                        </Link>
-                    ))}
+                    <div style={{ display: 'grid', gap: 10 }}>
+                        {notifications.slice(0, 5).map((n, i) => (
+                            <Link key={n.id} href={n.href} className={`notice-tpl nt-c${i % 6}`} style={{ display: 'block' }}>
+                                <div className="nt-title">
+                                    <span style={{ marginInlineEnd: 6 }}>{n.icon}</span>{n.title}
+                                    {!n.read && <span className="new-badge" style={{ marginInlineStart: 8, background: 'rgba(255,255,255,.28)' }}>جدید</span>}
+                                </div>
+                                {n.body && <div className="nt-body" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.body}</div>}
+                                <div className="nt-meta">🕐 {n.date}</div>
+                            </Link>
+                        ))}
+                    </div>
                 </div>
             )}
 

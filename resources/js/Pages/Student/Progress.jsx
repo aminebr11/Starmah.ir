@@ -13,10 +13,10 @@ export default function Progress() {
     return (
         <ThemedDash title="کارنامه‌ی من" active="progress">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }} className="prog-stats">
-                <Stat b={fa(stats.xp ?? 0)} s="امتیاز کل" />
-                <Stat b={`${fa(stats.avg ?? 0)}٪`} s="میانگین تسلط" />
-                <Stat b={`⭐${fa(stats.stars ?? 0)}`} s="ستاره انضباط" />
-                <Stat b={fa(stats.badges ?? 0)} s="نشان" />
+                <Stat b={fa(stats.xp ?? 0)} s="امتیاز کل" c1="#f5b53f" c2="#d98f0f" />
+                <Stat b={`${fa(stats.avg ?? 0)}٪`} s="میانگین تسلط" c1="#2bb673" c2="#1a8a52" />
+                <Stat b={`⭐${fa(stats.stars ?? 0)}`} s="ستاره انضباط" c1="#0ea5b7" c2="#0a7d8a" />
+                <Stat b={fa(stats.badges ?? 0)} s="نشان" c1="#a24cf0" c2="#6f2fb0" />
             </div>
 
             <Title>📔 نمرات دفتر کلاسی</Title>
@@ -38,8 +38,8 @@ export default function Progress() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
                             <b style={{ fontSize: 13 }}>{x.label}</b><span style={{ opacity: .7, fontSize: 12 }}>{fa(x.points)} امتیاز</span>
                         </div>
-                        <div style={{ height: 9, borderRadius: 8, background: 'rgba(255,255,255,.12)', overflow: 'hidden' }}>
-                            <div style={{ width: `${(x.points / maxType) * 100}%`, height: '100%', background: 'linear-gradient(90deg,var(--p1),var(--acc))' }} />
+                        <div style={{ height: 11, borderRadius: 8, background: 'rgba(255,255,255,.12)', overflow: 'hidden' }}>
+                            <div style={{ width: `${(x.points / maxType) * 100}%`, height: '100%', background: barFor(i) }} />
                         </div>
                     </div>
                 )) : <span style={{ opacity: .7 }}>هنوز امتیازی نگرفتی.</span>}
@@ -54,8 +54,8 @@ export default function Progress() {
                             <b style={{ fontSize: 13 }}>{m.skill}</b>
                             <span style={{ opacity: .7, fontSize: 12 }}>{fa(m.mastery)}٪ · {label(m.mastery)}</span>
                         </div>
-                        <div style={{ height: 9, borderRadius: 8, background: 'rgba(255,255,255,.12)', overflow: 'hidden' }}>
-                            <div style={{ width: `${m.mastery}%`, height: '100%', background: 'linear-gradient(90deg,var(--p1),var(--acc))' }} />
+                        <div style={{ height: 11, borderRadius: 8, background: 'rgba(255,255,255,.12)', overflow: 'hidden' }}>
+                            <div style={{ width: `${m.mastery}%`, height: '100%', background: barFor(i) }} />
                         </div>
                     </div>
                 )) : <span style={{ opacity: .7 }}>هنوز تمرینی ثبت نشده. یک مأموریت انجام بده!</span>}
@@ -118,10 +118,12 @@ export default function Progress() {
 }
 
 const label = (m) => (m >= 85 ? 'عالی' : m >= 60 ? 'خوب' : 'نیاز به تمرین');
-function Stat({ b, s }) {
-    return <div style={{ ...card, padding: '12px 8px', textAlign: 'center' }}><b style={{ display: 'block', fontSize: 22, color: 'var(--acc)' }}>{b}</b><span style={{ fontSize: 11, opacity: .7 }}>{s}</span></div>;
+const HUES = ['#3d7bf0', '#a24cf0', '#18a97c', '#f0952e', '#0ea5b7', '#e8505b'];
+const barFor = (i) => `linear-gradient(90deg,${HUES[i % 6]},${HUES[(i + 2) % 6]})`;
+function Stat({ b, s, c1, c2 }) {
+    return <div className="prg-kpi" style={{ padding: '14px 8px', background: `linear-gradient(135deg,${c1},${c2})` }}><b className="v" style={{ display: 'block' }}>{b}</b><span className="l">{s}</span></div>;
 }
 function Title({ children }) {
-    return <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '22px 4px 12px', fontWeight: 800, fontSize: 16, color: '#fff' }}>
-        <span style={{ width: 5, height: 18, borderRadius: 6, background: 'linear-gradient(var(--p1),var(--acc))' }} />{children}</div>;
+    return <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '22px 4px 12px', fontWeight: 900, fontSize: 16, color: '#fff' }}>
+        <span style={{ width: 6, height: 20, borderRadius: 6, background: 'linear-gradient(var(--p1),var(--acc))', boxShadow: '0 0 8px var(--acc)' }} />{children}</div>;
 }
