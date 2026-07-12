@@ -62,6 +62,10 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::post('/themes', [PlatformController::class, 'storeTheme'])->name('themes.store');
     Route::post('/themes/{theme}/toggle', [PlatformController::class, 'toggleTheme'])->name('themes.toggle');
     Route::post('/themes/{theme}/header', [PlatformController::class, 'uploadHeader'])->name('themes.header');
+    // قالب‌های بازی (مکانیک‌ها)
+    Route::get('/game-templates', [\App\Http\Controllers\Admin\GameTemplateController::class, 'index'])->name('game-templates');
+    Route::post('/game-templates/{gameTemplate}/toggle', [\App\Http\Controllers\Admin\GameTemplateController::class, 'toggle'])->name('game-templates.toggle');
+    Route::put('/game-templates/{gameTemplate}', [\App\Http\Controllers\Admin\GameTemplateController::class, 'update'])->name('game-templates.update');
     Route::get('/reports', [PlatformController::class, 'reports'])->name('reports');
     Route::get('/settings', [PlatformController::class, 'settings'])->name('settings');
     Route::post('/settings', [PlatformController::class, 'storeSettings'])->name('settings.store');
@@ -116,10 +120,16 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::get('/exams/{assignment}/take', [ExamController::class, 'take'])->name('exams.take');
     Route::post('/exams/{assignment}/submit', [ExamController::class, 'submit'])->name('exams.submit');
 
-    // بازی‌های دانش‌آموز
+    // بازی‌های دانش‌آموز (نسخه‌ی ساده‌ی قبلی)
     Route::get('/games', [\App\Http\Controllers\Student\GameController::class, 'index'])->name('games');
     Route::get('/games/{classActivity}/play', [\App\Http\Controllers\Student\GameController::class, 'play'])->name('games.play');
     Route::post('/games/{classActivity}/submit', [\App\Http\Controllers\Student\GameController::class, 'submit'])->name('games.submit');
+
+    // دنیای بازی‌های آموزشی
+    Route::get('/game-world', [\App\Http\Controllers\Student\EduGameWorldController::class, 'world'])->name('gameworld');
+    Route::get('/game-world/{eduGame}/play', [\App\Http\Controllers\Student\EduGameWorldController::class, 'play'])->name('gameworld.play');
+    Route::post('/game-world/{eduGame}/progress', [\App\Http\Controllers\Student\EduGameWorldController::class, 'progress'])->name('gameworld.progress');
+    Route::post('/game-world/{eduGame}/finish', [\App\Http\Controllers\Student\EduGameWorldController::class, 'finish'])->name('gameworld.finish');
 });
 
 /* ---------------- معلم ---------------- */
@@ -176,6 +186,15 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     // تنظیم مرحله‌ها (سطوح پیشرفت)
     Route::get('/levels', [\App\Http\Controllers\Teacher\LevelSettingsController::class, 'edit'])->name('levels');
     Route::post('/levels', [\App\Http\Controllers\Teacher\LevelSettingsController::class, 'update'])->name('levels.update');
+    // استودیوی ساخت بازی (دنیای بازی‌های آموزشی)
+    Route::get('/studio', [\App\Http\Controllers\Teacher\EduGameController::class, 'index'])->name('studio');
+    Route::get('/studio/{eduGame}/edit', [\App\Http\Controllers\Teacher\EduGameController::class, 'show'])->name('studio.edit');
+    Route::post('/studio', [\App\Http\Controllers\Teacher\EduGameController::class, 'store'])->name('studio.store');
+    Route::put('/studio/{eduGame}', [\App\Http\Controllers\Teacher\EduGameController::class, 'update'])->name('studio.update');
+    Route::post('/studio/{eduGame}/status', [\App\Http\Controllers\Teacher\EduGameController::class, 'status'])->name('studio.status');
+    Route::post('/studio/{eduGame}/duplicate', [\App\Http\Controllers\Teacher\EduGameController::class, 'duplicate'])->name('studio.duplicate');
+    Route::delete('/studio/{eduGame}', [\App\Http\Controllers\Teacher\EduGameController::class, 'destroy'])->name('studio.destroy');
+    Route::get('/studio/{eduGame}/report', [\App\Http\Controllers\Teacher\EduGameController::class, 'report'])->name('studio.report');
 });
 
 /* ---------------- مشترک ---------------- */

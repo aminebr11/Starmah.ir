@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
             PlanSeeder::class,
             CurriculumBookSeeder::class,
             ThemeSeeder::class,
+            GameTemplateSeeder::class,
             CurriculumSeeder::class,
             DemoSeeder::class,
         ]);
