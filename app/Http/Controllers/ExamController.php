@@ -43,6 +43,29 @@ class ExamController extends Controller
     {
         $user = $request->user();
         abort_unless($assignment->is_published, 404);
+
+        // ── امنیت: آزمون باید متعلق به مدرسه و کلاسِ خودِ دانش‌آموز باشد ──
+        abort_unless($assignment->school_id === $user->school_id, 403);
+        $inClass = $user->classrooms()->where('classrooms.id', $assignment->classroom_id)->exists();
+        abort_unless($inClass, 403, 'این آزمون برای کلاس شما نیست.');
+
+        // ── بازه‌ی زمانیِ مجاز ──
+        $cfg = $assignment->config ?? [];
+        if (! empty($cfg['scheduled_at']) && now()->lessThan($cfg['scheduled_at'])) {
+            abort(403, 'زمان شروع آزمون فرا نرسیده است.');
+        }
+        if (! empty($cfg['close_at']) && now()->greaterThan($cfg['close_at'])) {
+            abort(403, 'مهلت این آزمون به پایان رسیده است.');
+        }
+
+        // ── محدودیت تلاش: اگر قبلاً کامل کرده و آزمون اجازه‌ی تکرار نداده ──
+        $prior = AssignmentSubmission::where('assignment_id', $assignment->id)
+            ->where('student_id', $user->id)->first();
+        $allowRetake = (bool) ($cfg['allow_retake'] ?? false);
+        if ($prior && $prior->status === 'completed' && ! $allowRetake) {
+            abort(403, 'شما این آزمون را قبلاً انجام داده‌اید.');
+        }
+
         $theme = $this->engine->for($user);
 
         $token = (string) Str::uuid();
@@ -79,7 +102,14 @@ class ExamController extends Controller
                 $key[$i] = ['type' => 'mc', 'answer' => $r['answer']];
             }
         }
-        $request->session()->put("exam.$token", $key);
+        // توکن به آزمون + دانش‌آموز + زمان انقضا گره می‌خورد (جلوگیری از استفاده در آزمون دیگر)
+        $request->session()->put("exam.$token", [
+            'assignment_id' => $assignment->id,
+            'student_id'    => $user->id,
+            'created_at'    => now()->timestamp,
+            'expires_at'    => now()->addHours(3)->timestamp,
+            'key'           => $key,
+        ]);
 
         return Inertia::render('Student/ExamTake', [
             'assignment' => $assignment->only('id', 'title'),
@@ -93,10 +123,16 @@ class ExamController extends Controller
             'token' => ['required', 'string'],
             'answers' => ['required', 'array'],
         ]);
-        $key = $request->session()->pull("exam.{$data['token']}");
-        abort_if(! $key, 419, 'جلسه منقضی شد');
-
         $user = $request->user();
+        $sess = $request->session()->pull("exam.{$data['token']}");
+        abort_if(! $sess, 419, 'جلسه منقضی شد');
+
+        // ── توکن فقط برای همین آزمون و همین دانش‌آموز معتبر است ──
+        abort_unless(($sess['assignment_id'] ?? null) === $assignment->id, 403, 'توکن برای این آزمون معتبر نیست.');
+        abort_unless(($sess['student_id'] ?? null) === $user->id, 403);
+        abort_if(now()->timestamp > ($sess['expires_at'] ?? 0), 419, 'مهلت پاسخ‌گویی تمام شد.');
+        $key = $sess['key'] ?? [];
+
         $answersById = collect($data['answers'])->keyBy('i');
         $correct = 0; $auto = 0; $descCount = 0; $stored = [];
         foreach ($key as $i => $k) {
@@ -115,14 +151,27 @@ class ExamController extends Controller
         $accuracy = $auto ? round($correct / $auto * 100, 2) : 0;
         $points = (int) round($accuracy);
 
-        AssignmentSubmission::updateOrCreate(
-            ['assignment_id' => $assignment->id, 'student_id' => $user->id],
-            ['score' => $correct, 'max_score' => $auto, 'accuracy' => $accuracy,
-             'auto_score' => $correct, 'auto_max' => $auto, 'desc_graded' => false,
-             'answers' => $stored, 'status' => 'completed', 'submitted_at' => now()]
-        );
+        // ── جلوگیری از سوءاستفاده‌ی XP: فقط بارِ اول امتیاز داده می‌شود ──
+        $existing = AssignmentSubmission::where('assignment_id', $assignment->id)
+            ->where('student_id', $user->id)->first();
+        $firstCompletion = ! $existing || $existing->status !== 'completed';
+        // در صورت تکرار، فقط اگر نتیجه‌ی بهتر شد ثبت می‌شود (بهترین نتیجه)
+        $keepBest = $existing && $existing->status === 'completed' && $existing->max_score
+            && ($existing->score / max(1, $existing->max_score)) >= ($correct / max(1, $auto));
 
-        $this->game->awardXp($user, $points, '💻 آزمون آنلاین — ' . $assignment->title);
+        if (! $keepBest) {
+            AssignmentSubmission::updateOrCreate(
+                ['assignment_id' => $assignment->id, 'student_id' => $user->id],
+                ['score' => $correct, 'max_score' => $auto, 'accuracy' => $accuracy,
+                 'auto_score' => $correct, 'auto_max' => $auto, 'desc_graded' => false,
+                 'answers' => $stored, 'status' => 'completed', 'submitted_at' => now()]
+            );
+        }
+
+        // XP فقط یک‌بار (اولین تکمیل) — تلاش‌های تکراری امتیاز اضافه نمی‌گیرند
+        if ($firstCompletion) {
+            $this->game->awardXp($user, $points, '💻 آزمون آنلاین — ' . $assignment->title);
+        }
 
         // اعلانِ نتیجه در کارتابلِ دانش‌آموز
         $body = "آزمون «{$assignment->title}» را دادی.\nنتیجه: {$correct} از {$auto} درست ({$accuracy}٪)";

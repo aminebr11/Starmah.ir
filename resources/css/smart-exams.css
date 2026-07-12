@@ -1,0 +1,50 @@
+/* ===================================================================
+   آزمایشگاه هوشمند آزمون — استایلِ کاملاً ایزوله (پیشوند smart-)
+   بدون تداخل با CSS قدیمی. همه‌چیز داخل .smart-scope محدود است.
+   =================================================================== */
+.smart-scope { --sm-p1:#6d28d9; --sm-p2:#4c1d95; --sm-acc:#a78bfa; --sm-ink:#1e1b2e; --sm-line:#e6e1f5; }
+.smart-scope .smart-panel{background:#fff;border:1px solid var(--sm-line);border-radius:18px;padding:18px;margin-bottom:16px;box-shadow:0 10px 30px -22px rgba(76,29,149,.4)}
+.smart-scope .smart-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-weight:900;font-size:17px;color:var(--sm-ink)}
+.smart-scope .smart-badge{background:linear-gradient(135deg,var(--sm-p1),var(--sm-p2));color:#fff;font-size:11px;font-weight:800;border-radius:20px;padding:3px 10px}
+.smart-scope .smart-muted{color:#7c7595;font-size:13px}
+
+.smart-scope .smart-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.smart-scope .smart-kpi{border-radius:16px;padding:14px;color:#fff;text-align:center}
+.smart-scope .smart-kpi b{display:block;font-size:24px;font-weight:900}
+.smart-scope .smart-kpi span{font-size:12px;opacity:.92}
+
+.smart-scope .smart-steps{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}
+.smart-scope .smart-step{border:0;cursor:pointer;font-family:inherit;font-weight:700;font-size:13px;border-radius:12px;padding:9px 12px;background:#f1eefb;color:#7c7595}
+.smart-scope .smart-step.on{background:linear-gradient(135deg,var(--sm-p1),var(--sm-p2));color:#fff}
+
+.smart-scope .smart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.smart-scope .smart-field label{display:block;font-weight:700;font-size:13px;margin-bottom:5px;color:var(--sm-ink)}
+.smart-scope .smart-input{width:100%;border:1px solid var(--sm-line);border-radius:12px;padding:10px 12px;font-family:inherit;font-size:14px;background:#faf9ff;color:var(--sm-ink)}
+.smart-scope .smart-input:focus{outline:none;border-color:var(--sm-acc);box-shadow:0 0 0 3px rgba(167,139,250,.2)}
+
+.smart-scope .smart-btn{background:linear-gradient(135deg,var(--sm-p1),var(--sm-p2));color:#fff;border:0;border-radius:13px;padding:11px 18px;font-family:inherit;font-weight:800;font-size:14px;cursor:pointer;transition:.15s;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.smart-scope .smart-btn:hover{filter:brightness(1.08)}
+.smart-scope .smart-btn.ghost{background:#f1eefb;color:var(--sm-p1)}
+.smart-scope .smart-btn.sm{padding:7px 12px;font-size:12.5px;border-radius:10px}
+.smart-scope .smart-btn:disabled{opacity:.5;cursor:not-allowed}
+
+.smart-scope .smart-chip{border:0;cursor:pointer;font-family:inherit;font-weight:700;font-size:12.5px;border-radius:20px;padding:7px 13px;background:#f1eefb;color:#7c7595}
+.smart-scope .smart-chip.on{background:linear-gradient(135deg,var(--sm-p1),var(--sm-p2));color:#fff}
+
+.smart-scope .smart-qcard{border:1px solid var(--sm-line);border-radius:14px;padding:12px;margin-bottom:10px;background:#faf9ff}
+.smart-scope .smart-tag{display:inline-block;font-size:11px;font-weight:700;border-radius:20px;padding:2px 9px}
+.smart-scope .smart-tag.ai{background:#ede9fe;color:#6d28d9}
+.smart-scope .smart-tag.man{background:#e0f2fe;color:#0369a1}
+.smart-scope .smart-tag.sample{background:#fef3c7;color:#b45309}
+
+.smart-scope .smart-examcard{border:1px solid var(--sm-line);border-radius:14px;padding:13px;background:#fff}
+.smart-scope .smart-examcard .st{font-size:11px;font-weight:800;border-radius:20px;padding:2px 9px;color:#fff}
+
+/* بار پیشرفت و تایمر آزمون دانش‌آموز */
+.smart-scope .smart-bar{height:12px;border-radius:8px;background:rgba(255,255,255,.18);overflow:hidden}
+.smart-scope .smart-bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--sm-p1),var(--sm-acc));transition:width .4s}
+.smart-scope .smart-timer{font-variant-numeric:tabular-nums;font-weight:900}
+.smart-scope .smart-timer.warn{color:#e8505b}
+
+@media (max-width:640px){ .smart-scope .smart-grid{grid-template-columns:1fr} }
+@media (prefers-reduced-motion:reduce){ .smart-scope *{transition:none!important;animation:none!important} }

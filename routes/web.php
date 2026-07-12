@@ -66,6 +66,9 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::get('/game-templates', [\App\Http\Controllers\Admin\GameTemplateController::class, 'index'])->name('game-templates');
     Route::post('/game-templates/{gameTemplate}/toggle', [\App\Http\Controllers\Admin\GameTemplateController::class, 'toggle'])->name('game-templates.toggle');
     Route::put('/game-templates/{gameTemplate}', [\App\Http\Controllers\Admin\GameTemplateController::class, 'update'])->name('game-templates.update');
+    // آزمایشگاه هوشمند آزمون — پرچم‌ها و دامنه (بدون گیت؛ ادمین همیشه دسترسی دارد)
+    Route::get('/smart-lab', [\App\Http\Controllers\Admin\SmartLabController::class, 'index'])->name('smart-lab');
+    Route::post('/smart-lab', [\App\Http\Controllers\Admin\SmartLabController::class, 'update'])->name('smart-lab.update');
     Route::get('/reports', [PlatformController::class, 'reports'])->name('reports');
     Route::get('/settings', [PlatformController::class, 'settings'])->name('settings');
     Route::post('/settings', [PlatformController::class, 'storeSettings'])->name('settings.store');
@@ -130,6 +133,15 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::get('/game-world/{eduGame}/play', [\App\Http\Controllers\Student\EduGameWorldController::class, 'play'])->name('gameworld.play');
     Route::post('/game-world/{eduGame}/progress', [\App\Http\Controllers\Student\EduGameWorldController::class, 'progress'])->name('gameworld.progress');
     Route::post('/game-world/{eduGame}/finish', [\App\Http\Controllers\Student\EduGameWorldController::class, 'finish'])->name('gameworld.finish');
+
+    // آزمایشگاه هوشمند — سمت دانش‌آموز (آزمایشی)
+    Route::middleware('smartlab')->prefix('student/smart-exams')->name('student.smart.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Student\SmartExamController::class, 'index'])->name('index');
+        Route::get('/{smartExam}/take', [\App\Http\Controllers\Student\SmartExamController::class, 'take'])->name('take');
+        Route::post('/{smartExam}/save', [\App\Http\Controllers\Student\SmartExamController::class, 'save'])->name('save');
+        Route::post('/{smartExam}/submit', [\App\Http\Controllers\Student\SmartExamController::class, 'submit'])->name('submit');
+        Route::get('/{smartExam}/result/{attempt}', [\App\Http\Controllers\Student\SmartExamController::class, 'result'])->name('result');
+    });
 });
 
 /* ---------------- معلم ---------------- */
@@ -186,6 +198,22 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     // تنظیم مرحله‌ها (سطوح پیشرفت)
     Route::get('/levels', [\App\Http\Controllers\Teacher\LevelSettingsController::class, 'edit'])->name('levels');
     Route::post('/levels', [\App\Http\Controllers\Teacher\LevelSettingsController::class, 'update'])->name('levels.update');
+
+    // آزمایشگاه هوشمند آزمون (آزمایشی — پشتِ Feature Flag)
+    Route::middleware('smartlab')->prefix('smart-exams')->name('smart.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Teacher\SmartExamController::class, 'lab'])->name('lab');
+        Route::get('/{smartExam}/edit', [\App\Http\Controllers\Teacher\SmartExamController::class, 'edit'])->name('edit');
+        Route::post('/', [\App\Http\Controllers\Teacher\SmartExamController::class, 'store'])->name('store');
+        Route::put('/{smartExam}', [\App\Http\Controllers\Teacher\SmartExamController::class, 'update'])->name('update');
+        Route::post('/{smartExam}/status', [\App\Http\Controllers\Teacher\SmartExamController::class, 'status'])->name('status');
+        Route::delete('/{smartExam}', [\App\Http\Controllers\Teacher\SmartExamController::class, 'destroy'])->name('destroy');
+        Route::get('/{smartExam}/report', [\App\Http\Controllers\Teacher\SmartExamController::class, 'report'])->name('report');
+        Route::post('/{smartExam}/build-game', [\App\Http\Controllers\Teacher\SmartExamController::class, 'buildGame'])->name('buildgame');
+        Route::post('/ai/generate', [\App\Http\Controllers\Teacher\SmartExamController::class, 'aiGenerate'])->name('ai');
+        Route::get('/bank/list', [\App\Http\Controllers\Teacher\SmartExamController::class, 'bank'])->name('bank');
+        Route::post('/bank', [\App\Http\Controllers\Teacher\SmartExamController::class, 'bankStore'])->name('bank.store');
+        Route::delete('/bank/{question}', [\App\Http\Controllers\Teacher\SmartExamController::class, 'bankDestroy'])->name('bank.destroy');
+    });
     // استودیوی ساخت بازی (دنیای بازی‌های آموزشی)
     Route::get('/studio', [\App\Http\Controllers\Teacher\EduGameController::class, 'index'])->name('studio');
     Route::get('/studio/{eduGame}/edit', [\App\Http\Controllers\Teacher\EduGameController::class, 'show'])->name('studio.edit');

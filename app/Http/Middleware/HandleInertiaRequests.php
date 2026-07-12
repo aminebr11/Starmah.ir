@@ -46,6 +46,8 @@ class HandleInertiaRequests extends Middleware
             'notifications' => fn () => $user ? \App\Support\Notifications::feed($user) : [],
             // شمار اعلان‌های خوانده‌نشده (برای نشان روی زنگوله و منوی اعلان‌ها)
             'unreadNotices' => fn () => $user ? \App\Support\Notifications::unreadCount($user) : 0,
+            // آزمایشگاه هوشمند آزمون — فقط برای گیتِ منو (خاموش = منو نمایش داده نمی‌شود)
+            'smartLab' => fn () => $user ? \App\Support\SmartLab::enabledFor($user) : false,
         ];
     }
 }

@@ -1,0 +1,96 @@
+import { usePage, router, Link } from '@inertiajs/react';
+import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
+
+const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+const mins = (s) => s >= 60 ? `${fa(Math.floor(s / 60))}د` : `${fa(s)}ث`;
+
+export default function SmartExamReport() {
+    const { exam = {}, summary = {}, rows = [], perQuestion = [], hard = [], weakTopics = [], buckets = {}, printedAt, gamesEnabled } = usePage().props;
+    const maxB = Math.max(1, ...Object.values(buckets));
+
+    return (
+        <DashLayout title={`گزارش: ${exam.title}`} roleLabel="معلم" menu={teacherMenu} active="smart">
+            <div className="smart-scope">
+                <div className="smart-panel">
+                    <div className="smart-h">📊 گزارش هوشمند «{exam.title}» <span className="smart-badge">{exam.subject || ''}</span>
+                        <span style={{ marginInlineStart: 'auto', display: 'flex', gap: 6 }}>
+                            {gamesEnabled && <button onClick={() => router.post(route('teacher.smart.buildgame', exam.id), {}, { preserveScroll: true })} className="smart-btn sm">🎮 ساخت بازی جبرانی</button>}
+                            <button onClick={() => window.print()} className="smart-btn ghost sm">🖨️ چاپ/PDF</button>
+                            <Link href={route('teacher.smart.lab')} className="smart-btn ghost sm">← بازگشت</Link>
+                        </span>
+                    </div>
+                    <div className="smart-kpis" style={{ marginTop: 14 }}>
+                        <div className="smart-kpi" style={{ background: 'linear-gradient(135deg,#3d7bf0,#2555c0)' }}><b>{fa(summary.started)}/{fa(summary.targeted || summary.started)}</b><span>شرکت‌کننده</span></div>
+                        <div className="smart-kpi" style={{ background: 'linear-gradient(135deg,#2bb673,#1a8a52)' }}><b>{fa(summary.completed)}</b><span>تکمیل‌شده</span></div>
+                        <div className="smart-kpi" style={{ background: 'linear-gradient(135deg,#6d28d9,#4c1d95)' }}><b>{fa(summary.avg)}٪</b><span>میانگین</span></div>
+                        <div className="smart-kpi" style={{ background: 'linear-gradient(135deg,#0ea5b7,#0a7d8a)' }}><b>{fa(summary.pass)}٪</b><span>قبولی</span></div>
+                        <div className="smart-kpi" style={{ background: 'linear-gradient(135deg,#e8862e,#c06712)' }}><b>{mins(summary.avgDuration || 0)}</b><span>میانگین زمان</span></div>
+                    </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 16 }}>
+                    <div className="smart-panel">
+                        <div className="smart-h" style={{ fontSize: 15 }}>📈 توزیع نمرات</div>
+                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 130, marginTop: 12 }}>
+                            {Object.entries(buckets).map(([k, v]) => (
+                                <div key={k} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%', gap: 4 }}>
+                                    <b style={{ fontSize: 12, color: 'var(--sm-p1)' }}>{fa(v)}</b>
+                                    <div style={{ width: '100%', maxWidth: 40, height: `${(v / maxB) * 100}%`, minHeight: 3, borderRadius: '6px 6px 0 0', background: 'linear-gradient(180deg,#6d28d9,#4c1d95)' }} />
+                                    <span style={{ fontSize: 10, color: '#7c7595' }}>{k}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="smart-panel">
+                        <div className="smart-h" style={{ fontSize: 15 }}>🔧 سؤال‌های دشوار</div>
+                        {hard.length === 0 && <p className="smart-muted">سؤال بسیار دشواری دیده نمی‌شود.</p>}
+                        {hard.map((h, i) => (
+                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '7px 0', borderBottom: '1px solid var(--sm-line)' }}>
+                                <span style={{ fontSize: 13 }}>{h.prompt}</span><b style={{ color: '#e8505b', flex: 'none' }}>{fa(h.pct)}٪</b>
+                            </div>
+                        ))}
+                        {weakTopics.length > 0 && <div style={{ marginTop: 10 }}><b style={{ fontSize: 13 }}>مباحث ضعیف: </b>{weakTopics.map((w, i) => <span key={i} className="smart-tag sample" style={{ marginInlineEnd: 4 }}>{w.topic} ({fa(w.pct)}٪)</span>)}</div>}
+                    </div>
+                </div>
+
+                <div className="smart-panel">
+                    <div className="smart-h" style={{ fontSize: 15 }}>👥 عملکرد دانش‌آموزان</div>
+                    {rows.length === 0 && <p className="smart-muted">هنوز کسی این آزمون را نداده.</p>}
+                    {rows.length > 0 && (
+                        <div style={{ overflowX: 'auto' }}>
+                            <table className="tbl" style={{ marginTop: 8 }}>
+                                <thead><tr><th>#</th><th>نام</th><th>نمره</th><th>درصد</th><th>تلاش</th><th>زمان</th><th>وضعیت</th></tr></thead>
+                                <tbody>
+                                    {rows.map((r, i) => (
+                                        <tr key={i}><td>{fa(i + 1)}</td><td style={{ fontWeight: 700 }}>{r.name}</td>
+                                            <td>{fa(r.score)}/{fa(r.max)}</td>
+                                            <td><span className={`tag ${r.percent >= 50 ? 'tag-ok' : 'tag-warn'}`}>{fa(r.percent)}٪</span></td>
+                                            <td>{fa(r.attempts)}</td><td>{mins(r.duration || 0)}</td>
+                                            <td>{r.status === 'completed' ? '✅' : r.status === 'needs_review' ? '📝 بررسی' : '⏳'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+
+                <div className="smart-panel">
+                    <div className="smart-h" style={{ fontSize: 15 }}>❓ گزارش سؤال‌به‌سؤال</div>
+                    <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+                        {perQuestion.map((p) => (
+                            <div key={p.i} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                                <span style={{ fontSize: 13, flex: 1 }}>{fa(p.i + 1)}. {p.prompt}</span>
+                                <div style={{ width: 120, height: 10, borderRadius: 6, background: '#eee', overflow: 'hidden', flex: 'none' }}>
+                                    <div style={{ width: `${p.pct ?? 0}%`, height: '100%', background: (p.pct ?? 0) >= 50 ? '#2bb673' : '#e8505b' }} />
+                                </div>
+                                <b style={{ flex: 'none', fontSize: 12, minWidth: 36 }}>{p.pct === null ? '—' : fa(p.pct) + '٪'}</b>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div style={{ textAlign: 'center', color: '#7c7595', fontSize: 12 }}>تهیه‌شده در {printedAt}</div>
+            </div>
+        </DashLayout>
+    );
+}

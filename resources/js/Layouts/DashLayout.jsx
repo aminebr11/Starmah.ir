@@ -8,8 +8,10 @@ import { useState } from 'react';
  * props: title, roleLabel, menu:[{key,label,icon,href}], active, children
  */
 export default function DashLayout({ title, roleLabel, menu = [], active = '', children, actions = null }) {
-    const { auth, unreadNotices = 0 } = usePage().props;
+    const { auth, unreadNotices = 0, smartLab = false } = usePage().props;
     const [open, setOpen] = useState(false);
+    // آیتم‌هایی که flag: 'smart' دارند فقط وقتی ماژول فعال است نمایش داده می‌شوند
+    menu = menu.filter((m) => !m.flag || (m.flag === 'smart' && smartLab));
 
     return (
         <div dir="rtl" className="dash">
@@ -75,6 +77,7 @@ export const adminMenu = [
     { key: 'curriculum', label: 'دروس و کتاب‌ها', icon: '📚', href: '/admin/curriculum' },
     { key: 'themes', label: 'تم‌ها (دنیاها)', icon: '🎨', href: '/admin/themes' },
     { key: 'game-templates', label: 'قالب‌های بازی', icon: '🎲', href: '/admin/game-templates' },
+    { key: 'smart-lab', label: 'آزمایشگاه هوشمند', icon: '🧪', href: '/admin/smart-lab' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/admin/reports' },
     { key: 'settings', label: 'تنظیمات پلتفرم', icon: '⚙️', href: '/admin/settings' },
 ];
@@ -97,6 +100,7 @@ export const teacherMenu = [
     { key: 'schedule', label: 'برنامه کلاسی', icon: '🗓️', href: '/teacher/schedule' },
     { key: 'gradebook', label: 'دفتر کلاسی', icon: '📔', href: '/teacher/gradebook' },
     { key: 'exams', label: 'آزمون‌ها', icon: '📝', href: '/teacher/exams' },
+    { key: 'smart', label: 'آزمایشگاه هوشمند 🧪', icon: '🧠', href: '/teacher/smart-exams', flag: 'smart' },
     { key: 'studio', label: 'استودیوی بازی', icon: '🎮', href: '/teacher/studio' },
     { key: 'activities', label: 'امتیازدهی گروهی', icon: '🏅', href: '/teacher/activities' },
     { key: 'discipline', label: 'دفتر انضباط', icon: '⭐', href: '/teacher/discipline' },

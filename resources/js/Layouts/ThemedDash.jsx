@@ -9,7 +9,7 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
  * لوگوی سایت بالا قرار دارد. ریسپانسیو.
  */
 export default function ThemedDash({ title, active = '', children, actions = null }) {
-    const { auth, theme, notifications = [], unreadNotices = 0 } = usePage().props;
+    const { auth, theme, notifications = [], unreadNotices = 0, smartLab = false } = usePage().props;
     const unread = unreadNotices || 0;
     const skin = theme?.skin ?? {};
     const vars = useMemo(() => cssVars(skin), [theme?.id]);
@@ -21,6 +21,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
         { key: 'practice', label: 'مأموریت و تمرین', icon: '🎯', href: '/practice' },
         { key: 'gameworld', label: 'دنیای بازی‌ها', icon: '🎮', href: '/game-world' },
         { key: 'exams', label: 'آزمون‌های من', icon: '💻', href: '/exams' },
+        ...(smartLab ? [{ key: 'smart', label: 'آزمون هوشمند 🧪', icon: '🧠', href: '/student/smart-exams' }] : []),
         { key: 'board', label: 'رقابت تیم‌ها', icon: '🏆', href: '/leaderboard' },
         { key: 'reports', label: 'گزارش‌ها و نمودارها', icon: '📈', href: '/my-reports' },
         { key: 'progress', label: 'کارنامه‌ی من', icon: '🗂️', href: '/progress' },
