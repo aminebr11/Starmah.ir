@@ -29,6 +29,8 @@ img{max-width:100%;display:block}
 .nav.scrolled{box-shadow:0 10px 30px -18px rgba(16,32,80,.3)}
 .nav-inner{display:flex;align-items:center;justify-content:space-between;gap:16px;height:74px}
 .nav-logo{display:flex;align-items:center;gap:12px;font-weight:800;color:var(--navy-800);font-size:19px}
+/* اندازه‌ی پایه‌ی لگو (صفحاتی که بدون قاب .emblem از لگو استفاده می‌کنند مثل پروفایل) */
+.nav-logo>img{height:44px;width:44px;border-radius:12px;object-fit:cover;flex:0 0 auto;filter:drop-shadow(0 4px 10px rgba(245,181,63,.4))}
 /* نشان گرد با حاله‌ی زحل‌مانند — مثل لگوی وسط صفحه */
 .nav-logo .emblem{position:relative;display:grid;place-items:center;width:46px;height:46px;flex:0 0 auto}
 .nav-logo .emblem::before{content:"";position:absolute;inset:-7px;border-radius:50%;background:radial-gradient(circle,rgba(245,181,63,.45),rgba(245,181,63,.12) 55%,transparent 72%);filter:blur(2px);z-index:0;animation:halo-pulse 3.2s ease-in-out infinite}
