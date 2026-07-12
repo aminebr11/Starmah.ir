@@ -42,14 +42,24 @@ export default function SmartExamResult() {
                     </div>
 
                     {showAnswers && analysis.wrong?.length > 0 && (
-                        <div className="k3-card" style={{ marginTop: 14 }}>
-                            <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 10 }}>📚 سؤال‌هایی که اشتباه زدی (با توضیح)</div>
-                            {analysis.wrong.map((w, i) => (
-                                <div key={i} style={{ padding: '9px 0', borderTop: i ? '1px solid rgba(255,255,255,.1)' : 0 }}>
-                                    <div style={{ fontWeight: 700, fontSize: 14 }}>{w.prompt}</div>
-                                    {w.explanation && <div style={{ opacity: .85, fontSize: 13, marginTop: 4, lineHeight: 1.9 }}>💡 {w.explanation}</div>}
-                                </div>
-                            ))}
+                        <div style={{ marginTop: 16 }}>
+                            <div style={{ fontWeight: 900, fontSize: 16, margin: '0 4px 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <SadFace size={26} /> سؤال‌هایی که باید بیشتر تمرین کنی
+                            </div>
+                            <div style={{ display: 'grid', gap: 12 }}>
+                                {analysis.wrong.map((w, i) => (
+                                    <div key={i} className={`wrong-tpl wt-c${i % WT.length}`} style={{ '--wt': WT[i % WT.length][0], '--wt2': WT[i % WT.length][1] }}>
+                                        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                                            <span style={{ flex: 'none', marginTop: 2 }}><SadFace size={30} /></span>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 800, fontSize: 14.5 }}>{w.prompt}</div>
+                                                {w.topic && <span style={{ display: 'inline-block', marginTop: 5, background: 'rgba(255,255,255,.25)', borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 700 }}>سرفصل: {w.topic}</span>}
+                                                {w.explanation && <div style={{ marginTop: 8, background: 'rgba(255,255,255,.18)', borderRadius: 12, padding: '9px 12px', fontSize: 13, lineHeight: 1.9 }}>💡 {w.explanation}</div>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </>
@@ -63,3 +73,21 @@ export default function SmartExamResult() {
     );
 }
 function M({ v, l }) { return <div style={{ background: 'rgba(0,0,0,.22)', borderRadius: 14, padding: '12px 18px' }}><b style={{ fontSize: 20 }}>{v}</b><div style={{ fontSize: 11.5, opacity: .85 }}>{l}</div></div>; }
+
+// پالت‌های رنگیِ مختلف برای سؤال‌های غلط
+const WT = [['#e8505b', '#b0333f'], ['#e8862e', '#a5570f'], ['#a24cf0', '#6f2fb0'], ['#0ea5b7', '#0a7d8a'], ['#3d7bf0', '#2555c0'], ['#d6336c', '#a01f4f']];
+
+// شکلِ SVGِ ناراحت (صورتک) — برای پاسخ‌های غلط
+function SadFace({ size = 28 }) {
+    return (
+        <svg width={size} height={size} viewBox="0 0 48 48" fill="none" style={{ display: 'block', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,.3))' }}>
+            <circle cx="24" cy="24" r="21" fill="#ffd166" stroke="#fff" strokeWidth="2" />
+            <circle cx="16.5" cy="19" r="3" fill="#3b2a12" />
+            <circle cx="31.5" cy="19" r="3" fill="#3b2a12" />
+            <path d="M15 33c3-4 15-4 18 0" stroke="#3b2a12" strokeWidth="3" strokeLinecap="round" fill="none" />
+            <path d="M31 12l6-2" stroke="#3b2a12" strokeWidth="2.4" strokeLinecap="round" />
+            <path d="M17 12l-6-2" stroke="#3b2a12" strokeWidth="2.4" strokeLinecap="round" />
+            <circle cx="35" cy="28" r="2.2" fill="#6db3f2" />
+        </svg>
+    );
+}

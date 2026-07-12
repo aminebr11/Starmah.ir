@@ -131,19 +131,32 @@ class AnalyticsService
     /* ---------------- دانش‌آموز (خلاصه‌ی تحلیلی) ---------------- */
     public function studentSummary(User $student): array
     {
-        $byType = DB::table('xp_ledger')
+        $rows = DB::table('xp_ledger')
             ->leftJoin('activity_awards', function ($j) {
                 $j->on('activity_awards.id', '=', 'xp_ledger.source_id')
                   ->where('xp_ledger.source_type', '=', ActivityAward::class);
             })
             ->leftJoin('class_activities', 'class_activities.id', '=', 'activity_awards.class_activity_id')
             ->where('xp_ledger.student_id', $student->id)
-            ->groupBy('class_activities.type')
-            ->select('class_activities.type', DB::raw('SUM(xp_ledger.amount) as points'))
-            ->get()->map(fn ($r) => [
-                'label' => $r->type ? ClassActivity::typeLabel($r->type) : '✨ سایر',
-                'points' => (int) $r->points,
-            ]);
+            ->select('class_activities.type as ctype', 'xp_ledger.reason', 'xp_ledger.amount')
+            ->get();
+
+        // سرفصل‌بندی: آزمون‌ها (آنلاین/هوشمند) زیرِ «📝 آزمون‌ها»، بقیه طبق نوع فعالیت
+        $agg = [];
+        foreach ($rows as $r) {
+            if ($r->ctype) {
+                $label = ClassActivity::typeLabel($r->ctype);
+            } elseif (mb_strpos($r->reason ?? '', 'آزمون') !== false) {
+                $label = '📝 آزمون‌ها';
+            } elseif (mb_strpos($r->reason ?? '', 'بازی') !== false) {
+                $label = '🎮 بازی‌ها';
+            } else {
+                $label = '✨ سایر';
+            }
+            $agg[$label] = ($agg[$label] ?? 0) + (int) $r->amount;
+        }
+        $byType = collect($agg)->map(fn ($points, $label) => ['label' => $label, 'points' => $points])
+            ->sortByDesc('points')->values();
 
         // امتیاز ۷ روز اخیر (روند)
         $trend = DB::table('xp_ledger')->where('student_id', $student->id)

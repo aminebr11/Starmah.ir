@@ -17,10 +17,11 @@ export default function SmartExams() {
     return (
         <ThemedDash title="آزمون هوشمند" active="smart">
             <div className="k3-card" style={{ background: 'linear-gradient(135deg,#6d28d9,#4c1d95)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 40 }}>🧠</span>
-                    <div><div style={{ fontWeight: 900, fontSize: 19 }}>آزمون‌های هوشمند من</div>
+                    <div style={{ flex: 1, minWidth: 150 }}><div style={{ fontWeight: 900, fontSize: 19 }}>آزمون‌های هوشمند من</div>
                         <div style={{ opacity: .85, fontSize: 13 }}>آزمونِ آزمایشی با تحلیلِ نقاط قوت و ضعف</div></div>
+                    <Link href={route('student.smart.performance')} className="k3-btn" style={{ fontSize: 13 }}>📊 کارنامه‌ی هوشمند من</Link>
                 </div>
             </div>
 

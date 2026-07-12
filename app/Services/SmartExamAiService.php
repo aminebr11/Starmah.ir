@@ -25,6 +25,7 @@ class SmartExamAiService
         $grade = $opts['grade'] ?? 'چهارم';
         $difficulty = $opts['difficulty'] ?? 'medium';
         $type = $opts['type'] ?? 'mc';
+        $flavor = trim($opts['flavor'] ?? '');
         $sampleMode = (bool) ($opts['sample'] ?? false);
 
         $provider = Setting::get('ai_provider', 'anthropic');
@@ -40,13 +41,13 @@ class SmartExamAiService
                         : 'کلید هوش مصنوعی تنظیم نشده — برای تولید نمونه‌ی آزمایشی، گزینه‌ی «حالت نمونه» را بزنید.',
                 ];
             }
-            return ['ok' => true, 'mode' => 'sample', 'questions' => $this->sample($subject, $topic, $count, $type), 'message' => 'این‌ها سؤال‌های نمونه‌ی آزمایشی‌اند (نه تولید واقعیِ هوش مصنوعی).'];
+            return ['ok' => true, 'mode' => 'sample', 'questions' => $this->sample($subject, $topic, $count, $type, $flavor), 'message' => 'این‌ها سؤال‌های نمونه‌ی آزمایشی‌اند (نه تولید واقعیِ هوش مصنوعی).'];
         }
 
         try {
             $raw = $provider === 'openai'
-                ? $this->viaOpenAi($key, compact('subject', 'topic', 'grade', 'count', 'difficulty', 'type'))
-                : $this->viaAnthropic($key, compact('subject', 'topic', 'grade', 'count', 'difficulty', 'type'));
+                ? $this->viaOpenAi($key, compact('subject', 'topic', 'grade', 'count', 'difficulty', 'type', 'flavor'))
+                : $this->viaAnthropic($key, compact('subject', 'topic', 'grade', 'count', 'difficulty', 'type', 'flavor'));
             $questions = $this->validate($raw, $type);
             $this->log($opts, $provider, $count, count($questions), true, null);
             if (! $questions) {
@@ -63,13 +64,18 @@ class SmartExamAiService
     {
         $typeFa = ['mc' => 'چهارگزینه‌ای', 'tf' => 'درست/نادرست', 'desc' => 'تشریحی', 'blank' => 'جای خالی'][$o['type']] ?? 'چهارگزینه‌ای';
         $diffFa = ['easy' => 'آسان', 'medium' => 'متوسط', 'hard' => 'دشوار'][$o['difficulty']] ?? 'متوسط';
-        return "تو یک معلمِ باتجربه‌ی ایرانی هستی. برای دانش‌آموزِ پایه‌ی «{$o['grade']}»، "
+        $p = "تو یک معلمِ باتجربه‌ی ایرانی هستی. برای دانش‌آموزِ پایه‌ی «{$o['grade']}»، "
             . "دقیقاً درباره‌ی درسِ «{$o['subject']}» و موضوعِ «{$o['topic']}»، تعداد {$o['count']} سؤالِ {$typeFa} با سطحِ {$diffFa} بساز. "
-            . "سؤال‌ها باید کاملاً مرتبط با همان درس و موضوع باشند (اگر درس فارسی یا علوم یا مطالعات است، سؤالِ ریاضی نساز). "
-            . "فقط و فقط یک آرایه‌ی JSON معتبر برگردان؛ هر عضو با کلیدهای: "
+            . "سؤال‌ها باید کاملاً مرتبط با همان درس و موضوع باشند (اگر درس فارسی یا علوم یا مطالعات است، سؤالِ ریاضی نساز). ";
+        if (! empty($o['flavor'])) {
+            $p .= "بافت و مثال‌های سؤال را از دنیای «{$o['flavor']}» بساز (مثلاً اگر فوتبال است، صحنه‌ها و شخصیت‌ها فوتبالی باشند)، "
+                . "ولی مفهومِ درسی و پاسخِ صحیح دقیق و علمی بماند و از سطحِ پایه خارج نشود. ";
+        }
+        $p .= "فقط و فقط یک آرایه‌ی JSON معتبر برگردان؛ هر عضو با کلیدهای: "
             . "prompt (متن سؤال)، type ('{$o['type']}')، choices (برای mc/tf آرایه‌ای از اشیاء {value, correct})، "
             . "answer (برای desc/blank رشته‌ی پاسخِ نمونه)، explanation (توضیح آموزشی)، difficulty، goal (هدف آموزشی)، topic. "
             . "بدون هیچ متنِ اضافه بیرون از JSON.";
+        return $p;
     }
 
     private function viaAnthropic(string $key, array $o): array
@@ -177,24 +183,25 @@ class SmartExamAiService
     }
 
     /** نمونه‌ی موضوع‌آگاه — بدون fallbackِ ریاضی برای دروسِ غیرریاضی. */
-    private function sample(string $subject, string $topic, int $count, string $type): array
+    private function sample(string $subject, string $topic, int $count, string $type, string $flavor = ''): array
     {
         $isMath = $this->looksMath($subject);
+        $fx = $flavor ? " (در فضای «{$flavor}»)" : '';
         $out = [];
         for ($i = 0; $i < $count; $i++) {
             if ($type === 'desc') {
-                $out[] = ['type' => 'desc', 'prompt' => "درباره‌ی «{$topic}» یک توضیح کوتاه بنویس. (سؤال نمونه)", 'answer' => 'پاسخ نمونه', 'explanation' => null, 'difficulty' => 'medium', 'goal' => null, 'topic' => $topic, 'choices' => []];
+                $out[] = ['type' => 'desc', 'prompt' => "درباره‌ی «{$topic}»{$fx} یک توضیح کوتاه بنویس. (سؤال نمونه)", 'answer' => 'پاسخ نمونه', 'explanation' => null, 'difficulty' => 'medium', 'goal' => null, 'topic' => $topic, 'choices' => []];
                 continue;
             }
             if ($isMath) {
                 $a = random_int(2, 12); $b = random_int(2, 12); $ans = $a * $b;
                 $ch = [$ans, $ans + 1, $ans - 1, $ans + 2];
                 shuffle($ch);
-                $out[] = ['type' => 'mc', 'prompt' => "حاصل {$a} × {$b} چند می‌شود؟ (نمونه)", 'difficulty' => 'medium', 'goal' => null, 'topic' => $topic, 'explanation' => null,
+                $out[] = ['type' => 'mc', 'prompt' => "حاصل {$a} × {$b} چند می‌شود؟{$fx} (نمونه)", 'difficulty' => 'medium', 'goal' => null, 'topic' => $topic, 'explanation' => null,
                     'choices' => array_map(fn ($v) => ['value' => (string) $v, 'correct' => $v === $ans], $ch), 'answer' => null];
             } else {
                 // نمونه‌ی متنیِ عمومیِ موضوع‌محور (نه ریاضی)
-                $out[] = ['type' => 'mc', 'prompt' => "کدام گزینه درباره‌ی «{$topic}» درست است؟ (سؤال نمونه — نیازمند ویرایش معلم)", 'difficulty' => 'medium', 'goal' => null, 'topic' => $topic, 'explanation' => null,
+                $out[] = ['type' => 'mc', 'prompt' => "کدام گزینه درباره‌ی «{$topic}»{$fx} درست است؟ (سؤال نمونه — نیازمند ویرایش معلم)", 'difficulty' => 'medium', 'goal' => null, 'topic' => $topic, 'explanation' => null,
                     'choices' => [
                         ['value' => 'گزینه‌ی درست (ویرایش کنید)', 'correct' => true],
                         ['value' => 'گزینه‌ی نادرست ۱', 'correct' => false],

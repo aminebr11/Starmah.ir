@@ -3,29 +3,28 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\School;
 use App\Models\Setting;
 use App\Models\SmartExamAiRequest;
-use App\Models\User;
-use App\Support\Roles;
 use App\Support\SmartLab;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
-/** پنل ادمینِ «آزمایشگاه هوشمند آزمون» — پرچم‌ها، دامنه، معلمان آزمایشی، آمار AI. */
+/** پنل ادمینِ «آزمایشگاه هوشمند آزمون» — پرچم‌ها، دامنه، مدارسِ مجاز، آمار AI. */
 class SmartLabController extends Controller
 {
     public function index(): Response
     {
-        $teachers = User::role(Roles::TEACHER)->get(['id', 'name'])
-            ->map(fn ($u) => ['id' => $u->id, 'name' => $u->name]);
+        $schools = School::orderBy('name')->get(['id', 'name'])
+            ->map(fn ($s) => ['id' => $s->id, 'name' => $s->name]);
 
         return Inertia::render('Admin/SmartLab', [
             'flags' => collect(SmartLab::FLAGS)->map(fn ($def, $k) => SmartLab::flag($k)),
             'scope' => SmartLab::scope(),
-            'pilotTeachers' => SmartLab::pilotTeacherIds(),
-            'teachers' => $teachers,
+            'pilotSchools' => SmartLab::pilotSchoolIds(),
+            'schools' => $schools,
             'ai' => [
                 'provider' => Setting::get('ai_provider', 'anthropic'),
                 'requests' => (int) SmartExamAiRequest::count(),
@@ -42,15 +41,15 @@ class SmartLabController extends Controller
             'flags' => ['array'],
             'flags.*' => ['boolean'],
             'scope' => ['required', 'in:off,pilot,all'],
-            'pilotTeachers' => ['array'],
-            'pilotTeachers.*' => ['integer'],
+            'pilotSchools' => ['array'],
+            'pilotSchools.*' => ['integer'],
         ]);
 
         foreach (array_keys(SmartLab::FLAGS) as $k) {
             Setting::put($k, ! empty($data['flags'][$k]) ? '1' : '0');
         }
         Setting::put('smart_scope', $data['scope']);
-        Setting::put('smart_pilot_teachers', json_encode(array_values($data['pilotTeachers'] ?? [])));
+        Setting::put('smart_pilot_schools', json_encode(array_values($data['pilotSchools'] ?? [])));
 
         \App\Models\AuditLog::record($request->user(), 'تنظیم آزمایشگاه هوشمند', 'پرچم‌ها/دامنه به‌روزرسانی شد');
         return back()->with('flash', 'تنظیمات آزمایشگاه هوشمند ذخیره شد ✅');

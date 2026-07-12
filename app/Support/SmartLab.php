@@ -31,15 +31,19 @@ class SmartLab
         return (string) Setting::get('smart_scope', 'off');
     }
 
-    /** لیست شناسه‌ی معلمان آزمایشی (وقتی scope=pilot). */
-    public static function pilotTeacherIds(): array
+    /** لیست شناسه‌ی مدارسِ آزمایشی (وقتی scope=pilot) — توسط ادمین کل تعیین می‌شود. */
+    public static function pilotSchoolIds(): array
     {
-        $v = Setting::get('smart_pilot_teachers', '[]');
+        $v = Setting::get('smart_pilot_schools', '[]');
         $d = is_array($v) ? $v : json_decode((string) $v, true);
         return is_array($d) ? array_map('intval', $d) : [];
     }
 
-    /** آیا ماژول برای این کاربر فعال است؟ (ادمین کل همیشه؛ معلم/دانش‌آموز طبق دامنه) */
+    /**
+     * آیا ماژول برای این کاربر فعال است؟
+     * دسترسیِ مدرسه‌ای را «ادمین کل» تعیین می‌کند (نه معلم):
+     * scope=all برای همه‌ی مدارس، scope=pilot فقط برای مدارسِ انتخاب‌شده‌ی ادمین.
+     */
     public static function enabledFor(?User $user): bool
     {
         if (! $user || ! self::flag('smart_lab_enabled')) {
@@ -55,16 +59,8 @@ class SmartLab
         if ($scope === 'all') {
             return true;
         }
-        // pilot: معلمِ آزمایشی، یا دانش‌آموزی که معلمِ کلاسش آزمایشی است
-        $pilot = self::pilotTeacherIds();
-        if ($user->hasRole(Roles::TEACHER)) {
-            return in_array($user->id, $pilot, true);
-        }
-        if ($user->hasRole(Roles::STUDENT)) {
-            $teacherIds = $user->classrooms()->with('teacher')->get()->pluck('teacher_id')->all();
-            return (bool) array_intersect($teacherIds, $pilot);
-        }
-        return false;
+        // pilot: مدرسه‌ی کاربر باید در فهرستِ مدارسِ مجازِ ادمین باشد
+        return in_array((int) $user->school_id, self::pilotSchoolIds(), true);
     }
 
     /** پیکربندی کامل برای اشتراک‌گذاری با فرانت. */

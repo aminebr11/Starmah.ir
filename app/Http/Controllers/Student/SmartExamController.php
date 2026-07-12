@@ -78,6 +78,52 @@ class SmartExamController extends Controller
         return Inertia::render('Student/SmartExams', ['exams' => $cards]);
     }
 
+    /** کارنامه‌ی هوشمند: امتیاز و پیشرفتِ دانش‌آموز به تفکیک درس و سرفصل (نقاط قوت/ضعف). */
+    public function performance(Request $request): Response
+    {
+        $user = $request->user();
+        $attemptIds = SmartExamAttempt::where('student_id', $user->id)->where('status', '!=', 'in_progress')->pluck('id');
+
+        $rows = SmartExamAnswer::whereIn('attempt_id', $attemptIds)
+            ->join('smart_exam_questions as q', 'q.id', '=', 'smart_exam_answers.question_id')
+            ->join('smart_exam_attempts as a', 'a.id', '=', 'smart_exam_answers.attempt_id')
+            ->join('smart_exams as e', 'e.id', '=', 'a.smart_exam_id')
+            ->selectRaw("COALESCE(NULLIF(e.subject,''),'عمومی') as subject, COALESCE(NULLIF(q.topic,''), NULLIF(e.topic,''),'عمومی') as topic, smart_exam_answers.correct as correct")
+            ->get();
+
+        // درس → سرفصل → درصد
+        $subjects = [];
+        foreach ($rows as $r) {
+            $subjects[$r->subject] ??= ['name' => $r->subject, 'correct' => 0, 'total' => 0, 'topics' => []];
+            $subjects[$r->subject]['total']++;
+            $subjects[$r->subject]['topics'][$r->topic] ??= ['topic' => $r->topic, 'correct' => 0, 'total' => 0];
+            $subjects[$r->subject]['topics'][$r->topic]['total']++;
+            if ($r->correct) {
+                $subjects[$r->subject]['correct']++;
+                $subjects[$r->subject]['topics'][$r->topic]['correct']++;
+            }
+        }
+        $out = collect($subjects)->map(function ($s) {
+            $topics = collect($s['topics'])->map(fn ($t) => [
+                'topic' => $t['topic'], 'pct' => $t['total'] ? (int) round($t['correct'] / $t['total'] * 100) : 0, 'total' => $t['total'],
+            ])->sortByDesc('pct')->values();
+            return [
+                'name' => $s['name'],
+                'pct' => $s['total'] ? (int) round($s['correct'] / $s['total'] * 100) : 0,
+                'total' => $s['total'],
+                'topics' => $topics,
+                'strengths' => $topics->where('pct', '>=', 70)->pluck('topic')->take(4)->values(),
+                'weaknesses' => $topics->where('pct', '<', 60)->sortBy('pct')->pluck('topic')->take(4)->values(),
+            ];
+        })->sortByDesc('total')->values();
+
+        return Inertia::render('Student/SmartPerformance', [
+            'subjects' => $out,
+            'totalAnswered' => $rows->count(),
+            'overallPct' => $rows->count() ? (int) round($rows->where('correct', true)->count() / $rows->count() * 100) : 0,
+        ]);
+    }
+
     public function take(Request $request, SmartExam $smartExam): Response|RedirectResponse
     {
         $user = $request->user();

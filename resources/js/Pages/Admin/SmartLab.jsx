@@ -12,13 +12,13 @@ const FLAG_LABELS = {
 };
 
 export default function SmartLab() {
-    const { flags = {}, scope = 'off', pilotTeachers = [], teachers = [], ai = {}, flash } = usePage().props;
+    const { flags = {}, scope = 'off', pilotSchools = [], schools = [], ai = {}, flash } = usePage().props;
     const [banner, setBanner] = useState(null);
     useEffect(() => { if (flash?.flash) setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); }, [flash]);
 
-    const form = useForm({ flags: { ...flags }, scope, pilotTeachers: [...pilotTeachers] });
+    const form = useForm({ flags: { ...flags }, scope, pilotSchools: [...pilotSchools] });
     const setFlag = (k, v) => form.setData('flags', { ...form.data.flags, [k]: v });
-    const togglePilot = (id) => form.setData('pilotTeachers', form.data.pilotTeachers.includes(id) ? form.data.pilotTeachers.filter((x) => x !== id) : [...form.data.pilotTeachers, id]);
+    const togglePilot = (id) => form.setData('pilotSchools', form.data.pilotSchools.includes(id) ? form.data.pilotSchools.filter((x) => x !== id) : [...form.data.pilotSchools, id]);
     const submit = (e) => { e.preventDefault(); form.post(route('admin.smart-lab.update'), { preserveScroll: true }); };
 
     return (
@@ -46,21 +46,22 @@ export default function SmartLab() {
                         </div>
 
                         <div className="smart-field" style={{ marginTop: 16 }}>
-                            <label>دامنه‌ی دسترسیِ معلمان</label>
+                            <label>دامنه‌ی دسترسی (توسط ادمین کل)</label>
                             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                {[['off', 'هیچ‌کس'], ['pilot', 'فقط معلمان آزمایشی'], ['all', 'همه‌ی معلمان']].map(([v, t]) => (
+                                {[['off', 'هیچ مدرسه‌ای'], ['pilot', 'فقط مدارسِ منتخب'], ['all', 'همه‌ی مدارس']].map(([v, t]) => (
                                     <button type="button" key={v} onClick={() => form.setData('scope', v)} className={`smart-chip ${form.data.scope === v ? 'on' : ''}`}>{t}</button>
                                 ))}
                             </div>
+                            <div className="smart-muted" style={{ marginTop: 6 }}>دسترسی به این ماژول را ادمین کل به‌صورتِ مدرسه‌ای تعیین می‌کند؛ نه معلم.</div>
                         </div>
 
                         {form.data.scope === 'pilot' && (
                             <div className="smart-field" style={{ marginTop: 14 }}>
-                                <label>معلمان آزمایشی</label>
+                                <label>مدارسِ مجاز</label>
                                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                    {teachers.length === 0 && <span className="smart-muted">معلمی ثبت نشده.</span>}
-                                    {teachers.map((t) => (
-                                        <button type="button" key={t.id} onClick={() => togglePilot(t.id)} className={`smart-chip ${form.data.pilotTeachers.includes(t.id) ? 'on' : ''}`}>{t.name}</button>
+                                    {schools.length === 0 && <span className="smart-muted">مدرسه‌ای ثبت نشده.</span>}
+                                    {schools.map((s) => (
+                                        <button type="button" key={s.id} onClick={() => togglePilot(s.id)} className={`smart-chip ${form.data.pilotSchools.includes(s.id) ? 'on' : ''}`}>{s.name}</button>
                                     ))}
                                 </div>
                             </div>

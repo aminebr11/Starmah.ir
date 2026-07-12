@@ -64,8 +64,10 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::post('/themes/{theme}/header', [PlatformController::class, 'uploadHeader'])->name('themes.header');
     // قالب‌های بازی (مکانیک‌ها)
     Route::get('/game-templates', [\App\Http\Controllers\Admin\GameTemplateController::class, 'index'])->name('game-templates');
+    Route::post('/game-templates', [\App\Http\Controllers\Admin\GameTemplateController::class, 'store'])->name('game-templates.store');
     Route::post('/game-templates/{gameTemplate}/toggle', [\App\Http\Controllers\Admin\GameTemplateController::class, 'toggle'])->name('game-templates.toggle');
     Route::put('/game-templates/{gameTemplate}', [\App\Http\Controllers\Admin\GameTemplateController::class, 'update'])->name('game-templates.update');
+    Route::delete('/game-templates/{gameTemplate}', [\App\Http\Controllers\Admin\GameTemplateController::class, 'destroy'])->name('game-templates.destroy');
     // آزمایشگاه هوشمند آزمون — پرچم‌ها و دامنه (بدون گیت؛ ادمین همیشه دسترسی دارد)
     Route::get('/smart-lab', [\App\Http\Controllers\Admin\SmartLabController::class, 'index'])->name('smart-lab');
     Route::post('/smart-lab', [\App\Http\Controllers\Admin\SmartLabController::class, 'update'])->name('smart-lab.update');
@@ -137,6 +139,7 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     // آزمایشگاه هوشمند — سمت دانش‌آموز (آزمایشی)
     Route::middleware('smartlab')->prefix('student/smart-exams')->name('student.smart.')->group(function () {
         Route::get('/', [\App\Http\Controllers\Student\SmartExamController::class, 'index'])->name('index');
+        Route::get('/my-performance', [\App\Http\Controllers\Student\SmartExamController::class, 'performance'])->name('performance');
         Route::get('/{smartExam}/take', [\App\Http\Controllers\Student\SmartExamController::class, 'take'])->name('take');
         Route::post('/{smartExam}/save', [\App\Http\Controllers\Student\SmartExamController::class, 'save'])->name('save');
         Route::post('/{smartExam}/submit', [\App\Http\Controllers\Student\SmartExamController::class, 'submit'])->name('submit');

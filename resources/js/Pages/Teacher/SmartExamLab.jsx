@@ -31,8 +31,9 @@ export default function SmartExamLab() {
         target_classrooms: [], target_themes: [], target_students: [], questions: [blankQ()],
     });
 
-    // AI panel state
-    const [ai, setAi] = useState({ subject: '', topic: '', count: 5, type: 'mc', difficulty: 'medium', sample: false });
+    // AI panel state (منوی بسته به‌صورت پیش‌فرض؛ اطلاعات از «اطلاعات پایه» می‌آید)
+    const [aiOpen, setAiOpen] = useState(false);
+    const [ai, setAi] = useState({ count: 5, type: 'mc', difficulty: 'medium', flavor: '', sample: false });
     const [aiResults, setAiResults] = useState([]);
 
     const setR = (k, v) => form.setData('rules', { ...form.data.rules, [k]: v });
@@ -46,10 +47,17 @@ export default function SmartExamLab() {
     const addQ = () => form.setData('questions', [...form.data.questions, blankQ()]);
     const rmQ = (i) => form.data.questions.length > 1 && form.setData('questions', form.data.questions.filter((_, j) => j !== i));
 
+    // نام تیمِ انتخاب‌شده برای «طعمِ» سؤال (اگر گروهی هدف باشد)
+    const flavorTheme = themes.find((t) => form.data.target_themes.includes(t.id));
     const runAi = async () => {
         setAiBusy(true); setAiMsg(null); setAiResults([]);
         try {
-            const { data } = await axios.post(route('teacher.smart.ai'), { ...ai, grade: form.data.grade });
+            // اطلاعات پایه‌ی جدول به‌صورت خودکار به AI داده می‌شود (هم دستی هم AI از همین‌جا)
+            const { data } = await axios.post(route('teacher.smart.ai'), {
+                ...ai, subject: form.data.subject, grade: form.data.grade,
+                topic: form.data.topic || form.data.chapter || form.data.subject,
+                flavor: ai.flavor || (flavorTheme ? flavorTheme.name : ''),
+            });
             setAiMsg({ ok: data.ok, mode: data.mode, text: data.message });
             if (data.ok) setAiResults((data.questions || []).map((q) => ({ ...q, source: data.mode === 'sample' ? 'sample' : 'ai', _pick: true })));
         } catch (e) { setAiMsg({ ok: false, text: e.response?.data?.message || 'خطا در ارتباط با سرویس' }); }
@@ -138,16 +146,24 @@ export default function SmartExamLab() {
                         <div>
                             {aiEnabled && (
                                 <div className="smart-panel" style={{ background: '#f5f2ff', marginBottom: 14 }}>
-                                    <div className="smart-h" style={{ fontSize: 15 }}>🤖 دستیار هوشمند طراحی سؤال</div>
+                                    <button type="button" onClick={() => setAiOpen(!aiOpen)} className="smart-h" style={{ fontSize: 15, width: '100%', border: 0, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                        🤖 دستیار هوشمند طراحی سؤال
+                                        <span className="smart-muted" style={{ fontSize: 12, fontWeight: 400, marginInlineStart: 8 }}>(اطلاعات از «اطلاعات پایه» گرفته می‌شود)</span>
+                                        <span style={{ marginInlineStart: 'auto', fontSize: 18 }}>{aiOpen ? '▲' : '▼'}</span>
+                                    </button>
+                                    {aiOpen && (<>
+                                    <div style={{ background: '#fff', borderRadius: 10, padding: '8px 12px', marginTop: 10, fontSize: 12.5 }} className="smart-muted">
+                                        درس: <b>{form.data.subject || '—'}</b> · موضوع: <b>{form.data.topic || form.data.chapter || '—'}</b> · پایه: <b>{form.data.grade || '—'}</b>
+                                        {!form.data.subject && <span style={{ color: '#b45309' }}> — ابتدا در گام ۱ «اطلاعات پایه» را کامل کنید.</span>}
+                                    </div>
                                     <div className="smart-grid" style={{ marginTop: 10 }}>
-                                        <F label="درس"><input className="smart-input" value={ai.subject} onChange={(e) => setAi({ ...ai, subject: e.target.value })} placeholder="علوم / فارسی / ریاضی…" /></F>
-                                        <F label="موضوع"><input className="smart-input" value={ai.topic} onChange={(e) => setAi({ ...ai, topic: e.target.value })} placeholder="مبحث دقیق" /></F>
                                         <F label="تعداد"><input type="number" min={1} max={20} className="smart-input" value={ai.count} onChange={(e) => setAi({ ...ai, count: +e.target.value })} dir="ltr" /></F>
                                         <F label="نوع"><select className="smart-input" value={ai.type} onChange={(e) => setAi({ ...ai, type: e.target.value })}><option value="mc">چهارگزینه‌ای</option><option value="tf">درست/نادرست</option><option value="desc">تشریحی</option></select></F>
                                         <F label="سختی"><select className="smart-input" value={ai.difficulty} onChange={(e) => setAi({ ...ai, difficulty: e.target.value })}><option value="easy">آسان</option><option value="medium">متوسط</option><option value="hard">دشوار</option></select></F>
+                                        <F label="طعمِ تیم (اختیاری)"><select className="smart-input" value={ai.flavor} onChange={(e) => setAi({ ...ai, flavor: e.target.value })}><option value="">{flavorTheme ? `خودکار: ${flavorTheme.name}` : 'بدون طعم'}</option>{themes.map((t) => <option key={t.id} value={t.name}>{t.emoji} {t.name}</option>)}</select></F>
                                     </div>
                                     <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, marginTop: 8 }}><input type="checkbox" checked={ai.sample} onChange={(e) => setAi({ ...ai, sample: e.target.checked })} /> حالت نمونه (بدون کلید AI — سؤال‌های نمونه‌ی آزمایشی)</label>
-                                    <button onClick={runAi} disabled={aiBusy} className="smart-btn" style={{ marginTop: 10 }}>{aiBusy ? '… در حال تولید' : '✨ تولید سؤال'}</button>
+                                    <button onClick={runAi} disabled={aiBusy || !form.data.subject} className="smart-btn" style={{ marginTop: 10 }}>{aiBusy ? '… در حال تولید' : '✨ تولید سؤال'}</button>
                                     {aiMsg && <div style={{ marginTop: 10, fontSize: 13, color: aiMsg.ok ? '#166534' : '#b91c1c', fontWeight: 700 }}>{aiMsg.mode === 'sample' && <span className="smart-tag sample">نمونه</span>} {aiMsg.text}</div>}
                                     {aiResults.length > 0 && (
                                         <div style={{ marginTop: 12 }}>
@@ -162,6 +178,7 @@ export default function SmartExamLab() {
                                             <button onClick={addAiPicked} className="smart-btn sm">➕ افزودن سؤال‌های انتخابی</button>
                                         </div>
                                     )}
+                                    </>)}
                                 </div>
                             )}
 

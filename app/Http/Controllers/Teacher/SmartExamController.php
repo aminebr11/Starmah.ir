@@ -183,6 +183,7 @@ class SmartExamController extends Controller
             'count' => ['required', 'integer', 'min:1', 'max:20'],
             'type' => ['nullable', 'in:mc,tf,desc,blank'],
             'difficulty' => ['nullable', 'in:easy,medium,hard'],
+            'flavor' => ['nullable', 'string', 'max:60'],
             'sample' => ['nullable', 'boolean'],
         ]);
         $result = $ai->generate([...$data, 'school_id' => $request->user()->school_id, 'teacher_id' => $request->user()->id]);
