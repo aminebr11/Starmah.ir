@@ -44,15 +44,17 @@ class Notifications
             $read = $personal
                 ? ! $unreadPersonal->has($a->id)
                 : ($seen && $a->created_at->lessThanOrEqualTo($seen));
+            // اعلانِ «بازی جدید» → مستقیم به دنیای بازی‌ها
+            $isGame = str_starts_with($a->title, '🎮');
             return [
                 'id'    => 'a'.$a->id,
-                'kind'  => $personal ? 'message' : 'announcement',
-                'icon'  => $personal ? '✉️' : '📢',
-                'color' => $personal ? '#7c5cf0' : '#3d7bf0',
+                'kind'  => $isGame ? 'game' : ($personal ? 'message' : 'announcement'),
+                'icon'  => $isGame ? '🎮' : ($personal ? '✉️' : '📢'),
+                'color' => $isGame ? '#e8505b' : ($personal ? '#7c5cf0' : '#3d7bf0'),
                 'title' => $a->title,
                 'body'  => $a->body,
                 'date'  => Jalali::format($a->created_at),
-                'href'  => '/notices',
+                'href'  => $isGame ? '/game-world' : '/notices',
                 'read'  => $read,
                 'ts'    => $a->created_at->timestamp,
             ];

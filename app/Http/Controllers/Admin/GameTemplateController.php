@@ -18,6 +18,7 @@ class GameTemplateController extends Controller
         $templates = GameTemplate::orderBy('sort')->get()->map(fn ($t) => [
             'id' => $t->id, 'key' => $t->key, 'name' => $t->name, 'icon' => $t->icon,
             'description' => $t->description, 'is_active' => $t->is_active,
+            'board_html' => $t->board_html, 'board_css' => $t->board_css,
             'games' => EduGame::where('template_key', $t->key)->count(),
         ]);
 
@@ -36,7 +37,15 @@ class GameTemplateController extends Controller
             'name' => ['required', 'string', 'max:80'],
             'description' => ['nullable', 'string', 'max:300'],
             'icon' => ['nullable', 'string', 'max:16'],
+            'board_html' => ['nullable', 'string', 'max:20000'],
+            'board_css' => ['nullable', 'string', 'max:10000'],
         ]);
+        // امنیت: تخته‌ی سفارشی فقط HTML/CSS نمایشی است — اسکریپت مجاز نیست
+        foreach (['board_html', 'board_css'] as $f) {
+            if (! empty($data[$f]) && preg_match('/<\s*script|on\w+\s*=|javascript:/iu', $data[$f])) {
+                return back()->withErrors([$f => 'کد اسکریپت (script/on*/javascript:) در تخته مجاز نیست — فقط HTML و CSS نمایشی.']);
+            }
+        }
         $gameTemplate->update($data);
         return back()->with('flash', 'قالب به‌روزرسانی شد ✅');
     }

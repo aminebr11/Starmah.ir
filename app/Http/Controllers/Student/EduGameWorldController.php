@@ -38,6 +38,13 @@ class EduGameWorldController extends Controller
     public function world(Request $request): Response
     {
         $user = $request->user();
+
+        // ورود به دنیای بازی‌ها = خوانده‌شدن اعلان‌های «بازی جدید»
+        \Illuminate\Support\Facades\DB::table('announcement_recipients')
+            ->where('user_id', $user->id)->whereNull('read_at')
+            ->whereIn('announcement_id', \App\Models\Announcement::where('title', 'like', '🎮%')->pluck('id'))
+            ->update(['read_at' => now()]);
+
         $games = $this->baseQuery($user)->latest()->get()->filter(fn ($g) => $this->targeted($g, $user));
 
         $attempts = EduGameAttempt::where('student_id', $user->id)
@@ -111,6 +118,8 @@ class EduGameWorldController extends Controller
             'game' => [
                 'id' => $eduGame->id, 'title' => $eduGame->title, 'desc' => $eduGame->description,
                 'template' => $eduGame->template_key, 'template_name' => optional($eduGame->template)->name,
+                'board_html' => optional($eduGame->template)->board_html,
+                'board_css' => optional($eduGame->template)->board_css,
                 'difficulty' => $eduGame->difficulty,
                 'rules' => $eduGame->rules ?? [],
                 'theme' => $eduGame->theme ? [

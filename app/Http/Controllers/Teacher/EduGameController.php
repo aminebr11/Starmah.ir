@@ -90,8 +90,8 @@ class EduGameController extends Controller
                 'template_key' => $eduGame->template_key, 'theme_id' => $eduGame->theme_id,
                 'subject' => $eduGame->subject, 'grade' => $eduGame->grade, 'difficulty' => $eduGame->difficulty,
                 'status' => $eduGame->status, 'rules' => $eduGame->rules ?? [],
-                'publish_at' => optional($eduGame->publish_at)->format('Y-m-d\TH:i'),
-                'close_at' => optional($eduGame->close_at)->format('Y-m-d\TH:i'),
+                'publish_at' => optional($eduGame->publish_at)->format('Y-m-d H:i'),
+                'close_at' => optional($eduGame->close_at)->format('Y-m-d H:i'),
                 'target_themes' => $eduGame->targets->pluck('theme_id')->filter()->values(),
                 'target_students' => $eduGame->targets->pluck('student_id')->filter()->values(),
                 'questions' => $eduGame->questions->map(fn ($q) => [
@@ -112,6 +112,9 @@ class EduGameController extends Controller
         $game = EduGame::create($this->attributes($teacher, $classroom, $data));
         $this->syncQuestions($game, $data['questions']);
         $this->syncTargets($game, $data);
+        if ($game->status === 'published') {
+            $this->announcePublish($game, $classroom);
+        }
 
         AuditLog::record($teacher, 'ساخت بازی آموزشی', "بازی «{$game->title}» ({$game->template_key}) ساخته شد");
         return redirect()->route('teacher.studio')->with('flash', 'بازی ساخته شد 🎮');
@@ -138,9 +141,13 @@ class EduGameController extends Controller
             return redirect()->route('teacher.studio')->with('flash', 'به‌دلیل وجود نتایج قبلی، نسخه‌ی جدید ساخته و نسخه‌ی قدیمی آرشیو شد ✅');
         }
 
+        $wasPublished = $eduGame->status === 'published';
         $eduGame->update($this->attributes($request->user(), $classroom, $data));
         $this->syncQuestions($eduGame, $data['questions']);
         $this->syncTargets($eduGame, $data);
+        if (! $wasPublished && $eduGame->status === 'published') {
+            $this->announcePublish($eduGame, $classroom);
+        }
         return redirect()->route('teacher.studio')->with('flash', 'بازی به‌روزرسانی شد ✅');
     }
 
@@ -148,9 +155,43 @@ class EduGameController extends Controller
     {
         abort_unless($eduGame->teacher_id === $request->user()->id, 403);
         $data = $request->validate(['status' => ['required', 'in:draft,published,archived,disabled']]);
+        $wasPublished = $eduGame->status === 'published';
         $eduGame->update(['status' => $data['status']]);
+        if (! $wasPublished && $eduGame->status === 'published') {
+            $classroom = Classroom::where('teacher_id', $request->user()->id)->first();
+            $this->announcePublish($eduGame, $classroom);
+        }
         $label = ['draft' => 'پیش‌نویس', 'published' => 'منتشر', 'archived' => 'آرشیو', 'disabled' => 'غیرفعال'][$data['status']];
         return back()->with('flash', "وضعیت بازی: {$label}");
+    }
+
+    /** اعلانِ «بازی جدید» برای دانش‌آموزانِ هدف — در زنگوله و منوی اعلان‌ها. */
+    private function announcePublish(EduGame $game, ?Classroom $classroom): void
+    {
+        if (! $classroom) {
+            return;
+        }
+        $game->loadMissing('targets', 'template');
+
+        $students = $classroom->students()->get(['users.id', 'theme_id']);
+        if ($game->targets->isNotEmpty()) {
+            $themeIds = $game->targets->pluck('theme_id')->filter();
+            $studentIds = $game->targets->pluck('student_id')->filter();
+            $students = $students->filter(fn ($s) => $studentIds->contains($s->id) || $themeIds->contains($s->theme_id));
+        }
+        if ($students->isEmpty()) {
+            return;
+        }
+
+        $tName = optional($game->template)->name ?? 'بازی';
+        $ann = \App\Models\Announcement::create([
+            'school_id' => $game->school_id,
+            'sender_id' => $game->teacher_id,
+            'title' => '🎮 بازی جدید: ' . $game->title,
+            'body' => "یک {$tName} جدید برایت منتشر شد! از منوی «دنیای بازی‌ها» واردش شو و امتیاز بگیر ⚡",
+            'audience' => 'personal',
+        ]);
+        $ann->recipients()->sync($students->pluck('id')->all());
     }
 
     public function duplicate(Request $request, EduGame $eduGame): RedirectResponse
@@ -188,7 +229,8 @@ class EduGameController extends Controller
             'name' => $a->student?->name, 'score' => $a->score, 'max' => $a->max_score,
             'percent' => $a->max_score ? (int) round($a->score / $a->max_score * 100) : 0,
             'status' => $a->status, 'hints' => $a->hints_used,
-            'duration' => $a->duration_sec, 'jdate' => optional($a->completed_at)->diffForHumans(),
+            'duration' => $a->duration_sec,
+            'jdate' => $a->completed_at ? Jalali::format($a->completed_at, true) : null,
         ])->sortByDesc('percent')->values();
 
         // سؤال‌های سخت (بیشترین پاسخ غلط) از progress

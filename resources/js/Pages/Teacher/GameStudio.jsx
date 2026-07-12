@@ -1,6 +1,7 @@
 import { usePage, useForm, router, Link } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
+import JalaliDatePicker from '@/Components/JalaliDatePicker';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const blankQ = () => ({ type: 'mc', prompt: '', points: 10, hint1: '', explanation: '', choices: [{ value: '', correct: true }, { value: '', correct: false }] });
@@ -87,8 +88,8 @@ export default function GameStudio() {
                         <Field label="درس"><select className="input" value={form.data.subject} onChange={(e) => form.setData('subject', e.target.value)}><option value="">— انتخاب —</option>{subjects.map((s, i) => <option key={i} value={s}>{s}</option>)}</select></Field>
                         <Field label="پایه"><input className="input" value={form.data.grade} onChange={(e) => form.setData('grade', e.target.value)} placeholder="مثلاً: چهارم" /></Field>
                         <Field label="سطح سختی"><select className="input" value={form.data.difficulty} onChange={(e) => form.setData('difficulty', e.target.value)}><option value="easy">آسان</option><option value="medium">متوسط</option><option value="hard">سخت</option></select></Field>
-                        <Field label="تاریخ انتشار (اختیاری)"><input type="datetime-local" dir="ltr" className="input" value={form.data.publish_at || ''} onChange={(e) => form.setData('publish_at', e.target.value)} /></Field>
-                        <Field label="تاریخ پایان (اختیاری)"><input type="datetime-local" dir="ltr" className="input" value={form.data.close_at || ''} onChange={(e) => form.setData('close_at', e.target.value)} /></Field>
+                        <Field label="تاریخ انتشار — شمسی (اختیاری)"><JalaliDatePicker withTime value={form.data.publish_at || ''} onChange={(v) => form.setData('publish_at', v)} placeholder="بلافاصله" /></Field>
+                        <Field label="تاریخ پایان — شمسی (اختیاری)"><JalaliDatePicker withTime value={form.data.close_at || ''} onChange={(v) => form.setData('close_at', v)} placeholder="بدون پایان" /></Field>
                         <div style={{ gridColumn: '1/-1' }}><Field label="توضیح کوتاه"><textarea className="input" rows={2} value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} /></Field></div>
                         {/* گروه‌های هدف */}
                         <div style={{ gridColumn: '1/-1' }}>

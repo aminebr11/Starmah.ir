@@ -727,3 +727,34 @@ img{max-width:100%;display:block}
 .prg-kpi{border-radius:18px;padding:15px;color:#fff;text-align:center;box-shadow:0 10px 24px -14px rgba(0,0,0,.5)}
 .prg-kpi .v{font-size:26px;font-weight:900;line-height:1.25}
 .prg-kpi .l{font-size:12px;opacity:.92}
+
+/* ===== دنیای بازی‌های آموزشی — انیمیشن‌های تخته و کارت‌ها ===== */
+@keyframes gdice-roll{0%{transform:rotate(0) scale(1)}30%{transform:rotate(160deg) scale(1.35)}60%{transform:rotate(300deg) scale(1.15)}100%{transform:rotate(360deg) scale(1)}}
+.gdice{display:inline-block;animation:gdice-roll .8s ease-out}
+@keyframes gkick{0%{transform:translateY(-50%) rotate(0)}100%{transform:translateY(-50%) rotate(-360deg)}}
+.gkick{animation:gkick .8s linear}
+@keyframes ggoal-flash{0%{opacity:0;transform:scale(.4)}30%{opacity:1;transform:scale(1.15)}70%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1)}}
+.ggoal{animation:ggoal-flash 1.6s ease-out forwards}
+@keyframes gchest-pop{0%{transform:scale(.4) rotate(-14deg)}55%{transform:scale(1.35) rotate(8deg)}100%{transform:scale(1) rotate(0)}}
+.gchest{display:inline-block;animation:gchest-pop .6s cubic-bezier(.3,1.5,.5,1)}
+@keyframes gbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.gbob{display:inline-block;animation:gbob 1.6s ease-in-out infinite}
+.gtoken{animation:gbob 1.4s ease-in-out infinite}
+
+/* کارت‌های دنیای بازی — کنار هم، بازی‌گونه */
+.gw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+@media(max-width:640px){.gw-grid{grid-template-columns:repeat(2,1fr);gap:10px}}
+.gw-card{position:relative;display:flex;flex-direction:column;border-radius:20px;overflow:hidden;color:#fff;text-decoration:none;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 12px 26px -16px rgba(0,0,0,.6);transition:transform .18s,box-shadow .18s}
+.gw-card:hover{transform:translateY(-5px) scale(1.015);box-shadow:0 20px 36px -16px rgba(0,0,0,.7)}
+.gw-card:active{transform:translateY(0) scale(.99)}
+.gw-cover{height:92px;display:grid;place-items:center;font-size:42px;position:relative;overflow:hidden}
+.gw-cover .shine{position:absolute;top:-60%;inset-inline-start:-30%;width:60%;height:220%;transform:rotate(22deg);background:rgba(255,255,255,.14)}
+.gw-ribbon{position:absolute;top:9px;inset-inline-end:9px;color:#fff;border-radius:20px;padding:2px 10px;font-size:10.5px;font-weight:900;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+.gw-body{padding:11px 13px 13px;display:flex;flex-direction:column;gap:6px;flex:1}
+.gw-chips{display:flex;gap:5px;flex-wrap:wrap;font-size:10.5px}
+.gw-chips span{background:rgba(255,255,255,.13);border-radius:20px;padding:2px 8px;font-weight:700}
+@keyframes gw-new{0%,100%{box-shadow:0 0 0 0 rgba(43,182,115,.6)}50%{box-shadow:0 0 0 6px rgba(43,182,115,0)}}
+.gw-card.is-new{animation:gw-new 1.6s ease-in-out infinite;border-color:rgba(43,182,115,.6)}
+@media (prefers-reduced-motion:reduce){.gdice,.gkick,.ggoal,.gchest,.gbob,.gtoken,.gw-card.is-new{animation:none}}
