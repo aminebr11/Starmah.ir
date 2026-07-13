@@ -7,6 +7,7 @@ const ST = {
     new: { t: 'جدید', c: '#2bb673', btn: '🚀 شروع آزمون' },
     in_progress: { t: 'نیمه‌تمام', c: '#e8862e', btn: '▶️ ادامه آزمون' },
     done: { t: 'انجام‌شده', c: '#3d7bf0', btn: '🔁 تلاش دوباره' },
+    scheduled: { t: 'زمان‌بندی‌شده', c: '#7c5cf0', btn: '' },
     locked: { t: 'قفل', c: '#8896ad', btn: '' },
     expired: { t: 'زمان‌گذشته', c: '#e8505b', btn: '' },
 };
@@ -46,10 +47,11 @@ export default function SmartExams() {
                                 {e.adaptive && <span style={{ background: 'rgba(255,255,255,.12)', borderRadius: 20, padding: '3px 9px' }}>🧬 تطبیقی</span>}
                             </div>
                             {e.lastScore != null && <div style={{ fontSize: 11.5, marginTop: 6, color: '#c4b5fd' }}>آخرین نتیجه: {fa(e.lastScore)}/{fa(e.lastMax)}</div>}
+                            {e.opens && <div style={{ fontSize: 10.5, color: '#c4b5fd', marginTop: 4 }}>🗓️ باز می‌شود: {e.opens}</div>}
                             {e.closes && <div style={{ fontSize: 10.5, opacity: .6, marginTop: 4 }}>مهلت: {e.closes}</div>}
                             {playable
                                 ? <div className="k3-btn" style={{ marginTop: 10, fontSize: 13 }}>{s.btn}</div>
-                                : <div style={{ marginTop: 10, textAlign: 'center', fontWeight: 800, fontSize: 12, opacity: .8, background: 'rgba(0,0,0,.25)', borderRadius: 12, padding: '8px' }}>{e.status === 'expired' ? '⌛ زمان‌گذشته' : '🔒 در دسترس نیست'}</div>}
+                                : <div style={{ marginTop: 10, textAlign: 'center', fontWeight: 800, fontSize: 12, opacity: .8, background: 'rgba(0,0,0,.25)', borderRadius: 12, padding: '8px' }}>{e.status === 'expired' ? '⌛ زمان‌گذشته' : e.status === 'scheduled' ? '🗓️ هنوز باز نشده' : '🔒 در دسترس نیست'}</div>}
                         </>
                     );
                     return playable

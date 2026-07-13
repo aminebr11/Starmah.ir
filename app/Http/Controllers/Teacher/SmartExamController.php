@@ -81,8 +81,10 @@ class SmartExamController extends Controller
             'id' => $e->id, 'title' => $e->title, 'subject' => $e->subject, 'grade' => $e->grade,
             'topic' => $e->topic, 'kind' => $e->kind, 'status' => $e->status, 'adaptive' => $e->adaptive,
             'live' => $e->isLive(), 'questions' => $e->questions_count, 'attempts' => $e->attempts_count,
+            'scheduled' => $e->status === 'published' && $e->opens_at && now()->lessThan($e->opens_at),
             'opens_at' => optional($e->opens_at)->format('Y-m-d H:i'),
             'jopens' => $e->opens_at ? Jalali::format($e->opens_at, true) : null,
+            'jcloses' => $e->closes_at ? Jalali::format($e->closes_at, true) : null,
             'date' => Jalali::format($e->created_at), 'version' => $e->version,
         ];
     }
@@ -179,6 +181,9 @@ class SmartExamController extends Controller
             'subject' => ['nullable', 'string', 'max:80'],
             'topic' => ['nullable', 'string', 'max:120'],
             'chapter' => ['nullable', 'string', 'max:120'],
+            'book' => ['nullable', 'string', 'max:120'],
+            'goal' => ['nullable', 'string', 'max:300'],
+            'kind' => ['nullable', 'string', 'max:40'],
             'grade' => ['nullable', 'string', 'max:40'],
             'count' => ['required', 'integer', 'min:1', 'max:20'],
             'type' => ['nullable', 'in:mc,tf,desc,blank'],
@@ -194,13 +199,14 @@ class SmartExamController extends Controller
     public function bank(Request $request): Response
     {
         $teacher = $request->user();
-        $q = SmartQuestionBank::query()
-            ->where(fn ($w) => $w->where('teacher_id', $teacher->id)->orWhere('scope', 'school')->orWhere('scope', 'shared'))
+        $q = \App\Support\BankAccess::visibleQuery($teacher)
+            ->with('teacher:id,name')
             ->when($request->subject, fn ($x) => $x->where('subject', $request->subject))
+            ->when($request->grade, fn ($x) => $x->where('grade', $request->grade))
             ->when($request->difficulty, fn ($x) => $x->where('difficulty', $request->difficulty))
             ->when($request->type, fn ($x) => $x->where('type', $request->type))
             ->when($request->search, fn ($x) => $x->where('prompt', 'like', '%' . $request->search . '%'))
-            ->latest()->limit(200)->get();
+            ->latest()->limit(300)->get();
 
         return Inertia::render('Teacher/SmartQuestionBank', [
             'flags' => SmartLab::config(),
@@ -208,9 +214,11 @@ class SmartExamController extends Controller
                 'id' => $b->id, 'type' => $b->type, 'prompt' => $b->prompt, 'choices' => $b->choices,
                 'subject' => $b->subject, 'grade' => $b->grade, 'topic' => $b->topic,
                 'difficulty' => $b->difficulty, 'source' => $b->source, 'used' => $b->used_count,
+                'author' => $b->teacher?->name,
                 'mine' => $b->teacher_id === $teacher->id,
             ]),
-            'filters' => $request->only('subject', 'difficulty', 'type', 'search'),
+            'filters' => $request->only('subject', 'difficulty', 'type', 'search', 'grade'),
+            'grades' => \App\Support\BankAccess::teacherGrades($teacher),
         ]);
     }
 
@@ -318,6 +326,7 @@ class SmartExamController extends Controller
     private function syncQuestions(SmartExam $exam, array $questions): void
     {
         $exam->questions()->delete();
+        $meta = ['subject' => $exam->subject, 'grade' => $exam->grade, 'book' => $exam->book, 'chapter' => $exam->chapter, 'topic' => $exam->topic, 'source' => 'manual'];
         foreach (array_values($questions) as $i => $q) {
             SmartExamQuestion::create([
                 'smart_exam_id' => $exam->id, 'type' => $q['type'] ?? 'mc', 'prompt' => $q['prompt'],
@@ -326,6 +335,10 @@ class SmartExamController extends Controller
                 'points' => $q['points'] ?? 1, 'topic' => $q['topic'] ?? ($exam->topic ?? null),
                 'goal' => $q['goal'] ?? null, 'source' => $q['source'] ?? 'manual', 'sort' => $i,
             ]);
+            // ثبتِ خودکار در بانک سؤالات (با نامِ درس و معلم)
+            if ($exam->teacher) {
+                \App\Support\BankAccess::autosave($exam->teacher, $q, $meta);
+            }
         }
     }
 

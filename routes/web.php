@@ -165,6 +165,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/activities/{classActivity}/award', [\App\Http\Controllers\Teacher\ActivityController::class, 'award'])->name('activities.award');
     // بازی‌ساز (بانک بازی، انتشار، XP)
     Route::get('/games', [\App\Http\Controllers\Teacher\GameController::class, 'index'])->name('games');
+    Route::post('/games/ai', [\App\Http\Controllers\Teacher\GameController::class, 'aiGenerate'])->name('games.ai');
     Route::post('/games', [\App\Http\Controllers\Teacher\GameController::class, 'store'])->name('games.store');
     Route::put('/games/{classActivity}', [\App\Http\Controllers\Teacher\GameController::class, 'update'])->name('games.update');
     Route::post('/games/{classActivity}/toggle', [\App\Http\Controllers\Teacher\GameController::class, 'toggle'])->name('games.toggle');
@@ -235,6 +236,16 @@ Route::middleware('auth')->group(function () {
 
     // کارتابل اعلان‌ها/پیام‌ها (معلم و دانش‌آموز)
     Route::get('/notices', \App\Http\Controllers\NoticeController::class)->name('notices');
+
+    // بانک سؤالاتِ حرفه‌ای — ادمین کل (کلِ بانک) + مدیر مدرسه (بانکِ مدرسه)
+    Route::middleware('role:super_admin|school_admin')->prefix('question-bank')->name('bank.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\QuestionBankController::class, 'index'])->name('index');
+        Route::post('/', [\App\Http\Controllers\QuestionBankController::class, 'store'])->name('store');
+        Route::put('/{question}', [\App\Http\Controllers\QuestionBankController::class, 'update'])->name('update');
+        Route::delete('/{question}', [\App\Http\Controllers\QuestionBankController::class, 'destroy'])->name('destroy');
+        Route::post('/ai', [\App\Http\Controllers\QuestionBankController::class, 'ai'])->name('ai');
+        Route::post('/share', [\App\Http\Controllers\QuestionBankController::class, 'share'])->name('share');
+    });
 
     // مدیریت کاربران و کلاس‌ها (کنترل دسترسی نقش‌محور داخل کنترلر)
     Route::put('/manage/users/{user}', [\App\Http\Controllers\ManagementController::class, 'updateUser'])->name('manage.users.update');

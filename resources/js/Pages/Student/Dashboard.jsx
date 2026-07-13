@@ -46,10 +46,11 @@ export default function Dashboard() {
     const myTeam = groups.find((g) => g.mine);
 
     // کاشی‌های اکشن — رنگ اختصاصی هر کاشی
+    const smartLab = usePage().props.smartLab;
     const tiles = [
         { href: '/practice', em: '🎯', label: 'مأموریت و تمرین', t1: skin.p1, t2: skin.p2 },
         { href: '/game-world', em: '🎮', label: 'دنیای بازی‌ها', t1: '#e8505b', t2: '#b0333f' },
-        { href: '/exams', em: '💻', label: 'آزمون‌های من', t1: '#7c5cf0', t2: '#4c2fb0' },
+        ...(smartLab ? [{ href: '/student/smart-exams', em: '🧠', label: 'آزمون هوشمند', t1: '#7c5cf0', t2: '#4c2fb0' }] : []),
         { href: '/my-grades', em: '📔', label: 'نمرات کلاسی', t1: '#18a97c', t2: '#0d6b4e' },
     ];
 

@@ -61,7 +61,9 @@ class SmartExamController extends Controller
             $maxAttempts = (int) ($rules['attempts'] ?? 1);
             $completedCount = $mine->where('status', 'completed')->count();
             $live = $e->isLive();
-            $status = ! $live ? ($e->closes_at && now()->greaterThan($e->closes_at) ? 'expired' : 'locked')
+            $notYet = $e->opens_at && now()->lessThan($e->opens_at); // زمان‌بندی‌شده برای آینده
+            $status = ! $live
+                ? ($e->closes_at && now()->greaterThan($e->closes_at) ? 'expired' : ($notYet ? 'scheduled' : 'locked'))
                 : ($inProgress ? 'in_progress' : ($completedCount ? 'done' : 'new'));
             return [
                 'id' => $e->id, 'title' => $e->title, 'subject' => $e->subject, 'topic' => $e->topic,
@@ -70,6 +72,7 @@ class SmartExamController extends Controller
                 'status' => $status,
                 'attemptsLeft' => max(0, $maxAttempts - $completedCount),
                 'lastScore' => $best?->score, 'lastMax' => $best?->max_score,
+                'opens' => $notYet ? Jalali::format($e->opens_at, true) : null,
                 'closes' => $e->closes_at ? Jalali::format($e->closes_at, true) : null,
                 'showResult' => (bool) ($rules['show_result'] ?? true),
             ];
@@ -117,11 +120,50 @@ class SmartExamController extends Controller
             ];
         })->sortByDesc('total')->values();
 
+        $overall = $rows->count() ? (int) round($rows->where('correct', true)->count() / $rows->count() * 100) : 0;
+        $examCount = SmartExamAttempt::where('student_id', $user->id)->where('status', 'completed')->count();
+
         return Inertia::render('Student/SmartPerformance', [
+            'student' => ['name' => $user->name],
             'subjects' => $out,
             'totalAnswered' => $rows->count(),
-            'overallPct' => $rows->count() ? (int) round($rows->where('correct', true)->count() / $rows->count() * 100) : 0,
+            'examCount' => $examCount,
+            'overallPct' => $overall,
+            'parent' => $this->parentGuidance($out, $overall, $examCount),
         ]);
+    }
+
+    /** راهنمای والدین: ارزیابی کلی + توصیه‌های عملیِ حمایت از مسیر آموزشی. */
+    private function parentGuidance($subjects, int $overall, int $examCount): array
+    {
+        $strong = collect($subjects)->flatMap(fn ($s) => collect($s['strengths'])->map(fn ($t) => "{$s['name']}: {$t}"))->take(6)->values();
+        $weak = collect($subjects)->flatMap(fn ($s) => collect($s['weaknesses'])->map(fn ($t) => "{$s['name']}: {$t}"))->take(6)->values();
+
+        $tips = [];
+        if ($examCount === 0) {
+            $tips[] = ['icon' => '🌱', 'tone' => 'mid', 'text' => 'فرزندتان هنوز آزمونی نداده است. با یک برنامه‌ی کوتاه و منظم، او را به شرکت در آزمون‌ها تشویق کنید.'];
+        } else {
+            if ($overall >= 80) {
+                $tips[] = ['icon' => '🌟', 'tone' => 'good', 'text' => 'عملکرد کلی فرزندتان عالی است. با تشویق و هدف‌گذاریِ تازه، این انگیزه را زنده نگه دارید و او را به کمک به هم‌کلاسی‌ها ترغیب کنید.'];
+            } elseif ($overall >= 50) {
+                $tips[] = ['icon' => '📈', 'tone' => 'mid', 'text' => 'فرزندتان در مسیر پیشرفت است. ۱۵ تا ۲۰ دقیقه مرور روزانه و مرور اشتباهاتِ هر آزمون، تفاوت بزرگی ایجاد می‌کند.'];
+            } else {
+                $tips[] = ['icon' => '🤝', 'tone' => 'low', 'text' => 'فرزندتان به همراهیِ بیشتری نیاز دارد. کنارش بنشینید، بدون سرزنش سؤال‌های اشتباه را با هم مرور کنید و پیشرفت‌های کوچک را جشن بگیرید.'];
+            }
+        }
+        if ($weak->isNotEmpty()) {
+            $tips[] = ['icon' => '🎯', 'tone' => 'mid', 'text' => 'تمرکز این هفته را روی این حوزه‌ها بگذارید: ' . $weak->take(3)->implode('، ') . '. برای هرکدام چند تمرینِ ساده و کوتاه انتخاب کنید.'];
+        }
+        if ($strong->isNotEmpty()) {
+            $tips[] = ['icon' => '💪', 'tone' => 'good', 'text' => 'نقاط قوت فرزندتان (' . $strong->take(3)->implode('، ') . ') را یادآوری کنید؛ اعتمادبه‌نفسِ ناشی از آن به بهبودِ حوزه‌های ضعیف کمک می‌کند.'];
+        }
+        $tips[] = ['icon' => '🗣️', 'tone' => 'mid', 'text' => 'به‌جای تمرکز روی «نمره»، درباره‌ی «چه چیزی یاد گرفتی؟» صحبت کنید تا یادگیری برایش لذت‌بخش بماند.'];
+        $tips[] = ['icon' => '⏰', 'tone' => 'mid', 'text' => 'یک زمان و مکانِ آرامِ ثابت برای مطالعه تعیین کنید و از پاداش‌های کوچک (نه لزوماً مادی) برای تلاش — نه فقط نتیجه — استفاده کنید.'];
+
+        return [
+            'assessment' => $examCount === 0 ? 'شروع مسیر' : ($overall >= 80 ? 'عالی' : ($overall >= 50 ? 'رو به رشد' : 'نیازمند حمایت')),
+            'strong' => $strong, 'weak' => $weak, 'tips' => $tips,
+        ];
     }
 
     public function take(Request $request, SmartExam $smartExam): Response|RedirectResponse

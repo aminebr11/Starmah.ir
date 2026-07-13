@@ -59,6 +59,29 @@ class GameController extends Controller
         ];
     }
 
+    /** تولید سؤالِ بازی با هوش مصنوعی (مشابه آزمون هوشمند). */
+    public function aiGenerate(Request $request, \App\Services\SmartExamAiService $ai): \Illuminate\Http\JsonResponse
+    {
+        $data = $request->validate([
+            'subject' => ['nullable', 'string', 'max:80'],
+            'topic' => ['nullable', 'string', 'max:120'],
+            'grade' => ['nullable', 'string', 'max:40'],
+            'count' => ['required', 'integer', 'min:1', 'max:15'],
+            'difficulty' => ['nullable', 'in:easy,medium,hard'],
+            'flavor' => ['nullable', 'string', 'max:60'],
+            'sample' => ['nullable', 'boolean'],
+        ]);
+        // بازی‌ها فقط سؤالِ چهارگزینه‌ای/درست‌ونادرست دارند
+        $result = $ai->generate([...$data, 'type' => 'mc',
+            'school_id' => $request->user()->school_id, 'teacher_id' => $request->user()->id]);
+        // فقط mc/tf را نگه می‌داریم
+        if (! empty($result['questions'])) {
+            $result['questions'] = collect($result['questions'])
+                ->filter(fn ($q) => in_array($q['type'] ?? 'mc', ['mc', 'tf']))->values()->all();
+        }
+        return response()->json($result);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $teacher = $request->user();
@@ -76,6 +99,12 @@ class GameController extends Controller
             'status'       => ($data['publish'] ?? true) ? 'active' : 'closed',
             'meta'         => $this->metaFrom($data),
         ]);
+
+        // ثبتِ خودکارِ سؤال‌های بازی در بانک سؤالات
+        $meta = ['subject' => $data['subject'] ?? null, 'grade' => $classroom->grade, 'source' => 'manual'];
+        foreach ($data['questions'] as $q) {
+            \App\Support\BankAccess::autosave($teacher, $q, $meta);
+        }
 
         return back()->with('flash', 'بازی ساخته شد 🎮');
     }

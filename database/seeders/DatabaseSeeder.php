@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
             CurriculumBookSeeder::class,
             ThemeSeeder::class,
             GameTemplateSeeder::class,
+            GameBoardSeeder::class,
             CurriculumSeeder::class,
             DemoSeeder::class,
         ]);

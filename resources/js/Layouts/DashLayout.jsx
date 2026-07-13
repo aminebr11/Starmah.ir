@@ -78,6 +78,7 @@ export const adminMenu = [
     { key: 'themes', label: 'تم‌ها (دنیاها)', icon: '🎨', href: '/admin/themes' },
     { key: 'game-templates', label: 'قالب‌های بازی', icon: '🎲', href: '/admin/game-templates' },
     { key: 'smart-lab', label: 'آزمایشگاه هوشمند', icon: '🧪', href: '/admin/smart-lab' },
+    { key: 'bank', label: 'بانک سؤالات', icon: '🗄️', href: '/question-bank' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/admin/reports' },
     { key: 'settings', label: 'تنظیمات پلتفرم', icon: '⚙️', href: '/admin/settings' },
 ];
@@ -90,6 +91,7 @@ export const schoolMenu = [
     { key: 'announcements', label: 'اطلاعیه‌ها', icon: '📢', href: '/school/announcements' },
     { key: 'attendance', label: 'حضور و غیاب', icon: '✅', href: '/school/attendance' },
     { key: 'examreports', label: 'گزارش آزمون‌ها', icon: '📊', href: '/school/exam-reports' },
+    { key: 'bank', label: 'بانک سؤالات', icon: '🗄️', href: '/question-bank' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/school/reports' },
 ];
 
@@ -99,8 +101,7 @@ export const teacherMenu = [
     { key: 'attendance', label: 'حضور و غیاب', icon: '✅', href: '/teacher/attendance' },
     { key: 'schedule', label: 'برنامه کلاسی', icon: '🗓️', href: '/teacher/schedule' },
     { key: 'gradebook', label: 'دفتر کلاسی', icon: '📔', href: '/teacher/gradebook' },
-    { key: 'exams', label: 'آزمون‌ها', icon: '📝', href: '/teacher/exams' },
-    { key: 'smart', label: 'آزمایشگاه هوشمند 🧪', icon: '🧠', href: '/teacher/smart-exams', flag: 'smart' },
+    { key: 'smart', label: 'آزمون هوشمند 🧪', icon: '🧠', href: '/teacher/smart-exams', flag: 'smart' },
     { key: 'studio', label: 'استودیوی بازی', icon: '🎮', href: '/teacher/studio' },
     { key: 'activities', label: 'امتیازدهی گروهی', icon: '🏅', href: '/teacher/activities' },
     { key: 'discipline', label: 'دفتر انضباط', icon: '⭐', href: '/teacher/discipline' },

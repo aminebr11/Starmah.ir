@@ -52,10 +52,11 @@ export default function SmartExamLab() {
     const runAi = async () => {
         setAiBusy(true); setAiMsg(null); setAiResults([]);
         try {
-            // اطلاعات پایه‌ی جدول به‌صورت خودکار به AI داده می‌شود (هم دستی هم AI از همین‌جا)
+            // همه‌ی اطلاعاتِ «اطلاعات پایه» به‌صورت خودکار به AI داده می‌شود
             const { data } = await axios.post(route('teacher.smart.ai'), {
                 ...ai, subject: form.data.subject, grade: form.data.grade,
                 topic: form.data.topic || form.data.chapter || form.data.subject,
+                book: form.data.book, chapter: form.data.chapter, goal: form.data.goal, kind: form.data.kind,
                 flavor: ai.flavor || (flavorTheme ? flavorTheme.name : ''),
             });
             setAiMsg({ ok: data.ok, mode: data.mode, text: data.message });
@@ -219,8 +220,9 @@ export default function SmartExamLab() {
                             <F label="مدت آزمون (دقیقه)"><input type="number" min={1} className="smart-input" value={form.data.rules.duration} onChange={(e) => setR('duration', +e.target.value)} dir="ltr" /></F>
                             <F label="تعداد تلاش مجاز"><input type="number" min={1} max={10} className="smart-input" value={form.data.rules.attempts} onChange={(e) => setR('attempts', +e.target.value)} dir="ltr" /></F>
                             <F label="حداقل نمره قبولی (٪)"><input type="number" min={0} max={100} className="smart-input" value={form.data.rules.pass} onChange={(e) => setR('pass', +e.target.value)} dir="ltr" /></F>
-                            <F label="تاریخ شروع (شمسی)"><JalaliDatePicker withTime value={form.data.opens_at || ''} onChange={(v) => form.setData('opens_at', v)} placeholder="بلافاصله" /></F>
-                            <F label="تاریخ پایان (شمسی)"><JalaliDatePicker withTime value={form.data.closes_at || ''} onChange={(v) => form.setData('closes_at', v)} placeholder="بدون پایان" /></F>
+                            <F label="تاریخ شروع (شمسی)"><JalaliDatePicker withTime value={form.data.opens_at || ''} onChange={(v) => form.setData('opens_at', v)} placeholder="بلافاصله" />{form.data.opens_at && <button type="button" onClick={() => form.setData('opens_at', '')} className="smart-btn ghost sm" style={{ marginTop: 5 }}>✕ پاک‌کردن (انتشار فوری)</button>}</F>
+                            <F label="تاریخ پایان (شمسی)"><JalaliDatePicker withTime value={form.data.closes_at || ''} onChange={(v) => form.setData('closes_at', v)} placeholder="بدون پایان" />{form.data.closes_at && <button type="button" onClick={() => form.setData('closes_at', '')} className="smart-btn ghost sm" style={{ marginTop: 5 }}>✕ پاک‌کردن (بدون مهلت)</button>}</F>
+                            <div style={{ gridColumn: '1/-1' }} className="smart-muted">🗓️ اگر تاریخ شروع خالی بماند، آزمون با انتشار بلافاصله در دسترسِ دانش‌آموزان قرار می‌گیرد. اگر تاریخ بگذارید، دقیقاً در همان زمان به‌طور خودکار برای دانش‌آموزان باز می‌شود.</div>
                             <div style={{ gridColumn: '1/-1', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 6 }}>
                                 {[['show_answer', 'نمایش پاسخ صحیح'], ['show_result', 'نمایش نتیجه به دانش‌آموز'], ['shuffle', 'ترتیب تصادفی سؤال'], ['shuffle_choices', 'جابه‌جایی گزینه‌ها'], ['one_per_page', 'یک سؤال در هر صفحه']].map(([k, t]) => (
                                     <label key={k} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5 }}><input type="checkbox" checked={!!form.data.rules[k]} onChange={(e) => setR(k, e.target.checked)} /> {t}</label>
@@ -264,6 +266,8 @@ export default function SmartExamLab() {
                                     <span className="st" style={{ background: ST_COLOR[e.status] }}>{ST_LABEL[e.status]}</span>
                                 </div>
                                 <div className="smart-muted" style={{ fontSize: 12, marginTop: 6 }}>{e.subject || ''}{e.topic ? ` · ${e.topic}` : ''} · {fa(e.questions)} سؤال · {fa(e.attempts)} تلاش{e.version > 1 ? ` · نسخه ${fa(e.version)}` : ''}</div>
+                                {e.scheduled && <div style={{ fontSize: 11.5, color: '#7c5cf0', fontWeight: 700, marginTop: 4 }}>🗓️ زمان‌بندی‌شده — انتشار خودکار: {e.jopens}</div>}
+                                {!e.scheduled && e.status === 'published' && <div style={{ fontSize: 11.5, color: '#2bb673', fontWeight: 700, marginTop: 4 }}>✅ هم‌اکنون در دسترسِ دانش‌آموزان{e.jcloses ? ` — تا ${e.jcloses}` : ''}</div>}
                                 <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
                                     <Link href={route('teacher.smart.edit', e.id)} className="smart-btn ghost sm">✏️ ویرایش</Link>
                                     <Link href={route('teacher.smart.report', e.id)} className="smart-btn ghost sm">📊 گزارش</Link>

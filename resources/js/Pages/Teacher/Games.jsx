@@ -1,5 +1,6 @@
 import { usePage, useForm, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
@@ -34,6 +35,27 @@ export default function Games() {
     const rmChoice = (qi, ci) => { const qs = [...form.data.questions]; if (qs[qi].choices.length > 2) { qs[qi] = { ...qs[qi], choices: qs[qi].choices.filter((_, j) => j !== ci) }; form.setData('questions', qs); } };
     const addQ = () => form.setData('questions', [...form.data.questions, blankQ()]);
     const rmQ = (i) => form.setData('questions', form.data.questions.filter((_, j) => j !== i));
+
+    // دستیار هوشمند طراحی سؤالِ بازی (منوی بسته؛ اطلاعات از فرم بالا)
+    const [aiOpen, setAiOpen] = useState(false);
+    const [ai, setAi] = useState({ count: 5, difficulty: 'easy', sample: false });
+    const [aiBusy, setAiBusy] = useState(false);
+    const [aiMsg, setAiMsg] = useState(null);
+    const [aiRes, setAiRes] = useState([]);
+    const runAi = async () => {
+        setAiBusy(true); setAiMsg(null); setAiRes([]);
+        try {
+            const { data } = await axios.post(route('teacher.games.ai'), { ...ai, subject: form.data.subject, topic: form.data.subject });
+            setAiMsg({ ok: data.ok, mode: data.mode, text: data.message });
+            if (data.ok) setAiRes((data.questions || []).map((q) => ({ ...q, _pick: true })));
+        } catch (e) { setAiMsg({ ok: false, text: e.response?.data?.message || 'خطا' }); }
+        setAiBusy(false);
+    };
+    const addAi = () => {
+        const picked = aiRes.filter((q) => q._pick).map((q) => ({ prompt: q.prompt, choices: (q.choices || []).map((c) => ({ value: c.value, correct: !!c.correct })) }));
+        form.setData('questions', [...form.data.questions.filter((q) => q.prompt.trim()), ...picked]);
+        setAiRes([]); setAiMsg(null);
+    };
 
     const submit = (e) => {
         e.preventDefault();
@@ -73,6 +95,38 @@ export default function Games() {
 
                     <div style={{ marginTop: 16 }}>
                         <b style={{ fontSize: 14 }}>سؤال‌های بازی</b>
+
+                        {/* دستیار هوشمند طراحی سؤال */}
+                        <div style={{ border: '1px solid #ddd6fe', borderRadius: 14, padding: 12, marginTop: 10, background: '#f5f3ff' }}>
+                            <button type="button" onClick={() => setAiOpen(!aiOpen)} style={{ width: '100%', textAlign: 'right', border: 0, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                🤖 دستیار هوشمند طراحی سؤال <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: 12 }}>(بر اساس درسِ همین بازی)</span>
+                                <span style={{ marginInlineStart: 'auto' }}>{aiOpen ? '▲' : '▼'}</span>
+                            </button>
+                            {aiOpen && (
+                                <div style={{ marginTop: 10 }}>
+                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'end' }}>
+                                        <div className="field" style={{ margin: 0 }}><label>تعداد</label><input type="number" min={1} max={15} className="input" style={{ width: 80 }} value={ai.count} onChange={(e) => setAi({ ...ai, count: +e.target.value })} dir="ltr" /></div>
+                                        <div className="field" style={{ margin: 0 }}><label>سختی</label><select className="input" value={ai.difficulty} onChange={(e) => setAi({ ...ai, difficulty: e.target.value })}><option value="easy">آسان</option><option value="medium">متوسط</option><option value="hard">دشوار</option></select></div>
+                                        <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={ai.sample} onChange={(e) => setAi({ ...ai, sample: e.target.checked })} /> حالت نمونه</label>
+                                        <button type="button" onClick={runAi} disabled={aiBusy || !form.data.subject} className="btn btn-sm">{aiBusy ? '…' : '✨ تولید'}</button>
+                                    </div>
+                                    {!form.data.subject && <div style={{ fontSize: 12, color: '#b45309', marginTop: 6 }}>ابتدا «درس» را در بالای فرم انتخاب کنید.</div>}
+                                    {aiMsg && <div style={{ marginTop: 8, fontSize: 12.5, color: aiMsg.ok ? '#166534' : '#b91c1c', fontWeight: 700 }}>{aiMsg.text}</div>}
+                                    {aiRes.length > 0 && (
+                                        <div style={{ marginTop: 8 }}>
+                                            {aiRes.map((q, i) => (
+                                                <label key={i} style={{ display: 'flex', gap: 8, padding: '6px 0', cursor: 'pointer', fontSize: 13 }}>
+                                                    <input type="checkbox" checked={q._pick} onChange={() => setAiRes(aiRes.map((x, j) => j === i ? { ...x, _pick: !x._pick } : x))} />
+                                                    <span>{q.prompt} <span style={{ color: 'var(--muted)' }}>({(q.choices || []).map((c) => c.value + (c.correct ? '✓' : '')).join('، ')})</span></span>
+                                                </label>
+                                            ))}
+                                            <button type="button" onClick={addAi} className="btn btn-sm" style={{ marginTop: 6 }}>➕ افزودن به بازی</button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
                         {form.data.questions.map((q, qi) => (
                             <div key={qi} style={{ border: '1px solid var(--line)', borderRadius: 14, padding: 12, marginTop: 10, background: 'var(--cream)' }}>
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>

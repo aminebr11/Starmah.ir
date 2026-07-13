@@ -44,10 +44,12 @@ class SmartExamAiService
             return ['ok' => true, 'mode' => 'sample', 'questions' => $this->sample($subject, $topic, $count, $type, $flavor), 'message' => 'این‌ها سؤال‌های نمونه‌ی آزمایشی‌اند (نه تولید واقعیِ هوش مصنوعی).'];
         }
 
+        $book = trim($opts['book'] ?? '');
+        $chapter = trim($opts['chapter'] ?? '');
+        $goal = trim($opts['goal'] ?? '');
         try {
-            $raw = $provider === 'openai'
-                ? $this->viaOpenAi($key, compact('subject', 'topic', 'grade', 'count', 'difficulty', 'type', 'flavor'))
-                : $this->viaAnthropic($key, compact('subject', 'topic', 'grade', 'count', 'difficulty', 'type', 'flavor'));
+            $ctx = compact('subject', 'topic', 'grade', 'count', 'difficulty', 'type', 'flavor', 'book', 'chapter', 'goal');
+            $raw = $provider === 'openai' ? $this->viaOpenAi($key, $ctx) : $this->viaAnthropic($key, $ctx);
             $questions = $this->validate($raw, $type);
             $this->log($opts, $provider, $count, count($questions), true, null);
             if (! $questions) {
@@ -64,8 +66,18 @@ class SmartExamAiService
     {
         $typeFa = ['mc' => 'چهارگزینه‌ای', 'tf' => 'درست/نادرست', 'desc' => 'تشریحی', 'blank' => 'جای خالی'][$o['type']] ?? 'چهارگزینه‌ای';
         $diffFa = ['easy' => 'آسان', 'medium' => 'متوسط', 'hard' => 'دشوار'][$o['difficulty']] ?? 'متوسط';
+        $ctx = '';
+        if (! empty($o['book'])) {
+            $ctx .= " از کتابِ «{$o['book']}»";
+        }
+        if (! empty($o['chapter'])) {
+            $ctx .= " فصلِ «{$o['chapter']}»";
+        }
+        if (! empty($o['goal'])) {
+            $ctx .= "؛ با هدفِ آموزشیِ «{$o['goal']}»";
+        }
         $p = "تو یک معلمِ باتجربه‌ی ایرانی هستی. برای دانش‌آموزِ پایه‌ی «{$o['grade']}»، "
-            . "دقیقاً درباره‌ی درسِ «{$o['subject']}» و موضوعِ «{$o['topic']}»، تعداد {$o['count']} سؤالِ {$typeFa} با سطحِ {$diffFa} بساز. "
+            . "دقیقاً درباره‌ی درسِ «{$o['subject']}» و موضوعِ «{$o['topic']}»{$ctx}، تعداد {$o['count']} سؤالِ {$typeFa} با سطحِ {$diffFa} بساز. "
             . "سؤال‌ها باید کاملاً مرتبط با همان درس و موضوع باشند (اگر درس فارسی یا علوم یا مطالعات است، سؤالِ ریاضی نساز). ";
         if (! empty($o['flavor'])) {
             $p .= "بافت و مثال‌های سؤال را از دنیای «{$o['flavor']}» بساز (مثلاً اگر فوتبال است، صحنه‌ها و شخصیت‌ها فوتبالی باشند)، "

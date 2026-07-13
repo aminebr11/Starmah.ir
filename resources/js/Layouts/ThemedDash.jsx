@@ -20,7 +20,6 @@ export default function ThemedDash({ title, active = '', children, actions = nul
         { key: 'home', label: 'خانه', icon: '🏠', href: '/dashboard' },
         { key: 'practice', label: 'مأموریت و تمرین', icon: '🎯', href: '/practice' },
         { key: 'gameworld', label: 'دنیای بازی‌ها', icon: '🎮', href: '/game-world' },
-        { key: 'exams', label: 'آزمون‌های من', icon: '💻', href: '/exams' },
         ...(smartLab ? [{ key: 'smart', label: 'آزمون هوشمند 🧪', icon: '🧠', href: '/student/smart-exams' }] : []),
         { key: 'board', label: 'رقابت تیم‌ها', icon: '🏆', href: '/leaderboard' },
         { key: 'reports', label: 'گزارش‌ها و نمودارها', icon: '📈', href: '/my-reports' },
@@ -40,7 +39,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
     const bottomNav = [
         { key: 'home', label: 'خانه', icon: '🏠', href: '/dashboard' },
         { key: 'gameworld', label: 'بازی‌ها', icon: '🎮', href: '/game-world' },
-        { key: 'exams', label: 'آزمون', icon: '💻', href: '/exams' },
+        ...(smartLab ? [{ key: 'smart', label: 'آزمون', icon: '🧠', href: '/student/smart-exams' }] : []),
         { key: 'board', label: 'رقابت', icon: '🏆', href: '/leaderboard' },
         { key: 'notices', label: 'اعلان‌ها', icon: '📢', href: '/notices' },
     ];

@@ -3,9 +3,10 @@ import ThemedDash from '@/Layouts/ThemedDash';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const hue = (p) => p >= 70 ? '#2bb673' : p >= 50 ? '#e8862e' : '#e8505b';
+const TONE = { good: '#2bb673', mid: '#f0952e', low: '#e8505b' };
 
 export default function SmartPerformance() {
-    const { subjects = [], totalAnswered = 0, overallPct = 0 } = usePage().props;
+    const { subjects = [], totalAnswered = 0, overallPct = 0, examCount = 0, student = {}, parent } = usePage().props;
     return (
         <ThemedDash title="کارنامه‌ی هوشمند من" active="smart">
             <div className="k3-card" style={{ background: 'linear-gradient(135deg,#6d28d9,#4c1d95)' }}>
@@ -54,6 +55,45 @@ export default function SmartPerformance() {
                     </div>
                 </div>
             ))}
+
+            {/* ===== راهنمای والدین ===== */}
+            {parent && (
+                <div className="k3-card" style={{ marginTop: 18, background: 'linear-gradient(135deg,rgba(43,182,115,.22),rgba(14,120,80,.15))' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 34 }}>👨‍👩‍👧</span>
+                        <div style={{ flex: 1, minWidth: 160 }}>
+                            <div style={{ fontWeight: 900, fontSize: 17 }}>راهنمای والدین</div>
+                            <div style={{ opacity: .85, fontSize: 12.5 }}>این بخش به شما کمک می‌کند فرزندتان را بهتر بشناسید و مسیر یادگیری‌اش را همراهی کنید.</div>
+                        </div>
+                        <span style={{ background: 'rgba(0,0,0,.22)', borderRadius: 20, padding: '6px 14px', fontWeight: 800, fontSize: 13 }}>ارزیابی کلی: {parent.assessment}</span>
+                    </div>
+
+                    {(parent.strong?.length > 0 || parent.weak?.length > 0) && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10, marginTop: 12 }}>
+                            <div style={{ background: 'rgba(255,255,255,.08)', borderRadius: 12, padding: 12 }}>
+                                <b style={{ fontSize: 13, color: '#7be0b0' }}>💪 نقاط قوت فرزندتان</b>
+                                <div style={{ fontSize: 12.5, marginTop: 6, lineHeight: 2 }}>{parent.strong?.length ? parent.strong.map((t, i) => <span key={i} style={{ display: 'inline-block', background: 'rgba(43,182,115,.25)', borderRadius: 20, padding: '2px 10px', margin: '0 3px 4px 0' }}>{t}</span>) : <span style={{ opacity: .7 }}>در حال شکل‌گیری…</span>}</div>
+                            </div>
+                            <div style={{ background: 'rgba(255,255,255,.08)', borderRadius: 12, padding: 12 }}>
+                                <b style={{ fontSize: 13, color: '#ffb3b3' }}>🎯 حوزه‌های نیازمند تمرین</b>
+                                <div style={{ fontSize: 12.5, marginTop: 6, lineHeight: 2 }}>{parent.weak?.length ? parent.weak.map((t, i) => <span key={i} style={{ display: 'inline-block', background: 'rgba(232,80,91,.25)', borderRadius: 20, padding: '2px 10px', margin: '0 3px 4px 0' }}>{t}</span>) : <span style={{ opacity: .7 }}>ضعف مشخصی دیده نمی‌شود 🌟</span>}</div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 10, marginTop: 12 }}>
+                        {parent.tips.map((t, i) => (
+                            <div key={i} style={{ display: 'flex', gap: 10, padding: 12, borderRadius: 14, background: 'rgba(255,255,255,.08)', borderInlineStart: `4px solid ${TONE[t.tone] || '#888'}` }}>
+                                <span style={{ fontSize: 22, flex: 'none' }}>{t.icon}</span>
+                                <span style={{ fontSize: 13, lineHeight: 2 }}>{t.text}</span>
+                            </div>
+                        ))}
+                    </div>
+                    <div style={{ textAlign: 'center', marginTop: 12 }}>
+                        <button onClick={() => window.print()} className="k3-btn ghost" style={{ fontSize: 13 }}>🖨️ چاپ برای والدین</button>
+                    </div>
+                </div>
+            )}
         </ThemedDash>
     );
 }
