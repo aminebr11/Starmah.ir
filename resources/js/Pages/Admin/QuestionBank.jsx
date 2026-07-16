@@ -1,14 +1,16 @@
 import { usePage, router, useForm } from '@inertiajs/react';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, createContext, useContext } from 'react';
 import axios from 'axios';
 import DashLayout, { adminMenu, schoolMenu } from '@/Layouts/DashLayout';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const TYPE = { mc: 'چهارگزینه‌ای', tf: 'درست/نادرست', desc: 'تشریحی', blank: 'جای خالی' };
 const DIFF = { easy: 'آسان', medium: 'متوسط', hard: 'دشوار' };
-const blankQ = () => ({ type: 'mc', prompt: '', difficulty: 'medium', explanation: '', choices: [{ value: '', correct: true }, { value: '', correct: false }] });
+const blankQ = () => ({ type: 'mc', prompt: '', topic: '', difficulty: 'medium', explanation: '', image: null, choices: [{ value: '', correct: true }, { value: '', correct: false }] });
 
-// ابزارِ آبشاری: از درختِ برنامه‌ی درسی، کلاس‌ها و درس‌های یک مقطع را می‌دهد
+// انتخابِ گروهی (برای حذف گروهی) — بدون prop-drilling
+const SelCtx = createContext(null);
+
 function useCurriculum(curriculum) {
     const levels = useMemo(() => curriculum.map((l) => l.level), [curriculum]);
     const gradesOf = (level) => (curriculum.find((l) => l.level === level)?.grades || []).map((g) => g.grade);
@@ -31,6 +33,16 @@ export default function QuestionBank() {
     const apply = () => router.get(route('bank.index'), f, { preserveState: true, preserveScroll: true });
     const reset = () => router.get(route('bank.index'), {}, { preserveState: true });
 
+    // انتخابِ گروهی
+    const [sel, setSel] = useState(() => new Set());
+    const toggle = (id) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    const clearSel = () => setSel(new Set());
+    const bulkDelete = () => {
+        if (sel.size === 0) return;
+        if (!confirm(`حذفِ ${fa(sel.size)} سؤالِ انتخاب‌شده؟`)) return;
+        router.post(route('bank.bulk-destroy'), { ids: [...sel] }, { preserveScroll: true, onSuccess: clearSel });
+    };
+
     return (
         <DashLayout title="بانک سؤالات" roleLabel={isSuper ? 'ادمین کل' : 'مدیر مدرسه'} menu={menu} active="bank">
             {banner && <div className="panel" style={{ borderColor: 'var(--gold)', background: '#fff8e8' }}><b>{banner}</b></div>}
@@ -46,15 +58,28 @@ export default function QuestionBank() {
                     </div>
                 </div>
 
-                {tab === 'list' && <ListTab {...{ f, setF, cur, apply, reset, grouped }} />}
-                {tab === 'add' && <AddTab {...{ isSuper, cur, aiOn, onDone: () => setTab('list') }} />}
-                {tab === 'share' && isSuper && share && <ShareTab {...{ share, cur }} />}
+                <SelCtx.Provider value={{ isSuper, sel, toggle }}>
+                    {tab === 'list' && (
+                        <>
+                            {isSuper && sel.size > 0 && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#fdecee', border: '1px solid #f5c2c7', borderRadius: 10, padding: '9px 12px', marginTop: 12 }}>
+                                    <b style={{ color: '#b0333f' }}>{fa(sel.size)} سؤال انتخاب شده</b>
+                                    <button onClick={bulkDelete} className="btn btn-sm" style={{ background: '#e8505b', marginInlineStart: 'auto' }}>🗑️ حذف گروهی</button>
+                                    <button onClick={clearSel} className="btn btn-ghost btn-sm">لغو انتخاب</button>
+                                </div>
+                            )}
+                            <ListTab {...{ f, setF, cur, apply, reset, grouped }} />
+                        </>
+                    )}
+                    {tab === 'add' && <AddTab {...{ isSuper, cur, aiOn, onDone: () => setTab('list') }} />}
+                    {tab === 'share' && isSuper && share && <ShareTab {...{ share, cur }} />}
+                </SelCtx.Provider>
             </div>
         </DashLayout>
     );
 }
 
-/* ───────── فهرست: فیلترِ آبشاری + نمایشِ گروه‌بندی‌شده‌ی مقطع→کلاس→درس ───────── */
+/* ───────── فهرست: فیلترِ آبشاری + گروه‌بندیِ مقطع→کلاس→درس→شماره درس ───────── */
 function ListTab({ f, setF, cur, apply, reset, grouped }) {
     const grades = cur.gradesOf(f.level);
     const subjects = cur.subjectsOf(f.level, f.grade);
@@ -109,26 +134,32 @@ function LevelGroup({ lv }) {
 
 function SubjectGroup({ s }) {
     const [open, setOpen] = useState(true);
+    const count = (s.lessons || []).reduce((n, l) => n + l.items.length, 0);
     return (
         <div style={{ marginInlineStart: 10, marginBottom: 8 }}>
             <button onClick={() => setOpen(!open)} style={{ border: 0, background: '#eef3ff', color: '#2555c0', borderRadius: 10, padding: '5px 12px', cursor: 'pointer', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-                {open ? '▾' : '▸'} 📖 {s.subject} <span style={{ opacity: .7 }}>({fa(s.items.length)})</span>
+                {open ? '▾' : '▸'} 📖 {s.subject} <span style={{ opacity: .7 }}>({fa(count)})</span>
             </button>
-            {open && <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>{s.items.map((q) => <BankRow key={q.id} q={q} />)}</div>}
+            {open && (s.lessons || []).map((l) => (
+                <div key={l.lesson_no} style={{ marginInlineStart: 12, marginTop: 8 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)', marginBottom: 6 }}>📑 {l.lesson_no === '—' ? 'بدون شماره درس' : `درس ${l.lesson_no}`} <span style={{ opacity: .7 }}>({fa(l.items.length)})</span></div>
+                    <div style={{ display: 'grid', gap: 8 }}>{l.items.map((q) => <BankRow key={q.id} q={q} />)}</div>
+                </div>
+            ))}
         </div>
     );
 }
 
-/* ───────── ساخت سؤال: آبشاریِ مقطع→کلاس→درس + AI + سؤال‌های دستی ───────── */
+/* ───────── ساخت سؤال: آبشاریِ مقطع→کلاس→درس→شماره درس + AI + سؤال دستی + عکس ───────── */
 function AddTab({ isSuper, cur, aiOn, onDone }) {
-    const add = useForm({ level: '', grade: '', subject: '', topic: '', scope: isSuper ? 'global' : 'school', questions: [blankQ()] });
+    const add = useForm({ level: '', grade: '', subject: '', lesson_no: '', topic: '', scope: isSuper ? 'global' : 'school', questions: [blankQ()] });
     const grades = cur.gradesOf(add.data.level);
     const subjects = cur.subjectsOf(add.data.level, add.data.grade);
 
     const setQ = (i, k, v) => { const qs = [...add.data.questions]; qs[i] = { ...qs[i], [k]: v }; add.setData('questions', qs); };
     const setCh = (qi, ci, v) => { const qs = [...add.data.questions]; qs[qi].choices[ci].value = v; add.setData('questions', [...qs]); };
     const setCorrect = (qi, ci) => { const qs = [...add.data.questions]; qs[qi].choices = qs[qi].choices.map((c, j) => ({ ...c, correct: j === ci })); add.setData('questions', [...qs]); };
-    const submitAdd = () => add.post(route('bank.store'), { preserveScroll: true, onSuccess: () => { add.reset(); add.setData('questions', [blankQ()]); onDone(); } });
+    const submitAdd = () => add.post(route('bank.store'), { preserveScroll: true, forceFormData: true, onSuccess: () => { add.reset(); add.setData('questions', [blankQ()]); onDone(); } });
 
     const [ai, setAi] = useState({ count: 5, type: 'mc', difficulty: 'medium', sample: false });
     const [aiBusy, setAiBusy] = useState(false); const [aiMsg, setAiMsg] = useState(null); const [aiRes, setAiRes] = useState([]);
@@ -140,16 +171,15 @@ function AddTab({ isSuper, cur, aiOn, onDone }) {
         } catch (e) { setAiMsg({ ok: false, text: e.response?.data?.message || 'خطا' }); }
         setAiBusy(false);
     };
-    const addAiToList = () => { add.setData('questions', [...add.data.questions.filter((q) => q.prompt.trim()), ...aiRes.map((q) => ({ ...q, source: 'ai' }))]); setAiRes([]); setAiMsg(null); };
+    const addAiToList = () => { add.setData('questions', [...add.data.questions.filter((q) => q.prompt.trim()), ...aiRes.map((q) => ({ ...q, image: null, source: 'ai' }))]); setAiRes([]); setAiMsg(null); };
 
     const catReady = add.data.level && add.data.grade && add.data.subject;
 
     return (
         <div style={{ marginTop: 14 }}>
-            {/* دسته‌بندیِ آبشاری */}
             <div style={{ background: '#f6f8fc', border: '1px solid var(--line)', borderRadius: 12, padding: 12 }}>
-                <b style={{ fontSize: 13.5 }}>① دسته‌بندی (مقطع ← کلاس ← درس)</b>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, marginTop: 8 }}>
+                <b style={{ fontSize: 13.5 }}>① دسته‌بندی (مقطع ← کلاس ← درس ← شماره درس)</b>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 10, marginTop: 8 }}>
                     <div className="field" style={{ margin: 0 }}><label>مقطع</label>
                         <select className="input" value={add.data.level} onChange={(e) => { add.setData('level', e.target.value); add.setData('grade', ''); add.setData('subject', ''); }}>
                             <option value="">— انتخاب —</option>{cur.levels.map((l) => <option key={l} value={l}>{l}</option>)}
@@ -162,13 +192,13 @@ function AddTab({ isSuper, cur, aiOn, onDone }) {
                         <select className="input" value={add.data.subject} onChange={(e) => add.setData('subject', e.target.value)} disabled={!add.data.grade}>
                             <option value="">— انتخاب —</option>{subjects.map((s) => <option key={s} value={s}>{s}</option>)}
                         </select></div>
-                    <div className="field" style={{ margin: 0 }}><label>مبحث (اختیاری)</label><input className="input" value={add.data.topic} onChange={(e) => add.setData('topic', e.target.value)} placeholder="مثلاً: ضرب" /></div>
+                    <div className="field" style={{ margin: 0 }}><label>شماره درس</label><input className="input" value={add.data.lesson_no} onChange={(e) => add.setData('lesson_no', e.target.value)} placeholder="مثلاً: ۳" dir="ltr" /></div>
+                    <div className="field" style={{ margin: 0 }}><label>موضوع سؤال (اختیاری)</label><input className="input" value={add.data.topic} onChange={(e) => add.setData('topic', e.target.value)} placeholder="مثلاً: ضرب" /></div>
                     {isSuper && <div className="field" style={{ margin: 0 }}><label>دامنه</label><select className="input" value={add.data.scope} onChange={(e) => add.setData('scope', e.target.value)}><option value="global">سراسری (همه)</option><option value="school">فقط مدرسه</option></select></div>}
                 </div>
                 {!catReady && <div style={{ fontSize: 12, color: '#b0333f', marginTop: 6 }}>ابتدا مقطع، کلاس و درس را انتخاب کنید.</div>}
             </div>
 
-            {/* دستیار AI */}
             <div style={{ border: '1px solid #ddd6fe', borderRadius: 12, padding: 12, marginTop: 12, background: '#f5f3ff', opacity: catReady ? 1 : .55, pointerEvents: catReady ? 'auto' : 'none' }}>
                 <b style={{ fontSize: 13.5 }}>② 🤖 ساخت سؤال با هوش مصنوعی {!aiOn && <span style={{ fontSize: 11, color: '#b0333f' }}>(کلید AI تنظیم نشده — «نمونه» را بزنید)</span>}</b>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'end', marginTop: 8 }}>
@@ -181,7 +211,6 @@ function AddTab({ isSuper, cur, aiOn, onDone }) {
                 {aiRes.length > 0 && <div style={{ marginTop: 8 }}>{aiRes.map((q, i) => <div key={i} style={{ fontSize: 13, padding: '3px 0' }}>• {q.prompt}</div>)}<button type="button" onClick={addAiToList} className="btn btn-sm" style={{ marginTop: 6 }}>➕ افزودن به فهرست</button></div>}
             </div>
 
-            {/* سؤال‌های دستی */}
             <div style={{ marginTop: 12, opacity: catReady ? 1 : .55, pointerEvents: catReady ? 'auto' : 'none' }}>
                 <b style={{ fontSize: 13.5 }}>③ سؤال‌ها</b>
                 {add.data.questions.map((q, qi) => (
@@ -197,6 +226,12 @@ function AddTab({ isSuper, cur, aiOn, onDone }) {
                                 <input className="input" value={c.value} onChange={(e) => setCh(qi, ci, e.target.value)} placeholder={`گزینه ${fa(ci + 1)}`} />
                             </div>
                         ))}
+                        {/* افزودن عکس به سؤال */}
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' }}>
+                            <label style={{ fontSize: 12.5, color: 'var(--muted)' }}>🖼️ عکس سؤال (اختیاری):</label>
+                            <input type="file" accept="image/*" className="input" style={{ padding: 6, flex: 1, minWidth: 180 }} onChange={(e) => setQ(qi, 'image', e.target.files[0] || null)} />
+                            {q.image && <span style={{ fontSize: 12, color: '#166534' }}>✓ {q.image.name}</span>}
+                        </div>
                     </div>
                 ))}
                 <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
@@ -222,8 +257,6 @@ function ShareTab({ share, cur }) {
                 تعیین کنید بانکِ سؤالاتِ سراسری در چه <b>مقطع/کلاس/درسی</b> برای چه <b>مدرسه‌ای</b> در دسترس باشد.
                 هر فیلدی که خالی بماند یعنی «همه». پس از افزودن، معلمانِ آن مدرسه بنا به پایه‌ی تدریسیِ خود به این درس‌ها دسترسی می‌یابند.
             </p>
-
-            {/* افزودنِ مجوز */}
             <div style={{ background: '#f6f8fc', border: '1px solid var(--line)', borderRadius: 12, padding: 12 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10 }}>
                     <div className="field" style={{ margin: 0 }}><label>مدرسه *</label>
@@ -245,8 +278,6 @@ function ShareTab({ share, cur }) {
                 </div>
                 <button onClick={submit} disabled={!g.data.school_id || g.processing} className="btn" style={{ marginTop: 10 }}>➕ افزودن دسترسی</button>
             </div>
-
-            {/* فهرستِ مجوزهای فعلی */}
             <div style={{ marginTop: 14 }}>
                 <b style={{ fontSize: 13.5 }}>دسترسی‌های فعال ({fa(share.grants.length)})</b>
                 {share.grants.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13 }}>هنوز دسترسی‌ای تعریف نشده است.</p>}
@@ -266,13 +297,15 @@ function ShareTab({ share, cur }) {
     );
 }
 
-/* ───────── ردیفِ سؤال با ویرایش/حذف ───────── */
+/* ───────── ردیفِ سؤال با انتخاب/ویرایش/حذف + عکس + طراح ───────── */
 function BankRow({ q }) {
+    const { isSuper, sel, toggle } = useContext(SelCtx);
     const [edit, setEdit] = useState(false);
     const form = useForm({ prompt: q.prompt, choices: q.choices || [], explanation: q.explanation || '', subject: q.subject || '', grade: q.grade || '', level: q.level || '', topic: q.topic || '', difficulty: q.difficulty || 'medium' });
     const save = () => form.put(route('bank.update', q.id), { preserveScroll: true, onSuccess: () => setEdit(false) });
+    const selected = sel.has(q.id);
     return (
-        <div style={{ border: '1px solid var(--line)', borderRadius: 12, padding: 12, background: '#fff' }}>
+        <div style={{ border: `1px solid ${selected ? '#e8505b' : 'var(--line)'}`, borderRadius: 12, padding: 12, background: selected ? '#fff5f5' : '#fff' }}>
             {edit ? (
                 <div style={{ display: 'grid', gap: 8 }}>
                     <textarea className="input" rows={2} value={form.data.prompt} onChange={(e) => form.setData('prompt', e.target.value)} />
@@ -282,15 +315,17 @@ function BankRow({ q }) {
                             <input className="input" value={c.value} onChange={(e) => { const ch = [...form.data.choices]; ch[ci] = { ...ch[ci], value: e.target.value }; form.setData('choices', ch); }} />
                         </div>
                     ))}
+                    <input className="input" value={form.data.topic} onChange={(e) => form.setData('topic', e.target.value)} placeholder="موضوع سؤال" />
                     <input className="input" value={form.data.explanation} onChange={(e) => form.setData('explanation', e.target.value)} placeholder="توضیح آموزشی" />
                     <div style={{ display: 'flex', gap: 6 }}><button onClick={save} className="btn btn-sm">💾 ذخیره</button><button onClick={() => setEdit(false)} className="btn btn-ghost btn-sm">انصراف</button></div>
                 </div>
             ) : (
                 <>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 4 }}>
+                        {isSuper && <input type="checkbox" checked={selected} onChange={() => toggle(q.id)} title="انتخاب برای حذف گروهی" />}
                         <span className="tag" style={{ background: q.source === 'ai' ? '#ede9fe' : '#e0f2fe', color: q.source === 'ai' ? '#6d28d9' : '#0369a1', fontSize: 11 }}>{q.source === 'ai' ? 'AI' : q.source === 'sample' ? 'نمونه' : 'دستی'}</span>
-                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>{TYPE[q.type]} · {DIFF[q.difficulty]}{q.topic ? ` · ${q.topic}` : ''}</span>
-                        {q.author && <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>👤 {q.author}</span>}
+                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>{TYPE[q.type]} · {DIFF[q.difficulty]}{q.topic ? ` · موضوع: ${q.topic}` : ''}</span>
+                        {q.author && <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>👤 طراح: {q.author}</span>}
                         {q.can_edit && (
                             <span style={{ marginInlineStart: 'auto', display: 'flex', gap: 4 }}>
                                 <button onClick={() => setEdit(true)} className="btn btn-ghost btn-sm">✏️</button>
@@ -299,6 +334,7 @@ function BankRow({ q }) {
                         )}
                     </div>
                     <b style={{ fontSize: 14 }}>{q.prompt}</b>
+                    {q.media && <div style={{ marginTop: 6 }}><img src={q.media} alt="" style={{ maxWidth: '100%', maxHeight: 180, borderRadius: 8, border: '1px solid var(--line)' }} /></div>}
                     {(q.choices || []).length > 0 && <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 3 }}>{(q.choices || []).map((c) => (c.correct ? '✅ ' : '▫️ ') + c.value).join('   ')}</div>}
                 </>
             )}

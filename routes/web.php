@@ -225,6 +225,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
         Route::post('/{smartExam}/build-game', [\App\Http\Controllers\Teacher\SmartExamController::class, 'buildGame'])->name('buildgame');
         Route::post('/ai/generate', [\App\Http\Controllers\Teacher\SmartExamController::class, 'aiGenerate'])->name('ai');
         Route::get('/bank/list', [\App\Http\Controllers\Teacher\SmartExamController::class, 'bank'])->name('bank');
+        Route::get('/bank/pick', [\App\Http\Controllers\Teacher\SmartExamController::class, 'bankPick'])->name('bankpick');
         Route::post('/bank', [\App\Http\Controllers\Teacher\SmartExamController::class, 'bankStore'])->name('bank.store');
         Route::delete('/bank/{question}', [\App\Http\Controllers\Teacher\SmartExamController::class, 'bankDestroy'])->name('bank.destroy');
     });
@@ -255,6 +256,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/', [\App\Http\Controllers\QuestionBankController::class, 'store'])->name('store');
         Route::put('/{question}', [\App\Http\Controllers\QuestionBankController::class, 'update'])->name('update');
         Route::delete('/{question}', [\App\Http\Controllers\QuestionBankController::class, 'destroy'])->name('destroy');
+        Route::post('/bulk-destroy', [\App\Http\Controllers\QuestionBankController::class, 'bulkDestroy'])->name('bulk-destroy');
         Route::post('/ai', [\App\Http\Controllers\QuestionBankController::class, 'ai'])->name('ai');
         Route::post('/share', [\App\Http\Controllers\QuestionBankController::class, 'share'])->name('share');
         Route::delete('/share/{bankShare}', [\App\Http\Controllers\QuestionBankController::class, 'unshare'])->name('unshare');

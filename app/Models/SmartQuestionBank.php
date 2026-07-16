@@ -9,7 +9,7 @@ class SmartQuestionBank extends Model
     protected $table = 'smart_question_bank';
     protected $fillable = [
         'school_id', 'teacher_id', 'scope', 'level', 'type', 'prompt', 'choices', 'answer', 'explanation',
-        'grade', 'subject', 'book', 'chapter', 'topic', 'goal', 'difficulty', 'points', 'time_limit',
+        'grade', 'subject', 'lesson_no', 'book', 'chapter', 'topic', 'goal', 'difficulty', 'points', 'time_limit',
         'tags', 'media_path', 'source', 'approval', 'used_count', 'correct_pct', 'version',
     ];
     protected $casts = ['choices' => 'array', 'answer' => 'array'];

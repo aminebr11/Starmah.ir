@@ -70,6 +70,26 @@ export default function SmartExamLab() {
         setAiResults([]); setAiMsg(null); setStep(3);
     };
 
+    // بانک سؤالات — انتخابِ درس ← شماره درس + جست‌وجو، افزودن به آزمون
+    const [bankOpen, setBankOpen] = useState(false);
+    const [bankFacets, setBankFacets] = useState([]);
+    const [bankSubject, setBankSubject] = useState(''); const [bankLesson, setBankLesson] = useState(''); const [bankSearch, setBankSearch] = useState('');
+    const [bankList, setBankList] = useState([]); const [bankBusy, setBankBusy] = useState(false);
+    const loadBank = async () => {
+        setBankBusy(true);
+        try {
+            const { data } = await axios.get(route('teacher.smart.bankpick'), { params: { subject: bankSubject, lesson_no: bankLesson, search: bankSearch } });
+            setBankFacets(data.facets || []); setBankList((data.questions || []).map((q) => ({ ...q, _pick: false })));
+        } catch (e) { setBankList([]); }
+        setBankBusy(false);
+    };
+    const addBankPicked = () => {
+        const picked = bankList.filter((q) => q._pick).map((q) => ({ type: q.type || 'mc', prompt: q.prompt, explanation: q.explanation || '', answer: q.answer || '', points: 1, choices: (q.choices || []).map((c) => ({ value: c.value, correct: !!c.correct })) }));
+        form.setData('questions', [...form.data.questions.filter((q) => q.prompt.trim()), ...picked]);
+        setBankList(bankList.map((q) => ({ ...q, _pick: false })));
+    };
+    const bankLessons = (bankFacets.find((s) => s.subject === bankSubject)?.lessons) || [];
+
     const save = (status) => {
         const payload = { ...form.data, status };
         const opts = { preserveScroll: false };
@@ -142,9 +162,38 @@ export default function SmartExamLab() {
                         </div>
                     )}
 
-                    {/* گام ۳ — سؤال‌ها (دستی + AI) */}
+                    {/* گام ۳ — سؤال‌ها (دستی + AI + بانک) */}
                     {step === 3 && (
                         <div>
+                            {/* بانک سؤالات — انتخاب از سؤال‌های در دسترس بر اساس درس و شماره درس */}
+                            <div className="smart-panel" style={{ background: '#ecfeff', marginBottom: 14 }}>
+                                <button type="button" onClick={() => { const n = !bankOpen; setBankOpen(n); if (n) loadBank(); }} className="smart-h" style={{ fontSize: 15, width: '100%', border: 0, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                    🗄️ بانک سؤالات
+                                    <span className="smart-muted" style={{ fontSize: 12, fontWeight: 400, marginInlineStart: 8 }}>(انتخاب سؤال از سؤال‌های در دسترس — بر اساس درس و شماره درس)</span>
+                                    <span style={{ marginInlineStart: 'auto', fontSize: 18 }}>{bankOpen ? '▲' : '▼'}</span>
+                                </button>
+                                {bankOpen && (<>
+                                    <div className="smart-grid" style={{ marginTop: 10 }}>
+                                        <F label="درس"><select className="smart-input" value={bankSubject} onChange={(e) => { setBankSubject(e.target.value); setBankLesson(''); }}><option value="">همه‌ی درس‌ها</option>{bankFacets.map((s) => <option key={s.subject} value={s.subject}>{s.subject}</option>)}</select></F>
+                                        <F label="شماره درس"><select className="smart-input" value={bankLesson} onChange={(e) => setBankLesson(e.target.value)} disabled={!bankSubject}><option value="">همه</option>{bankLessons.map((l) => <option key={l} value={l === '—' ? '' : l}>{l}</option>)}</select></F>
+                                        <F label="جست‌وجو"><input className="smart-input" value={bankSearch} onChange={(e) => setBankSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && loadBank()} placeholder="متن سؤال…" /></F>
+                                        <F label="&nbsp;"><button type="button" onClick={loadBank} className="smart-btn sm">{bankBusy ? '…' : '🔍 اعمال'}</button></F>
+                                    </div>
+                                    {bankList.length === 0 ? <div className="smart-muted" style={{ fontSize: 12.5, marginTop: 8 }}>سؤالی یافت نشد.</div> : (
+                                        <div style={{ marginTop: 10 }}>
+                                            {bankList.map((q, i) => (
+                                                <label key={q.id} className="smart-qcard" style={{ display: 'flex', gap: 10, cursor: 'pointer' }}>
+                                                    <input type="checkbox" checked={q._pick} onChange={() => setBankList(bankList.map((x, j) => j === i ? { ...x, _pick: !x._pick } : x))} />
+                                                    <div style={{ flex: 1 }}><b style={{ fontSize: 13.5 }}>{q.prompt}</b>
+                                                        <div className="smart-muted" style={{ fontSize: 12 }}>{[q.subject, q.lesson_no ? `درس ${q.lesson_no}` : null].filter(Boolean).join(' · ')} · {(q.choices || []).map((c) => c.value + (c.correct ? ' ✓' : '')).join(' · ')}</div></div>
+                                                </label>
+                                            ))}
+                                            {bankList.some((q) => q._pick) && <button type="button" onClick={addBankPicked} className="smart-btn sm">➕ افزودن سؤال‌های انتخابی به آزمون</button>}
+                                        </div>
+                                    )}
+                                </>)}
+                            </div>
+
                             {aiEnabled && (
                                 <div className="smart-panel" style={{ background: '#f5f2ff', marginBottom: 14 }}>
                                     <button type="button" onClick={() => setAiOpen(!aiOpen)} className="smart-h" style={{ fontSize: 15, width: '100%', border: 0, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>

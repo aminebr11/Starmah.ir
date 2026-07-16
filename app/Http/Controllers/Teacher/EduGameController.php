@@ -45,16 +45,17 @@ class EduGameController extends Controller
     /** سؤال‌های بانک (قابل‌مشاهده برای معلم) برای استفاده در بازی. */
     public function bankQuestions(Request $request): \Illuminate\Http\JsonResponse
     {
-        $q = \App\Support\BankAccess::visibleQuery($request->user())
-            ->whereIn('type', ['mc', 'tf'])
-            ->when($request->subject, fn ($x) => $x->where('subject', $request->subject))
-            ->when($request->search, fn ($x) => $x->where('prompt', 'like', '%' . $request->search . '%'))
-            ->latest()->limit(100)->get()
+        $user = $request->user();
+        $q = \App\Support\BankAccess::pickerQuery($user, $request->subject, $request->lesson_no, $request->search)
+            ->latest()->limit(150)->get()
             ->map(fn ($b) => [
                 'id' => $b->id, 'prompt' => $b->prompt, 'choices' => $b->choices ?? [],
-                'subject' => $b->subject, 'difficulty' => $b->difficulty,
+                'subject' => $b->subject ?: $b->book, 'lesson_no' => $b->lesson_no, 'difficulty' => $b->difficulty,
             ]);
-        return response()->json(['questions' => $q]);
+        return response()->json([
+            'questions' => $q,
+            'facets' => \App\Support\BankAccess::pickerFacets($user),
+        ]);
     }
 
     private function payload(Request $request, array $extra = []): array

@@ -196,6 +196,23 @@ class SmartExamController extends Controller
     }
 
     // ── بانک سؤال ──
+    /** انتخابگرِ بانک برای افزودن سؤال به آزمون (JSON) — با فیلترِ درس/شماره‌درس/جست‌وجو. */
+    public function bankPick(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $teacher = $request->user();
+        $q = \App\Support\BankAccess::pickerQuery($teacher, $request->subject, $request->lesson_no, $request->search)
+            ->latest()->limit(150)->get()
+            ->map(fn ($b) => [
+                'id' => $b->id, 'type' => $b->type, 'prompt' => $b->prompt, 'choices' => $b->choices ?? [],
+                'answer' => $b->answer, 'explanation' => $b->explanation,
+                'subject' => $b->subject ?: $b->book, 'lesson_no' => $b->lesson_no, 'difficulty' => $b->difficulty,
+            ]);
+        return response()->json([
+            'questions' => $q,
+            'facets' => \App\Support\BankAccess::pickerFacets($teacher),
+        ]);
+    }
+
     public function bank(Request $request): Response
     {
         $teacher = $request->user();

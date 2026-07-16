@@ -55,7 +55,9 @@ export default function GameStudio() {
     };
     const addAi = () => { const picked = aiRes.filter((q) => q._pick).map((q) => ({ type: q.type || 'mc', prompt: q.prompt, explanation: q.explanation, points: 10, choices: (q.choices || []).map((c) => ({ value: c.value, correct: !!c.correct })) })); form.setData('questions', [...form.data.questions.filter((q) => q.prompt.trim()), ...picked]); setAiRes([]); setAiMsg(null); };
     const [bankOpen, setBankOpen] = useState(false); const [bankQ, setBankQ] = useState([]); const [bankSearch, setBankSearch] = useState('');
-    const loadBank = async () => { try { const { data } = await axios.get(route('teacher.studio.bank'), { params: { subject: form.data.subject, search: bankSearch } }); setBankQ((data.questions || []).map((q) => ({ ...q, _pick: false }))); } catch (e) { setBankQ([]); } };
+    const [bankFacets, setBankFacets] = useState([]); const [bankSubject, setBankSubject] = useState(''); const [bankLesson, setBankLesson] = useState('');
+    const loadBank = async () => { try { const { data } = await axios.get(route('teacher.studio.bank'), { params: { subject: bankSubject || form.data.subject, lesson_no: bankLesson, search: bankSearch } }); setBankFacets(data.facets || []); setBankQ((data.questions || []).map((q) => ({ ...q, _pick: false }))); } catch (e) { setBankQ([]); } };
+    const bankLessons = (bankFacets.find((s) => s.subject === bankSubject)?.lessons) || [];
     const addBank = () => { const picked = bankQ.filter((q) => q._pick).map((q) => ({ type: 'mc', prompt: q.prompt, points: 10, choices: (q.choices || []).map((c) => ({ value: c.value, correct: !!c.correct })) })); form.setData('questions', [...form.data.questions.filter((q) => q.prompt.trim()), ...picked]); setBankOpen(false); };
 
     const addQ = () => form.setData('questions', [...form.data.questions, blankQ()]);
@@ -176,13 +178,15 @@ export default function GameStudio() {
                         )}
                         {bankOpen && (
                             <div style={{ border: '1px solid #bfdbfe', borderRadius: 12, padding: 12, marginBottom: 10, background: '#eff6ff' }}>
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                    <input className="input" value={bankSearch} onChange={(e) => setBankSearch(e.target.value)} placeholder="جست‌وجو در بانک" />
-                                    <button type="button" onClick={loadBank} className="btn btn-sm">🔍</button>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 8 }}>
+                                    <select className="input" value={bankSubject} onChange={(e) => { setBankSubject(e.target.value); setBankLesson(''); }}><option value="">همه‌ی درس‌ها</option>{bankFacets.map((s) => <option key={s.subject} value={s.subject}>{s.subject}</option>)}</select>
+                                    <select className="input" value={bankLesson} onChange={(e) => setBankLesson(e.target.value)} disabled={!bankSubject}><option value="">همه شماره‌درس‌ها</option>{bankLessons.map((l) => <option key={l} value={l === '—' ? '' : l}>{l}</option>)}</select>
+                                    <input className="input" value={bankSearch} onChange={(e) => setBankSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && loadBank()} placeholder="جست‌وجو در بانک" />
+                                    <button type="button" onClick={loadBank} className="btn btn-sm">🔍 اعمال</button>
                                 </div>
-                                <div style={{ maxHeight: 200, overflowY: 'auto', marginTop: 8 }}>
+                                <div style={{ maxHeight: 220, overflowY: 'auto', marginTop: 8 }}>
                                     {bankQ.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>سؤالی در بانک یافت نشد.</div>}
-                                    {bankQ.map((q, i) => <label key={q.id} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 13, cursor: 'pointer' }}><input type="checkbox" checked={q._pick} onChange={() => setBankQ(bankQ.map((x, j) => j === i ? { ...x, _pick: !x._pick } : x))} /><span>{q.prompt} <span style={{ color: 'var(--muted)' }}>({q.subject})</span></span></label>)}
+                                    {bankQ.map((q, i) => <label key={q.id} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 13, cursor: 'pointer' }}><input type="checkbox" checked={q._pick} onChange={() => setBankQ(bankQ.map((x, j) => j === i ? { ...x, _pick: !x._pick } : x))} /><span>{q.prompt} <span style={{ color: 'var(--muted)' }}>({[q.subject, q.lesson_no ? `درس ${q.lesson_no}` : null].filter(Boolean).join(' · ')})</span></span></label>)}
                                 </div>
                                 {bankQ.some((q) => q._pick) && <button type="button" onClick={addBank} className="btn btn-sm" style={{ marginTop: 6 }}>➕ افزودن انتخابی‌ها</button>}
                             </div>

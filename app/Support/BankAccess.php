@@ -145,6 +145,38 @@ class BankAccess
         });
     }
 
+    /** فهرستِ درس‌ها و شماره‌درس‌های موجود در بانکِ قابل‌دسترسِ کاربر (برای منوی آبشاریِ انتخابگر). */
+    public static function pickerFacets(User $user): array
+    {
+        $rows = self::visibleQuery($user)
+            ->whereIn('type', ['mc', 'tf'])
+            ->get(['subject', 'book', 'lesson_no']);
+        $tree = [];
+        foreach ($rows as $r) {
+            $subj = $r->subject ?: ($r->book ?: 'عمومی');
+            $lesson = $r->lesson_no ?: '—';
+            $tree[$subj][$lesson] = true;
+        }
+        $out = [];
+        foreach ($tree as $subj => $lessons) {
+            $ls = array_keys($lessons);
+            sort($ls, SORT_NATURAL);
+            $out[] = ['subject' => $subj, 'lessons' => $ls];
+        }
+        usort($out, fn ($a, $b) => strcmp($a['subject'], $b['subject']));
+        return $out;
+    }
+
+    /** کوئریِ انتخابگرِ بانک (برای آزمون/بازی) با فیلترِ درس/شماره‌درس/جست‌وجو. */
+    public static function pickerQuery(User $user, ?string $subject, ?string $lessonNo, ?string $search): Builder
+    {
+        return self::visibleQuery($user)
+            ->whereIn('type', ['mc', 'tf'])
+            ->when($subject, fn ($x) => $x->where(fn ($w) => $w->where('subject', $subject)->orWhere('book', $subject)))
+            ->when($lessonNo, fn ($x) => $x->where('lesson_no', $lessonNo))
+            ->when($search, fn ($x) => $x->where('prompt', 'like', '%' . $search . '%'));
+    }
+
     /** آیا این کاربر می‌تواند این سؤال را ویرایش/حذف کند؟ */
     public static function canEdit(User $user, SmartQuestionBank $q): bool
     {
@@ -174,7 +206,7 @@ class BankAccess
             'scope' => 'school', 'type' => $q['type'] ?? 'mc', 'prompt' => $prompt,
             'choices' => $q['choices'] ?? [], 'answer' => $q['answer'] ?? null,
             'explanation' => $q['explanation'] ?? null,
-            'level' => $meta['level'] ?? null,
+            'level' => $meta['level'] ?? null, 'lesson_no' => $meta['lesson_no'] ?? null,
             'subject' => $meta['subject'] ?? null, 'grade' => $meta['grade'] ?? null,
             'book' => $meta['book'] ?? ($meta['subject'] ?? null), 'chapter' => $meta['chapter'] ?? null,
             'topic' => $q['topic'] ?? ($meta['topic'] ?? null),
