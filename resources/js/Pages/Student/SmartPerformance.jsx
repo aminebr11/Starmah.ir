@@ -6,7 +6,7 @@ const hue = (p) => p >= 70 ? '#2bb673' : p >= 50 ? '#e8862e' : '#e8505b';
 const TONE = { good: '#2bb673', mid: '#f0952e', low: '#e8505b' };
 
 export default function SmartPerformance() {
-    const { subjects = [], totalAnswered = 0, overallPct = 0, examCount = 0, student = {}, parent } = usePage().props;
+    const { subjects = [], totalAnswered = 0, overallPct = 0, examCount = 0, student = {}, parent, trend = [], aiSummary } = usePage().props;
     return (
         <ThemedDash title="کارنامه‌ی هوشمند من" active="smart">
             <div className="k3-card" style={{ background: 'linear-gradient(135deg,#6d28d9,#4c1d95)' }}>
@@ -24,7 +24,44 @@ export default function SmartPerformance() {
                 <Link href={route('student.smart.index')} className="k3-btn ghost" style={{ marginTop: 12, fontSize: 12.5 }}>← بازگشت به آزمون‌ها</Link>
             </div>
 
+            {/* ===== تحلیل هوش مصنوعی ===== */}
+            {aiSummary && (
+                <div className="k3-card" style={{ marginTop: 14, background: 'linear-gradient(135deg,rgba(124,92,246,.28),rgba(76,29,149,.2))', borderInlineStart: '5px solid #a78bfa' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        <span style={{ fontSize: 24 }}>🤖</span>
+                        <b style={{ fontSize: 15 }}>تحلیل هوش مصنوعی از عملکردِ تو</b>
+                    </div>
+                    <div style={{ fontSize: 13.5, lineHeight: 2.1, whiteSpace: 'pre-wrap' }}>{aiSummary}</div>
+                </div>
+            )}
+
             {subjects.length === 0 && <div className="k3-card" style={{ marginTop: 14, textAlign: 'center', opacity: .85 }}>هنوز آزمونی نداده‌ای تا کارنامه‌ات ساخته شود 📭</div>}
+
+            {/* ===== روند پیشرفت در آزمون‌ها ===== */}
+            {trend.length > 0 && (
+                <div className="k3-card" style={{ marginTop: 14 }}>
+                    <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 10 }}>📈 روند تو در آزمون‌ها</div>
+                    {trend.map((t, i) => (
+                        <div key={i} style={{ marginBottom: 14 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 800, marginBottom: 6 }}>
+                                <span>{t.subject}</span>
+                                <span style={{ color: hue(t.avg) }}>میانگین {fa(t.avg)}٪</span>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', overflowX: 'auto', paddingBottom: 4 }}>
+                                {t.exams.map((e, j) => (
+                                    <div key={j} style={{ flex: 'none', textAlign: 'center', width: 46 }} title={`${e.exam} · ${e.date}`}>
+                                        <div style={{ height: 70, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                                            <div style={{ width: 20, height: `${Math.max(8, e.percent)}%`, borderRadius: 6, background: hue(e.percent) }} />
+                                        </div>
+                                        <div style={{ fontSize: 10.5, fontWeight: 800, marginTop: 3, color: hue(e.percent) }}>{fa(e.percent)}٪</div>
+                                        <div style={{ fontSize: 9, opacity: .6 }}>{e.date}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {subjects.map((s, i) => (
                 <div key={i} className="k3-card" style={{ marginTop: 14 }}>

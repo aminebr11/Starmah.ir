@@ -33,8 +33,8 @@ export default function SmartExams() {
                     const s = ST[e.status] || ST.new;
                     const pal = PAL[i % PAL.length];
                     const playable = e.status === 'new' || e.status === 'in_progress' || (e.status === 'done' && e.attemptsLeft > 0);
-                    const Card = (
-                        <>
+                    return (
+                        <div key={e.id} className="k3-card" style={{ opacity: playable ? 1 : .9 }}>
                             <div style={{ height: 70, borderRadius: 14, marginBottom: 10, display: 'grid', placeItems: 'center', fontSize: 34, background: `linear-gradient(135deg,${pal[0]},${pal[1]})`, position: 'relative' }}>
                                 🧪<span style={{ position: 'absolute', top: 8, insetInlineEnd: 8, background: s.c, color: '#fff', borderRadius: 20, padding: '2px 9px', fontSize: 11, fontWeight: 800 }}>{s.t}</span>
                             </div>
@@ -50,13 +50,15 @@ export default function SmartExams() {
                             {e.opens && <div style={{ fontSize: 10.5, color: '#c4b5fd', marginTop: 4 }}>🗓️ باز می‌شود: {e.opens}</div>}
                             {e.closes && <div style={{ fontSize: 10.5, opacity: .6, marginTop: 4 }}>مهلت: {e.closes}</div>}
                             {playable
-                                ? <div className="k3-btn" style={{ marginTop: 10, fontSize: 13 }}>{s.btn}</div>
-                                : <div style={{ marginTop: 10, textAlign: 'center', fontWeight: 800, fontSize: 12, opacity: .8, background: 'rgba(0,0,0,.25)', borderRadius: 12, padding: '8px' }}>{e.status === 'expired' ? '⌛ زمان‌گذشته' : e.status === 'scheduled' ? '🗓️ هنوز باز نشده' : '🔒 در دسترس نیست'}</div>}
-                        </>
+                                ? <Link href={route('student.smart.take', e.id)} className="k3-btn" style={{ display: 'block', marginTop: 10, fontSize: 13, textAlign: 'center', textDecoration: 'none' }}>{s.btn}</Link>
+                                : !e.lastAttemptId && <div style={{ marginTop: 10, textAlign: 'center', fontWeight: 800, fontSize: 12, opacity: .8, background: 'rgba(0,0,0,.25)', borderRadius: 12, padding: '8px' }}>{e.status === 'expired' ? '⌛ زمان‌گذشته' : e.status === 'scheduled' ? '🗓️ هنوز باز نشده' : '🔒 در دسترس نیست'}</div>}
+                            {/* پاسخنامه/نتیجه — همیشه وقتی آزمون را داده باشد */}
+                            {e.lastAttemptId && (
+                                <Link href={route('student.smart.result', [e.id, e.lastAttemptId])}
+                                    style={{ display: 'block', marginTop: 8, textAlign: 'center', fontWeight: 800, fontSize: 12.5, background: 'rgba(255,255,255,.16)', color: '#fff', borderRadius: 12, padding: '8px', textDecoration: 'none' }}>📄 مشاهده نتیجه و پاسخنامه</Link>
+                            )}
+                        </div>
                     );
-                    return playable
-                        ? <Link key={e.id} href={route('student.smart.take', e.id)} className="k3-card" style={{ display: 'block', color: 'inherit' }}>{Card}</Link>
-                        : <div key={e.id} className="k3-card" style={{ opacity: .72 }}>{Card}</div>;
                 })}
             </div>
         </ThemedDash>

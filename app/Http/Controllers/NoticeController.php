@@ -21,6 +21,7 @@ class NoticeController extends Controller
                 'id'       => $a->id,
                 'title'    => $a->title,
                 'body'     => $a->body,
+                'link'     => $a->link,
                 'sender'   => $a->sender?->name,
                 'personal' => $a->audience === 'personal',
                 'date'     => Jalali::format($a->created_at),

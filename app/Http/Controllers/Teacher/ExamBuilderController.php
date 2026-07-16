@@ -165,7 +165,8 @@ class ExamBuilderController extends Controller
             'sender_id' => $assignment->teacher_id,
             'title'     => '💻 آزمون جدید — ' . $assignment->title,
             'audience'  => 'personal',
-            'body'      => "یک آزمون جدید برای شما منتشر شد: «{$assignment->title}».\nبرای شرکت، به بخشِ «آزمون‌ها» بروید.",
+            'body'      => "یک آزمون جدید برای شما منتشر شد: «{$assignment->title}».\nبرای شرکت، روی همین اعلان بزنید.",
+            'link'      => '/exams',
         ]);
         $ann->recipients()->sync($ids);
     }

@@ -144,23 +144,19 @@ class SmartExamController extends Controller
         $data = $this->validated($request);
         $this->assertTargetsOwned($request->user(), $data);
 
-        // ویرایشِ آزمونِ دارای نتیجه → نسخه‌ی جدید تا گزارش‌های قبلی حفظ شوند
-        if ($smartExam->attempts()->exists()) {
-            $new = $smartExam->replicate(['created_at', 'updated_at']);
-            $new->fill($this->attributes($request->user(), $data));
-            $new->version = $smartExam->version + 1;
-            $new->status = 'draft';
-            $new->save();
-            $this->syncQuestions($new, $data['questions']);
-            $this->syncTargets($new, $data);
-            $smartExam->update(['status' => 'archived']);
-            return redirect()->route('teacher.smart.lab')->with('flash', 'نسخه‌ی جدید ساخته و نسخه‌ی قبلی (با نتایجش) آرشیو شد ✅');
-        }
+        $wasPublished = $smartExam->status === 'published';
 
+        // ویرایش روی همان آزمون ذخیره می‌شود (بدون ساختِ نسخه‌ی جدید).
         $smartExam->update($this->attributes($request->user(), $data));
+        $smartExam->increment('version');
         $this->syncQuestions($smartExam, $data['questions']);
         $this->syncTargets($smartExam, $data);
-        return redirect()->route('teacher.smart.lab')->with('flash', 'آزمون به‌روزرسانی شد ✅');
+
+        if ($smartExam->status === 'published' && ! $wasPublished) {
+            $this->notifyTargets($smartExam);
+        }
+
+        return redirect()->route('teacher.smart.lab')->with('flash', 'تغییرات روی همین آزمون ذخیره شد ✅');
     }
 
     public function status(Request $request, SmartExam $smartExam): RedirectResponse
@@ -206,7 +202,8 @@ class SmartExamController extends Controller
             'school_id' => $exam->school_id, 'sender_id' => $exam->teacher_id,
             'title' => '🧠 آزمون هوشمند جدید — ' . $exam->title,
             'audience' => 'personal',
-            'body' => "یک آزمون هوشمندِ جدید برای شما منتشر شد: «{$exam->title}».\nبرای شرکت، به بخشِ «آزمون هوشمند» بروید.",
+            'body' => "یک آزمون هوشمندِ جدید برای شما منتشر شد: «{$exam->title}».\nبرای شرکت، روی همین اعلان بزنید.",
+            'link' => '/student/smart-exams',
         ]);
         $ann->recipients()->sync($ids->all());
     }

@@ -60,6 +60,12 @@ export default function Notices() {
                                     </div>
                                     <div className="nt-meta">از {n.sender || 'مدرسه'} · {n.date}</div>
                                     {isOpen && <div className="nt-body" style={{ whiteSpace: 'pre-wrap', marginTop: 8 }}>{n.body}</div>}
+                                    {n.link && (
+                                        <a href={n.link} onClick={(ev) => ev.stopPropagation()}
+                                            style={{ display: 'inline-block', marginTop: 10, background: 'rgba(255,255,255,.9)', color: '#4c1d95', fontWeight: 800, fontSize: 12.5, borderRadius: 20, padding: '7px 16px', textDecoration: 'none' }}>
+                                            ← رفتن به این مورد
+                                        </a>
+                                    )}
                                 </div>
                                 <span style={{ flex: 'none', opacity: .85, fontSize: 16 }}>{isOpen ? '▲' : '▼'}</span>
                             </div>

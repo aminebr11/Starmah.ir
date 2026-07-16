@@ -83,22 +83,23 @@ export default function QuestionBank() {
 function ListTab({ f, setF, cur, apply, reset, grouped }) {
     const grades = cur.gradesOf(f.level);
     const subjects = cur.subjectsOf(f.level, f.grade);
+    // اعمالِ خودکارِ فیلتر با تغییرِ هر گزینه (بدون نیاز به دکمه)
+    const go = (next) => { setF(next); router.get(route('bank.index'), next, { preserveState: true, preserveScroll: true, replace: true }); };
     return (
         <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 8, marginTop: 12 }}>
-                <input className="input" value={f.search} onChange={(e) => setF({ ...f, search: e.target.value })} placeholder="🔍 جست‌وجو در متن" onKeyDown={(e) => e.key === 'Enter' && apply()} />
-                <select className="input" value={f.level} onChange={(e) => setF({ ...f, level: e.target.value, grade: '', subject: '' })}>
+                <input className="input" value={f.search} onChange={(e) => setF({ ...f, search: e.target.value })} placeholder="🔍 جست‌وجو (Enter)" onKeyDown={(e) => e.key === 'Enter' && apply()} />
+                <select className="input" value={f.level} onChange={(e) => go({ ...f, level: e.target.value, grade: '', subject: '' })}>
                     <option value="">همه‌ی مقاطع</option>{cur.levels.map((l) => <option key={l} value={l}>{l}</option>)}
                 </select>
-                <select className="input" value={f.grade} onChange={(e) => setF({ ...f, grade: e.target.value, subject: '' })} disabled={!f.level}>
+                <select className="input" value={f.grade} onChange={(e) => go({ ...f, grade: e.target.value, subject: '' })} disabled={!f.level}>
                     <option value="">همه‌ی کلاس‌ها</option>{grades.map((g) => <option key={g} value={g}>{g}</option>)}
                 </select>
-                <select className="input" value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })} disabled={!f.grade}>
+                <select className="input" value={f.subject} onChange={(e) => go({ ...f, subject: e.target.value })} disabled={!f.grade}>
                     <option value="">همه‌ی درس‌ها</option>{subjects.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
-                <select className="input" value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}><option value="">همه انواع</option>{Object.entries(TYPE).map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>
-                <select className="input" value={f.difficulty} onChange={(e) => setF({ ...f, difficulty: e.target.value })}><option value="">همه سطوح</option>{Object.entries(DIFF).map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>
-                <button onClick={apply} className="btn btn-sm">اعمال فیلتر</button>
+                <select className="input" value={f.type} onChange={(e) => go({ ...f, type: e.target.value })}><option value="">همه انواع</option>{Object.entries(TYPE).map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>
+                <select className="input" value={f.difficulty} onChange={(e) => go({ ...f, difficulty: e.target.value })}><option value="">همه سطوح</option>{Object.entries(DIFF).map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>
                 <button onClick={reset} className="btn btn-ghost btn-sm">پاک‌کردن</button>
             </div>
 

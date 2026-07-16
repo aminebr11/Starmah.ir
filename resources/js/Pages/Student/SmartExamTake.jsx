@@ -58,7 +58,7 @@ export default function SmartExamTake() {
             {question.media && <img src={question.media} alt="" style={{ maxWidth: '100%', borderRadius: 12, marginBottom: 10 }} />}
             <div style={{ fontWeight: 800, fontSize: 17, lineHeight: 2 }}>{question.prompt}</div>
             {question.type === 'desc' || question.type === 'blank' ? (
-                <textarea className="smart-input" style={{ marginTop: 12, minHeight: question.type === 'desc' ? 90 : 44 }}
+                <textarea style={{ marginTop: 12, minHeight: question.type === 'desc' ? 90 : 44, width: '100%', borderRadius: 14, padding: 14, fontFamily: 'inherit', fontSize: 15.5, background: 'rgba(255,255,255,.08)', color: '#fff', border: '1.5px solid rgba(255,255,255,.22)', resize: 'vertical' }}
                     value={answers[i]?.value || ''} onChange={(e) => setAns(i, e.target.value)} placeholder={question.type === 'blank' ? 'پاسخ کوتاه' : 'پاسخ تشریحی خود را بنویس…'} />
             ) : (
                 <div style={{ display: 'grid', gap: 10, marginTop: 14, gridTemplateColumns: question.choices.length > 2 ? '1fr 1fr' : '1fr' }}>

@@ -118,8 +118,8 @@ export default function SmartExamLab() {
 
                 <div className="smart-panel">
                     <div className="smart-h">
-                        🧪 {editId ? 'ویرایش آزمون هوشمند' : 'ساخت آزمون هوشمند'} <span className="smart-badge">آزمایشی</span>
-                        <Link href={route('teacher.smart.bank')} className="smart-btn ghost sm" style={{ marginInlineStart: 'auto' }}>🗄️ بانک سؤال</Link>
+                        🧪 {editId ? 'ویرایش آزمون هوشمند' : 'ساخت آزمون هوشمند'}
+                        {editId && <button onClick={() => save(form.data.status || 'draft')} disabled={form.processing} className="smart-btn sm" style={{ marginInlineStart: 'auto' }}>💾 ذخیره‌ی تغییرات</button>}
                         {editId && <button onClick={() => router.visit(route('teacher.smart.lab'))} className="smart-btn ghost sm">+ آزمون جدید</button>}
                     </div>
 
@@ -139,7 +139,13 @@ export default function SmartExamLab() {
                             <F label="مبحث"><input className="smart-input" value={form.data.topic} onChange={(e) => form.setData('topic', e.target.value)} /></F>
                             <F label="هدف آموزشی"><input className="smart-input" value={form.data.goal} onChange={(e) => form.setData('goal', e.target.value)} /></F>
                             <div style={{ gridColumn: '1/-1' }}><F label="توضیح آزمون"><textarea className="smart-input" rows={2} value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} /></F></div>
-                            {adaptiveEnabled && <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}><input type="checkbox" checked={form.data.adaptive} onChange={(e) => form.setData('adaptive', e.target.checked)} /> آزمون تطبیقی (سختی بر اساس پاسخ)</label>}
+                            <div style={{ gridColumn: '1/-1', background: '#f5f2ff', border: '1px solid #e5ddff', borderRadius: 12, padding: 12 }}>
+                                <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, fontWeight: 700 }}><input type="checkbox" checked={form.data.adaptive} onChange={(e) => form.setData('adaptive', e.target.checked)} /> 🎯 آزمون تطبیقی (سختی بر اساس پاسخ)</label>
+                                <div className="smart-muted" style={{ fontSize: 12.5, marginTop: 6, lineHeight: 1.9 }}>
+                                    در حالت تطبیقی، سؤال‌ها بر اساس <b>سطحِ دشواری</b> مرتب می‌شوند و از آسان شروع می‌شوند؛ اگر دانش‌آموز پاسخِ درست بدهد، سؤالِ بعدی دشوارتر و اگر اشتباه بدهد، ساده‌تر ارائه می‌شود.
+                                    این کار سطحِ واقعیِ دانش‌آموز را دقیق‌تر می‌سنجد و تجربه‌ی منصفانه‌تری می‌سازد. (برای اثرگذاری، در بانک/طراحیِ سؤال، سطحِ دشواریِ سؤال‌ها را مشخص کنید.)
+                                </div>
+                            </div>
                         </div>
                     )}
 

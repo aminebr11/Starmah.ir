@@ -56,6 +56,7 @@ class SmartExamController extends Controller
         $cards = $exams->map(function ($e) use ($attempts) {
             $mine = $attempts->get($e->id) ?? collect();
             $best = $mine->sortByDesc('score')->first();
+            $lastDone = $mine->whereIn('status', ['completed', 'needs_review'])->sortByDesc('id')->first();
             $inProgress = $mine->firstWhere('status', 'in_progress');
             $rules = $e->rules ?? [];
             $maxAttempts = (int) ($rules['attempts'] ?? 1);
@@ -72,6 +73,7 @@ class SmartExamController extends Controller
                 'status' => $status,
                 'attemptsLeft' => max(0, $maxAttempts - $completedCount),
                 'lastScore' => $best?->score, 'lastMax' => $best?->max_score,
+                'lastAttemptId' => $lastDone?->id,
                 'opens' => $notYet ? Jalali::format($e->opens_at, true) : null,
                 'closes' => $e->closes_at ? Jalali::format($e->closes_at, true) : null,
                 'showResult' => (bool) ($rules['show_result'] ?? true),
@@ -123,14 +125,65 @@ class SmartExamController extends Controller
         $overall = $rows->count() ? (int) round($rows->where('correct', true)->count() / $rows->count() * 100) : 0;
         $examCount = SmartExamAttempt::where('student_id', $user->id)->where('status', 'completed')->count();
 
+        // روند: آزمون‌های انجام‌شده به‌تفکیک درس (برای دیدنِ سیرِ پیشرفت)
+        $history = SmartExamAttempt::where('student_id', $user->id)
+            ->whereIn('status', ['completed', 'needs_review'])
+            ->with('exam:id,title,subject')
+            ->latest('finished_at')->limit(40)->get()
+            ->map(fn ($a) => [
+                'exam' => $a->exam?->title,
+                'subject' => $a->exam?->subject ?: 'عمومی',
+                'percent' => $a->max_score ? (int) round($a->auto_score / $a->max_score * 100) : 0,
+                'date' => Jalali::format($a->finished_at ?? $a->created_at),
+            ])->values();
+        $trend = $history->groupBy('subject')->map(fn ($g, $s) => [
+            'subject' => $s,
+            'exams' => $g->reverse()->values(), // قدیمی → جدید برای نمودار روند
+            'avg' => (int) round($g->avg('percent')),
+        ])->values();
+
         return Inertia::render('Student/SmartPerformance', [
             'student' => ['name' => $user->name],
             'subjects' => $out,
             'totalAnswered' => $rows->count(),
             'examCount' => $examCount,
             'overallPct' => $overall,
+            'trend' => $trend,
+            'aiSummary' => $this->aiSummary($user->name, $out, $overall, $examCount),
             'parent' => $this->parentGuidance($out, $overall, $examCount),
         ]);
+    }
+
+    /** خلاصه‌ی هوش مصنوعی از عملکرد — با کلیدِ ادمین از AI واقعی، وگرنه خلاصه‌ی محلیِ هوشمند. */
+    private function aiSummary(string $name, $subjects, int $overall, int $examCount): string
+    {
+        if ($examCount === 0) {
+            return "{$name} هنوز آزمونی نداده است. با شرکت در چند آزمونِ کوتاه، تحلیلِ دقیقی از نقاط قوت و ضعف در این‌جا نمایش داده می‌شود.";
+        }
+        $strong = collect($subjects)->flatMap(fn ($s) => collect($s['strengths'])->map(fn ($t) => "{$s['name']}:{$t}"))->take(4)->implode('، ');
+        $weak = collect($subjects)->flatMap(fn ($s) => collect($s['weaknesses'])->map(fn ($t) => "{$s['name']}:{$t}"))->take(4)->implode('، ');
+
+        // اگر کلیدِ هوش مصنوعی تنظیم شده باشد، تحلیلِ واقعی؛ وگرنه خلاصه‌ی محلیِ هوشمندِ متناسب با عملکرد
+        $ai = app(\App\Services\AiContentService::class);
+        if ($ai->isConfigured()) {
+            $prompt = "دانش‌آموزی به نام «{$name}» در {$examCount} آزمونِ هوشمند شرکت کرده و میانگین درستیِ او {$overall}٪ است. "
+                . ($strong ? "نقاط قوت: {$strong}. " : '')
+                . ($weak ? "نقاط نیازمندِ تمرین: {$weak}. " : '')
+                . 'یک تحلیلِ کوتاه، دلگرم‌کننده و راه‌گشا (۳ تا ۴ جمله، خطاب به خودِ دانش‌آموز) بنویس؛ فقط متنِ تحلیل، بدون عنوان و امضا.';
+            try {
+                $out = trim($ai->generate($prompt, "تحلیل عملکرد {$name}"));
+                if ($out !== '') {
+                    return $out;
+                }
+            } catch (\Throwable $e) {
+                // به خلاصه‌ی محلی می‌رویم
+            }
+        }
+
+        $tone = $overall >= 80 ? 'عملکردت واقعاً درخشان است' : ($overall >= 50 ? 'در مسیرِ خوبی هستی' : 'با کمی تمرینِ بیشتر پیشرفت می‌کنی');
+        return "{$name} عزیز، {$tone}! میانگین درستیِ تو {$overall}٪ است."
+            . ($weak ? " برای این هفته روی «{$weak}» تمرکز کن." : ' همین‌طور عالی ادامه بده!')
+            . ($strong ? " نقطه‌ی قوتت ({$strong}) را هم قوی‌تر نگه‌دار." : '');
     }
 
     /** راهنمای والدین: ارزیابی کلی + توصیه‌های عملیِ حمایت از مسیر آموزشی. */
@@ -203,18 +256,24 @@ class SmartExamController extends Controller
             $attempt->update(['token' => (string) Str::uuid(), 'token_expires_at' => now()->addMinutes(($rules['duration'] ?? 60) + 30)]);
         }
 
-        $questions = $smartExam->questions->values()->map(function ($q, $i) use ($rules) {
+        // ترتیبِ ارائه: در حالتِ تطبیقی از آسان به دشوار؛ نگاشتِ i همیشه به سؤالِ اصلی گره خورده است
+        $ordered = $smartExam->questions->values();
+        $questions = $ordered->map(function ($q, $i) use ($rules) {
             $choices = collect($q->choices ?? [])->map(fn ($c) => ['value' => $c['value'] ?? ''])->values();
             if (! empty($rules['shuffle_choices'])) {
                 $choices = $choices->shuffle()->values();
             }
             return ['i' => $i, 'type' => $q->type, 'prompt' => $q->prompt, 'media' => $q->media_path,
-                'choices' => $choices, 'points' => $q->points];
+                'choices' => $choices, 'points' => $q->points,
+                'diffRank' => ['easy' => 0, 'medium' => 1, 'hard' => 2][$q->difficulty] ?? 1];
         });
-        if (! empty($rules['shuffle'])) {
-            // ترتیب تصادفی — ولی نگاشتِ i حفظ شود
+        if ($smartExam->adaptive) {
+            // تطبیقی: آسان → دشوار (آزمون از سؤال‌های ساده شروع و به‌تدریج دشوارتر می‌شود)
+            $questions = $questions->sortBy('diffRank')->values();
+        } elseif (! empty($rules['shuffle'])) {
             $questions = $questions->shuffle()->values();
         }
+        $questions = $questions->map(fn ($q) => collect($q)->except('diffRank'))->values();
 
         return Inertia::render('Student/SmartExamTake', [
             'exam' => ['id' => $smartExam->id, 'title' => $smartExam->title, 'subject' => $smartExam->subject,

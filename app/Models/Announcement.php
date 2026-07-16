@@ -16,7 +16,7 @@ class Announcement extends Model
 
     public const AUDIENCES = ['teachers', 'students', 'all', 'personal'];
 
-    protected $fillable = ['school_id', 'sender_id', 'title', 'body', 'audience', 'grade'];
+    protected $fillable = ['school_id', 'sender_id', 'title', 'body', 'link', 'audience', 'grade'];
 
     public function sender(): BelongsTo { return $this->belongsTo(User::class, 'sender_id'); }
 

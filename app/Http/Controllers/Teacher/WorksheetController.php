@@ -193,6 +193,7 @@ class WorksheetController extends Controller
             'title' => '🎨 کاربرگ جدید — ' . $worksheet->title,
             'audience' => 'personal',
             'body' => "یک کاربرگ جدید برای شما منتشر شد: «{$worksheet->title}».\nآن را از بخشِ «تکالیف» ببینید، چاپ کنید، و پس از پر کردن برای معلم بفرستید.",
+            'link' => '/worksheets/' . $worksheet->id,
         ]);
         $ann->recipients()->sync($ids);
     }
