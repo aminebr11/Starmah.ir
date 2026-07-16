@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BankShare;
 use App\Models\School;
 use App\Models\Setting;
 use App\Models\SmartQuestionBank;
@@ -15,8 +16,9 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * مدیریتِ حرفه‌ایِ بانک سؤالات — برای ادمین کل (کلِ بانک) و مدیر مدرسه (بانکِ مدرسه‌ی خودش).
- * ساخت سؤال به‌صورت دستی و با هوش مصنوعی، بر اساس مقطع و درس.
+ * مدیریتِ حرفه‌ایِ بانک سؤالات — دسته‌بندی بر مبنای مقطع→کلاس→درس.
+ * ادمین کل: کلِ بانک + ساختِ سؤالِ سراسری + اشتراک‌گذاریِ دقیق با مدارس.
+ * مدیر مدرسه: بانکِ مدرسه‌ی خودش + بانکِ سراسریِ به‌اشتراک‌گذاشته‌شده.
  */
 class QuestionBankController extends Controller
 {
@@ -25,34 +27,57 @@ class QuestionBankController extends Controller
         $user = $request->user();
         $isSuper = $user->hasRole(Roles::SUPER_ADMIN);
 
-        $q = BankAccess::visibleQuery($user)
+        $rows = BankAccess::visibleQuery($user)
             ->with('teacher:id,name')
-            ->when($request->subject, fn ($x) => $x->where('subject', $request->subject))
+            ->when($request->level, fn ($x) => $x->where('level', $request->level))
+            ->when($request->subject, fn ($x) => $x->where(fn ($w) => $w->where('subject', $request->subject)->orWhere('book', $request->subject)))
             ->when($request->grade, fn ($x) => $x->where('grade', $request->grade))
             ->when($request->difficulty, fn ($x) => $x->where('difficulty', $request->difficulty))
             ->when($request->type, fn ($x) => $x->where('type', $request->type))
             ->when($request->search, fn ($x) => $x->where('prompt', 'like', '%' . $request->search . '%'))
-            ->latest()->limit(400)->get();
+            ->latest()->limit(600)->get();
+
+        $questions = $rows->map(fn ($b) => [
+            'id' => $b->id, 'type' => $b->type, 'prompt' => $b->prompt, 'choices' => $b->choices,
+            'answer' => $b->answer, 'explanation' => $b->explanation,
+            'level' => BankAccess::levelOf($b->level, $b->grade),
+            'subject' => $b->subject ?: $b->book, 'grade' => $b->grade, 'topic' => $b->topic,
+            'difficulty' => $b->difficulty, 'source' => $b->source, 'used' => $b->used_count,
+            'author' => $b->teacher?->name, 'school_id' => $b->school_id, 'scope' => $b->scope,
+            'can_edit' => BankAccess::canEdit($user, $b),
+        ]);
+
+        // گروه‌بندیِ مقطع → کلاس → درس
+        $grouped = $questions->groupBy(fn ($q) => $q['level'] ?: 'دسته‌بندی‌نشده')
+            ->map(fn ($byLevel, $level) => [
+                'level' => $level,
+                'count' => $byLevel->count(),
+                'grades' => $byLevel->groupBy(fn ($q) => $q['grade'] ?: '—')
+                    ->map(fn ($byGrade, $grade) => [
+                        'grade' => $grade,
+                        'subjects' => $byGrade->groupBy(fn ($q) => $q['subject'] ?: 'عمومی')
+                            ->map(fn ($items, $subj) => ['subject' => $subj, 'items' => $items->values()])
+                            ->values(),
+                    ])->values(),
+            ])->values();
 
         return Inertia::render('Admin/QuestionBank', [
             'isSuper' => $isSuper,
-            'questions' => $q->map(fn ($b) => [
-                'id' => $b->id, 'type' => $b->type, 'prompt' => $b->prompt, 'choices' => $b->choices,
-                'answer' => $b->answer, 'explanation' => $b->explanation,
-                'subject' => $b->subject, 'grade' => $b->grade, 'topic' => $b->topic, 'difficulty' => $b->difficulty,
-                'source' => $b->source, 'used' => $b->used_count, 'author' => $b->teacher?->name,
-                'school_id' => $b->school_id, 'scope' => $b->scope,
-            ]),
-            'filters' => $request->only('subject', 'grade', 'difficulty', 'type', 'search'),
+            'grouped' => $grouped,
+            'flat' => $questions->values(),
+            'curriculum' => BankAccess::curriculumTree(),
+            'filters' => $request->only('level', 'subject', 'grade', 'difficulty', 'type', 'search'),
             'stats' => [
                 'total' => BankAccess::visibleQuery($user)->count(),
                 'ai' => (clone BankAccess::visibleQuery($user))->where('source', 'ai')->count(),
             ],
-            // تنظیماتِ اشتراک (فقط ادمین کل)
             'share' => $isSuper ? [
-                'scope' => BankAccess::shareScope(),
-                'schools' => BankAccess::sharedSchoolIds(),
-                'allSchools' => School::orderBy('name')->get(['id', 'name'])->map(fn ($s) => ['id' => $s->id, 'name' => $s->name]),
+                'grants' => BankShare::with('school:id,name')->latest()->get()->map(fn ($g) => [
+                    'id' => $g->id, 'school_id' => $g->school_id, 'school' => $g->school?->name,
+                    'level' => $g->level, 'grade' => $g->grade, 'subject' => $g->subject,
+                ]),
+                'allSchools' => School::orderBy('name')->get(['id', 'name', 'level'])
+                    ->map(fn ($s) => ['id' => $s->id, 'name' => $s->name, 'level' => $s->level]),
             ] : null,
             'aiOn' => (bool) (Setting::get('anthropic_key') || Setting::get('openai_key')),
         ]);
@@ -62,8 +87,9 @@ class QuestionBankController extends Controller
     {
         $user = $request->user();
         $data = $request->validate([
-            'subject' => ['nullable', 'string', 'max:80'],
+            'level' => ['nullable', 'string', 'max:60'],
             'grade' => ['nullable', 'string', 'max:40'],
+            'subject' => ['nullable', 'string', 'max:80'],
             'topic' => ['nullable', 'string', 'max:120'],
             'scope' => ['nullable', 'in:teacher,school,shared,global'],
             'questions' => ['required', 'array', 'min:1'],
@@ -72,14 +98,15 @@ class QuestionBankController extends Controller
             'questions.*.choices' => ['nullable', 'array'],
         ]);
 
-        // ادمین کل می‌تواند سؤالِ سراسری بسازد؛ مدیر مدرسه در بانکِ مدرسه‌ی خودش
         $scope = $user->hasRole(Roles::SUPER_ADMIN) ? ($data['scope'] ?? 'global') : 'school';
         foreach ($data['questions'] as $q) {
             SmartQuestionBank::create([
                 'school_id' => $user->school_id, 'teacher_id' => $user->id, 'scope' => $scope,
+                'level' => $data['level'] ?? null,
                 'type' => $q['type'] ?? 'mc', 'prompt' => $q['prompt'], 'choices' => $q['choices'] ?? [],
                 'answer' => $q['answer'] ?? null, 'explanation' => $q['explanation'] ?? null,
-                'subject' => $data['subject'] ?? null, 'grade' => $data['grade'] ?? null, 'topic' => $data['topic'] ?? null,
+                'subject' => $data['subject'] ?? null, 'book' => $data['subject'] ?? null,
+                'grade' => $data['grade'] ?? null, 'topic' => $data['topic'] ?? null,
                 'difficulty' => $q['difficulty'] ?? 'medium', 'source' => $q['source'] ?? 'manual',
             ]);
         }
@@ -93,11 +120,15 @@ class QuestionBankController extends Controller
             'prompt' => ['required', 'string'],
             'choices' => ['nullable', 'array'],
             'explanation' => ['nullable', 'string'],
+            'level' => ['nullable', 'string', 'max:60'],
             'subject' => ['nullable', 'string', 'max:80'],
             'grade' => ['nullable', 'string', 'max:40'],
             'topic' => ['nullable', 'string', 'max:120'],
             'difficulty' => ['nullable', 'in:easy,medium,hard'],
         ]);
+        if (array_key_exists('subject', $data)) {
+            $data['book'] = $data['subject'];
+        }
         $question->update([...$data, 'version' => $question->version + 1]);
         return back()->with('flash', 'سؤال ویرایش شد ✅');
     }
@@ -121,16 +152,30 @@ class QuestionBankController extends Controller
             'school_id' => $request->user()->school_id, 'teacher_id' => $request->user()->id]));
     }
 
-    /** تنظیمِ اشتراک‌گذاریِ بانک — فقط ادمین کل. */
+    /** افزودنِ یک مجوزِ اشتراک (مقطع/کلاس/درس → مدرسه) — فقط ادمین کل. */
     public function share(Request $request): RedirectResponse
     {
         abort_unless($request->user()->hasRole(Roles::SUPER_ADMIN), 403);
         $data = $request->validate([
-            'scope' => ['required', 'in:off,all,schools'],
-            'schools' => ['array'], 'schools.*' => ['integer'],
+            'school_id' => ['required', 'integer', 'exists:schools,id'],
+            'level' => ['nullable', 'string', 'max:60'],
+            'grade' => ['nullable', 'string', 'max:40'],
+            'subject' => ['nullable', 'string', 'max:80'],
         ]);
-        Setting::put('bank_share_scope', $data['scope']);
-        Setting::put('bank_share_schools', json_encode(array_values($data['schools'] ?? [])));
-        return back()->with('flash', 'تنظیماتِ اشتراکِ بانک ذخیره شد ✅');
+        BankShare::firstOrCreate([
+            'school_id' => $data['school_id'],
+            'level' => ($data['level'] ?? null) ?: null,
+            'grade' => ($data['grade'] ?? null) ?: null,
+            'subject' => ($data['subject'] ?? null) ?: null,
+        ]);
+        return back()->with('flash', 'دسترسیِ اشتراک اضافه شد ✅');
+    }
+
+    /** حذفِ یک مجوزِ اشتراک — فقط ادمین کل. */
+    public function unshare(Request $request, BankShare $bankShare): RedirectResponse
+    {
+        abort_unless($request->user()->hasRole(Roles::SUPER_ADMIN), 403);
+        $bankShare->delete();
+        return back()->with('flash', 'دسترسیِ اشتراک حذف شد');
     }
 }

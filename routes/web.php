@@ -257,6 +257,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/{question}', [\App\Http\Controllers\QuestionBankController::class, 'destroy'])->name('destroy');
         Route::post('/ai', [\App\Http\Controllers\QuestionBankController::class, 'ai'])->name('ai');
         Route::post('/share', [\App\Http\Controllers\QuestionBankController::class, 'share'])->name('share');
+        Route::delete('/share/{bankShare}', [\App\Http\Controllers\QuestionBankController::class, 'unshare'])->name('unshare');
     });
 
     // مدیریت کاربران و کلاس‌ها (کنترل دسترسی نقش‌محور داخل کنترلر)
