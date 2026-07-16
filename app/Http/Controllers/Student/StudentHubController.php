@@ -120,13 +120,32 @@ class StudentHubController extends Controller
     /** تکالیف. */
     public function homework(Request $request): Response
     {
-        $items = $this->contentQuery($request->user())
+        $user = $request->user();
+        $items = $this->contentQuery($user)
             ->where('type', 'homework')
             ->get()->map(fn ($c) => $this->mapItem($c))
             // آینده‌دار اول، بعد قدیمی‌ها
             ->sortBy(fn ($i) => $i['overdue'] ? 1 : 0)->values();
 
-        return Inertia::render('Student/Homework', ['items' => $items->values()]);
+        // کاربرگ‌های منتشرشده برای کلاسِ دانش‌آموز (قابل چاپ + ارسال به معلم)
+        $classroomIds = $user->classrooms()->pluck('classrooms.id')->all();
+        $subs = \App\Models\WorksheetSubmission::where('student_id', $user->id)->pluck('worksheet_id')->all();
+        $worksheets = \App\Models\Worksheet::withoutGlobalScopes()
+            ->where('is_published', true)
+            ->where(fn ($q) => $q->whereNull('classroom_id')->when($classroomIds, fn ($x) => $x->orWhereIn('classroom_id', $classroomIds)))
+            ->where('school_id', $user->school_id)
+            ->latest('published_at')->get()
+            ->map(fn ($w) => [
+                'id' => $w->id, 'title' => $w->title, 'subject' => $w->subject, 'theme' => $w->theme,
+                'has_image' => (bool) $w->image_path,
+                'submitted' => in_array($w->id, $subs, true),
+                'date' => Jalali::format($w->published_at ?? $w->created_at),
+            ]);
+
+        return Inertia::render('Student/Homework', [
+            'items' => $items->values(),
+            'worksheets' => $worksheets->values(),
+        ]);
     }
 
     /** فعالیت‌ها و امتیازها — دفترکل XP دانش‌آموز. */

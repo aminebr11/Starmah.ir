@@ -119,6 +119,8 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::get('/class-content', [\App\Http\Controllers\Student\StudentHubController::class, 'content'])->name('my.content');
     Route::post('/class-content/{classContent}/progress', [\App\Http\Controllers\Student\StudentHubController::class, 'contentProgress'])->name('my.content.progress');
     Route::get('/homework', [\App\Http\Controllers\Student\StudentHubController::class, 'homework'])->name('my.homework');
+    Route::get('/worksheets/{worksheet}', [\App\Http\Controllers\Student\StudentWorksheetController::class, 'show'])->name('my.worksheet');
+    Route::post('/worksheets/{worksheet}/submit', [\App\Http\Controllers\Student\StudentWorksheetController::class, 'submit'])->name('my.worksheet.submit');
     Route::get('/my-activities', [\App\Http\Controllers\Student\StudentHubController::class, 'activities'])->name('my.activities');
     Route::get('/my-reports', \App\Http\Controllers\Student\StudentReportController::class)->name('my.reports');
 
@@ -204,6 +206,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/worksheets/ai', [\App\Http\Controllers\Teacher\WorksheetController::class, 'ai'])->name('worksheets.ai');
     Route::post('/worksheets', [\App\Http\Controllers\Teacher\WorksheetController::class, 'store'])->name('worksheets.store');
     Route::get('/worksheets/{worksheet}', [\App\Http\Controllers\Teacher\WorksheetController::class, 'show'])->name('worksheets.show');
+    Route::post('/worksheets/{worksheet}/publish', [\App\Http\Controllers\Teacher\WorksheetController::class, 'publish'])->name('worksheets.publish');
     Route::delete('/worksheets/{worksheet}', [\App\Http\Controllers\Teacher\WorksheetController::class, 'destroy'])->name('worksheets.destroy');
     // آزمون‌ساز (دستی + AI)
     Route::get('/exams', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'index'])->name('exams');

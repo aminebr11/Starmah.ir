@@ -162,6 +162,11 @@ class PlatformController extends Controller
                 'openai_hint'    => $mask(\App\Models\Setting::get('openai_key')),
                 'anthropic_model'=> \App\Models\Setting::get('anthropic_model', 'claude-haiku-4-5-20251001'),
                 'openai_model'   => \App\Models\Setting::get('openai_model', 'gpt-4o-mini'),
+                // تصویرسازِ کاربرگ
+                'ws_image_provider' => \App\Models\Setting::get('ws_image_provider', 'off'),
+                'ws_image_model'    => \App\Models\Setting::get('ws_image_model', 'gpt-image-1'),
+                'ws_image_set'      => (bool) \App\Models\Setting::get('openai_image_key'),
+                'ws_image_hint'     => $mask(\App\Models\Setting::get('openai_image_key')),
             ],
         ]);
     }
@@ -174,17 +179,25 @@ class PlatformController extends Controller
             'openai_key'      => ['nullable', 'string', 'max:200'],
             'anthropic_model' => ['nullable', 'string', 'max:80'],
             'openai_model'    => ['nullable', 'string', 'max:80'],
+            'ws_image_provider' => ['nullable', 'in:off,openai'],
+            'ws_image_model'    => ['nullable', 'string', 'max:80'],
+            'openai_image_key'  => ['nullable', 'string', 'max:200'],
         ]);
 
         \App\Models\Setting::put('ai_provider', $data['ai_provider']);
         \App\Models\Setting::put('anthropic_model', $data['anthropic_model'] ?: 'claude-haiku-4-5-20251001');
         \App\Models\Setting::put('openai_model', $data['openai_model'] ?: 'gpt-4o-mini');
+        \App\Models\Setting::put('ws_image_provider', $data['ws_image_provider'] ?? 'off');
+        \App\Models\Setting::put('ws_image_model', $data['ws_image_model'] ?: 'gpt-image-1');
         // کلیدها فقط در صورت وارد شدن مقدار جدید، به‌روزرسانی می‌شوند (خالی = بدون تغییر)
         if (! empty($data['anthropic_key'])) {
             \App\Models\Setting::put('anthropic_key', $data['anthropic_key']);
         }
         if (! empty($data['openai_key'])) {
             \App\Models\Setting::put('openai_key', $data['openai_key']);
+        }
+        if (! empty($data['openai_image_key'])) {
+            \App\Models\Setting::put('openai_image_key', $data['openai_image_key']);
         }
 
         return back()->with('flash', 'تنظیمات ذخیره شد ✅');

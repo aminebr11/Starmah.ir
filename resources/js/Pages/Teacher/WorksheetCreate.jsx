@@ -7,12 +7,17 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
 
 /** کاربرگ‌سازِ هوشمند: مشخصات + تم → پیشنهاد سؤال با AI → پیش‌نمایش تصویری → ذخیره در بانک. */
 export default function WorksheetCreate() {
-    const { themes = [] } = usePage().props;
+    const { themes = [], curriculum = [], classrooms = [], imageAi = false } = usePage().props;
     const [spec, setSpec] = useState({
-        title: '', subject: '', grade: 'چهارم', topic: '', goal: '',
+        title: '', level: '', grade: '', subject: '', lesson_no: '', topic: '', goal: '',
+        classroom_id: '', publish: false, gen_image: false,
         theme: themes[0]?.key || 'stars', count: 6, difficulty: 'medium', type: 'mc',
     });
     const set = (k, v) => setSpec((s) => ({ ...s, [k]: v }));
+    const gradesOf = (level) => (curriculum.find((l) => l.level === level)?.grades || []).map((g) => g.grade);
+    const subjectsOf = (level, grade) => ((curriculum.find((l) => l.level === level)?.grades || []).find((x) => x.grade === grade)?.subjects || []).map((s) => s.name);
+    const grades = gradesOf(spec.level);
+    const subjects = subjectsOf(spec.level, spec.grade);
 
     const [questions, setQuestions] = useState([]);
     const [busy, setBusy] = useState(false);
@@ -55,7 +60,8 @@ export default function WorksheetCreate() {
         if (questions.length === 0) { setMsg({ t: 'err', m: 'ابتدا سؤال‌ها را تولید کن.' }); return; }
         setSaving(true);
         router.post(route('teacher.worksheets.store'), {
-            title: spec.title, subject: spec.subject, grade: spec.grade,
+            title: spec.title, level: spec.level, grade: spec.grade, subject: spec.subject, lesson_no: spec.lesson_no,
+            classroom_id: spec.classroom_id || null, publish: spec.publish, gen_image: spec.gen_image,
             theme: spec.theme, spec: spec.topic + (spec.goal ? ' | ' + spec.goal : ''),
             questions,
         }, { onFinish: () => setSaving(false) });
@@ -73,8 +79,22 @@ export default function WorksheetCreate() {
                         <input className="input" value={spec.title} onChange={(e) => set('title', e.target.value)} placeholder="مثلاً: کاربرگ ضرب و ماجراجویی فضایی" />
                     </Field>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                        <Field label="درس"><input className="input" value={spec.subject} onChange={(e) => set('subject', e.target.value)} placeholder="ریاضی" /></Field>
-                        <Field label="پایه"><input className="input" value={spec.grade} onChange={(e) => set('grade', e.target.value)} placeholder="چهارم" /></Field>
+                        <Field label="مقطع">
+                            <select className="input" value={spec.level} onChange={(e) => { set('level', e.target.value); set('grade', ''); set('subject', ''); }}>
+                                <option value="">— انتخاب —</option>{curriculum.map((l) => <option key={l.level} value={l.level}>{l.level}</option>)}
+                            </select>
+                        </Field>
+                        <Field label="کلاس">
+                            <select className="input" value={spec.grade} onChange={(e) => { set('grade', e.target.value); set('subject', ''); }} disabled={!spec.level}>
+                                <option value="">— انتخاب —</option>{grades.map((g) => <option key={g} value={g}>{g}</option>)}
+                            </select>
+                        </Field>
+                        <Field label="درس">
+                            <select className="input" value={spec.subject} onChange={(e) => set('subject', e.target.value)} disabled={!spec.grade}>
+                                <option value="">— انتخاب —</option>{subjects.map((s) => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        </Field>
+                        <Field label="شماره درس"><input className="input" value={spec.lesson_no} onChange={(e) => set('lesson_no', e.target.value)} placeholder="مثلاً: ۳" dir="ltr" /></Field>
                     </div>
                     <Field label="موضوع"><input className="input" value={spec.topic} onChange={(e) => set('topic', e.target.value)} placeholder="ضرب اعداد دو رقمی" /></Field>
                     <Field label="هدف آموزشی (اختیاری)"><input className="input" value={spec.goal} onChange={(e) => set('goal', e.target.value)} placeholder="تسلط بر جدول ضرب" /></Field>
@@ -142,7 +162,26 @@ export default function WorksheetCreate() {
                         ))}
                     </div>
                     {questions.length > 0 && (
-                        <button type="button" disabled={saving} onClick={save} className="btn" style={{ width: '100%', marginTop: 14 }}>{saving ? 'در حال ذخیره…' : '🖼️ ساخت تصویر کاربرگ و ذخیره در بانک'}</button>
+                        <div style={{ marginTop: 14, borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+                            <b style={{ fontSize: 13.5 }}>③ انتشار</b>
+                            <Field label="انتشار برای کلاس (اختیاری)">
+                                <select className="input" value={spec.classroom_id} onChange={(e) => set('classroom_id', e.target.value)}>
+                                    <option value="">— بدون انتشار (فقط ذخیره در بانک) —</option>
+                                    {classrooms.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
+                            </Field>
+                            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, marginTop: 4 }}>
+                                <input type="checkbox" checked={spec.publish} onChange={(e) => set('publish', e.target.checked)} disabled={!spec.classroom_id} />
+                                انتشار فوری و اعلان به دانش‌آموزانِ کلاس
+                            </label>
+                            {imageAi && (
+                                <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, marginTop: 6 }}>
+                                    <input type="checkbox" checked={spec.gen_image} onChange={(e) => set('gen_image', e.target.checked)} />
+                                    🎨 تولید تصویرِ کاربرگ با هوش مصنوعی (ممکن است چند ثانیه طول بکشد)
+                                </label>
+                            )}
+                            <button type="button" disabled={saving} onClick={save} className="btn" style={{ width: '100%', marginTop: 12 }}>{saving ? 'در حال ذخیره…' : '🖼️ ساخت کاربرگ و ذخیره در بانک'}</button>
+                        </div>
                     )}
                 </div>
             </div>
