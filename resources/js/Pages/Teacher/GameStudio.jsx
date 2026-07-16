@@ -1,5 +1,6 @@
 import { usePage, useForm, router, Link } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
 
@@ -39,6 +40,24 @@ export default function GameStudio() {
     const addChoice = (qi) => { const qs = [...form.data.questions]; if (qs[qi].choices.length < 4) { qs[qi].choices = [...qs[qi].choices, { value: '', correct: false }]; form.setData('questions', [...qs]); } };
     const rmChoice = (qi, ci) => { const qs = [...form.data.questions]; if (qs[qi].choices.length > 2) { qs[qi].choices = qs[qi].choices.filter((_, j) => j !== ci); form.setData('questions', [...qs]); } };
     const setType = (qi, t) => { const qs = [...form.data.questions]; qs[qi] = { ...qs[qi], type: t, choices: t === 'tf' ? [{ value: 'درست', correct: true }, { value: 'نادرست', correct: false }] : (t === 'short' ? [{ value: '', correct: true }] : qs[qi].choices) }; form.setData('questions', qs); };
+    // دستیار AI + بانک سؤال برای بازی
+    const flavorTheme = themes.find((t) => t.id === form.data.theme_id);
+    const [aiOpen, setAiOpen] = useState(false);
+    const [ai, setAi] = useState({ count: 5, difficulty: 'easy', sample: false });
+    const [aiBusy, setAiBusy] = useState(false); const [aiMsg, setAiMsg] = useState(null); const [aiRes, setAiRes] = useState([]);
+    const runAi = async () => {
+        setAiBusy(true); setAiMsg(null); setAiRes([]);
+        try {
+            const { data } = await axios.post(route('teacher.studio.ai'), { ...ai, subject: form.data.subject, topic: form.data.subject, grade: form.data.grade, flavor: flavorTheme?.name || '' });
+            setAiMsg({ ok: data.ok, text: data.message }); if (data.ok) setAiRes((data.questions || []).map((q) => ({ ...q, _pick: true })));
+        } catch (e) { setAiMsg({ ok: false, text: e.response?.data?.message || 'خطا' }); }
+        setAiBusy(false);
+    };
+    const addAi = () => { const picked = aiRes.filter((q) => q._pick).map((q) => ({ type: q.type || 'mc', prompt: q.prompt, explanation: q.explanation, points: 10, choices: (q.choices || []).map((c) => ({ value: c.value, correct: !!c.correct })) })); form.setData('questions', [...form.data.questions.filter((q) => q.prompt.trim()), ...picked]); setAiRes([]); setAiMsg(null); };
+    const [bankOpen, setBankOpen] = useState(false); const [bankQ, setBankQ] = useState([]); const [bankSearch, setBankSearch] = useState('');
+    const loadBank = async () => { try { const { data } = await axios.get(route('teacher.studio.bank'), { params: { subject: form.data.subject, search: bankSearch } }); setBankQ((data.questions || []).map((q) => ({ ...q, _pick: false }))); } catch (e) { setBankQ([]); } };
+    const addBank = () => { const picked = bankQ.filter((q) => q._pick).map((q) => ({ type: 'mc', prompt: q.prompt, points: 10, choices: (q.choices || []).map((c) => ({ value: c.value, correct: !!c.correct })) })); form.setData('questions', [...form.data.questions.filter((q) => q.prompt.trim()), ...picked]); setBankOpen(false); };
+
     const addQ = () => form.setData('questions', [...form.data.questions, blankQ()]);
     const rmQ = (i) => form.data.questions.length > 1 && form.setData('questions', form.data.questions.filter((_, j) => j !== i));
     const moveQ = (i, d) => { const j = i + d; if (j < 0 || j >= form.data.questions.length) return; const qs = [...form.data.questions]; [qs[i], qs[j]] = [qs[j], qs[i]]; form.setData('questions', qs); };
@@ -136,6 +155,38 @@ export default function GameStudio() {
                 {/* گام ۳ — سؤال‌ها */}
                 {step === 3 && (
                     <>
+                        {/* دستیار AI + بانک سؤال */}
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                            <button type="button" onClick={() => { setAiOpen(!aiOpen); setBankOpen(false); }} className="btn btn-ghost btn-sm">🤖 ساخت سؤال با هوش مصنوعی</button>
+                            <button type="button" onClick={() => { setBankOpen(!bankOpen); setAiOpen(false); if (!bankOpen) loadBank(); }} className="btn btn-ghost btn-sm">🗄️ از بانک سؤالات</button>
+                        </div>
+                        {aiOpen && (
+                            <div style={{ border: '1px solid #ddd6fe', borderRadius: 12, padding: 12, marginBottom: 10, background: '#f5f3ff' }}>
+                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'end' }}>
+                                    <div className="field" style={{ margin: 0 }}><label>تعداد</label><input type="number" min={1} max={15} className="input" style={{ width: 80 }} value={ai.count} onChange={(e) => setAi({ ...ai, count: +e.target.value })} dir="ltr" /></div>
+                                    <div className="field" style={{ margin: 0 }}><label>سختی</label><select className="input" value={ai.difficulty} onChange={(e) => setAi({ ...ai, difficulty: e.target.value })}><option value="easy">آسان</option><option value="medium">متوسط</option><option value="hard">دشوار</option></select></div>
+                                    <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={ai.sample} onChange={(e) => setAi({ ...ai, sample: e.target.checked })} /> نمونه</label>
+                                    <button type="button" onClick={runAi} disabled={aiBusy || !form.data.subject} className="btn btn-sm">{aiBusy ? '…' : '✨ تولید'}</button>
+                                    {flavorTheme && <span style={{ fontSize: 12, color: 'var(--muted)' }}>طعم: {flavorTheme.name}</span>}
+                                </div>
+                                {!form.data.subject && <div style={{ fontSize: 12, color: '#b45309', marginTop: 6 }}>ابتدا در گام ۱ «درس» را انتخاب کنید.</div>}
+                                {aiMsg && <div style={{ marginTop: 8, fontSize: 12.5, color: aiMsg.ok ? '#166534' : '#b91c1c', fontWeight: 700 }}>{aiMsg.text}</div>}
+                                {aiRes.length > 0 && <div style={{ marginTop: 8 }}>{aiRes.map((q, i) => <label key={i} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 13, cursor: 'pointer' }}><input type="checkbox" checked={q._pick} onChange={() => setAiRes(aiRes.map((x, j) => j === i ? { ...x, _pick: !x._pick } : x))} /><span>{q.prompt}</span></label>)}<button type="button" onClick={addAi} className="btn btn-sm" style={{ marginTop: 6 }}>➕ افزودن به بازی</button></div>}
+                            </div>
+                        )}
+                        {bankOpen && (
+                            <div style={{ border: '1px solid #bfdbfe', borderRadius: 12, padding: 12, marginBottom: 10, background: '#eff6ff' }}>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <input className="input" value={bankSearch} onChange={(e) => setBankSearch(e.target.value)} placeholder="جست‌وجو در بانک" />
+                                    <button type="button" onClick={loadBank} className="btn btn-sm">🔍</button>
+                                </div>
+                                <div style={{ maxHeight: 200, overflowY: 'auto', marginTop: 8 }}>
+                                    {bankQ.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>سؤالی در بانک یافت نشد.</div>}
+                                    {bankQ.map((q, i) => <label key={q.id} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 13, cursor: 'pointer' }}><input type="checkbox" checked={q._pick} onChange={() => setBankQ(bankQ.map((x, j) => j === i ? { ...x, _pick: !x._pick } : x))} /><span>{q.prompt} <span style={{ color: 'var(--muted)' }}>({q.subject})</span></span></label>)}
+                                </div>
+                                {bankQ.some((q) => q._pick) && <button type="button" onClick={addBank} className="btn btn-sm" style={{ marginTop: 6 }}>➕ افزودن انتخابی‌ها</button>}
+                            </div>
+                        )}
                         {form.data.questions.map((q, qi) => (
                             <div key={qi} style={{ border: '1px solid var(--line)', borderRadius: 14, padding: 12, marginBottom: 10, background: 'var(--cream)' }}>
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>

@@ -25,9 +25,9 @@ class ActivityController extends Controller
                 ->values()
             : collect();
 
-        // تیم‌ها (گروه‌ها) برای امتیازدهی گروهی
-        $groups = $students->groupBy('group')->map(fn ($g, $name) => [
-            'name' => $name, 'emoji' => $g->first()['emoji'], 'ids' => $g->pluck('id')->values(),
+        // تیم‌ها (گروه‌ها) برای امتیازدهی گروهی — دانش‌آموزانِ بدون تیم هم یک گروهِ «بدون تیم» می‌شوند
+        $groups = $students->groupBy(fn ($s) => $s['group'] ?: 'بدون تیم')->map(fn ($g, $name) => [
+            'name' => $name, 'emoji' => $g->first()['emoji'] ?: '👤', 'ids' => $g->pluck('id')->values(),
         ])->values();
 
         $activities = ClassActivity::where('classroom_id', $classroom?->id)

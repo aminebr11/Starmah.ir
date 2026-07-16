@@ -35,9 +35,22 @@ class TeacherDashboardController extends Controller
                 'sender' => $a->sender?->name, 'date' => Jalali::format($a->created_at),
             ]);
 
+        // آلارمِ پیام‌های ۲۴ ساعت اخیر — پس از دیدن/حذف از پیشخوان می‌رود
+        $dismissed = collect(json_decode((string) \App\Models\Setting::get('alarm_dismissed:'.$teacher->id, '[]'), true) ?: []);
+        $alarms = Announcement::forUser($teacher)->with('sender:id,name')
+            ->where('created_at', '>=', now()->subDay())
+            ->whereNotIn('id', $dismissed->all())
+            ->latest()->limit(10)->get()
+            ->map(fn ($a) => [
+                'id' => $a->id, 'title' => $a->title, 'body' => $a->body,
+                'personal' => $a->audience === 'personal',
+                'sender' => $a->sender?->name, 'date' => Jalali::format($a->created_at, true),
+            ]);
+
         return Inertia::render('Teacher/Dashboard', [
             'classrooms' => $classrooms,
             'announcements' => $announcements,
+            'alarms' => $alarms,
             'totals' => [
                 'classrooms'  => $classrooms->count(),
                 'students'    => $classrooms->sum('students'),
@@ -45,6 +58,17 @@ class TeacherDashboardController extends Controller
                 'stars'       => DisciplineRecord::where('recorded_by', $teacher->id)->where('type', 'star')->count(),
             ],
         ]);
+    }
+
+    /** حذفِ آلارمِ یک پیام از پیشخوان (پس از دیده‌شدن). */
+    public function dismissAlarm(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $id = (int) $request->validate(['id' => ['required', 'integer']])['id'];
+        $key = 'alarm_dismissed:'.$request->user()->id;
+        $list = collect(json_decode((string) \App\Models\Setting::get($key, '[]'), true) ?: []);
+        $list = $list->push($id)->unique()->values();
+        \App\Models\Setting::put($key, json_encode($list->all()));
+        return back();
     }
 
     /** دفتر نمره: دانش‌آموزان × میانگین تسلط/امتیاز. */

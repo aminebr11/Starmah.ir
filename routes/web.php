@@ -117,6 +117,7 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::get('/my-grades', [\App\Http\Controllers\StudentGradesController::class, 'index'])->name('my.grades');
     // کارت‌های صفحه‌ی خانه: محتوای کلاس، تکالیف، فعالیت‌ها، گزارش‌ها
     Route::get('/class-content', [\App\Http\Controllers\Student\StudentHubController::class, 'content'])->name('my.content');
+    Route::post('/class-content/{classContent}/progress', [\App\Http\Controllers\Student\StudentHubController::class, 'contentProgress'])->name('my.content.progress');
     Route::get('/homework', [\App\Http\Controllers\Student\StudentHubController::class, 'homework'])->name('my.homework');
     Route::get('/my-activities', [\App\Http\Controllers\Student\StudentHubController::class, 'activities'])->name('my.activities');
     Route::get('/my-reports', \App\Http\Controllers\Student\StudentReportController::class)->name('my.reports');
@@ -150,6 +151,7 @@ Route::middleware(['auth', 'role:student'])->group(function () {
 /* ---------------- معلم ---------------- */
 Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')->group(function () {
     Route::get('/', [TeacherDashboardController::class, 'index'])->name('dashboard');
+    Route::post('/dismiss-alarm', [TeacherDashboardController::class, 'dismissAlarm'])->name('dismiss-alarm');
     // حضور و غیاب
     Route::get('/attendance', [\App\Http\Controllers\AttendanceController::class, 'record'])->name('attendance');
     Route::post('/attendance', [\App\Http\Controllers\AttendanceController::class, 'store'])->name('attendance.store');
@@ -182,6 +184,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     // محتوای کلاس: جزوه/فایل، پادکست، گالری، تکلیف (بارگذاری واقعی)
     Route::get('/materials', [\App\Http\Controllers\Teacher\ClassContentController::class, 'index'])->name('materials');
     Route::post('/materials', [\App\Http\Controllers\Teacher\ClassContentController::class, 'store'])->name('materials.store');
+    Route::post('/materials/{classContent}', [\App\Http\Controllers\Teacher\ClassContentController::class, 'update'])->name('materials.update');
     Route::delete('/materials/{classContent}', [\App\Http\Controllers\Teacher\ClassContentController::class, 'destroy'])->name('materials.destroy');
     Route::get('/reports', [TeacherDashboardController::class, 'reports'])->name('reports');
     Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'manage'])->name('schedule');
@@ -189,6 +192,13 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::delete('/schedule/{scheduleEntry}', [\App\Http\Controllers\ScheduleController::class, 'destroy'])->name('schedule.destroy');
     Route::get('/assignments/create', [AssignmentController::class, 'create'])->name('assignments.create');
     Route::post('/assignments', [AssignmentController::class, 'store'])->name('assignments.store');
+    // کاربرگ‌سازِ هوشمند + بانک کاربرگ‌ها
+    Route::get('/worksheets', [\App\Http\Controllers\Teacher\WorksheetController::class, 'index'])->name('worksheets');
+    Route::get('/worksheets/create', [\App\Http\Controllers\Teacher\WorksheetController::class, 'create'])->name('worksheets.create');
+    Route::post('/worksheets/ai', [\App\Http\Controllers\Teacher\WorksheetController::class, 'ai'])->name('worksheets.ai');
+    Route::post('/worksheets', [\App\Http\Controllers\Teacher\WorksheetController::class, 'store'])->name('worksheets.store');
+    Route::get('/worksheets/{worksheet}', [\App\Http\Controllers\Teacher\WorksheetController::class, 'show'])->name('worksheets.show');
+    Route::delete('/worksheets/{worksheet}', [\App\Http\Controllers\Teacher\WorksheetController::class, 'destroy'])->name('worksheets.destroy');
     // آزمون‌ساز (دستی + AI)
     Route::get('/exams', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'index'])->name('exams');
     Route::post('/exams/generate', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'generate'])->name('exams.generate');
@@ -220,6 +230,8 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     });
     // استودیوی ساخت بازی (دنیای بازی‌های آموزشی)
     Route::get('/studio', [\App\Http\Controllers\Teacher\EduGameController::class, 'index'])->name('studio');
+    Route::post('/studio/ai', [\App\Http\Controllers\Teacher\EduGameController::class, 'aiGenerate'])->name('studio.ai');
+    Route::get('/studio/bank', [\App\Http\Controllers\Teacher\EduGameController::class, 'bankQuestions'])->name('studio.bank');
     Route::get('/studio/{eduGame}/edit', [\App\Http\Controllers\Teacher\EduGameController::class, 'show'])->name('studio.edit');
     Route::post('/studio', [\App\Http\Controllers\Teacher\EduGameController::class, 'store'])->name('studio.store');
     Route::put('/studio/{eduGame}', [\App\Http\Controllers\Teacher\EduGameController::class, 'update'])->name('studio.update');

@@ -49,23 +49,23 @@ class BankAccess
         return Classroom::where('teacher_id', $teacher->id)->pluck('grade')->filter()->unique()->values()->all();
     }
 
-    /** کوئریِ سؤال‌های قابل‌مشاهده برای یک کاربر. */
+    /** کوئریِ سؤال‌های قابل‌مشاهده برای یک کاربر (بدونِ scopeِ چندمستأجری تا بانکِ اشتراکی هم دیده شود). */
     public static function visibleQuery(User $user): Builder
     {
         if ($user->hasRole(Roles::SUPER_ADMIN)) {
-            return SmartQuestionBank::query(); // کل بانک
+            return SmartQuestionBank::withoutGlobalScopes(); // کل بانک
         }
 
         if ($user->hasRole(Roles::SCHOOL_ADMIN)) {
             // مدیر مدرسه: کلِ بانکِ مدرسه‌ی خودش
-            return SmartQuestionBank::where('school_id', $user->school_id);
+            return SmartQuestionBank::withoutGlobalScopes()->where('school_id', $user->school_id);
         }
 
         // معلم
         $grades = self::teacherGrades($user);
         $seesShared = self::schoolCanSeeShared($user->school_id);
 
-        return SmartQuestionBank::where(function (Builder $q) use ($user, $grades, $seesShared) {
+        return SmartQuestionBank::withoutGlobalScopes()->where(function (Builder $q) use ($user, $grades, $seesShared) {
             // سؤال‌های خودِ معلم (هر پایه)
             $q->where('teacher_id', $user->id);
             // سؤال‌های مدرسه‌ی خودش در پایه‌های تدریسی

@@ -39,6 +39,9 @@ export default function Materials() {
         router.delete(route('teacher.materials.destroy', id), { preserveScroll: true });
     };
 
+    const [editing, setEditing] = useState(null);
+    const [showViewers, setShowViewers] = useState(null);
+
     return (
         <DashLayout title="محتوای کلاس" roleLabel="معلم" menu={teacherMenu} active="materials">
             {banner && <div className="panel" style={{ borderColor: 'var(--gold)', background: '#fff8e8' }}><b>{banner}</b></div>}
@@ -111,7 +114,8 @@ export default function Materials() {
                                     {i.url && <img src={i.url} alt={i.title} style={{ width: '100%', height: 110, objectFit: 'cover' }} />}
                                     <div style={{ padding: '8px 10px' }}>
                                         <div style={{ fontWeight: 700, fontSize: 13 }}>{i.title}</div>
-                                        <div style={{ color: 'var(--muted)', fontSize: 11 }}>{fa(i.date)}</div>
+                                        <div style={{ color: 'var(--muted)', fontSize: 11 }}>{fa(i.date)} · 👁️ {fa(i.views_count)}</div>
+                                        <button onClick={() => setEditing(i)} className="btn btn-ghost btn-sm" style={{ marginTop: 6, width: '100%', padding: '4px' }}>✏️ ویرایش</button>
                                     </div>
                                     <button onClick={() => remove(i.id)} title="حذف"
                                         style={{ position: 'absolute', top: 6, insetInlineEnd: 6, background: 'rgba(232,80,91,.9)', color: '#fff', border: 0, borderRadius: 8, width: 26, height: 26, cursor: 'pointer' }}>✕</button>
@@ -120,24 +124,104 @@ export default function Materials() {
                         </div>
                     ) : (
                         list.map((i) => (
-                            <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '13px 0', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
-                                <div style={{ minWidth: 0 }}>
-                                    <div style={{ fontWeight: 800 }}>{active.ic} {i.title}</div>
-                                    {i.description && <div style={{ color: 'var(--muted)', fontSize: 13 }}>{i.description}</div>}
-                                    <div style={{ color: 'var(--muted-2)', fontSize: 12, marginTop: 2 }}>
-                                        {fa(i.date)}{i.due_at && ` · مهلت: ${fa(i.due_at)}`}
+                            <div key={i.id} style={{ padding: '13px 0', borderBottom: '1px solid var(--line)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                    <div style={{ minWidth: 0 }}>
+                                        <div style={{ fontWeight: 800 }}>{active.ic} {i.title}</div>
+                                        {i.description && <div style={{ color: 'var(--muted)', fontSize: 13 }}>{i.description}</div>}
+                                        <div style={{ color: 'var(--muted-2)', fontSize: 12, marginTop: 2 }}>
+                                            {fa(i.date)}{i.due_at && ` · مهلت: ${fa(i.due_at)}`}
+                                            {' · '}
+                                            <button onClick={() => setShowViewers(showViewers === i.id ? null : i.id)}
+                                                style={{ border: 0, background: 'none', color: 'var(--navy-800)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700 }}>
+                                                👁️ {fa(i.views_count)} نفر {i.type === 'podcast' ? 'گوش دادند' : 'دیدند'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        {i.url && <a href={i.url} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">{i.type === 'podcast' ? '▶️ پخش' : '⬇️ دریافت'}</a>}
+                                        <button onClick={() => setEditing(i)} className="btn btn-ghost btn-sm">✏️ ویرایش</button>
+                                        <button onClick={() => remove(i.id)} className="btn btn-ghost btn-sm" style={{ color: '#e8505b' }}>حذف</button>
                                     </div>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    {i.url && <a href={i.url} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">{i.type === 'podcast' ? '▶️ پخش' : '⬇️ دریافت'}</a>}
-                                    <button onClick={() => remove(i.id)} className="btn btn-ghost btn-sm" style={{ color: '#e8505b' }}>حذف</button>
-                                </div>
+                                {showViewers === i.id && <Viewers item={i} />}
                             </div>
                         ))
                     )}
                 </div>
             </div>
+
+            {editing && <EditModal item={editing} classrooms={classrooms} onClose={() => setEditing(null)} />}
         </DashLayout>
+    );
+}
+
+function Viewers({ item }) {
+    const secFmt = (s) => (s >= 60 ? `${fa(Math.floor(s / 60))}:${fa(String(s % 60).padStart(2, '0'))}` : `${fa(s)}ث`);
+    if (!item.viewers || item.viewers.length === 0) {
+        return <div style={{ marginTop: 8, background: '#f6f8fc', borderRadius: 10, padding: '8px 12px', fontSize: 12.5, color: 'var(--muted)' }}>هنوز کسی این محتوا را ندیده است.</div>;
+    }
+    return (
+        <div style={{ marginTop: 8, background: '#f6f8fc', borderRadius: 10, padding: '8px 12px' }}>
+            {item.viewers.map((v, k) => (
+                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, padding: '3px 0' }}>
+                    <span>👤 {v.name}</span>
+                    <span style={{ color: 'var(--muted)' }}>
+                        {item.type === 'podcast' ? `🎧 ${secFmt(v.seconds)}` : '✓ دید'}{v.xp > 0 ? ` · ⚡${fa(v.xp)}` : ''}
+                    </span>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function EditModal({ item, classrooms, onClose }) {
+    const form = useForm({
+        title: item.title || '', description: item.description || '',
+        classroom_id: item.classroom_id || '', external_url: item.external_url || '',
+        due_at: item.due_at_raw || '', file: null,
+    });
+    const submit = (e) => {
+        e.preventDefault();
+        form.post(route('teacher.materials.update', item.id), {
+            preserveScroll: true, forceFormData: true, onSuccess: onClose,
+        });
+    };
+    return (
+        <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(10,20,40,.55)', display: 'grid', placeItems: 'center', zIndex: 60, padding: 16 }}>
+            <form onClick={(e) => e.stopPropagation()} onSubmit={submit} className="panel" style={{ maxWidth: 460, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+                <h3>✏️ ویرایش محتوا</h3>
+                <Field label="عنوان" err={form.errors.title}>
+                    <input className="input" value={form.data.title} onChange={(e) => form.setData('title', e.target.value)} />
+                </Field>
+                <Field label="توضیح" err={form.errors.description}>
+                    <textarea className="input" rows="2" value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} />
+                </Field>
+                {classrooms.length > 0 && (
+                    <Field label="کلاس">
+                        <select className="input" value={form.data.classroom_id} onChange={(e) => form.setData('classroom_id', e.target.value)}>
+                            <option value="">همه‌ی کلاس‌ها</option>
+                            {classrooms.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                    </Field>
+                )}
+                {item.type === 'homework' && (
+                    <Field label="مهلت تحویل">
+                        <JalaliDatePicker value={form.data.due_at} onChange={(v) => form.setData('due_at', v)} placeholder="انتخاب مهلت" />
+                    </Field>
+                )}
+                <Field label="جایگزینی فایل (اختیاری)" err={form.errors.file}>
+                    <input type="file" className="input" style={{ padding: 9 }} onChange={(e) => form.setData('file', e.target.files[0] || null)} />
+                </Field>
+                <Field label="لینک بیرونی (اختیاری)" err={form.errors.external_url}>
+                    <input className="input" value={form.data.external_url} onChange={(e) => form.setData('external_url', e.target.value)} placeholder="https://…" dir="ltr" />
+                </Field>
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <button type="submit" disabled={form.processing} className="btn" style={{ flex: 1 }}>{form.processing ? 'در حال ذخیره…' : 'ذخیره تغییرات'}</button>
+                    <button type="button" onClick={onClose} className="btn btn-ghost">انصراف</button>
+                </div>
+            </form>
+        </div>
     );
 }
 

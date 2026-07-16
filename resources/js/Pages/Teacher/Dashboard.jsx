@@ -1,10 +1,12 @@
-import { usePage, Link } from '@inertiajs/react';
+import { usePage, Link, router } from '@inertiajs/react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+const ALARM_C = [['#3d7bf0', '#2555c0'], ['#a24cf0', '#6f2fb0'], ['#2bb673', '#1a8a52'], ['#e8862e', '#c06712'], ['#e8505b', '#b0333f']];
 
 export default function Dashboard() {
-    const { auth, classrooms = [], totals = {}, announcements = [], unreadNotices = 0 } = usePage().props;
+    const { auth, classrooms = [], totals = {}, announcements = [], alarms = [], smartLab = false, unreadNotices = 0 } = usePage().props;
     const name = auth?.user?.name || 'معلم عزیز';
+    const dismiss = (id) => router.post(route('teacher.dismiss-alarm'), { id }, { preserveScroll: true });
 
     const cards = [
         { ic: '🏛️', lbl: 'کلاس‌ها', val: totals.classrooms, c: '#fff3d6' },
@@ -15,8 +17,8 @@ export default function Dashboard() {
 
     // ابزارهای معلم — مطابق امکانات وبسایت قبلی + امکانات فعلی
     const tools = [
-        { href: route('teacher.activities'), ic: '🎯', t: 'فعالیت‌ها و امتیاز', d: 'ثبت بازی، آزمون و دادن ستاره', c: '#fff3d6' },
-        { href: route('teacher.exams'), ic: '📝', t: 'آزمون‌ساز هوشمند', d: 'ساخت آزمون دستی یا با هوش مصنوعی', c: '#e9e4ff' },
+        { href: route('teacher.activities'), ic: '🏅', t: 'امتیازدهی گروهی', d: 'دادن امتیاز به تیم‌ها و دانش‌آموزان', c: '#fff3d6' },
+        { href: route('teacher.studio'), ic: '🎮', t: 'استودیوی بازی', d: 'ساخت بازی آموزشی با AI و بانک سؤال', c: '#e9e4ff' },
         { href: route('teacher.gradebook'), ic: '📔', t: 'دفتر نمره', d: 'نمرات و تسلط دانش‌آموزان', c: '#dcebff' },
         { href: route('teacher.discipline'), ic: '⭐', t: 'انضباط', d: 'ثبت ستاره‌ی تشویقی و تذکر', c: '#d4f5ef' },
         { href: route('teacher.schedule'), ic: '🗓️', t: 'برنامه‌ی کلاسی', d: 'تنظیم برنامه‌ی هفتگی درس‌ها', c: '#ffe0ec' },
@@ -39,6 +41,29 @@ export default function Dashboard() {
                     </div>
                 </div>
             </div>
+
+            {/* آلارمِ پیام‌های ۲۴ ساعت اخیر — با دیدن/حذف از پیشخوان می‌رود */}
+            {alarms.length > 0 && (
+                <div style={{ marginTop: 20 }}>
+                    <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        🔔 پیام‌های جدید (۲۴ ساعت اخیر)
+                        <span className="tag" style={{ background: '#e8505b', color: '#fff' }}>{fa(alarms.length)}</span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 12 }}>
+                        {alarms.map((a, i) => {
+                            const [c1, c2] = ALARM_C[i % ALARM_C.length];
+                            return (
+                                <div key={a.id} style={{ position: 'relative', borderRadius: 16, padding: '14px 40px 14px 16px', color: '#fff', background: `linear-gradient(135deg,${c1},${c2})`, boxShadow: '0 8px 20px -12px rgba(0,0,0,.5)' }}>
+                                    <button onClick={() => dismiss(a.id)} title="دیدم، حذف کن" style={{ position: 'absolute', top: 8, insetInlineEnd: 8, width: 26, height: 26, borderRadius: 8, border: 0, background: 'rgba(255,255,255,.25)', color: '#fff', cursor: 'pointer', fontWeight: 900 }}>✓</button>
+                                    <div style={{ fontWeight: 800, fontSize: 14.5 }}>{a.personal ? '✉️ ' : '📢 '}{a.title}</div>
+                                    <div style={{ fontSize: 12.5, opacity: .92, marginTop: 4, lineHeight: 1.9, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{a.body}</div>
+                                    <div style={{ fontSize: 11, opacity: .8, marginTop: 6 }}>از {a.sender || 'مدرسه'} · {a.date}</div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* آمار */}
             <div className="dash-cards" style={{ marginTop: 20 }}>

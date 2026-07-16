@@ -1,4 +1,4 @@
-import { usePage, useForm } from '@inertiajs/react';
+import { usePage, useForm, Link } from '@inertiajs/react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 
 /** ساخت تکلیف/آزمون: انتخاب کلاس، نوع، مهارت‌ها و تعداد سؤال. */
@@ -15,6 +15,16 @@ export default function AssignmentCreate() {
 
     return (
         <DashLayout title="تکلیف / آزمون جدید" roleLabel="معلم" menu={teacherMenu} active="assignments">
+            {/* گزینه‌ی کاربرگ‌سازِ هوشمند */}
+            <Link href={route('teacher.worksheets')} className="panel" style={{ maxWidth: 680, display: 'flex', alignItems: 'center', gap: 14, textDecoration: 'none', color: '#fff', background: 'linear-gradient(135deg,#7a5cf0,#3d7bf0)', border: 0, marginBottom: 16 }}>
+                <div style={{ fontSize: 34 }}>🎨</div>
+                <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 900, fontSize: 16 }}>ایجاد کاربرگ هوشمند</div>
+                    <div style={{ fontSize: 13, opacity: .92, marginTop: 2 }}>با هوش مصنوعی کاربرگ موضوعی و تصویریِ جذاب بساز و در بانک کاربرگ‌ها ذخیره کن</div>
+                </div>
+                <div style={{ fontSize: 22 }}>‹</div>
+            </Link>
+
             <form onSubmit={submit} className="panel" style={{ maxWidth: 680 }}>
                 <h3>📝 ساخت تکلیف یا آزمون</h3>
 

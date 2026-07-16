@@ -24,6 +24,39 @@ class EduGameController extends Controller
         return Inertia::render('Teacher/GameStudio', $this->payload($request));
     }
 
+    /** تولید سؤالِ بازی با هوش مصنوعی (مشابه آزمون هوشمند). */
+    public function aiGenerate(Request $request, \App\Services\SmartExamAiService $ai): \Illuminate\Http\JsonResponse
+    {
+        $data = $request->validate([
+            'subject' => ['nullable', 'string', 'max:80'], 'topic' => ['nullable', 'string', 'max:120'],
+            'grade' => ['nullable', 'string', 'max:40'], 'count' => ['required', 'integer', 'min:1', 'max:15'],
+            'difficulty' => ['nullable', 'in:easy,medium,hard'], 'flavor' => ['nullable', 'string', 'max:60'],
+            'sample' => ['nullable', 'boolean'],
+        ]);
+        $result = $ai->generate([...$data, 'type' => 'mc',
+            'school_id' => $request->user()->school_id, 'teacher_id' => $request->user()->id]);
+        if (! empty($result['questions'])) {
+            $result['questions'] = collect($result['questions'])
+                ->filter(fn ($q) => in_array($q['type'] ?? 'mc', ['mc', 'tf']))->values()->all();
+        }
+        return response()->json($result);
+    }
+
+    /** سؤال‌های بانک (قابل‌مشاهده برای معلم) برای استفاده در بازی. */
+    public function bankQuestions(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $q = \App\Support\BankAccess::visibleQuery($request->user())
+            ->whereIn('type', ['mc', 'tf'])
+            ->when($request->subject, fn ($x) => $x->where('subject', $request->subject))
+            ->when($request->search, fn ($x) => $x->where('prompt', 'like', '%' . $request->search . '%'))
+            ->latest()->limit(100)->get()
+            ->map(fn ($b) => [
+                'id' => $b->id, 'prompt' => $b->prompt, 'choices' => $b->choices ?? [],
+                'subject' => $b->subject, 'difficulty' => $b->difficulty,
+            ]);
+        return response()->json(['questions' => $q]);
+    }
+
     private function payload(Request $request, array $extra = []): array
     {
         $teacher = $request->user();
@@ -286,6 +319,7 @@ class EduGameController extends Controller
     private function syncQuestions(EduGame $game, array $questions): void
     {
         $game->questions()->delete();
+        $meta = ['subject' => $game->subject, 'grade' => $game->grade, 'source' => 'manual'];
         foreach (array_values($questions) as $i => $q) {
             EduGameQuestion::create([
                 'edu_game_id' => $game->id,
@@ -299,6 +333,10 @@ class EduGameController extends Controller
                 'points' => $q['points'] ?? 10,
                 'sort' => $i,
             ]);
+            // ثبتِ خودکارِ سؤالِ بازی در بانک سؤالات (چه آزمون چه بازی، در بانک نگه‌داری می‌شود)
+            if ($game->teacher && in_array(($q['type'] ?? 'mc'), ['mc', 'tf'])) {
+                \App\Support\BankAccess::autosave($game->teacher, $q, $meta);
+            }
         }
     }
 

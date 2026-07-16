@@ -29,10 +29,11 @@ export default function Dashboard() {
     const skin = theme?.skin ?? {};
     const [picked, setPicked] = useState(null);
 
-    const LEVEL_XP = levelXp || 150;
-    const xp = me.xp ?? 0;
+    const LEVEL_XP = Number(levelXp) > 0 ? Number(levelXp) : 150;
+    const xp = Number(me.xp) || 0;
     const level = levelOf(xp, LEVEL_XP);
     const prog = levelProgress(xp, LEVEL_XP);
+    const ringProg = Math.max(0, Math.min(1, prog || 0)); // کلمپ‌شده و بدون NaN
     const toNext = LEVEL_XP - (xp % LEVEL_XP);
     const levelName = levelNames[level - 1] || `${w('level', 'مرحله')} ${fa(level)}`;
     const R = 52, C = 2 * Math.PI * R;
@@ -74,16 +75,23 @@ export default function Dashboard() {
                     {floats.map((f, i) => <i key={i} style={FLOAT_POS[i]}>{f}</i>)}
                 </div>
                 <div className="k3-hero" style={{ position: 'relative' }}>
-                    {/* آواتار با حلقه‌ی پیشرفت مرحله */}
+                    {/* آواتار با حلقه‌ی پیشرفت مرحله — از بالا شروع، رنگی و واضح */}
                     <div className="k3-avatar">
-                        <svg viewBox="0 0 120 120" width="112" height="112">
-                            <circle cx="60" cy="60" r={R} fill="none" stroke="rgba(255,255,255,.14)" strokeWidth="8" />
-                            <circle cx="60" cy="60" r={R} fill="none" stroke="var(--acc)" strokeWidth="8" strokeLinecap="round"
-                                strokeDasharray={C} strokeDashoffset={C * (1 - prog)}
-                                style={{ transition: 'stroke-dashoffset 1s cubic-bezier(.2,.8,.3,1)', filter: 'drop-shadow(0 0 6px var(--acc))' }} />
+                        <svg viewBox="0 0 120 120" width="112" height="112" style={{ transform: 'rotate(-90deg)' }}>
+                            <defs>
+                                <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+                                    <stop offset="0%" stopColor="var(--acc)" />
+                                    <stop offset="100%" stopColor="var(--p1)" />
+                                </linearGradient>
+                            </defs>
+                            <circle cx="60" cy="60" r={R} fill="none" stroke="rgba(255,255,255,.18)" strokeWidth="9" />
+                            <circle cx="60" cy="60" r={R} fill="none" stroke="url(#ringGrad)" strokeWidth="9" strokeLinecap="round"
+                                strokeDasharray={C} strokeDashoffset={C * (1 - ringProg)}
+                                style={{ transition: 'stroke-dashoffset 1s cubic-bezier(.2,.8,.3,1)', filter: 'drop-shadow(0 0 5px var(--acc))' }} />
                         </svg>
                         <div className="face">{skin.character ?? skin.mascot ?? theme?.emoji}</div>
                         <div className="lvl">{levelName}</div>
+                        <div className="ringpct">{fa(Math.round(ringProg * 100))}٪</div>
                     </div>
 
                     <div style={{ flex: 1, minWidth: 180 }}>
