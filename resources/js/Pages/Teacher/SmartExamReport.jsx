@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { usePage, router, Link } from '@inertiajs/react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 
@@ -5,7 +6,7 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
 const mins = (s) => s >= 60 ? `${fa(Math.floor(s / 60))}د` : `${fa(s)}ث`;
 
 export default function SmartExamReport() {
-    const { exam = {}, summary = {}, rows = [], perQuestion = [], hard = [], weakTopics = [], buckets = {}, printedAt, gamesEnabled } = usePage().props;
+    const { exam = {}, summary = {}, rows = [], perQuestion = [], studentAnswers = [], hard = [], weakTopics = [], buckets = {}, printedAt, gamesEnabled } = usePage().props;
     const maxB = Math.max(1, ...Object.values(buckets));
 
     return (
@@ -76,21 +77,63 @@ export default function SmartExamReport() {
                 </div>
 
                 <div className="smart-panel">
-                    <div className="smart-h" style={{ fontSize: 15 }}>❓ گزارش سؤال‌به‌سؤال</div>
-                    <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
-                        {perQuestion.map((p) => (
-                            <div key={p.i} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                                <span style={{ fontSize: 13, flex: 1 }}>{fa(p.i + 1)}. {p.prompt}</span>
-                                <div style={{ width: 120, height: 10, borderRadius: 6, background: '#eee', overflow: 'hidden', flex: 'none' }}>
-                                    <div style={{ width: `${p.pct ?? 0}%`, height: '100%', background: (p.pct ?? 0) >= 50 ? '#2bb673' : '#e8505b' }} />
-                                </div>
-                                <b style={{ flex: 'none', fontSize: 12, minWidth: 36 }}>{p.pct === null ? '—' : fa(p.pct) + '٪'}</b>
-                            </div>
-                        ))}
+                    <div className="smart-h" style={{ fontSize: 15 }}>❓ گزارش سؤال‌به‌سؤال (نقاط ضعف کلاس)</div>
+                    <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+                        {perQuestion.map((p) => <SmartQStat key={p.i} p={p} />)}
                     </div>
                 </div>
+
+                {/* پاسخِ هر دانش‌آموز به هر سؤال */}
+                {studentAnswers.length > 0 && (
+                    <div className="smart-panel no-print">
+                        <div className="smart-h" style={{ fontSize: 15 }}>🧑‍🎓 پاسخِ هر دانش‌آموز به هر سؤال</div>
+                        <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+                            {studentAnswers.map((s, k) => (
+                                <div key={k} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <b style={{ minWidth: 120, fontSize: 13.5 }}>{s.name}</b>
+                                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                                        {s.perQuestion.map((q) => {
+                                            const bg = q.type === 'desc' ? '#fef3c7' : q.ok ? '#dcfce7' : q.blank ? '#f1f5f9' : '#fee2e2';
+                                            const col = q.type === 'desc' ? '#b45309' : q.ok ? '#166534' : q.blank ? '#64748b' : '#b91c1c';
+                                            const icon = q.type === 'desc' ? '✍️' : q.ok ? '✅' : q.blank ? '—' : '❌';
+                                            return <span key={q.i} style={{ background: bg, color: col, borderRadius: 7, padding: '4px 8px', fontSize: 12, fontWeight: 700 }}>{fa(q.i + 1)} {icon}</span>;
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 <div style={{ textAlign: 'center', color: '#7c7595', fontSize: 12 }}>تهیه‌شده در {printedAt}</div>
             </div>
         </DashLayout>
+    );
+}
+
+/** آمارِ یک سؤال + فهرست اشتباه‌کنندگان. */
+function SmartQStat({ p }) {
+    const [open, setOpen] = useState(false);
+    const barColor = p.pct == null ? '#94a3b8' : p.pct >= 70 ? '#16a34a' : p.pct >= 40 ? '#f0952e' : '#dc2626';
+    return (
+        <div style={{ border: '1px solid var(--sm-line, #eee)', borderRadius: 10, padding: 10 }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <span style={{ fontSize: 13, flex: 1 }}>{fa(p.i + 1)}. {p.prompt}</span>
+                {p.type === 'desc'
+                    ? <span className="smart-tag sample" style={{ fontSize: 11 }}>تشریحی</span>
+                    : <>
+                        <div style={{ width: 110, height: 10, borderRadius: 6, background: '#eee', overflow: 'hidden', flex: 'none' }}>
+                            <div style={{ width: `${p.pct ?? 0}%`, height: '100%', background: barColor }} />
+                        </div>
+                        <b style={{ flex: 'none', fontSize: 12, minWidth: 36, color: barColor }}>{p.pct === null ? '—' : fa(p.pct) + '٪'}</b>
+                    </>}
+            </div>
+            {p.type !== 'desc' && p.wrongNames?.length > 0 && (
+                <div style={{ marginTop: 4 }}>
+                    <button onClick={() => setOpen(!open)} className="smart-btn ghost sm" style={{ fontSize: 12 }}>{open ? 'بستن' : `👀 ${fa(p.wrongNames.length)} نفر اشتباه زدند`}</button>
+                    {open && <div style={{ fontSize: 12.5, color: '#7c7595', marginTop: 4 }}>{p.wrongNames.join('، ')}</div>}
+                </div>
+            )}
+        </div>
     );
 }

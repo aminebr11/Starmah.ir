@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
+use App\Models\Announcement;
 use App\Models\AuditLog;
 use App\Models\Classroom;
 use App\Models\SmartExam;
@@ -129,6 +130,10 @@ class SmartExamController extends Controller
         $this->syncQuestions($exam, $data['questions']);
         $this->syncTargets($exam, $data);
 
+        if ($exam->status === 'published') {
+            $this->notifyTargets($exam);
+        }
+
         AuditLog::record($teacher, 'ساخت آزمون هوشمند', "آزمون «{$exam->title}» ساخته شد");
         return redirect()->route('teacher.smart.lab')->with('flash', 'آزمون هوشمند ساخته شد 🧪');
     }
@@ -162,8 +167,48 @@ class SmartExamController extends Controller
     {
         abort_unless($smartExam->teacher_id === $request->user()->id, 403);
         $data = $request->validate(['status' => ['required', 'in:draft,review,scheduled,published,closed,archived']]);
+        $wasPublished = $smartExam->status === 'published';
         $smartExam->update(['status' => $data['status']]);
+        // فقط هنگامِ انتشارِ تازه اعلان بده
+        if ($data['status'] === 'published' && ! $wasPublished) {
+            $this->notifyTargets($smartExam);
+        }
         return back()->with('flash', 'وضعیت آزمون به‌روزرسانی شد');
+    }
+
+    /** اعلانِ انتشارِ آزمونِ هوشمند به دانش‌آموزانِ هدف (زنگوله/اعلان‌ها). */
+    private function notifyTargets(SmartExam $exam): void
+    {
+        $exam->loadMissing('targets');
+        $classroomIds = Classroom::where('teacher_id', $exam->teacher_id)->pluck('id');
+
+        if ($exam->targets->isEmpty()) {
+            // بدون هدفِ صریح → همه‌ی دانش‌آموزانِ کلاس‌های معلم
+            $ids = \App\Models\User::whereHas('classrooms', fn ($q) => $q->whereIn('classrooms.id', $classroomIds))->pluck('id');
+        } else {
+            $ids = collect();
+            $tClass = $exam->targets->pluck('classroom_id')->filter();
+            $tTheme = $exam->targets->pluck('theme_id')->filter();
+            $tStud = $exam->targets->pluck('student_id')->filter();
+            if ($tClass->isNotEmpty()) {
+                $ids = $ids->merge(\App\Models\User::whereHas('classrooms', fn ($q) => $q->whereIn('classrooms.id', $tClass))->pluck('id'));
+            }
+            if ($tTheme->isNotEmpty()) {
+                $ids = $ids->merge(\App\Models\User::whereIn('theme_id', $tTheme)
+                    ->whereHas('classrooms', fn ($q) => $q->whereIn('classrooms.id', $classroomIds))->pluck('id'));
+            }
+            $ids = $ids->merge($tStud)->unique()->values();
+        }
+        if ($ids->isEmpty()) {
+            return;
+        }
+        $ann = Announcement::create([
+            'school_id' => $exam->school_id, 'sender_id' => $exam->teacher_id,
+            'title' => '🧠 آزمون هوشمند جدید — ' . $exam->title,
+            'audience' => 'personal',
+            'body' => "یک آزمون هوشمندِ جدید برای شما منتشر شد: «{$exam->title}».\nبرای شرکت، به بخشِ «آزمون هوشمند» بروید.",
+        ]);
+        $ann->recipients()->sync($ids->all());
     }
 
     public function destroy(Request $request, SmartExam $smartExam): RedirectResponse

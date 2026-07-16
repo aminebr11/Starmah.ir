@@ -28,19 +28,39 @@ class SmartExamAnalyticsService
             ];
         })->sortByDesc('percent')->values();
 
-        // درصد پاسخ صحیح هر سؤال + سؤال‌های دشوار
+        // نگاشتِ تلاش→دانش‌آموز (برای نامِ کسانی که غلط زدند + جدولِ سؤال‌به‌سؤالِ هر دانش‌آموز)
+        $attemptStudent = $attempts->pluck('student.name', 'id');
+        $allAnswers = \App\Models\SmartExamAnswer::whereIn('attempt_id', $attempts->pluck('id'))->get();
+
+        // درصد پاسخ صحیح هر سؤال + نامِ اشتباه‌کنندگان + سؤال‌های دشوار
         $perQuestion = [];
         foreach ($exam->questions->values() as $i => $q) {
-            $ans = \App\Models\SmartExamAnswer::whereIn('attempt_id', $attempts->pluck('id'))
-                ->where('q_index', $i)->get();
+            $ans = $allAnswers->where('q_index', $i);
             $answered = $ans->count();
             $correct = $ans->where('correct', true)->count();
+            $wrongNames = $ans->where('correct', false)
+                ->map(fn ($a) => $attemptStudent[$a->attempt_id] ?? null)->filter()->unique()->values()->all();
             $perQuestion[] = [
-                'i' => $i, 'prompt' => $q->prompt, 'topic' => $q->topic,
+                'i' => $i, 'prompt' => $q->prompt, 'topic' => $q->topic, 'type' => $q->type,
                 'answered' => $answered, 'correct' => $correct,
+                'wrong' => max(0, $answered - $correct - $ans->whereNull('correct')->count()),
+                'wrongNames' => $wrongNames,
                 'pct' => $answered ? (int) round($correct / $answered * 100) : null,
             ];
         }
+
+        // پاسخِ هر دانش‌آموز به هر سؤال (بهترین تلاش)
+        $bestAttemptIds = $attempts->groupBy('student_id')->map(fn ($g) => $g->sortByDesc('score')->first()->id);
+        $studentAnswers = $bestAttemptIds->map(function ($aid, $sid) use ($attemptStudent, $allAnswers, $exam) {
+            $byIdx = $allAnswers->where('attempt_id', $aid)->keyBy('q_index');
+            return [
+                'name' => $attemptStudent[$aid] ?? '—',
+                'perQuestion' => $exam->questions->values()->map(function ($q, $i) use ($byIdx) {
+                    $a = $byIdx->get($i);
+                    return ['i' => $i, 'type' => $q->type, 'ok' => $a ? ($a->correct === null ? null : (bool) $a->correct) : null, 'blank' => ! $a];
+                })->values(),
+            ];
+        })->values();
         $hard = collect($perQuestion)->filter(fn ($p) => $p['pct'] !== null && $p['pct'] < 50)
             ->sortBy('pct')->take(6)->values();
 
@@ -61,6 +81,7 @@ class SmartExamAnalyticsService
             ],
             'rows' => $rows,
             'perQuestion' => $perQuestion,
+            'studentAnswers' => $studentAnswers,
             'hard' => $hard,
             'weakTopics' => $weakTopics,
             'buckets' => $this->buckets($percents->all()),
@@ -92,11 +113,35 @@ class SmartExamAnalyticsService
             'topic' => $t, 'pct' => $v['total'] ? (int) round($v['correct'] / $v['total'] * 100) : 0,
         ])->values();
 
+        // پاسخنامه‌ی کامل: هر سؤال، پاسخِ دانش‌آموز و پاسخِ درست
+        $ansByIndex = $attempt->answers->keyBy('q_index');
+        $review = $qByIndex->map(function ($q, $i) use ($ansByIndex) {
+            $a = $ansByIndex->get($i);
+            $mine = $a ? (is_array($a->value) ? ($a->value['value'] ?? '') : $a->value) : '';
+            $type = $q->type;
+            $correctVal = null;
+            if (in_array($type, ['mc', 'tf'], true)) {
+                $ci = collect($q->choices ?? [])->search(fn ($c) => ! empty($c['correct']));
+                $correctVal = $ci !== false ? ($q->choices[$ci]['value'] ?? null) : null;
+            } elseif ($type === 'blank') {
+                $correctVal = is_array($q->answer) ? ($q->answer[0] ?? '') : (string) $q->answer;
+            }
+            return [
+                'i' => $i, 'type' => $type, 'prompt' => $q->prompt,
+                'choices' => collect($q->choices ?? [])->map(fn ($c) => (string) ($c['value'] ?? ''))->all(),
+                'mine' => (string) ($mine ?? ''),
+                'correct' => $type === 'desc' ? null : (string) $correctVal,
+                'is_correct' => $a ? (bool) $a->correct : null,
+                'explanation' => $q->explanation,
+            ];
+        })->values();
+
         return [
             'strengths' => $topics->where('pct', '>=', 70)->pluck('topic')->take(4)->values(),
             'weakTopics' => $topics->where('pct', '<', 60)->sortBy('pct')->values(),
             'wrong' => collect($wrong)->take(10)->values(),
             'topics' => $topics->sortByDesc('pct')->values(),
+            'review' => $review,
         ];
     }
 
