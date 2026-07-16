@@ -2,6 +2,7 @@
 namespace App\Models;
 use App\Models\Concerns\BelongsToSchool;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class SmartQuestionBank extends Model
 {
     use BelongsToSchool;
@@ -12,4 +13,8 @@ class SmartQuestionBank extends Model
         'tags', 'media_path', 'source', 'approval', 'used_count', 'correct_pct', 'version',
     ];
     protected $casts = ['choices' => 'array', 'answer' => 'array'];
+
+    public function teacher(): BelongsTo { return $this->belongsTo(User::class, 'teacher_id'); }
+
+    public function school(): BelongsTo { return $this->belongsTo(School::class); }
 }
