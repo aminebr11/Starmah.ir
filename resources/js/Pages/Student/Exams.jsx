@@ -18,7 +18,10 @@ export default function Exams() {
                             <div style={{ opacity: .7, fontSize: 12, marginTop: 4 }}>{fa(e.count)} سؤال</div>
                         </div>
                         {e.done
-                            ? <span style={{ color: '#7be05a', fontWeight: 800 }}>✅ نمره: {fa(e.score)}/{fa(e.max)}</span>
+                            ? <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                <span style={{ color: '#7be05a', fontWeight: 800 }}>✅ نمره: {fa(e.score)}/{fa(e.max)}</span>
+                                <Link href={route('exams.review', e.id)} style={{ background: 'rgba(255,255,255,.15)', color: '#fff', padding: '8px 16px', borderRadius: 12, fontWeight: 800, textDecoration: 'none' }}>📄 پاسخنامه</Link>
+                            </div>
                             : <Link href={route('exams.take', e.id)} style={{ background: 'linear-gradient(135deg,var(--p1),var(--p2))', color: '#fff', padding: '10px 20px', borderRadius: 12, fontWeight: 800, textDecoration: 'none' }}>شروع آزمون ▶️</Link>}
                     </div>
                 ))}

@@ -31,12 +31,47 @@ class ExamController extends Controller
         $list = $assignments->map(fn ($a) => [
             'id' => $a->id, 'title' => $a->title, 'type' => $a->type,
             'count' => $a->question_count,
-            'done' => isset($subs[$a->id]),
+            'done' => isset($subs[$a->id]) && $subs[$a->id]->status === 'completed',
             'score' => $subs[$a->id]->score ?? null,
             'max' => $subs[$a->id]->max_score ?? null,
         ]);
 
         return Inertia::render('Student/Exams', ['exams' => $list]);
+    }
+
+    /** پاسخنامه‌ی دانش‌آموز: چه زده و پاسخ درست چه بوده — برای درکِ عملکردِ خودش. */
+    public function review(Request $request, Assignment $assignment): Response
+    {
+        $user = $request->user();
+        abort_unless($assignment->school_id === $user->school_id, 403);
+        $sub = AssignmentSubmission::where('assignment_id', $assignment->id)
+            ->where('student_id', $user->id)->where('status', 'completed')->firstOrFail();
+
+        $given = collect($sub->answers ?? [])->keyBy('i');
+        $built = collect($assignment->config['questions'] ?? []);
+
+        $items = $built->map(function ($q, $i) use ($given) {
+            $type = $q['type'] ?? 'mc';
+            $correctVal = collect($q['choices'] ?? [])->firstWhere('correct', true)['value'] ?? null;
+            $myVal = $given[$i]['value'] ?? '';
+            $descScore = $given[$i]['score'] ?? null;
+            return [
+                'i' => $i, 'type' => $type, 'prompt' => $q['prompt'] ?? '',
+                'choices' => collect($q['choices'] ?? [])->map(fn ($c) => (string) ($c['value'] ?? ''))->all(),
+                'correct' => $type === 'desc' ? null : (string) $correctVal,
+                'mine' => (string) $myVal,
+                'is_correct' => $type === 'desc' ? null : ((string) $myVal !== '' && (string) $myVal === (string) $correctVal),
+                'explanation' => $q['explanation'] ?? null,
+                'desc_score' => $descScore,
+            ];
+        })->values();
+
+        return Inertia::render('Student/ExamReview', [
+            'exam'  => ['id' => $assignment->id, 'title' => $assignment->title],
+            'items' => $items,
+            'score' => $sub->score, 'max' => $sub->max_score,
+            'accuracy' => $sub->accuracy,
+        ]);
     }
 
     public function take(Request $request, Assignment $assignment): Response

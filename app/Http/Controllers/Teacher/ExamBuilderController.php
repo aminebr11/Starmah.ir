@@ -135,7 +135,7 @@ class ExamBuilderController extends Controller
         $classroom = Classroom::where('teacher_id', $teacher->id)->firstOrFail();
         $data = $this->validated($request);
 
-        Assignment::create([
+        $assignment = Assignment::create([
             'school_id'      => $teacher->school_id,
             'classroom_id'   => $classroom->id,
             'teacher_id'     => $teacher->id,
@@ -146,13 +146,35 @@ class ExamBuilderController extends Controller
             'is_published'   => $data['publish'] ?? true,
         ]);
 
+        if ($assignment->is_published) {
+            $this->notifyStudents($assignment, $classroom);
+        }
+
         return redirect()->route('teacher.exams')->with('flash', 'آزمون ساخته و منتشر شد ✅');
+    }
+
+    /** اعلانِ انتشارِ آزمون به دانش‌آموزانِ کلاس (در زنگوله/اعلان‌ها دیده می‌شود). */
+    private function notifyStudents(Assignment $assignment, Classroom $classroom): void
+    {
+        $ids = $classroom->students()->pluck('users.id')->all();
+        if (! $ids) {
+            return;
+        }
+        $ann = Announcement::create([
+            'school_id' => $assignment->school_id,
+            'sender_id' => $assignment->teacher_id,
+            'title'     => '💻 آزمون جدید — ' . $assignment->title,
+            'audience'  => 'personal',
+            'body'      => "یک آزمون جدید برای شما منتشر شد: «{$assignment->title}».\nبرای شرکت، به بخشِ «آزمون‌ها» بروید.",
+        ]);
+        $ann->recipients()->sync($ids);
     }
 
     public function update(Request $request, Assignment $assignment): RedirectResponse
     {
         abort_unless($assignment->teacher_id === $request->user()->id, 403);
         $data = $this->validated($request);
+        $wasPublished = (bool) $assignment->is_published;
 
         $assignment->update([
             'title'          => $data['title'],
@@ -161,6 +183,11 @@ class ExamBuilderController extends Controller
             'config'         => $this->configFrom($data),
             'is_published'   => $data['publish'] ?? true,
         ]);
+
+        // فقط هنگامِ انتشارِ تازه اعلان بده (نه هر ویرایش)
+        if ($assignment->is_published && ! $wasPublished && $assignment->classroom) {
+            $this->notifyStudents($assignment, $assignment->classroom);
+        }
 
         return redirect()->route('teacher.exams')->with('flash', 'آزمون ویرایش شد ✅');
     }
@@ -180,30 +207,70 @@ class ExamBuilderController extends Controller
         $students = $classroom ? $classroom->students()->get(['users.id', 'name']) : collect();
         $subs = $assignment->submissions()->get()->keyBy('student_id');
 
-        // سؤال‌های تشریحیِ آزمون (برای تصحیح دستی)
-        $descQuestions = collect($assignment->config['questions'] ?? [])
-            ->map(fn ($q, $i) => ['i' => $i, 'type' => $q['type'] ?? 'mc', 'prompt' => $q['prompt']])
-            ->filter(fn ($q) => $q['type'] === 'desc')->values();
+        // همه‌ی سؤال‌های آزمون + پاسخِ درست (برای تحلیلِ سؤال‌به‌سؤال)
+        $built = collect($assignment->config['questions'] ?? []);
+        $qMeta = $built->map(function ($q, $i) {
+            $type = $q['type'] ?? 'mc';
+            return [
+                'i' => $i, 'type' => $type, 'prompt' => $q['prompt'] ?? '',
+                'correct' => $type === 'desc' ? null : (string) (collect($q['choices'] ?? [])->firstWhere('correct', true)['value'] ?? ''),
+            ];
+        })->values();
 
-        $rows = $students->map(function ($s) use ($subs, $descQuestions) {
+        $descQuestions = $qMeta->filter(fn ($q) => $q['type'] === 'desc')->values();
+
+        $rows = $students->map(function ($s) use ($subs, $descQuestions, $qMeta) {
             $sub = $subs->get($s->id);
             $pct = $sub && $sub->max_score ? (int) round($sub->score / $sub->max_score * 100) : null;
-            // پاسخ‌های تشریحیِ این دانش‌آموز
             $answers = collect($sub?->answers ?? [])->keyBy('i');
+
+            // پاسخِ این دانش‌آموز به هر سؤال + درست/نادرست
+            $perQ = $qMeta->map(function ($q) use ($answers) {
+                $mine = (string) ($answers[$q['i']]['value'] ?? '');
+                return [
+                    'i' => $q['i'], 'type' => $q['type'], 'mine' => $mine,
+                    'ok' => $q['type'] === 'desc' ? null : ($mine !== '' && $mine === $q['correct']),
+                    'score' => $answers[$q['i']]['score'] ?? null,
+                ];
+            });
+
             $descAnswers = $descQuestions->map(fn ($q) => [
                 'i' => $q['i'], 'prompt' => $q['prompt'],
                 'answer' => $answers[$q['i']]['value'] ?? '',
                 'score' => $answers[$q['i']]['score'] ?? null,
             ]);
+
             return [
                 'id' => $s->id, 'name' => $s->name,
                 'done' => (bool) $sub,
                 'score' => $sub?->score, 'max' => $sub?->max_score, 'percent' => $pct,
                 'descGraded' => (bool) ($sub?->desc_graded),
                 'descAnswers' => $descAnswers,
+                'perQuestion' => $perQ,
                 'jdate' => $sub?->submitted_at ? Jalali::format($sub->submitted_at, true) : null,
             ];
         })->sortByDesc(fn ($r) => $r['percent'] ?? -1)->values();
+
+        // تحلیلِ سؤال‌به‌سؤال برای کلِ کلاس — کدام سؤال‌ها بیشترین اشتباه را داشتند
+        $taken = $rows->where('done', true);
+        $questionStats = $qMeta->map(function ($q) use ($taken) {
+            if ($q['type'] === 'desc') {
+                return ['i' => $q['i'], 'prompt' => $q['prompt'], 'type' => 'desc', 'correct' => 0, 'wrong' => 0, 'blank' => 0, 'pct' => null, 'wrongNames' => []];
+            }
+            $c = 0; $w = 0; $b = 0; $wrongNames = [];
+            foreach ($taken as $r) {
+                $a = collect($r['perQuestion'])->firstWhere('i', $q['i']);
+                if (! $a || $a['mine'] === '') { $b++; continue; }
+                if ($a['ok']) { $c++; } else { $w++; $wrongNames[] = $r['name']; }
+            }
+            $answered = $c + $w;
+            return [
+                'i' => $q['i'], 'prompt' => $q['prompt'], 'type' => $q['type'],
+                'correct' => $c, 'wrong' => $w, 'blank' => $b,
+                'pct' => $answered ? (int) round($c / $answered * 100) : null,
+                'wrongNames' => $wrongNames,
+            ];
+        })->values();
 
         $done = $rows->where('done', true);
         $percents = $done->pluck('percent')->filter(fn ($p) => $p !== null);
@@ -228,6 +295,7 @@ class ExamBuilderController extends Controller
             'rows'     => $rows,
             'summary'  => $summary,
             'buckets'  => $buckets,
+            'questionStats' => $questionStats,
             'hasDesc'  => $descQuestions->isNotEmpty(),
             'printedAt'=> Jalali::format(now(), true),
         ]);

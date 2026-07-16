@@ -71,7 +71,7 @@ export default function ExamTake() {
                 {q.type === 'desc' ? (
                     <div style={{ marginTop: 14 }}>
                         <textarea value={descText} onChange={(e) => setDescText(e.target.value)} rows="5" placeholder="پاسخت را این‌جا بنویس…"
-                            style={{ width: '100%', borderRadius: 14, padding: 14, fontFamily: 'inherit', fontSize: 15, background: 'rgba(255,255,255,.07)', color: '#fff', border: '1.5px solid rgba(255,255,255,.15)', resize: 'vertical' }} />
+                            style={{ width: '100%', borderRadius: 14, padding: 14, fontFamily: 'inherit', fontSize: 15, background: '#fff', color: '#1b2742', border: '1.5px solid rgba(255,255,255,.35)', resize: 'vertical' }} />
                         <button onClick={submitDesc} disabled={busy || !descText.trim()}
                             style={{ marginTop: 12, width: '100%', background: 'linear-gradient(135deg,var(--p1),var(--p2))', color: '#fff', padding: '14px', borderRadius: 14, fontWeight: 800, border: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 16 }}>
                             {last ? '✅ پایان آزمون' : 'سؤال بعدی ←'}

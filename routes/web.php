@@ -125,6 +125,7 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::get('/exams', [ExamController::class, 'index'])->name('exams');
     Route::get('/exams/{assignment}/take', [ExamController::class, 'take'])->name('exams.take');
     Route::post('/exams/{assignment}/submit', [ExamController::class, 'submit'])->name('exams.submit');
+    Route::get('/exams/{assignment}/review', [ExamController::class, 'review'])->name('exams.review');
 
     // بازی‌های دانش‌آموز (نسخه‌ی ساده‌ی قبلی)
     Route::get('/games', [\App\Http\Controllers\Student\GameController::class, 'index'])->name('games');
@@ -165,6 +166,11 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::get('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'index'])->name('activities');
     Route::post('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'store'])->name('activities.store');
     Route::post('/activities/{classActivity}/award', [\App\Http\Controllers\Teacher\ActivityController::class, 'award'])->name('activities.award');
+    // مدیریت امتیازاتِ دانش‌آموز (افزودن/کسر/حذف سابقه)
+    Route::get('/points', [\App\Http\Controllers\Teacher\StudentPointsController::class, 'index'])->name('points');
+    Route::post('/points/adjust', [\App\Http\Controllers\Teacher\StudentPointsController::class, 'adjust'])->name('points.adjust');
+    Route::delete('/points/entry/{xpEntry}', [\App\Http\Controllers\Teacher\StudentPointsController::class, 'destroyEntry'])->name('points.entry.destroy');
+    Route::post('/points/clear', [\App\Http\Controllers\Teacher\StudentPointsController::class, 'clear'])->name('points.clear');
     // بازی‌ساز (بانک بازی، انتشار، XP)
     Route::get('/games', [\App\Http\Controllers\Teacher\GameController::class, 'index'])->name('games');
     Route::post('/games/ai', [\App\Http\Controllers\Teacher\GameController::class, 'aiGenerate'])->name('games.ai');
