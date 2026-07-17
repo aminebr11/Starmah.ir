@@ -12,7 +12,9 @@ export default function GamePlayer() {
     const questions = game.questions || [];
     const rules = game.rules || {};
     const total = questions.length;
-    const alreadyDone = attempt.status === 'completed'; // قبلاً کامل کرده → XP مجدد ندارد
+    // وضعیتِ «قبلاً کامل‌شده» را فقط یک‌بار هنگام ورود ثبت می‌کنیم؛ چون پس از پایانِ بازی
+    // صفحه با props تازه بارگذاری می‌شود و status به 'completed' تغییر می‌کند (نباید بارِ اول «قبلاً گرفته‌ای» نشان دهد).
+    const [alreadyDone] = useState(attempt.status === 'completed');
 
     const [step, setStep] = useState(0);
     const [lives, setLives] = useState(rules.lives ?? 3);
@@ -281,6 +283,7 @@ function Finish({ score, total, correct, result, rules, gameId, noXp }) {
             </div>
             {noXp && <div style={{ marginTop: 12, fontSize: 13, background: 'rgba(240,149,46,.25)', border: '1px solid rgba(240,149,46,.5)', borderRadius: 12, padding: '9px 13px', display: 'inline-block' }}>ℹ️ امتیاز (XP) این بازی را قبلاً گرفته‌ای — این دور فقط تمرین بود.</div>}
             {passed && !noXp && <div style={{ marginTop: 14, fontSize: 14 }}>🏅 نشانِ «قهرمانِ این بازی» برایت ثبت شد!</div>}
+            {rules.group_race && !noXp && score > 0 && <div style={{ marginTop: 12, fontSize: 13.5, background: 'rgba(43,182,115,.22)', border: '1px solid rgba(43,182,115,.5)', borderRadius: 12, padding: '9px 13px', display: 'inline-block' }}>🏆 امتیازِ تو به مجموعِ امتیازِ تیمت اضافه شد و جایگاهِ تیمت را در رقابتِ گروهی بالا برد!</div>}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 18, flexWrap: 'wrap' }}>
                 <Link href={route('gameworld')} className="k3-btn">🎮 بازی‌های دیگر</Link>
                 {rules.retry !== false && <Link href={route('gameworld.play', gameId)} className="k3-btn ghost">🔁 دوباره (بدون XP)</Link>}

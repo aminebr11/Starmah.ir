@@ -222,8 +222,9 @@ class EduGameController extends Controller
             'school_id' => $game->school_id,
             'sender_id' => $game->teacher_id,
             'title' => '🎮 بازی جدید: ' . $game->title,
-            'body' => "یک {$tName} جدید برایت منتشر شد! از منوی «دنیای بازی‌ها» واردش شو و امتیاز بگیر ⚡",
+            'body' => "یک {$tName} جدید برایت منتشر شد! روی همین اعلان بزن و امتیاز بگیر ⚡",
             'audience' => 'personal',
+            'link' => '/game-world',
         ]);
         $ann->recipients()->sync($students->pluck('id')->all());
     }

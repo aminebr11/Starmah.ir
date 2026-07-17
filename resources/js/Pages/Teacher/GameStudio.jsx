@@ -109,8 +109,14 @@ export default function GameStudio() {
                         <Field label="درس"><select className="input" value={form.data.subject} onChange={(e) => form.setData('subject', e.target.value)}><option value="">— انتخاب —</option>{subjects.map((s, i) => <option key={i} value={s}>{s}</option>)}</select></Field>
                         <Field label="پایه"><input className="input" value={form.data.grade} onChange={(e) => form.setData('grade', e.target.value)} placeholder="مثلاً: چهارم" /></Field>
                         <Field label="سطح سختی"><select className="input" value={form.data.difficulty} onChange={(e) => form.setData('difficulty', e.target.value)}><option value="easy">آسان</option><option value="medium">متوسط</option><option value="hard">سخت</option></select></Field>
-                        <Field label="تاریخ انتشار — شمسی (اختیاری)"><JalaliDatePicker withTime value={form.data.publish_at || ''} onChange={(v) => form.setData('publish_at', v)} placeholder="بلافاصله" /></Field>
-                        <Field label="تاریخ پایان — شمسی (اختیاری)"><JalaliDatePicker withTime value={form.data.close_at || ''} onChange={(v) => form.setData('close_at', v)} placeholder="بدون پایان" /></Field>
+                        <Field label="تاریخ انتشار — شمسی (اختیاری)">
+                            <JalaliDatePicker withTime value={form.data.publish_at || ''} onChange={(v) => form.setData('publish_at', v)} placeholder="بلافاصله" />
+                            {form.data.publish_at && <button type="button" onClick={() => form.setData('publish_at', '')} className="btn btn-ghost btn-sm" style={{ marginTop: 6, color: '#e8505b' }}>✕ پاک‌کردن تاریخ انتشار (انتشار فوری)</button>}
+                        </Field>
+                        <Field label="تاریخ پایان — شمسی (اختیاری)">
+                            <JalaliDatePicker withTime value={form.data.close_at || ''} onChange={(v) => form.setData('close_at', v)} placeholder="بدون پایان" />
+                            {form.data.close_at && <button type="button" onClick={() => form.setData('close_at', '')} className="btn btn-ghost btn-sm" style={{ marginTop: 6, color: '#e8505b' }}>✕ پاک‌کردن تاریخ پایان (بدون محدودیت)</button>}
+                        </Field>
                         <div style={{ gridColumn: '1/-1' }}><Field label="توضیح کوتاه"><textarea className="input" rows={2} value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} /></Field></div>
                         {/* گروه‌های هدف */}
                         <div style={{ gridColumn: '1/-1' }}>
@@ -239,7 +245,10 @@ export default function GameStudio() {
                         <Toggle label="امکان تلاش مجدد" v={form.data.rules.retry} on={(v) => setR('retry', v)} />
                         <Toggle label="نمایش جواب صحیح پس از خطا" v={form.data.rules.show_answer} on={(v) => setR('show_answer', v)} />
                         <Toggle label="ترتیب تصادفی سؤال‌ها" v={form.data.rules.shuffle} on={(v) => setR('shuffle', v)} />
-                        <Toggle label="رقابت گروهی" v={form.data.rules.group_race} on={(v) => setR('group_race', v)} />
+                        <div style={{ gridColumn: '1/-1' }}>
+                            <Toggle label="🏆 رقابت گروهی" v={form.data.rules.group_race} on={(v) => setR('group_race', v)}
+                                desc="با روشن‌کردن این گزینه، در پایانِ بازی به دانش‌آموز یادآوری می‌شود که امتیازش به مجموع امتیازِ «تیمِ» او (همان دنیای رنگی‌اش) اضافه شد و جایگاه تیمش را در جدولِ رقابتِ تیم‌ها بالا می‌برد. مناسب برای بازی‌هایی که می‌خواهید حسِ همکاری و رقابتِ گروهی را تقویت کنید. (امتیاز در هر حالت به دانش‌آموز داده می‌شود؛ این گزینه فقط نمایشِ رقابتِ تیمی را فعال می‌کند.)" />
+                        </div>
                     </div>
                 )}
 
@@ -289,7 +298,6 @@ export default function GameStudio() {
                                 {g.status !== 'published'
                                     ? <button onClick={() => router.post(route('teacher.studio.status', g.id), { status: 'published' }, { preserveScroll: true })} className="btn btn-ghost btn-sm">🚀 انتشار</button>
                                     : <button onClick={() => router.post(route('teacher.studio.status', g.id), { status: 'archived' }, { preserveScroll: true })} className="btn btn-ghost btn-sm">📁 آرشیو</button>}
-                                <button onClick={() => router.post(route('teacher.studio.duplicate', g.id), {}, { preserveScroll: true })} className="btn btn-ghost btn-sm">📋</button>
                                 <button onClick={() => confirm(`بازی «${g.title}» حذف شود؟ این کار قابل بازگشت نیست.`) && confirm('برای اطمینان، دوباره تأیید کنید.') && router.delete(route('teacher.studio.destroy', g.id), { preserveScroll: true })} className="btn btn-ghost btn-sm" style={{ color: '#e8505b' }}>🗑️</button>
                             </div>
                         </div>
@@ -306,9 +314,12 @@ const STATUS_COLOR = { draft: '#8896ad', published: '#2bb673', archived: '#e8862
 function Field({ label, err, children }) {
     return <div className="field" style={{ margin: 0 }}><label>{label}</label>{children}{err && <div style={{ color: '#e8505b', fontSize: 12, marginTop: 4 }}>{err}</div>}</div>;
 }
-function Toggle({ label, v, on }) {
-    return <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: 'pointer', padding: '10px 0' }}>
-        <input type="checkbox" checked={!!v} onChange={(e) => on(e.target.checked)} /> {label}</label>;
+function Toggle({ label, v, on, desc }) {
+    return <div style={{ padding: '10px 0' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: 'pointer' }}>
+            <input type="checkbox" checked={!!v} onChange={(e) => on(e.target.checked)} /> {label}</label>
+        {desc && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, lineHeight: 1.9, paddingInlineStart: 26 }}>{desc}</div>}
+    </div>;
 }
 function Info({ k, v }) {
     return <div style={{ background: 'var(--cream)', borderRadius: 12, padding: 12 }}><div style={{ fontSize: 11, color: 'var(--muted)' }}>{k}</div><b style={{ fontSize: 14 }}>{v}</b></div>;
