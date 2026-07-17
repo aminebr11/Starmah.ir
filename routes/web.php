@@ -107,8 +107,8 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::get('/world', [ThemeController::class, 'index'])->name('world.choose');
     Route::post('/world', [ThemeController::class, 'update'])->name('world.update');
 
-    Route::get('/practice/{skill?}', [PracticeController::class, 'start'])->name('practice.start');
-    Route::post('/practice/submit', [PracticeController::class, 'submit'])->name('practice.submit');
+    // «تمرینِ آزادِ قدیمی» حذف شد؛ هدایت به مأموریت‌های تعریف‌شده‌ی معلم.
+    Route::get('/practice/{skill?}', fn () => redirect()->route('missions'))->name('practice.start');
 
     // مأموریت‌های روزانه (معلم‌محور — سؤال‌ها از بانکِ سؤالِ معلم)
     Route::get('/missions', [\App\Http\Controllers\Student\MissionController::class, 'index'])->name('missions');

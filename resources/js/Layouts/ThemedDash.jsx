@@ -18,7 +18,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
 
     const menu = [
         { key: 'home', label: 'خانه', icon: '🏠', href: '/dashboard' },
-        { key: 'practice', label: 'مأموریت و تمرین', icon: '🎯', href: '/practice' },
+        { key: 'practice', label: 'مأموریت‌های من', icon: '🎯', href: '/missions' },
         { key: 'gameworld', label: 'دنیای بازی‌ها', icon: '🎮', href: '/game-world' },
         ...(smartLab ? [{ key: 'smart', label: 'آزمون هوشمند 🧪', icon: '🧠', href: '/student/smart-exams' }] : []),
         { key: 'board', label: 'رقابت تیم‌ها', icon: '🏆', href: '/leaderboard' },
