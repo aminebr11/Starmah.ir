@@ -44,7 +44,7 @@ export default function Missions() {
                             <span style={{ fontSize: 30 }}>{m.badge_icon || (TYPE_META[m.type] || TYPE_META.quiz).ic}</span>
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontWeight: 900, fontSize: 15.5 }}>{m.title}</div>
-                                <div style={{ fontSize: 11.5, opacity: .7 }}>{(TYPE_META[m.type] || TYPE_META.quiz).label}{m.type === 'quiz' ? ' · ' + ([m.subject, m.lesson_no ? `درس ${m.lesson_no}` : null, m.difficulty ? DIFF[m.difficulty] : null].filter(Boolean).join(' · ') || 'عمومی') : ''}</div>
+                                <div style={{ fontSize: 11.5, opacity: .7 }}>{(TYPE_META[m.type] || TYPE_META.quiz).label}{m.type === 'quiz' ? ' · ' + ([m.subject, m.lesson_no ? `درس ${m.lesson_no}` : null, m.difficulty ? DIFF[m.difficulty] : null].filter(Boolean).join(' · ') || 'عمومی') : (m.resource_title ? ' · «' + m.resource_title + '»' : '')}</div>
                             </div>
                         </div>
                         <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', fontSize: 12 }}>

@@ -175,6 +175,8 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::get('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'index'])->name('activities');
     Route::post('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'store'])->name('activities.store');
     Route::post('/activities/{classActivity}/award', [\App\Http\Controllers\Teacher\ActivityController::class, 'award'])->name('activities.award');
+    Route::put('/activities/{classActivity}', [\App\Http\Controllers\Teacher\ActivityController::class, 'update'])->name('activities.update');
+    Route::delete('/activities/{classActivity}', [\App\Http\Controllers\Teacher\ActivityController::class, 'destroy'])->name('activities.destroy');
     // مدیریت امتیازاتِ دانش‌آموز (افزودن/کسر/حذف سابقه)
     Route::get('/points', [\App\Http\Controllers\Teacher\StudentPointsController::class, 'index'])->name('points');
     Route::post('/points/adjust', [\App\Http\Controllers\Teacher\StudentPointsController::class, 'adjust'])->name('points.adjust');

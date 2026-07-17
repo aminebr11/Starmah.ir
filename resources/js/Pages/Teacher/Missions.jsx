@@ -14,12 +14,12 @@ const TYPES = [
 const TYPE_LABEL = Object.fromEntries(TYPES.map((t) => [t.v, `${t.ic} ${t.t}`]));
 
 export default function Missions() {
-    const { missions = [], facets = [], classrooms = [], flash } = usePage().props;
+    const { missions = [], facets = [], classrooms = [], themes = [], resources = {}, flash } = usePage().props;
     const [banner, setBanner] = useState(null);
     const [editId, setEditId] = useState(null);
     useEffect(() => { if (flash?.flash) { setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); window.scrollTo({ top: 0 }); } }, [flash]);
 
-    const blank = { title: '', type: 'quiz', subject: '', lesson_no: '', difficulty: '', classroom_id: '', question_count: 5, xp_reward: 20, badge_name: '', badge_icon: '🎖️', is_active: true };
+    const blank = { title: '', type: 'quiz', resource_id: '', theme_id: '', subject: '', lesson_no: '', difficulty: '', classroom_id: '', question_count: 5, xp_reward: 20, badge_name: '', badge_icon: '🎖️', is_active: true };
     const form = useForm(blank);
     const lessons = (facets.find((s) => s.subject === form.data.subject)?.lessons) || [];
 
@@ -30,7 +30,7 @@ export default function Missions() {
     };
     const edit = (m) => {
         setEditId(m.id);
-        form.setData({ ...blank, ...m, subject: m.subject || '', lesson_no: m.lesson_no || '', difficulty: m.difficulty || '', classroom_id: m.classroom_id || '', badge_name: m.badge_name || '', badge_icon: m.badge_icon || '🎖️' });
+        form.setData({ ...blank, ...m, subject: m.subject || '', lesson_no: m.lesson_no || '', difficulty: m.difficulty || '', classroom_id: m.classroom_id || '', theme_id: m.theme_id || '', resource_id: m.resource_id || '', badge_name: m.badge_name || '', badge_icon: m.badge_icon || '🎖️' });
         window.scrollTo({ top: 0 });
     };
     const cancel = () => { setEditId(null); form.reset(); };
@@ -86,6 +86,20 @@ export default function Missions() {
                                 <input type="number" min={1} max={20} dir="ltr" className="input" value={form.data.question_count} onChange={(e) => form.setData('question_count', +e.target.value)} />
                             </Field>
                         </>}
+                        {form.data.type !== 'quiz' && (
+                            <Field label={`کدام ${TYPES.find((t) => t.v === form.data.type)?.t || 'مورد'}؟ (خالی = هر موردی)`}>
+                                <select className="input" value={form.data.resource_id} onChange={(e) => form.setData('resource_id', e.target.value)}>
+                                    <option value="">هر {TYPES.find((t) => t.v === form.data.type)?.t || 'موردی'}</option>
+                                    {(resources[form.data.type] || []).map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
+                                </select>
+                            </Field>
+                        )}
+                        <Field label="برای کدام تیم؟ (خالی = همه‌ی تیم‌ها)">
+                            <select className="input" value={form.data.theme_id} onChange={(e) => form.setData('theme_id', e.target.value)}>
+                                <option value="">همه‌ی تیم‌ها</option>
+                                {themes.map((t) => <option key={t.id} value={t.id}>{t.emoji} {t.name}</option>)}
+                            </select>
+                        </Field>
                         <Field label="کلاس (خالی = همه‌ی کلاس‌ها)">
                             <select className="input" value={form.data.classroom_id} onChange={(e) => form.setData('classroom_id', e.target.value)}>
                                 <option value="">همه‌ی کلاس‌ها</option>
@@ -132,6 +146,10 @@ export default function Missions() {
                             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
                                 <span className="tag tag-info" style={{ fontSize: 10.5, marginInlineEnd: 4 }}>{TYPE_LABEL[m.type] || TYPE_LABEL.quiz}</span>
                                 {m.type === 'quiz' && [m.subject || 'همه‌ی درس‌ها', m.lesson_no ? `درس ${m.lesson_no}` : null, m.difficulty ? DIFF[m.difficulty] : null].filter(Boolean).join(' · ')}
+                            </div>
+                            <div style={{ fontSize: 11.5, color: 'var(--muted-2)', marginTop: 3 }}>
+                                🏆 {m.theme_id ? (themes.find((t) => t.id === m.theme_id) ? `${themes.find((t) => t.id === m.theme_id).emoji} تیمِ ${themes.find((t) => t.id === m.theme_id).name}` : 'یک تیم') : 'همه‌ی تیم‌ها'}
+                                {m.type !== 'quiz' && m.resource_id && ` · مورد مشخص`}
                             </div>
                             <div style={{ fontSize: 12, color: 'var(--muted-2)', marginTop: 4 }}>
                                 {fa(m.question_count)} سؤال · ⚡{fa(m.xp_reward)}{m.badge_name ? ` · 🎖️ ${m.badge_name}` : ''}

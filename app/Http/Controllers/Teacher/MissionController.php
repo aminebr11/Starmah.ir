@@ -28,17 +28,32 @@ class MissionController extends Controller
             'id' => $m->id, 'title' => $m->title, 'type' => $m->type ?? 'quiz', 'subject' => $m->subject, 'lesson_no' => $m->lesson_no,
             'difficulty' => $m->difficulty, 'question_count' => $m->question_count, 'xp_reward' => $m->xp_reward,
             'badge_name' => $m->badge_name, 'badge_icon' => $m->badge_icon,
-            'classroom_id' => $m->classroom_id, 'is_active' => $m->is_active,
+            'classroom_id' => $m->classroom_id, 'theme_id' => $m->theme_id, 'resource_id' => $m->resource_id,
+            'is_active' => $m->is_active,
             'completions' => $m->completions_count,
             'today' => $m->completions()->where('play_date', $today)->count(),
             'date' => Jalali::format($m->created_at),
         ]);
+
+        // منابعِ قابلِ انتخاب برای مأموریت‌های پادکست/کاربرگ/بازی (فقط موارد خودِ معلم)
+        $podcasts = \App\Models\ClassContent::where('teacher_id', $teacher->id)->where('type', 'podcast')
+            ->latest()->get(['id', 'title'])->map(fn ($c) => ['id' => $c->id, 'title' => $c->title])->values();
+        $worksheets = \App\Support\WorksheetAccess::visibleQuery($teacher)->where('is_published', true)
+            ->latest()->get(['id', 'title'])->map(fn ($w) => ['id' => $w->id, 'title' => $w->title])->values();
+        $games = \App\Models\EduGame::where('teacher_id', $teacher->id)->where('status', 'published')
+            ->latest()->get(['id', 'title'])->map(fn ($g) => ['id' => $g->id, 'title' => $g->title])->values();
+
+        $themes = \App\Models\Theme::where('is_active', true)->where('key', '!=', 'brand')
+            ->orderBy('sort')->get(['id', 'name', 'emoji'])
+            ->map(fn ($t) => ['id' => $t->id, 'name' => $t->name, 'emoji' => $t->emoji])->values();
 
         return Inertia::render('Teacher/Missions', [
             'missions' => $items->values(),
             'facets' => BankAccess::pickerFacets($teacher),
             'classrooms' => Classroom::where('teacher_id', $teacher->id)->get(['id', 'name'])
                 ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name])->values(),
+            'themes' => $themes,
+            'resources' => ['podcast' => $podcasts, 'worksheet' => $worksheets, 'game' => $games],
         ]);
     }
 
@@ -50,6 +65,7 @@ class MissionController extends Controller
         Mission::create([
             'school_id' => $user->school_id, 'teacher_id' => $user->id,
             'classroom_id' => $data['classroom_id'] ?? null,
+            'theme_id' => $data['theme_id'] ?? null, 'resource_id' => $data['resource_id'] ?? null,
             'title' => $data['title'], 'type' => $data['type'] ?? 'quiz', 'subject' => $data['subject'] ?? null,
             'lesson_no' => $data['lesson_no'] ?? null, 'difficulty' => $data['difficulty'] ?? null,
             'question_count' => $data['question_count'], 'xp_reward' => $data['xp_reward'],
@@ -66,6 +82,7 @@ class MissionController extends Controller
         $data = $this->validated($request);
         $mission->update([
             'classroom_id' => $data['classroom_id'] ?? null,
+            'theme_id' => $data['theme_id'] ?? null, 'resource_id' => $data['resource_id'] ?? null,
             'title' => $data['title'], 'type' => $data['type'] ?? 'quiz', 'subject' => $data['subject'] ?? null,
             'lesson_no' => $data['lesson_no'] ?? null, 'difficulty' => $data['difficulty'] ?? null,
             'question_count' => $data['question_count'], 'xp_reward' => $data['xp_reward'],
@@ -94,6 +111,8 @@ class MissionController extends Controller
         return $request->validate([
             'title' => ['required', 'string', 'max:120'],
             'type' => ['nullable', 'in:quiz,podcast,worksheet,game'],
+            'resource_id' => ['nullable', 'integer'],
+            'theme_id' => ['nullable', 'integer', 'exists:themes,id'],
             'subject' => ['nullable', 'string', 'max:120'],
             'lesson_no' => ['nullable', 'string', 'max:40'],
             'difficulty' => ['nullable', 'in:easy,medium,hard'],

@@ -35,7 +35,9 @@ class MissionController extends Controller
         ['teacher_ids' => $tids, 'classroom_ids' => $cids] = $this->scope($user);
         return Mission::whereIn('teacher_id', $tids ?: [0])
             ->where('is_active', true)
-            ->where(fn ($q) => $q->whereNull('classroom_id')->orWhereIn('classroom_id', $cids ?: [0]));
+            ->where(fn ($q) => $q->whereNull('classroom_id')->orWhereIn('classroom_id', $cids ?: [0]))
+            // هدف‌گیریِ تیمی: مأموریتِ بدونِ تیم برای همه، یا مأموریتِ تیمِ خودِ دانش‌آموز
+            ->where(fn ($q) => $q->whereNull('theme_id')->orWhere('theme_id', $user->theme_id));
     }
 
     public function index(Request $request): Response
@@ -54,10 +56,11 @@ class MissionController extends Controller
                 'difficulty' => $m->difficulty, 'question_count' => $m->question_count, 'xp_reward' => $m->xp_reward,
                 'badge_name' => $m->badge_name, 'badge_icon' => $m->badge_icon,
                 'teacher' => optional($m->teacher)->name,
+                'resource_title' => $this->resourceTitle($m),
                 'available' => $type !== 'quiz' || $this->bankQuery($m)->count() >= 1,
                 'done_today' => in_array($m->id, $doneToday, true),
                 // برای انواعِ فعالیت‌محور: آیا فعالیتِ امروز انجام شده و قابلِ دریافتِ جایزه است؟
-                'link' => $this->linkFor($type),
+                'link' => $this->linkFor($m),
                 'claimable' => $type !== 'quiz' && ! in_array($m->id, $doneToday, true) && $this->activityDoneToday($user, $m),
             ];
         })->values();
@@ -82,30 +85,50 @@ class MissionController extends Controller
         return $streak;
     }
 
-    private function linkFor(string $type): ?string
+    /** لینکِ مقصد — اگر منبعِ مشخص انتخاب شده، مستقیم به همان (کاربرگ/بازی). */
+    private function linkFor(Mission $m): ?string
     {
-        return [
+        $rid = $m->resource_id;
+        return match ($m->type) {
             'podcast' => '/class-content',
-            'worksheet' => '/class-content',
-            'game' => '/game-world',
-        ][$type] ?? null;
+            'worksheet' => $rid ? '/worksheets/' . $rid : '/class-content',
+            'game' => $rid ? '/game-world/' . $rid . '/play' : '/game-world',
+            default => null,
+        };
     }
 
-    /** آیا فعالیتِ موردنیازِ مأموریت (پادکست/کاربرگ/بازی) امروز واقعاً انجام شده؟ (ضدِ تقلب) */
+    /** عنوانِ منبعِ مشخصِ انتخاب‌شده (برای نمایش به دانش‌آموز). */
+    private function resourceTitle(Mission $m): ?string
+    {
+        if (! $m->resource_id) return null;
+        return match ($m->type) {
+            'podcast' => optional(\App\Models\ClassContent::find($m->resource_id))->title,
+            'worksheet' => optional(\App\Models\Worksheet::find($m->resource_id))->title,
+            'game' => optional(\App\Models\EduGame::find($m->resource_id))->title,
+            default => null,
+        };
+    }
+
+    /** آیا فعالیتِ موردنیازِ مأموریت (پادکست/کاربرگ/بازی) امروز واقعاً انجام شده؟ (ضدِ تقلب)
+     *  اگر منبعِ مشخص انتخاب شده، فقط همان مورد به‌حساب می‌آید. */
     private function activityDoneToday($user, Mission $m): bool
     {
         $today = now()->toDateString();
+        $rid = $m->resource_id;
         return match ($m->type) {
             'podcast' => \App\Models\ContentView::where('student_id', $user->id)
                 ->where('xp_awarded', '>', 0)->whereDate('updated_at', $today)
+                ->when($rid, fn ($q) => $q->where('class_content_id', $rid))
                 ->whereHas('content', fn ($q) => $q->where('type', 'podcast')->where('teacher_id', $m->teacher_id))
                 ->exists(),
             'worksheet' => \App\Models\WorksheetSubmission::where('student_id', $user->id)
                 ->whereNotNull('file_path')->whereDate('submitted_at', $today)
+                ->when($rid, fn ($q) => $q->where('worksheet_id', $rid))
                 ->whereHas('worksheet', fn ($q) => $q->where('teacher_id', $m->teacher_id))
                 ->exists(),
             'game' => \App\Models\EduGameAttempt::where('student_id', $user->id)
                 ->where('status', 'completed')->whereDate('completed_at', $today)
+                ->when($rid, fn ($q) => $q->where('edu_game_id', $rid))
                 ->whereHas('game', fn ($q) => $q->where('teacher_id', $m->teacher_id))
                 ->exists(),
             default => false,

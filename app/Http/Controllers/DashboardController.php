@@ -64,7 +64,24 @@ class DashboardController extends Controller
             $sample = ['skill' => $skill->name, ...$engine->renderQuestion($q, $theme)];
         }
 
+        // مأموریت‌های بازِ امروز (انجام‌نشده) برای باکسِ اعلانِ پیشخوان
+        $cls = $user->classrooms()->get();
+        $teacherIds = $cls->pluck('teacher_id')->filter()->unique()->values()->all();
+        $classroomIds = $cls->pluck('id')->all();
+        $today = now()->toDateString();
+        $doneToday = \App\Models\MissionCompletion::where('student_id', $user->id)
+            ->where('play_date', $today)->pluck('mission_id')->all();
+        $openMissions = \App\Models\Mission::whereIn('teacher_id', $teacherIds ?: [0])
+            ->where('is_active', true)
+            ->where(fn ($q) => $q->whereNull('classroom_id')->orWhereIn('classroom_id', $classroomIds ?: [0]))
+            ->where(fn ($q) => $q->whereNull('theme_id')->orWhere('theme_id', $user->theme_id))
+            ->whereNotIn('id', $doneToday)
+            ->latest()->get()
+            ->map(fn ($m) => ['id' => $m->id, 'title' => $m->title, 'type' => $m->type ?? 'quiz', 'xp' => (int) $m->xp_reward])
+            ->values();
+
         return Inertia::render('Student/Dashboard', [
+            'missionsToday' => $openMissions,
             'levelXp' => \App\Support\LevelConfig::xpPerLevel($user->school_id),
             'levelNames' => \App\Support\LevelConfig::names($user->school_id),
             'me' => [

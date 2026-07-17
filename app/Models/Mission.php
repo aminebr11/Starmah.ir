@@ -13,7 +13,7 @@ class Mission extends Model
     use BelongsToSchool;
 
     protected $fillable = [
-        'school_id', 'teacher_id', 'classroom_id', 'title', 'type', 'subject', 'lesson_no',
+        'school_id', 'teacher_id', 'classroom_id', 'theme_id', 'title', 'type', 'resource_id', 'subject', 'lesson_no',
         'difficulty', 'question_count', 'xp_reward', 'badge_name', 'badge_icon', 'is_active',
     ];
 

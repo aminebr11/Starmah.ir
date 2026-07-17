@@ -35,6 +35,7 @@ class ActivityController extends Controller
             ->map(fn ($a) => [
                 'id' => $a->id, 'type' => $a->type, 'type_label' => ClassActivity::typeLabel($a->type),
                 'title' => $a->title, 'points' => $a->points, 'status' => $a->status,
+                'description' => $a->description,
                 'awarded' => $a->awards_count, 'scheduled' => $a->scheduledJalali(),
             ]);
 
@@ -67,6 +68,38 @@ class ActivityController extends Controller
         ]);
 
         return back()->with('flash', 'فعالیت ثبت شد ✅');
+    }
+
+    /** ویرایشِ یک فعالیتِ اضافه‌شده. */
+    public function update(Request $request, ClassActivity $classActivity): RedirectResponse
+    {
+        abort_unless($classActivity->teacher_id === $request->user()->id, 403);
+        $data = $request->validate([
+            'type'         => ['required', 'in:game,exam,homework,podcast,online_exam,custom'],
+            'title'        => ['required', 'string', 'max:120'],
+            'description'  => ['nullable', 'string', 'max:500'],
+            'points'       => ['required', 'integer', 'min:1', 'max:1000'],
+            'scheduled_at' => ['nullable', 'date'],
+        ]);
+        $classActivity->update($data);
+
+        return back()->with('flash', 'فعالیت ویرایش شد ✅');
+    }
+
+    /** حذفِ یک فعالیت + بازگرداندنِ امتیازهایی که بابتش داده شده. */
+    public function destroy(Request $request, ClassActivity $classActivity): RedirectResponse
+    {
+        abort_unless($classActivity->teacher_id === $request->user()->id, 403);
+
+        $awardIds = \App\Models\ActivityAward::where('class_activity_id', $classActivity->id)->pluck('id');
+        if ($awardIds->isNotEmpty()) {
+            \App\Models\XpEntry::where('source_type', \App\Models\ActivityAward::class)
+                ->whereIn('source_id', $awardIds)->delete();
+            \App\Models\ActivityAward::whereIn('id', $awardIds)->delete();
+        }
+        $classActivity->delete();
+
+        return back()->with('flash', 'فعالیت و امتیازهای مرتبطش حذف شد ✅');
     }
 
     /** اعطای امتیاز به دانش‌آموزها (لیست id) یا یک تیم یا کل کلاس. */

@@ -22,6 +22,13 @@ export default function Activities() {
         router.post(route('teacher.activities.award', actId), { student_ids: ids }, { preserveScroll: true, onSuccess: () => { setAwardFor(null); setPicked([]); } });
     };
 
+    // ویرایش/حذفِ فعالیتِ اضافه‌شده
+    const [editFor, setEditFor] = useState(null);
+    const eform = useForm({ type: 'game', title: '', points: 50, description: '' });
+    const startEdit = (a) => { setAwardFor(null); setEditFor(a.id); eform.setData({ type: a.type, title: a.title, points: a.points, description: a.description || '' }); };
+    const saveEdit = (id) => eform.put(route('teacher.activities.update', id), { preserveScroll: true, onSuccess: () => setEditFor(null) });
+    const delAct = (a) => { if (confirm(`فعالیتِ «${a.title}» و امتیازهای داده‌شده‌اش حذف شود؟`)) router.delete(route('teacher.activities.destroy', a.id), { preserveScroll: true }); };
+
     if (!classroom) {
         return <DashLayout title="فعالیت‌ها و امتیاز" roleLabel="معلم" menu={teacherMenu} active="activities">
             <div className="panel"><p style={{ color: 'var(--muted)' }}>ابتدا باید یک کلاس داشته باشی.</p></div>
@@ -75,8 +82,29 @@ export default function Activities() {
                                     <span className="tag tag-warn">⭐ {fa(a.points)} امتیاز</span>
                                     <span style={{ color: 'var(--muted)', fontSize: 12 }}>{fa(a.awarded)} نفر گرفته</span>
                                     <button onClick={() => { setAwardFor(awardFor === a.id ? null : a.id); setPicked([]); }} className="btn btn-sm">🎁 دادن امتیاز</button>
+                                    <button onClick={() => startEdit(a)} className="btn btn-ghost btn-sm">✏️ ویرایش</button>
+                                    <button onClick={() => delAct(a)} className="btn btn-ghost btn-sm" style={{ color: '#e8505b' }}>🗑️</button>
                                 </div>
                             </div>
+
+                            {editFor === a.id && (
+                                <div style={{ marginTop: 12, background: '#f6f8fc', border: '1px solid var(--line)', borderRadius: 14, padding: 14 }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10 }}>
+                                        <div className="field" style={{ margin: 0 }}><label>نوع</label>
+                                            <select className="input" value={eform.data.type} onChange={(e) => eform.setData('type', e.target.value)}>
+                                                {TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="field" style={{ margin: 0 }}><label>عنوان</label><input className="input" value={eform.data.title} onChange={(e) => eform.setData('title', e.target.value)} /></div>
+                                        <div className="field" style={{ margin: 0 }}><label>امتیاز</label><input type="number" min={1} max={1000} dir="ltr" className="input" value={eform.data.points} onChange={(e) => eform.setData('points', +e.target.value)} /></div>
+                                    </div>
+                                    <div className="field" style={{ marginTop: 8 }}><label>توضیح (اختیاری)</label><input className="input" value={eform.data.description} onChange={(e) => eform.setData('description', e.target.value)} /></div>
+                                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                                        <button onClick={() => saveEdit(a.id)} disabled={eform.processing} className="btn btn-sm">💾 ذخیره</button>
+                                        <button onClick={() => setEditFor(null)} className="btn btn-ghost btn-sm">انصراف</button>
+                                    </div>
+                                </div>
+                            )}
 
                             {awardFor === a.id && (
                                 <div style={{ marginTop: 12, background: 'var(--cream)', borderRadius: 14, padding: 14 }}>

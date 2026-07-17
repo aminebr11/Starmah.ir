@@ -4,6 +4,7 @@ import ThemedDash from '@/Layouts/ThemedDash';
 import TeamHeader from '@/Components/TeamHeader';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+const MTYPE = { quiz: '🧠', podcast: '🎧', worksheet: '🎨', game: '🎮' };
 
 /** مرحله‌بندی: امتیازِ هر مرحله را معلم تنظیم می‌کند (پیش‌فرض ۱۵۰) */
 const levelOf = (xp, step) => Math.floor((xp ?? 0) / step) + 1;
@@ -24,7 +25,7 @@ const FLOAT_POS = [
 ];
 
 export default function Dashboard() {
-    const { auth, theme, me = {}, groups = [], sample, notices = [], notifications = [], unreadNotices = 0, levelXp = 150, levelNames = [] } = usePage().props;
+    const { auth, theme, me = {}, groups = [], sample, notices = [], notifications = [], unreadNotices = 0, levelXp = 150, levelNames = [], missionsToday = [] } = usePage().props;
     const w = (k, d = '') => theme?.narrative?.[k] ?? d;
     const skin = theme?.skin ?? {};
     const [picked, setPicked] = useState(null);
@@ -129,6 +130,29 @@ export default function Dashboard() {
                     </Link>
                 ))}
             </div>
+
+            {/* ===== باکسِ مأموریت‌های امروز ===== */}
+            {missionsToday.length > 0 && (
+                <div className="k3-card" style={{ marginTop: 16, background: 'linear-gradient(135deg,#e8862e,#c0561a)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 30 }}>🎯</span>
+                        <div style={{ flex: 1, minWidth: 160 }}>
+                            <div style={{ fontWeight: 900, fontSize: 16 }}>امروز {fa(missionsToday.length)} مأموریتِ انجام‌نشده داری!</div>
+                            <div style={{ opacity: .9, fontSize: 12.5 }}>انجامشان بده و امتیاز بگیر 🌟</div>
+                        </div>
+                        <Link href="/missions" className="k3-btn" style={{ background: 'rgba(0,0,0,.25)' }}>دیدنِ همه ←</Link>
+                    </div>
+                    <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+                        {missionsToday.slice(0, 4).map((m) => (
+                            <Link key={m.id} href="/missions" style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(0,0,0,.18)', borderRadius: 12, padding: '9px 12px', color: '#fff' }}>
+                                <span style={{ fontSize: 18 }}>{MTYPE[m.type] || '🎯'}</span>
+                                <span style={{ flex: 1, fontWeight: 700, fontSize: 13.5 }}>{m.title}</span>
+                                <span style={{ fontWeight: 900, fontSize: 12.5 }}>⚡{fa(m.xp)}</span>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* ===== کارت‌های کلاس من ===== */}
             <div style={{ marginTop: 20 }}>
