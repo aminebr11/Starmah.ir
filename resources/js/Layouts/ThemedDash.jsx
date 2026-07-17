@@ -27,6 +27,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
         { key: 'grades', label: 'نمرات کلاسی', icon: '📔', href: '/my-grades' },
         { key: 'activities', label: 'فعالیت‌ها و امتیازها', icon: '🎁', href: '/my-activities' },
         { key: 'discipline', label: 'موارد انضباطی', icon: '⭐', href: '/my-discipline' },
+        { key: 'messages', label: 'ارتباط با معلم', icon: '💬', href: '/messages' },
         { key: 'content', label: 'محتوای کلاس', icon: '📚', href: '/class-content' },
         { key: 'homework', label: 'تکالیف', icon: '📝', href: '/homework' },
         { key: 'schedule', label: 'برنامه کلاسی', icon: '🗓️', href: '/schedule' },

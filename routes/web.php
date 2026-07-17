@@ -272,6 +272,8 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
 Route::middleware('auth')->group(function () {
     Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
     Route::post('/messages', [MessageController::class, 'store'])->name('messages.store');
+    Route::put('/messages/{message}', [MessageController::class, 'update'])->name('messages.update');
+    Route::delete('/messages/{message}', [MessageController::class, 'destroy'])->name('messages.destroy');
 
     // کارتابل اعلان‌ها/پیام‌ها (معلم و دانش‌آموز)
     Route::get('/notices', \App\Http\Controllers\NoticeController::class)->name('notices');

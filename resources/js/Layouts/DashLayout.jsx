@@ -92,6 +92,7 @@ export const schoolMenu = [
     { key: 'attendance', label: 'حضور و غیاب', icon: '✅', href: '/school/attendance' },
     { key: 'examreports', label: 'گزارش آزمون‌ها', icon: '📊', href: '/school/exam-reports' },
     { key: 'bank', label: 'بانک سؤالات', icon: '🗄️', href: '/question-bank' },
+    { key: 'messages', label: 'ارتباط با والدین/معلم', icon: '💬', href: '/messages' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/school/reports' },
 ];
 
@@ -109,7 +110,7 @@ export const teacherMenu = [
     { key: 'discipline', label: 'دفتر انضباط', icon: '⭐', href: '/teacher/discipline' },
     { key: 'materials', label: 'مطالب و محتوا', icon: '📚', href: '/teacher/materials' },
     { key: 'levels', label: 'تنظیم مرحله‌ها', icon: '🎚️', href: '/teacher/levels' },
-    { divider: 'سایر منوها (قابلیت‌های آینده)' },
+    { key: 'messages', label: 'ارتباط با والدین/مدیر', icon: '💬', href: '/messages' },
     { key: 'notices', label: 'اعلان‌ها', icon: '📢', href: '/notices' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/teacher/reports' },
 ];

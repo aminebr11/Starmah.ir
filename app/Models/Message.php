@@ -13,10 +13,10 @@ class Message extends Model
 
     protected $fillable = [
         'school_id', 'sender_id', 'recipient_id', 'student_id',
-        'kind', 'body', 'read_at',
+        'kind', 'body', 'read_at', 'edited_at',
     ];
 
-    protected $casts = ['read_at' => 'datetime'];
+    protected $casts = ['read_at' => 'datetime', 'edited_at' => 'datetime'];
 
     public function sender(): BelongsTo { return $this->belongsTo(User::class, 'sender_id'); }
     public function recipient(): BelongsTo { return $this->belongsTo(User::class, 'recipient_id'); }
