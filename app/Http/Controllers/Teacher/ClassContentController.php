@@ -152,8 +152,17 @@ class ClassContentController extends Controller
         return back()->with('flash', 'محتوا حذف شد ✅');
     }
 
-    /** اعلانِ «محتوای جدید» به دانش‌آموزانِ کلاس (یا همه‌ی دانش‌آموزانِ معلم). */
+    /** اعلانِ «محتوای جدید» به دانش‌آموزانِ کلاس (یا همه‌ی دانش‌آموزانِ معلم). best-effort — هرگز آپلود را نمی‌شکند. */
     private function notifyStudents(ClassContent $content): void
+    {
+        try {
+            $this->doNotify($content);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('content notify failed: ' . $e->getMessage());
+        }
+    }
+
+    private function doNotify(ClassContent $content): void
     {
         $teacher = $content->teacher ?: \App\Models\User::find($content->teacher_id);
         if ($content->classroom_id) {
@@ -174,15 +183,19 @@ class ClassContentController extends Controller
             'homework' => '📝 تکلیفِ جدید',
         ][$content->type] ?? '📚 محتوای جدید';
 
-        $ann = \App\Models\Announcement::create([
+        $payload = [
             'school_id' => $content->school_id ?? optional($teacher)->school_id,
             'sender_id' => $content->teacher_id,
             'title' => $label . ' — ' . $content->title,
             'audience' => 'personal',
             'body' => "معلمت محتوای جدیدی برایت گذاشت: «{$content->title}». روی همین اعلان بزن تا ببینی"
                 . ($content->type === 'podcast' ? ' و با گوش‌دادن امتیاز بگیری ⚡' : '.'),
-            'link' => '/class-content',
-        ]);
+        ];
+        // ستونِ link فقط در نسخه‌هایی که آپگرید v17 را اجرا کرده‌اند وجود دارد
+        if (\Illuminate\Support\Facades\Schema::hasColumn('announcements', 'link')) {
+            $payload['link'] = '/class-content';
+        }
+        $ann = \App\Models\Announcement::create($payload);
         $ann->recipients()->sync($ids);
     }
 }

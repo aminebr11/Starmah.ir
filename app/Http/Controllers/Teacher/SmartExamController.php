@@ -7,6 +7,8 @@ use App\Models\Announcement;
 use App\Models\AuditLog;
 use App\Models\Classroom;
 use App\Models\SmartExam;
+use App\Models\SmartExamAnswer;
+use App\Models\SmartExamAttempt;
 use App\Models\SmartExamQuestion;
 use App\Models\SmartQuestionBank;
 use App\Models\Theme;

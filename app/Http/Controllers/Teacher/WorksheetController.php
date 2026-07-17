@@ -203,19 +203,26 @@ class WorksheetController extends Controller
 
     private function notifyStudents(Worksheet $worksheet): void
     {
-        $classroom = $worksheet->classroom_id ? Classroom::find($worksheet->classroom_id) : null;
-        $ids = $classroom ? $classroom->students()->pluck('users.id')->all() : [];
-        if (! $ids) {
-            return;
+        try {
+            $classroom = $worksheet->classroom_id ? Classroom::find($worksheet->classroom_id) : null;
+            $ids = $classroom ? $classroom->students()->pluck('users.id')->all() : [];
+            if (! $ids) {
+                return;
+            }
+            $payload = [
+                'school_id' => $worksheet->school_id, 'sender_id' => $worksheet->teacher_id,
+                'title' => '🎨 کاربرگ جدید — ' . $worksheet->title,
+                'audience' => 'personal',
+                'body' => "یک کاربرگ جدید برای شما منتشر شد: «{$worksheet->title}».\nآن را از بخشِ «مطالب و محتوا» ببینید، چاپ/دانلود کنید، و پس از پر کردن برای معلم بفرستید.",
+            ];
+            if (\Illuminate\Support\Facades\Schema::hasColumn('announcements', 'link')) {
+                $payload['link'] = '/worksheets/' . $worksheet->id;
+            }
+            $ann = Announcement::create($payload);
+            $ann->recipients()->sync($ids);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('worksheet notify failed: ' . $e->getMessage());
         }
-        $ann = Announcement::create([
-            'school_id' => $worksheet->school_id, 'sender_id' => $worksheet->teacher_id,
-            'title' => '🎨 کاربرگ جدید — ' . $worksheet->title,
-            'audience' => 'personal',
-            'body' => "یک کاربرگ جدید برای شما منتشر شد: «{$worksheet->title}».\nآن را از بخشِ «تکالیف» ببینید، چاپ کنید، و پس از پر کردن برای معلم بفرستید.",
-            'link' => '/worksheets/' . $worksheet->id,
-        ]);
-        $ann->recipients()->sync($ids);
     }
 
     public function show(Request $request, Worksheet $worksheet): Response

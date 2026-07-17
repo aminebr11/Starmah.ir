@@ -367,8 +367,10 @@ img{max-width:100%;display:block}
 @media(max-width:600px){ .teams-grid{grid-template-columns:1fr!important} }
 
 /* prevent wide tables from breaking the dashboard layout */
-.dash{overflow-x:hidden}
-.dash-main{max-width:100%}
+/* اسکرولِ افقی را در سطحِ ریشه مهار می‌کنیم تا `.dash` تبدیل به کانتینرِ اسکرول نشود
+   و منوی کناری (position:sticky) روی دسکتاپ ثابت بماند (نه اسکرول‌شونده). */
+html{overflow-x:hidden}
+.dash-main{max-width:100%;min-width:0}
 .panel{overflow-x:auto}
 
 /* ---------- GRADEBOOK ---------- */

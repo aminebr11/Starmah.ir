@@ -55,23 +55,27 @@ class StudentWorksheetController extends Controller
         ]);
     }
 
-    /** ثبتِ دانلود/مشاهده — امتیازِ یک‌بار (بدون نیاز به ارسال). */
+    /** ثبتِ دانلود/مشاهده — امتیازِ یک‌بار (بدون نیاز به ارسال). best-effort. */
     public function download(Request $request, Worksheet $worksheet, GamificationService $game): JsonResponse
     {
         $user = $request->user();
         abort_unless($this->accessible($user, $worksheet), 403);
 
-        $sub = WorksheetSubmission::firstOrCreate(
-            ['worksheet_id' => $worksheet->id, 'student_id' => $user->id]
-        );
         $gained = 0;
-        if (! $sub->download_xp) {
-            $game->award($user, self::DOWNLOAD_XP, '🎨 دریافتِ کاربرگ — ' . $worksheet->title,
-                $worksheet->teacher, Worksheet::class, $worksheet->id);
-            $sub->download_xp = true;
-            $sub->downloaded_at = now();
-            $sub->save();
-            $gained = self::DOWNLOAD_XP;
+        try {
+            $sub = WorksheetSubmission::firstOrNew(
+                ['worksheet_id' => $worksheet->id, 'student_id' => $user->id]
+            );
+            if (! $sub->download_xp) {
+                $game->award($user, self::DOWNLOAD_XP, '🎨 دریافتِ کاربرگ — ' . $worksheet->title,
+                    $worksheet->teacher, Worksheet::class, $worksheet->id);
+                $sub->download_xp = true;
+                $sub->downloaded_at = now();
+                $sub->save();
+                $gained = self::DOWNLOAD_XP;
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('worksheet download xp failed: ' . $e->getMessage());
         }
 
         return response()->json(['ok' => true, 'gained' => $gained]);
@@ -88,8 +92,8 @@ class StudentWorksheetController extends Controller
             'note' => ['nullable', 'string', 'max:300'],
         ]);
 
-        // جایگزینیِ ارسالِ قبلی
-        $sub = WorksheetSubmission::firstOrCreate(
+        // جایگزینیِ ارسالِ قبلی — file_path پیش از اولین ذخیره ست می‌شود (سازگار با نسخه‌ی قدیمِ NOT NULL)
+        $sub = WorksheetSubmission::firstOrNew(
             ['worksheet_id' => $worksheet->id, 'student_id' => $user->id]
         );
         if ($sub->file_path) {
@@ -99,18 +103,24 @@ class StudentWorksheetController extends Controller
         $sub->file_path = $request->file('file')->store('worksheet-submissions', 'public');
         $sub->note = $data['note'] ?? null;
         $sub->submitted_at = now();
-
-        $awarded = false;
-        if (! $sub->submit_xp) {
-            $game->award($user, self::SUBMIT_XP, '🎨 ارسالِ کاربرگ — ' . $worksheet->title,
-                $worksheet->teacher, WorksheetSubmission::class, $sub->id);
-            $sub->submit_xp = true;
-            $awarded = true;
-        }
         $sub->save();
+
+        // امتیازِ ارسال (یک‌بار) — best-effort؛ اگر ستون‌های v18 نبودند آپلود نمی‌شکند
+        $awarded = false;
+        try {
+            if (! $sub->submit_xp) {
+                $game->award($user, self::SUBMIT_XP, '🎨 ارسالِ کاربرگ — ' . $worksheet->title,
+                    $worksheet->teacher, WorksheetSubmission::class, $sub->id);
+                $sub->submit_xp = true;
+                $sub->save();
+                $awarded = true;
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('worksheet submit xp failed: ' . $e->getMessage());
+        }
 
         return back()->with('flash', $awarded
             ? "کاربرگِ پرشده ارسال شد و +" . self::SUBMIT_XP . " امتیاز گرفتی ✅"
-            : 'کاربرگِ پرشده به‌روزرسانی شد ✅');
+            : 'کاربرگِ پرشده ارسال شد ✅');
     }
 }
