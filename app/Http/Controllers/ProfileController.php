@@ -14,6 +14,8 @@ use Inertia\Response;
 /** پروفایل من — مشاهده و ویرایش اطلاعات کامل، آواتار و رمز (همه‌ی نقش‌ها). */
 class ProfileController extends Controller
 {
+    use \App\Http\Controllers\Concerns\StoresUploads;
+
     public function edit(Request $request): Response
     {
         $u = $request->user();
@@ -66,7 +68,7 @@ class ProfileController extends Controller
             'name'        => ['required', 'string', 'max:100'],
             'email'       => ['nullable', 'email', 'max:120'],
             'national_id' => ['nullable', 'string', 'max:10'],
-            'avatar'      => ['nullable', 'image', 'max:2048'], // حداکثر ۲ مگابایت
+            'avatar'      => ['nullable', 'file', 'max:2048'], // حداکثر ۲ مگابایت
             'birth_date'  => ['nullable', 'date'],
             // اطلاعات تکمیلی
             'bio'              => ['nullable', 'string', 'max:500'],
@@ -78,11 +80,11 @@ class ProfileController extends Controller
             'education'        => ['nullable', 'string', 'max:100'],
         ]);
 
-        if ($request->hasFile('avatar')) {
+        if ($request->hasFile('avatar') && $this->extensionAllowed($request->file('avatar'), ['jpg', 'jpeg', 'png', 'webp', 'gif'])) {
             if ($u->avatar) {
                 Storage::disk('public')->delete($u->avatar);
             }
-            $u->avatar = $request->file('avatar')->store('avatars', 'public');
+            $u->avatar = $this->storeUpload($request->file('avatar'), 'avatars');
         }
 
         $u->name = $data['name'];

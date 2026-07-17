@@ -26,6 +26,8 @@ use Inertia\Response;
  */
 class WorksheetController extends Controller
 {
+    use \App\Http\Controllers\Concerns\StoresUploads;
+
     private const THEMES = [
         'stars'   => ['label' => 'ستاره ماه 🌙', 'flavor' => 'ماجراجویی فضایی و ستاره‌ها', 'p1' => '#3d7bf0', 'p2' => '#7a5cf0', 'bg' => '#0d1b3e', 'ic' => ['⭐', '🌙', '✨', '☄️', '🚀']],
         'pitch'   => ['label' => 'شلیک آتشین ⚽', 'flavor' => 'فوتبال و ورزش', 'p1' => '#2bb673', 'p2' => '#0f9d58', 'bg' => '#0b3d2e', 'ic' => ['⚽', '🥅', '🏆', '👟', '🔥']],
@@ -127,7 +129,7 @@ class WorksheetController extends Controller
             'classroom_id' => ['nullable', 'integer', 'exists:classrooms,id'],
             'publish' => ['nullable', 'boolean'],
             'gen_image' => ['nullable', 'boolean'],
-            'file' => ['nullable', 'file', 'max:20480', 'mimes:pdf,doc,docx,jpg,jpeg,png,webp'],
+            'file' => ['nullable', 'file', 'max:20480'],
             'questions' => ['nullable', 'array'],
             'questions.*.prompt' => ['nullable', 'string'],
         ]);
@@ -143,6 +145,9 @@ class WorksheetController extends Controller
             if (! $request->hasFile('file')) {
                 return back()->withErrors(['file' => 'در حالتِ «بارگذاری» باید فایلِ کاربرگ را انتخاب کنید.']);
             }
+            if (! $this->extensionAllowed($request->file('file'), ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp'])) {
+                return back()->withErrors(['file' => 'فرمتِ مجاز: PDF، Word یا تصویر (jpg/png/webp).']);
+            }
         } elseif (empty($questions)) {
             return back()->withErrors(['questions' => 'حداقل یک سؤال لازم است (یا از حالتِ «بارگذاری فایل» استفاده کنید).']);
         }
@@ -150,7 +155,7 @@ class WorksheetController extends Controller
         // فایلِ بارگذاری‌شده (حالتِ upload)
         $filePath = null;
         if ($request->hasFile('file')) {
-            $filePath = $request->file('file')->store('worksheets', 'public');
+            $filePath = $this->storeUpload($request->file('file'), 'worksheets');
         }
 
         $html = $mode === 'upload' ? null

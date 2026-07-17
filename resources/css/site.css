@@ -367,11 +367,15 @@ img{max-width:100%;display:block}
 @media(max-width:600px){ .teams-grid{grid-template-columns:1fr!important} }
 
 /* prevent wide tables from breaking the dashboard layout */
-/* اسکرولِ افقی را در سطحِ ریشه مهار می‌کنیم تا `.dash` تبدیل به کانتینرِ اسکرول نشود
-   و منوی کناری (position:sticky) روی دسکتاپ ثابت بماند (نه اسکرول‌شونده). */
 html{overflow-x:hidden}
 .dash-main{max-width:100%;min-width:0}
 .panel{overflow-x:auto}
+
+/* صفحه‌ی دانش‌آموز روی دسکتاپ: منوی کناری در جریانِ عادیِ صفحه — کلِ صفحه با هم
+   بالا/پایین می‌رود و منو اسکرولبارِ جداگانه ندارد (طبقِ درخواستِ کاربر). */
+@media(min-width:861px){
+  .kids-dash .dash-side{position:static;height:auto;max-height:none;overflow:visible}
+}
 
 /* ---------- GRADEBOOK ---------- */
 .grade-input{width:70px;text-align:center;padding:7px 6px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:14px;background:var(--cream)}

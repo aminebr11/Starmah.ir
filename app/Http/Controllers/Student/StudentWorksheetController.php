@@ -17,6 +17,8 @@ use Inertia\Response;
 /** کاربرگِ دانش‌آموز — مشاهده/چاپ/دانلود (امتیازِ یک‌بار) + ارسالِ کاربرگِ پرشده (امتیازِ یک‌بار). */
 class StudentWorksheetController extends Controller
 {
+    use \App\Http\Controllers\Concerns\StoresUploads;
+
     private const DOWNLOAD_XP = 5;
     private const SUBMIT_XP = 15;
 
@@ -88,9 +90,12 @@ class StudentWorksheetController extends Controller
         abort_unless($this->accessible($user, $worksheet), 403);
 
         $data = $request->validate([
-            'file' => ['required', 'file', 'max:12288', 'mimes:jpg,jpeg,png,webp,pdf'],
+            'file' => ['required', 'file', 'max:12288'],
             'note' => ['nullable', 'string', 'max:300'],
         ]);
+        if (! $this->extensionAllowed($request->file('file'), ['jpg', 'jpeg', 'png', 'webp', 'pdf'])) {
+            return back()->withErrors(['file' => 'فرمتِ مجاز: عکس (jpg/png/webp) یا PDF.']);
+        }
 
         // جایگزینیِ ارسالِ قبلی — file_path پیش از اولین ذخیره ست می‌شود (سازگار با نسخه‌ی قدیمِ NOT NULL)
         $sub = WorksheetSubmission::firstOrNew(
@@ -100,7 +105,7 @@ class StudentWorksheetController extends Controller
             Storage::disk('public')->delete($sub->file_path);
         }
 
-        $sub->file_path = $request->file('file')->store('worksheet-submissions', 'public');
+        $sub->file_path = $this->storeUpload($request->file('file'), 'worksheet-submissions');
         $sub->note = $data['note'] ?? null;
         $sub->submitted_at = now();
         $sub->save();

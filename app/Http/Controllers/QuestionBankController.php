@@ -23,6 +23,8 @@ use Inertia\Response;
  */
 class QuestionBankController extends Controller
 {
+    use \App\Http\Controllers\Concerns\StoresUploads;
+
     public function index(Request $request): Response
     {
         $user = $request->user();
@@ -104,14 +106,17 @@ class QuestionBankController extends Controller
             'questions.*.prompt' => ['required', 'string'],
             'questions.*.choices' => ['nullable', 'array'],
             'questions.*.topic' => ['nullable', 'string', 'max:120'],
-            'questions.*.image' => ['nullable', 'image', 'max:4096'],
+            'questions.*.image' => ['nullable', 'file', 'max:4096'],
         ]);
 
         $scope = $user->hasRole(Roles::SUPER_ADMIN) ? ($data['scope'] ?? 'global') : 'school';
         foreach ($data['questions'] as $i => $q) {
             $mediaPath = null;
             if ($request->hasFile("questions.$i.image")) {
-                $mediaPath = $request->file("questions.$i.image")->store('bank-media', 'public');
+                $img = $request->file("questions.$i.image");
+                if ($this->extensionAllowed($img, ['jpg', 'jpeg', 'png', 'webp', 'gif'])) {
+                    $mediaPath = $this->storeUpload($img, 'bank-media');
+                }
             }
             SmartQuestionBank::create([
                 'school_id' => $user->school_id, 'teacher_id' => $user->id, 'scope' => $scope,

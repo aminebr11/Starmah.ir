@@ -45,7 +45,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
     ];
 
     return (
-        <div dir="rtl" className="dash" style={{ ...vars, background: 'linear-gradient(180deg,var(--bg1),var(--bg2))' }}>
+        <div dir="rtl" className="dash kids-dash" style={{ ...vars, background: 'linear-gradient(180deg,var(--bg1),var(--bg2))' }}>
             <Head title={title ? `${title} — ستاره ماه` : 'ستاره ماه'} />
 
             <aside className={`dash-side ${open ? 'open' : ''}`} style={{ background: 'rgba(0,0,0,.25)' }}>

@@ -17,6 +17,8 @@ use Inertia\Response;
  */
 class ClassContentController extends Controller
 {
+    use \App\Http\Controllers\Concerns\StoresUploads;
+
     public function index(Request $request): Response
     {
         $teacher = $request->user();
@@ -89,7 +91,7 @@ class ClassContentController extends Controller
 
         $path = null;
         if ($request->hasFile('file')) {
-            $path = $request->file('file')->store("class-content/{$data['type']}", 'public');
+            $path = $this->storeUpload($request->file('file'), "class-content/{$data['type']}");
         }
 
         $content = ClassContent::create([
@@ -126,7 +128,7 @@ class ClassContentController extends Controller
             if ($classContent->file_path) {
                 Storage::disk('public')->delete($classContent->file_path);
             }
-            $classContent->file_path = $request->file('file')->store("class-content/{$classContent->type}", 'public');
+            $classContent->file_path = $this->storeUpload($request->file('file'), "class-content/{$classContent->type}");
         }
 
         $classContent->fill([
