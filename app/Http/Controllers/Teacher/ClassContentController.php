@@ -55,9 +55,23 @@ class ClassContentController extends Controller
             ->get(['id', 'name'])
             ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name]);
 
+        // بخشِ پنجم: کاربرگ‌ها (خلاصه برای بایگانی)
+        $worksheets = \App\Support\WorksheetAccess::visibleQuery($teacher)
+            ->withCount('submissions')->latest()->get()
+            ->map(fn ($w) => [
+                'id' => $w->id, 'title' => $w->title,
+                'subject' => $w->subject, 'grade' => $w->grade, 'lesson_no' => $w->lesson_no,
+                'count' => is_array($w->questions) ? count($w->questions) : 0,
+                'published' => (bool) $w->is_published,
+                'submissions' => $w->submissions_count,
+                'has_image' => (bool) $w->image_path,
+                'date' => Jalali::format($w->created_at),
+            ]);
+
         return Inertia::render('Teacher/Materials', [
             'items'      => $items->values(),
             'classrooms' => $classrooms->values(),
+            'worksheets' => $worksheets->values(),
         ]);
     }
 
@@ -78,7 +92,7 @@ class ClassContentController extends Controller
             $path = $request->file('file')->store("class-content/{$data['type']}", 'public');
         }
 
-        ClassContent::create([
+        $content = ClassContent::create([
             'teacher_id'   => $request->user()->id,
             'classroom_id' => $data['classroom_id'] ?? null,
             'type'         => $data['type'],
@@ -89,7 +103,9 @@ class ClassContentController extends Controller
             'due_at'       => $data['due_at'] ?? null,
         ]);
 
-        return back()->with('flash', 'محتوا با موفقیت اضافه شد ✅');
+        $this->notifyStudents($content);
+
+        return back()->with('flash', 'محتوا اضافه شد و به دانش‌آموزان اطلاع داده شد ✅');
     }
 
     public function update(Request $request, ClassContent $classContent): RedirectResponse
@@ -134,5 +150,39 @@ class ClassContentController extends Controller
         $classContent->delete();
 
         return back()->with('flash', 'محتوا حذف شد ✅');
+    }
+
+    /** اعلانِ «محتوای جدید» به دانش‌آموزانِ کلاس (یا همه‌ی دانش‌آموزانِ معلم). */
+    private function notifyStudents(ClassContent $content): void
+    {
+        $teacher = $content->teacher ?: \App\Models\User::find($content->teacher_id);
+        if ($content->classroom_id) {
+            $ids = Classroom::find($content->classroom_id)?->students()->pluck('users.id')->all() ?? [];
+        } else {
+            $ids = Classroom::where('teacher_id', $content->teacher_id)
+                ->with('students:id')->get()
+                ->flatMap(fn ($c) => $c->students->pluck('id'))->unique()->values()->all();
+        }
+        if (! $ids) {
+            return;
+        }
+
+        $label = [
+            'material' => '📄 جزوه/فایلِ جدید',
+            'podcast'  => '🎧 پادکستِ جدید',
+            'gallery'  => '🖼️ تصویرِ جدید',
+            'homework' => '📝 تکلیفِ جدید',
+        ][$content->type] ?? '📚 محتوای جدید';
+
+        $ann = \App\Models\Announcement::create([
+            'school_id' => $content->school_id ?? optional($teacher)->school_id,
+            'sender_id' => $content->teacher_id,
+            'title' => $label . ' — ' . $content->title,
+            'audience' => 'personal',
+            'body' => "معلمت محتوای جدیدی برایت گذاشت: «{$content->title}». روی همین اعلان بزن تا ببینی"
+                . ($content->type === 'podcast' ? ' و با گوش‌دادن امتیاز بگیری ⚡' : '.'),
+            'link' => '/class-content',
+        ]);
+        $ann->recipients()->sync($ids);
     }
 }

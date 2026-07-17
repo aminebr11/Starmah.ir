@@ -43,6 +43,8 @@ function ContentCard({ it }) {
     const [toast, setToast] = useState(null);
     const audioRef = useRef(null);
     const lastSentRef = useRef(it.my_seconds || 0);
+    const listenedRef = useRef(it.my_seconds || 0); // ثانیه‌ی «واقعاً گوش‌داده‌شده» (بدون احتساب پرش/جلوزدن)
+    const lastTimeRef = useRef(0);
 
     const sendProgress = async (seconds, finished = false) => {
         try {
@@ -68,16 +70,28 @@ function ContentCard({ it }) {
         const el = audioRef.current;
         if (!el) return;
         let iv = null;
+        // فقط زمانِ «واقعاً گوش‌داده‌شده» شمرده می‌شود: با هر timeupdate اختلافِ زمان
+        // بررسی می‌شود و اگر پرشِ بزرگ (جلوزدن/عقب‌زدن) باشد، آن بازه شمرده نمی‌شود.
         const flush = () => {
-            const cur = Math.max(lastSentRef.current, Math.floor(el.currentTime || 0));
+            const cur = Math.floor(listenedRef.current);
             if (cur > lastSentRef.current) { lastSentRef.current = cur; sendProgress(cur); }
         };
-        const onPlay = () => { iv = setInterval(flush, 10000); };
+        const onTime = () => {
+            const now = el.currentTime || 0;
+            const delta = now - lastTimeRef.current;
+            if (delta > 0 && delta < 1.5) listenedRef.current += delta; // پخشِ عادی
+            lastTimeRef.current = now; // پرش‌ها نادیده گرفته می‌شوند
+        };
+        const onSeek = () => { lastTimeRef.current = el.currentTime || 0; }; // پس از پرش، مبدأ به‌روز می‌شود
+        const onPlay = () => { lastTimeRef.current = el.currentTime || 0; iv = setInterval(flush, 10000); };
         const onStop = () => { if (iv) { clearInterval(iv); iv = null; } flush(); };
         el.addEventListener('play', onPlay);
+        el.addEventListener('timeupdate', onTime);
+        el.addEventListener('seeking', onSeek);
+        el.addEventListener('seeked', onSeek);
         el.addEventListener('pause', onStop);
-        el.addEventListener('ended', () => sendProgress(Math.floor(el.duration || el.currentTime || 0), true));
-        return () => { if (iv) clearInterval(iv); el.removeEventListener('play', onPlay); el.removeEventListener('pause', onStop); };
+        el.addEventListener('ended', onStop);
+        return () => { if (iv) clearInterval(iv); el.removeEventListener('play', onPlay); el.removeEventListener('timeupdate', onTime); el.removeEventListener('seeking', onSeek); el.removeEventListener('seeked', onSeek); el.removeEventListener('pause', onStop); el.removeEventListener('ended', onStop); };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -101,7 +115,7 @@ function ContentCard({ it }) {
             {isPodcast && it.url && (
                 <div style={{ marginTop: 10 }}>
                     <audio ref={audioRef} src={it.url} controls preload="metadata" style={{ width: '100%' }} onPlay={markViewed} />
-                    <div style={{ fontSize: 11.5, opacity: .7, marginTop: 4 }}>🎧 گوش دادن به این پادکست امتیاز دارد (هر ۱۵ ثانیه ۱ XP، تا سقف ۲۰).</div>
+                    <div style={{ fontSize: 11.5, opacity: .7, marginTop: 4 }}>🎧 فقط با گوش‌دادنِ واقعی امتیاز می‌گیری (هر ۱۵ ثانیه ۱ XP، تا سقف ۲۰). جلوزدن/پرش‌کردن امتیاز نمی‌آورد.</div>
                 </div>
             )}
 

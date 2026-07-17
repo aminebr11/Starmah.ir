@@ -1,4 +1,4 @@
-import { usePage, useForm, router } from '@inertiajs/react';
+import { usePage, useForm, router, Link } from '@inertiajs/react';
 import { useState, useEffect, useRef } from 'react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
@@ -10,10 +10,11 @@ const TABS = [
     { v: 'podcast', ic: '🎧', t: 'پادکست صوتی', accept: 'audio/*', hint: 'فایل صوتی MP3/M4A' },
     { v: 'gallery', ic: '🖼️', t: 'گالری تصاویر', accept: 'image/*', hint: 'عکس‌های کلاس (JPG/PNG)' },
     { v: 'homework', ic: '📝', t: 'تکلیف', accept: '.pdf,.doc,.docx,image/*', hint: 'شرح تکلیف + فایل ضمیمه (اختیاری)' },
+    { v: 'worksheet', ic: '🎨', t: 'کاربرگ', worksheet: true },
 ];
 
 export default function Materials() {
-    const { items = [], classrooms = [], flash } = usePage().props;
+    const { items = [], classrooms = [], worksheets = [], flash } = usePage().props;
     const [tab, setTab] = useState('material');
     const [banner, setBanner] = useState(null);
     const fileRef = useRef(null);
@@ -47,9 +48,9 @@ export default function Materials() {
             {banner && <div className="panel" style={{ borderColor: 'var(--gold)', background: '#fff8e8' }}><b>{banner}</b></div>}
 
             {/* تب‌های نوع محتوا */}
-            <div className="dash-cards" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: 4 }}>
+            <div className="dash-cards" style={{ gridTemplateColumns: 'repeat(5,1fr)', marginBottom: 4 }}>
                 {TABS.map((t) => {
-                    const count = items.filter((i) => i.type === t.v).length;
+                    const count = t.worksheet ? worksheets.length : items.filter((i) => i.type === t.v).length;
                     return (
                         <button key={t.v} onClick={() => setTab(t.v)}
                             className="dcard" style={{ cursor: 'pointer', textAlign: 'center', border: tab === t.v ? '2px solid var(--gold)' : '1px solid var(--line)', background: tab === t.v ? '#fff8e8' : '#fff', fontFamily: 'inherit' }}>
@@ -61,6 +62,7 @@ export default function Materials() {
                 })}
             </div>
 
+            {tab === 'worksheet' ? <WorksheetPanel worksheets={worksheets} /> : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 20, alignItems: 'start' }} className="themes-grid">
                 {/* فرم بارگذاری */}
                 <form onSubmit={submit} className="panel">
@@ -150,9 +152,57 @@ export default function Materials() {
                     )}
                 </div>
             </div>
+            )}
 
             {editing && <EditModal item={editing} classrooms={classrooms} onClose={() => setEditing(null)} />}
         </DashLayout>
+    );
+}
+
+/** بخشِ پنجمِ «مطالب و محتوا»: کاربرگ‌ها — ساخت، بایگانی و مدیریت. */
+function WorksheetPanel({ worksheets }) {
+    const published = worksheets.filter((w) => w.published).length;
+    return (
+        <div style={{ display: 'grid', gap: 16 }}>
+            <div className="panel" style={{ background: 'linear-gradient(135deg,#fff8e8,#fff)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 34 }}>🎨</span>
+                    <div style={{ flex: 1, minWidth: 180 }}>
+                        <h3 style={{ margin: 0 }}>کاربرگ‌ها (کاربرگ‌سازِ هوشمند)</h3>
+                        <p style={{ margin: '4px 0 0', color: 'var(--muted)', fontSize: 13 }}>کاربرگ را دستی بساز، فایل آماده را بارگذاری کن، یا با هوش مصنوعی (به‌همراه تصویرِ تم‌دار) تولید کن. پس از انتشار برای کلاس، به دانش‌آموزان اعلان می‌شود.</p>
+                    </div>
+                    <Link href={route('teacher.worksheets.create')} className="btn">➕ ساخت کاربرگ جدید</Link>
+                </div>
+                <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+                    <span className="tag tag-info">مجموع: {fa(worksheets.length)}</span>
+                    <span className="tag tag-ok">منتشرشده: {fa(published)}</span>
+                    <span className="tag">پیش‌نویس: {fa(worksheets.length - published)}</span>
+                </div>
+            </div>
+
+            <div className="panel">
+                <h3>🗄️ بایگانیِ کاربرگ‌ها</h3>
+                {worksheets.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز کاربرگی نساخته‌ای. با دکمه‌ی «ساخت کاربرگ جدید» شروع کن.</p>}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(250px,1fr))', gap: 12, marginTop: 8 }}>
+                    {worksheets.map((w) => (
+                        <div key={w.id} style={{ border: '1px solid var(--line)', borderRadius: 14, padding: 13 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <b style={{ flex: 1 }}>{w.title}</b>
+                                <span className={`tag ${w.published ? 'tag-ok' : ''}`} style={{ fontSize: 11 }}>{w.published ? 'منتشر' : 'پیش‌نویس'}</span>
+                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
+                                {[w.subject, w.grade, w.lesson_no ? `درس ${w.lesson_no}` : null].filter(Boolean).join(' · ')}
+                                {' · '}{fa(w.count)} سؤال{w.has_image ? ' · 🖼️' : ''}
+                            </div>
+                            <div style={{ fontSize: 11.5, color: 'var(--muted-2)', marginTop: 4 }}>{fa(w.date)} · 📥 {fa(w.submissions)} پاسخ</div>
+                            <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                                <Link href={route('teacher.worksheets.show', w.id)} className="btn btn-ghost btn-sm">📄 مدیریت و پاسخ‌ها</Link>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
     );
 }
 
