@@ -110,6 +110,11 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::get('/practice/{skill?}', [PracticeController::class, 'start'])->name('practice.start');
     Route::post('/practice/submit', [PracticeController::class, 'submit'])->name('practice.submit');
 
+    // مأموریت‌های روزانه (معلم‌محور — سؤال‌ها از بانکِ سؤالِ معلم)
+    Route::get('/missions', [\App\Http\Controllers\Student\MissionController::class, 'index'])->name('missions');
+    Route::get('/missions/{mission}/play', [\App\Http\Controllers\Student\MissionController::class, 'play'])->name('missions.play');
+    Route::post('/missions/submit', [\App\Http\Controllers\Student\MissionController::class, 'submit'])->name('missions.submit');
+
     Route::get('/progress', ProgressController::class)->name('progress');
     Route::get('/leaderboard', LeaderboardController::class)->name('leaderboard');
     Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'studentView'])->name('schedule');
@@ -195,6 +200,12 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/materials', [\App\Http\Controllers\Teacher\ClassContentController::class, 'store'])->name('materials.store');
     Route::post('/materials/{classContent}', [\App\Http\Controllers\Teacher\ClassContentController::class, 'update'])->name('materials.update');
     Route::delete('/materials/{classContent}', [\App\Http\Controllers\Teacher\ClassContentController::class, 'destroy'])->name('materials.destroy');
+    // تنظیماتِ مأموریت‌های روزانه
+    Route::get('/missions', [\App\Http\Controllers\Teacher\MissionController::class, 'index'])->name('missions');
+    Route::post('/missions', [\App\Http\Controllers\Teacher\MissionController::class, 'store'])->name('missions.store');
+    Route::put('/missions/{mission}', [\App\Http\Controllers\Teacher\MissionController::class, 'update'])->name('missions.update');
+    Route::post('/missions/{mission}/toggle', [\App\Http\Controllers\Teacher\MissionController::class, 'toggle'])->name('missions.toggle');
+    Route::delete('/missions/{mission}', [\App\Http\Controllers\Teacher\MissionController::class, 'destroy'])->name('missions.destroy');
     Route::get('/reports', [TeacherDashboardController::class, 'reports'])->name('reports');
     Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'manage'])->name('schedule');
     Route::post('/schedule', [\App\Http\Controllers\ScheduleController::class, 'store'])->name('schedule.store');

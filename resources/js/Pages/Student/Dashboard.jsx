@@ -49,7 +49,7 @@ export default function Dashboard() {
     // کاشی‌های اکشن — رنگ اختصاصی هر کاشی
     const smartLab = usePage().props.smartLab;
     const tiles = [
-        { href: '/practice', em: '🎯', label: 'مأموریت و تمرین', t1: skin.p1, t2: skin.p2 },
+        { href: '/missions', em: '🎯', label: 'مأموریت روزانه', t1: skin.p1, t2: skin.p2 },
         { href: '/game-world', em: '🎮', label: 'دنیای بازی‌ها', t1: '#e8505b', t2: '#b0333f' },
         ...(smartLab ? [{ href: '/student/smart-exams', em: '🧠', label: 'آزمون هوشمند', t1: '#7c5cf0', t2: '#4c2fb0' }] : []),
         { href: '/my-grades', em: '📔', label: 'نمرات کلاسی', t1: '#18a97c', t2: '#0d6b4e' },
@@ -255,7 +255,7 @@ export default function Dashboard() {
                                     {sample.choices[picked]?.correct ? w('reward_title', 'آفرین! 🎉') : 'اشکالی نداره، تو مأموریت جبران کن! 💪'}
                                 </div>
                             )}
-                            <Link href={route('practice.start')} className="k3-btn" style={{ width: '100%', marginTop: 16, fontSize: 16 }}>
+                            <Link href={route('missions')} className="k3-btn" style={{ width: '100%', marginTop: 16, fontSize: 16 }}>
                                 🚀 شروع {w('mission_title', 'مأموریت')}
                             </Link>
                         </>
