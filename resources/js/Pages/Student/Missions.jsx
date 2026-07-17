@@ -1,8 +1,14 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link, usePage, router } from '@inertiajs/react';
 import ThemedDash from '@/Layouts/ThemedDash';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const DIFF = { easy: 'آسان', medium: 'متوسط', hard: 'دشوار' };
+const TYPE_META = {
+    quiz: { ic: '🧠', label: 'سؤالِ بانک', go: 'شروع مأموریت' },
+    podcast: { ic: '🎧', label: 'گوش‌دادن به پادکست', go: 'برو به پادکست‌ها' },
+    worksheet: { ic: '🎨', label: 'انجام کاربرگ', go: 'برو به کاربرگ‌ها' },
+    game: { ic: '🎮', label: 'انجام یک بازی', go: 'برو به بازی‌ها' },
+};
 
 /** مأموریت‌های روزانه‌ی دانش‌آموز — از مأموریت‌هایی که معلم تعریف کرده (سؤال‌ها از بانکِ معلم). */
 export default function Missions() {
@@ -35,23 +41,27 @@ export default function Missions() {
                 {missions.map((m) => (
                     <div key={m.id} className="k3-card" style={{ borderTop: `4px solid ${m.done_today ? '#2bb673' : '#e8862e'}`, opacity: m.available ? 1 : .6 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <span style={{ fontSize: 30 }}>{m.badge_icon || '🎯'}</span>
+                            <span style={{ fontSize: 30 }}>{m.badge_icon || (TYPE_META[m.type] || TYPE_META.quiz).ic}</span>
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontWeight: 900, fontSize: 15.5 }}>{m.title}</div>
-                                <div style={{ fontSize: 11.5, opacity: .7 }}>{[m.subject, m.lesson_no ? `درس ${m.lesson_no}` : null, m.difficulty ? DIFF[m.difficulty] : null].filter(Boolean).join(' · ') || 'عمومی'}</div>
+                                <div style={{ fontSize: 11.5, opacity: .7 }}>{(TYPE_META[m.type] || TYPE_META.quiz).label}{m.type === 'quiz' ? ' · ' + ([m.subject, m.lesson_no ? `درس ${m.lesson_no}` : null, m.difficulty ? DIFF[m.difficulty] : null].filter(Boolean).join(' · ') || 'عمومی') : ''}</div>
                             </div>
                         </div>
                         <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', fontSize: 12 }}>
-                            <span className="k3-chip">📝 {fa(m.question_count)} سؤال</span>
+                            {m.type === 'quiz' && <span className="k3-chip">📝 {fa(m.question_count)} سؤال</span>}
                             <span className="k3-chip">⚡ {fa(m.xp_reward)}</span>
                             {m.badge_name && <span className="k3-chip">🎖️ {m.badge_name}</span>}
                         </div>
                         <div style={{ marginTop: 12 }}>
-                            {!m.available
-                                ? <div style={{ fontSize: 12.5, opacity: .75, textAlign: 'center' }}>سؤالی برای این مأموریت آماده نیست.</div>
-                                : m.done_today
-                                    ? <div style={{ background: 'rgba(43,182,115,.2)', border: '1px solid rgba(43,182,115,.5)', borderRadius: 12, padding: '9px 12px', textAlign: 'center', fontWeight: 800, fontSize: 13 }}>✅ امروز انجام دادی — فردا دوباره!</div>
-                                    : <Link href={route('missions.play', m.id)} className="k3-btn" style={{ width: '100%', textAlign: 'center' }}>🚀 شروع مأموریت</Link>}
+                            {m.done_today
+                                ? <div style={{ background: 'rgba(43,182,115,.2)', border: '1px solid rgba(43,182,115,.5)', borderRadius: 12, padding: '9px 12px', textAlign: 'center', fontWeight: 800, fontSize: 13 }}>✅ امروز انجام دادی — فردا دوباره!</div>
+                                : m.type === 'quiz'
+                                    ? (!m.available
+                                        ? <div style={{ fontSize: 12.5, opacity: .75, textAlign: 'center' }}>سؤالی برای این مأموریت آماده نیست.</div>
+                                        : <Link href={route('missions.play', m.id)} className="k3-btn" style={{ width: '100%', textAlign: 'center' }}>🚀 شروع مأموریت</Link>)
+                                    : m.claimable
+                                        ? <button onClick={() => router.post(route('missions.claim', m.id), {}, { preserveScroll: true })} className="k3-btn" style={{ width: '100%', background: 'linear-gradient(135deg,#2bb673,#0f9d58)' }}>🎁 دریافتِ جایزه (+{fa(m.xp_reward)})</button>
+                                        : <Link href={m.link || '#'} className="k3-btn ghost" style={{ width: '100%', textAlign: 'center' }}>← {(TYPE_META[m.type] || TYPE_META.quiz).go}</Link>}
                         </div>
                     </div>
                 ))}

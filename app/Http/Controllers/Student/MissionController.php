@@ -46,14 +46,21 @@ class MissionController extends Controller
         $doneToday = MissionCompletion::where('student_id', $user->id)
             ->where('play_date', $today)->pluck('mission_id')->all();
 
-        $cards = $missions->map(fn (Mission $m) => [
-            'id' => $m->id, 'title' => $m->title, 'subject' => $m->subject, 'lesson_no' => $m->lesson_no,
-            'difficulty' => $m->difficulty, 'question_count' => $m->question_count, 'xp_reward' => $m->xp_reward,
-            'badge_name' => $m->badge_name, 'badge_icon' => $m->badge_icon,
-            'teacher' => optional($m->teacher)->name,
-            'available' => $this->bankQuery($m)->count() >= 1,
-            'done_today' => in_array($m->id, $doneToday, true),
-        ])->values();
+        $cards = $missions->map(function (Mission $m) use ($user, $doneToday) {
+            $type = $m->type ?? 'quiz';
+            return [
+                'id' => $m->id, 'title' => $m->title, 'type' => $type,
+                'subject' => $m->subject, 'lesson_no' => $m->lesson_no,
+                'difficulty' => $m->difficulty, 'question_count' => $m->question_count, 'xp_reward' => $m->xp_reward,
+                'badge_name' => $m->badge_name, 'badge_icon' => $m->badge_icon,
+                'teacher' => optional($m->teacher)->name,
+                'available' => $type !== 'quiz' || $this->bankQuery($m)->count() >= 1,
+                'done_today' => in_array($m->id, $doneToday, true),
+                // برای انواعِ فعالیت‌محور: آیا فعالیتِ امروز انجام شده و قابلِ دریافتِ جایزه است؟
+                'link' => $this->linkFor($type),
+                'claimable' => $type !== 'quiz' && ! in_array($m->id, $doneToday, true) && $this->activityDoneToday($user, $m),
+            ];
+        })->values();
 
         return Inertia::render('Student/Missions', [
             'missions' => $cards,
@@ -73,6 +80,65 @@ class MissionController extends Controller
             else break;
         }
         return $streak;
+    }
+
+    private function linkFor(string $type): ?string
+    {
+        return [
+            'podcast' => '/class-content',
+            'worksheet' => '/class-content',
+            'game' => '/game-world',
+        ][$type] ?? null;
+    }
+
+    /** آیا فعالیتِ موردنیازِ مأموریت (پادکست/کاربرگ/بازی) امروز واقعاً انجام شده؟ (ضدِ تقلب) */
+    private function activityDoneToday($user, Mission $m): bool
+    {
+        $today = now()->toDateString();
+        return match ($m->type) {
+            'podcast' => \App\Models\ContentView::where('student_id', $user->id)
+                ->where('xp_awarded', '>', 0)->whereDate('updated_at', $today)
+                ->whereHas('content', fn ($q) => $q->where('type', 'podcast')->where('teacher_id', $m->teacher_id))
+                ->exists(),
+            'worksheet' => \App\Models\WorksheetSubmission::where('student_id', $user->id)
+                ->whereNotNull('file_path')->whereDate('submitted_at', $today)
+                ->whereHas('worksheet', fn ($q) => $q->where('teacher_id', $m->teacher_id))
+                ->exists(),
+            'game' => \App\Models\EduGameAttempt::where('student_id', $user->id)
+                ->where('status', 'completed')->whereDate('completed_at', $today)
+                ->whereHas('game', fn ($q) => $q->where('teacher_id', $m->teacher_id))
+                ->exists(),
+            default => false,
+        };
+    }
+
+    /** دریافتِ جایزهٔ مأموریت‌های فعالیت‌محور (پس از انجامِ واقعیِ فعالیت). یک‌بار در روز. */
+    public function claim(Request $request, Mission $mission, GamificationService $game): \Illuminate\Http\RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($this->availableQuery($user)->whereKey($mission->id)->exists(), 403);
+        abort_if(($mission->type ?? 'quiz') === 'quiz', 400);
+
+        $today = now()->toDateString();
+        $already = MissionCompletion::where('mission_id', $mission->id)
+            ->where('student_id', $user->id)->where('play_date', $today)->exists();
+        if ($already) {
+            return back()->with('flash', 'جایزهٔ این مأموریت را امروز گرفته‌ای.');
+        }
+        if (! $this->activityDoneToday($user, $mission)) {
+            return back()->with('flash', 'اول باید فعالیتِ این مأموریت را انجام بدهی، بعد جایزه بگیری.');
+        }
+
+        $game->award($user, $mission->xp_reward, '🎯 مأموریت روزانه — ' . $mission->title,
+            $mission->teacher, Mission::class, $mission->id);
+        MissionCompletion::create([
+            'mission_id' => $mission->id, 'student_id' => $user->id, 'play_date' => $today,
+            'score' => 1, 'total' => 1, 'xp_awarded' => $mission->xp_reward,
+        ]);
+        if ($mission->badge_name) {
+            $this->awardBadge($user, $mission);
+        }
+        return back()->with('flash', "آفرین! جایزهٔ مأموریت را گرفتی: +{$mission->xp_reward} امتیاز 🎉");
     }
 
     private function bankQuery(Mission $m)

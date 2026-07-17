@@ -114,6 +114,7 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::get('/missions', [\App\Http\Controllers\Student\MissionController::class, 'index'])->name('missions');
     Route::get('/missions/{mission}/play', [\App\Http\Controllers\Student\MissionController::class, 'play'])->name('missions.play');
     Route::post('/missions/submit', [\App\Http\Controllers\Student\MissionController::class, 'submit'])->name('missions.submit');
+    Route::post('/missions/{mission}/claim', [\App\Http\Controllers\Student\MissionController::class, 'claim'])->name('missions.claim');
 
     Route::get('/progress', ProgressController::class)->name('progress');
     Route::get('/leaderboard', LeaderboardController::class)->name('leaderboard');

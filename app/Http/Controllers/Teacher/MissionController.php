@@ -25,7 +25,7 @@ class MissionController extends Controller
 
         $today = now()->toDateString();
         $items = $rows->map(fn (Mission $m) => [
-            'id' => $m->id, 'title' => $m->title, 'subject' => $m->subject, 'lesson_no' => $m->lesson_no,
+            'id' => $m->id, 'title' => $m->title, 'type' => $m->type ?? 'quiz', 'subject' => $m->subject, 'lesson_no' => $m->lesson_no,
             'difficulty' => $m->difficulty, 'question_count' => $m->question_count, 'xp_reward' => $m->xp_reward,
             'badge_name' => $m->badge_name, 'badge_icon' => $m->badge_icon,
             'classroom_id' => $m->classroom_id, 'is_active' => $m->is_active,
@@ -50,7 +50,7 @@ class MissionController extends Controller
         Mission::create([
             'school_id' => $user->school_id, 'teacher_id' => $user->id,
             'classroom_id' => $data['classroom_id'] ?? null,
-            'title' => $data['title'], 'subject' => $data['subject'] ?? null,
+            'title' => $data['title'], 'type' => $data['type'] ?? 'quiz', 'subject' => $data['subject'] ?? null,
             'lesson_no' => $data['lesson_no'] ?? null, 'difficulty' => $data['difficulty'] ?? null,
             'question_count' => $data['question_count'], 'xp_reward' => $data['xp_reward'],
             'badge_name' => $data['badge_name'] ?? null, 'badge_icon' => $data['badge_icon'] ?? null,
@@ -66,7 +66,7 @@ class MissionController extends Controller
         $data = $this->validated($request);
         $mission->update([
             'classroom_id' => $data['classroom_id'] ?? null,
-            'title' => $data['title'], 'subject' => $data['subject'] ?? null,
+            'title' => $data['title'], 'type' => $data['type'] ?? 'quiz', 'subject' => $data['subject'] ?? null,
             'lesson_no' => $data['lesson_no'] ?? null, 'difficulty' => $data['difficulty'] ?? null,
             'question_count' => $data['question_count'], 'xp_reward' => $data['xp_reward'],
             'badge_name' => $data['badge_name'] ?? null, 'badge_icon' => $data['badge_icon'] ?? null,
@@ -93,6 +93,7 @@ class MissionController extends Controller
     {
         return $request->validate([
             'title' => ['required', 'string', 'max:120'],
+            'type' => ['nullable', 'in:quiz,podcast,worksheet,game'],
             'subject' => ['nullable', 'string', 'max:120'],
             'lesson_no' => ['nullable', 'string', 'max:40'],
             'difficulty' => ['nullable', 'in:easy,medium,hard'],
