@@ -57,23 +57,7 @@ export default function SmartExamReport() {
                 <div className="smart-panel">
                     <div className="smart-h" style={{ fontSize: 15 }}>👥 عملکرد دانش‌آموزان</div>
                     {rows.length === 0 && <p className="smart-muted">هنوز کسی این آزمون را نداده.</p>}
-                    {rows.length > 0 && (
-                        <div style={{ overflowX: 'auto' }}>
-                            <table className="tbl" style={{ marginTop: 8 }}>
-                                <thead><tr><th>#</th><th>نام</th><th>نمره</th><th>درصد</th><th>تلاش</th><th>زمان</th><th>وضعیت</th></tr></thead>
-                                <tbody>
-                                    {rows.map((r, i) => (
-                                        <tr key={i}><td>{fa(i + 1)}</td><td style={{ fontWeight: 700 }}>{r.name}</td>
-                                            <td>{fa(r.score)}/{fa(r.max)}</td>
-                                            <td><span className={`tag ${r.percent >= 50 ? 'tag-ok' : 'tag-warn'}`}>{fa(r.percent)}٪</span></td>
-                                            <td>{fa(r.attempts)}</td><td>{mins(r.duration || 0)}</td>
-                                            <td>{r.status === 'completed' ? '✅' : r.status === 'needs_review' ? '📝 بررسی' : '⏳'}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
+                    {rows.length > 0 && <ReleaseTable rows={rows} examId={exam.id} />}
                 </div>
 
                 <div className="smart-panel">
@@ -108,6 +92,54 @@ export default function SmartExamReport() {
                 <div style={{ textAlign: 'center', color: '#7c7595', fontSize: 12 }}>تهیه‌شده در {printedAt}</div>
             </div>
         </DashLayout>
+    );
+}
+
+/** جدولِ عملکرد + آزادسازیِ آزمون (حذفِ تلاش‌ها تا امکانِ شرکتِ دوباره). */
+function ReleaseTable({ rows, examId }) {
+    const [sel, setSel] = useState([]);
+    const [busy, setBusy] = useState(false);
+    const toggle = (id) => setSel((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
+    const allSel = sel.length === rows.length && rows.length > 0;
+    const release = (ids, label) => {
+        if (busy) return;
+        if (!confirm(`${label}\nتمام تلاش‌ها و پاسخ‌های ثبت‌شده پاک می‌شوند و امکانِ شرکتِ دوباره فراهم می‌گردد. این کار قابل بازگشت نیست.`)) return;
+        setBusy(true);
+        router.post(route('teacher.smart.release', examId), ids ? { student_ids: ids } : {}, {
+            preserveScroll: true, onFinish: () => { setBusy(false); setSel([]); },
+        });
+    };
+    return (
+        <>
+            <p className="smart-muted" style={{ fontSize: 12.5, marginTop: 4 }}>
+                🔓 «آزادسازی آزمون» تلاش‌های ثبت‌شده را پاک می‌کند تا دانش‌آموز دوباره بتواند در آزمون شرکت کند. برای فردی، از دکمه‌ی «آزاد» جلوی نامش استفاده کنید؛ برای گروهی، چند نفر را تیک بزنید.
+            </p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '10px 0' }}>
+                <button onClick={() => release(sel, `آزادسازی برای ${fa(sel.length)} دانش‌آموزِ انتخاب‌شده`)} disabled={busy || sel.length === 0} className="smart-btn sm">🔓 آزادسازی انتخابی‌ها ({fa(sel.length)})</button>
+                <button onClick={() => release(null, 'آزادسازی برای همه‌ی دانش‌آموزان')} disabled={busy} className="smart-btn ghost sm" style={{ color: '#e8505b' }}>🔓 آزادسازی همه</button>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+                <table className="tbl" style={{ marginTop: 8 }}>
+                    <thead><tr>
+                        <th><input type="checkbox" checked={allSel} onChange={(e) => setSel(e.target.checked ? rows.map((r) => r.student_id) : [])} /></th>
+                        <th>#</th><th>نام</th><th>نمره</th><th>درصد</th><th>تلاش</th><th>زمان</th><th>وضعیت</th><th>آزادسازی</th>
+                    </tr></thead>
+                    <tbody>
+                        {rows.map((r, i) => (
+                            <tr key={i}>
+                                <td><input type="checkbox" checked={sel.includes(r.student_id)} onChange={() => toggle(r.student_id)} /></td>
+                                <td>{fa(i + 1)}</td><td style={{ fontWeight: 700 }}>{r.name}</td>
+                                <td>{fa(r.score)}/{fa(r.max)}</td>
+                                <td><span className={`tag ${r.percent >= 50 ? 'tag-ok' : 'tag-warn'}`}>{fa(r.percent)}٪</span></td>
+                                <td>{fa(r.attempts)}</td><td>{mins(r.duration || 0)}</td>
+                                <td>{r.status === 'completed' ? '✅' : r.status === 'needs_review' ? '📝 بررسی' : '⏳'}</td>
+                                <td><button onClick={() => release([r.student_id], `آزادسازی برای «${r.name}»`)} disabled={busy} className="smart-btn ghost sm" style={{ fontSize: 11.5, color: '#e8505b' }}>🔓 آزاد</button></td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </>
     );
 }
 

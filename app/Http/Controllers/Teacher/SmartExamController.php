@@ -215,6 +215,37 @@ class SmartExamController extends Controller
         return back()->with('flash', 'آزمون حذف شد (آزمون‌های قدیمی و نتایجشان دست‌نخورده‌اند).');
     }
 
+    /**
+     * «آزادسازیِ آزمون» — حذفِ تلاش‌ها (و پاسخ‌ها) تا دانش‌آموزان بتوانند دوباره در آزمون شرکت کنند.
+     * بدون student_ids → همه؛ با آرایه‌ای از شناسه‌ها → فقط همان دانش‌آموزان.
+     */
+    public function release(Request $request, SmartExam $smartExam): RedirectResponse
+    {
+        abort_unless($smartExam->teacher_id === $request->user()->id, 403);
+        $data = $request->validate([
+            'student_ids' => ['nullable', 'array'],
+            'student_ids.*' => ['integer'],
+        ]);
+
+        $q = $smartExam->attempts();
+        if (! empty($data['student_ids'])) {
+            $q->whereIn('student_id', $data['student_ids']);
+        }
+        $attemptIds = $q->pluck('id');
+        if ($attemptIds->isEmpty()) {
+            return back()->with('flash', 'تلاشی برای حذف پیدا نشد.');
+        }
+
+        \App\Models\SmartExamAnswer::whereIn('attempt_id', $attemptIds)->delete();
+        SmartExamAttempt::whereIn('id', $attemptIds)->delete();
+
+        $n = $attemptIds->count();
+        $who = empty($data['student_ids'])
+            ? 'همه‌ی دانش‌آموزان'
+            : count($data['student_ids']) . ' دانش‌آموز';
+        return back()->with('flash', "آزمون آزاد شد؛ {$n} تلاش پاک شد و {$who} می‌توانند دوباره در آزمون شرکت کنند.");
+    }
+
     /** دستیار هوشمند طراحی سؤال. */
     public function aiGenerate(Request $request, SmartExamAiService $ai): JsonResponse
     {

@@ -231,6 +231,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
         Route::post('/{smartExam}/status', [\App\Http\Controllers\Teacher\SmartExamController::class, 'status'])->name('status');
         Route::delete('/{smartExam}', [\App\Http\Controllers\Teacher\SmartExamController::class, 'destroy'])->name('destroy');
         Route::get('/{smartExam}/report', [\App\Http\Controllers\Teacher\SmartExamController::class, 'report'])->name('report');
+        Route::post('/{smartExam}/release', [\App\Http\Controllers\Teacher\SmartExamController::class, 'release'])->name('release');
         Route::post('/{smartExam}/build-game', [\App\Http\Controllers\Teacher\SmartExamController::class, 'buildGame'])->name('buildgame');
         Route::post('/ai/generate', [\App\Http\Controllers\Teacher\SmartExamController::class, 'aiGenerate'])->name('ai');
         Route::get('/bank/list', [\App\Http\Controllers\Teacher\SmartExamController::class, 'bank'])->name('bank');

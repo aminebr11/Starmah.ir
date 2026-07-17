@@ -16,9 +16,10 @@ class SmartExamAnalyticsService
         $attempts = $exam->attempts()->with('student:id,name')->get();
         $completed = $attempts->where('status', 'completed');
 
-        $rows = $attempts->groupBy('student_id')->map(function ($g) {
+        $rows = $attempts->groupBy('student_id')->map(function ($g, $sid) {
             $best = $g->sortByDesc('score')->first();
             return [
+                'student_id' => $sid,
                 'name' => $best->student?->name,
                 'attempts' => $g->count(),
                 'score' => $best->score, 'max' => $best->max_score,
