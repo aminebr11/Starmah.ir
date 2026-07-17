@@ -4,7 +4,7 @@ import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 export default function Reports() {
-    const { classroom, report } = usePage().props;
+    const { classroom, report, crossSubject = {}, studentCount = 0 } = usePage().props;
     if (!report) return <DashLayout title="گزارش کلاس" roleLabel="معلم" menu={teacherMenu} active="reports"><div className="panel"><p style={{ color: 'var(--muted)' }}>کلاسی برای گزارش نیست.</p></div></DashLayout>;
 
     const t = report.totals;
@@ -19,6 +19,8 @@ export default function Reports() {
                 <Card ic="🎯" lbl="فعالیت‌ها" v={t.activities} />
                 <Card ic="🔥" lbl="درگیری هفته" v={`${t.engagement}٪`} />
             </div>
+
+            <TeacherCrossSubject data={crossSubject} studentCount={studentCount} />
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }} className="themes-grid">
                 <div className="panel">
@@ -70,6 +72,46 @@ export default function Reports() {
 
 function Card({ ic, lbl, v }) {
     return <div className="dcard"><div className="ic">{ic}</div><div className="lbl">{lbl}</div><div className="val">{fa(v)}</div></div>;
+}
+
+const chue = (p) => p == null ? '#8896ad' : p >= 70 ? '#2bb673' : p >= 50 ? '#e8862e' : '#e8505b';
+const CSEC = { smart: '🧠 آزمون', game: '🎮 بازی', mission: '🎯 مأموریت', worksheet: '🎨 کاربرگ' };
+
+/** تحلیلِ درس‌به‌درسِ همه‌ی کلاس‌ها (کلِ دانش‌آموزانِ معلم). */
+function TeacherCrossSubject({ data, studentCount }) {
+    const subjects = data?.subjects || [];
+    return (
+        <div className="panel">
+            <h3>📚 تحلیل درس‌به‌درسِ همه‌ی کلاس‌ها ({fa(studentCount)} دانش‌آموز)</h3>
+            {subjects.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز فعالیتِ نمره‌داری در بخش‌ها ثبت نشده است.</p>}
+            {subjects.length > 0 && (
+                <>
+                    <p style={{ color: 'var(--muted)', fontSize: 12.5, marginTop: 0 }}>میانگینِ کلِ درس‌ها: <b style={{ color: chue(data.overall) }}>{fa(data.overall)}٪</b> · مجموعِ فعالیت‌ها: {fa(data.activities)} — درس‌های ضعیف‌تر بالاترند.</p>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table className="tbl">
+                            <thead><tr><th>درس</th><th>میانگین</th><th>فعالیت</th><th>تفکیک بخش‌ها</th></tr></thead>
+                            <tbody>
+                                {subjects.map((s, i) => (
+                                    <tr key={i}>
+                                        <td style={{ fontWeight: 700 }}>{s.subject}</td>
+                                        <td><span style={{ display: 'inline-block', minWidth: 46, textAlign: 'center', borderRadius: 8, padding: '3px 8px', color: '#fff', fontWeight: 800, background: chue(s.pct) }}>{s.pct == null ? '—' : `${fa(s.pct)}٪`}</span></td>
+                                        <td>{fa(s.activities)}</td>
+                                        <td style={{ fontSize: 12 }}>
+                                            {Object.entries(s.sections).map(([k, v]) => (
+                                                <span key={k} style={{ display: 'inline-block', background: '#eef2f8', borderRadius: 12, padding: '2px 8px', margin: '0 3px 3px 0' }}>
+                                                    {CSEC[k]}{v.pct != null ? ` ${fa(v.pct)}٪` : ''} ({fa(v.count)})
+                                                </span>
+                                            ))}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </>
+            )}
+        </div>
+    );
 }
 function Bar({ label, value, max, sub }) {
     return (

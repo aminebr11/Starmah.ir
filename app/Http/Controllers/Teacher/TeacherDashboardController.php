@@ -117,12 +117,20 @@ class TeacherDashboardController extends Controller
     }
 
     /** گزارش کلی کلاس (تحلیل عملکرد). */
-    public function reports(Request $request, \App\Services\AnalyticsService $analytics): Response
+    public function reports(Request $request, \App\Services\AnalyticsService $analytics, \App\Services\CrossSubjectService $cross): Response
     {
-        $classroom = Classroom::where('teacher_id', $request->user()->id)->first();
+        $teacher = $request->user();
+        $classroom = Classroom::where('teacher_id', $teacher->id)->first();
+
+        // تحلیلِ درس‌به‌درسِ همه‌ی کلاس‌های این معلم
+        $studentIds = \App\Models\User::whereHas('classrooms', fn ($q) => $q->where('teacher_id', $teacher->id))
+            ->pluck('id')->unique();
+
         return Inertia::render('Teacher/Reports', [
             'classroom' => $classroom?->only('name'),
             'report'    => $classroom ? $analytics->classroomReport($classroom) : null,
+            'crossSubject' => $cross->forStudents($studentIds),
+            'studentCount' => $studentIds->count(),
         ]);
     }
 

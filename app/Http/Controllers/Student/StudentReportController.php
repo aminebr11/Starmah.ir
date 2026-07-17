@@ -20,11 +20,14 @@ use Inertia\Response;
  */
 class StudentReportController extends Controller
 {
-    public function __invoke(Request $request, \App\Services\AnalyticsService $analytics): Response
+    public function __invoke(Request $request, \App\Services\AnalyticsService $analytics, \App\Services\CrossSubjectService $cross): Response
     {
         $user = $request->user();
 
-        return Inertia::render('Student/Reports', $this->buildReport($user, $analytics));
+        return Inertia::render('Student/Reports', array_merge(
+            $this->buildReport($user, $analytics),
+            ['crossSubject' => $cross->forStudent($user)],
+        ));
     }
 
     /** بستهٔ کامل داده‌های تحلیلی یک دانش‌آموز. */

@@ -5,7 +5,7 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
 const TONE = { good: '#2bb673', mid: '#f0952e', low: '#e8505b' };
 
 export default function Reports() {
-    const { student = {}, overview = {}, skills = [], strengths = [], weaknesses = [], byType = [], exams = [], trend = [], tips = [], printedAt } = usePage().props;
+    const { student = {}, overview = {}, skills = [], strengths = [], weaknesses = [], byType = [], exams = [], trend = [], tips = [], printedAt, crossSubject = {} } = usePage().props;
 
     const maxTrend = Math.max(1, ...trend.map((t) => t.value));
     const maxType = Math.max(1, ...byType.map((t) => Math.abs(t.points)));
@@ -34,6 +34,9 @@ export default function Reports() {
                 <Kpi icon="⭐" label="ستاره‌ها" value={fa(overview.stars)} c1="#0ea5b7" c2="#0a7d8a" />
                 <Kpi icon="🏅" label="نشان‌ها" value={fa(overview.badges)} c1="#e8862e" c2="#a5570f" />
             </div>
+
+            {/* کارنامه‌ی درس‌به‌درس در همه‌ی بخش‌ها */}
+            <CrossSubject data={crossSubject} />
 
             {/* نقاط قوت و ضعف */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 16, marginTop: 16 }}>
@@ -103,6 +106,44 @@ export default function Reports() {
 
             <div style={{ textAlign: 'center', opacity: .6, fontSize: 12, margin: '18px 0 6px' }}>تهیه‌شده در {printedAt} · ستاره ماه</div>
         </ThemedDash>
+    );
+}
+
+const hue = (p) => p == null ? '#8896ad' : p >= 70 ? '#2bb673' : p >= 50 ? '#f0952e' : '#e8505b';
+const SEC_ICON = { smart: '🧠', game: '🎮', mission: '🎯', worksheet: '🎨' };
+const SEC_LABEL = { smart: 'آزمون هوشمند', game: 'بازی', mission: 'مأموریت', worksheet: 'کاربرگ' };
+
+/** کارنامه‌ی درس‌به‌درس: عملکردِ هر درس در همه‌ی بخش‌ها (آزمون هوشمند/بازی/مأموریت/کاربرگ). */
+function CrossSubject({ data }) {
+    const subjects = data?.subjects || [];
+    return (
+        <div className="k3-card" style={{ marginTop: 16 }}>
+            <ST>📚 کارنامه‌ی درس‌به‌درس (در همه‌ی بخش‌ها)</ST>
+            {subjects.length === 0 && <Empty>هنوز در هیچ درسی فعالیتِ نمره‌داری ثبت نشده — با آزمون‌ها، بازی‌ها و مأموریت‌ها شروع کن!</Empty>}
+            {subjects.length > 0 && (
+                <div style={{ display: 'grid', gap: 12 }}>
+                    <div style={{ fontSize: 12, opacity: .7 }}>میانگین کلِ درس‌ها: <b style={{ color: hue(data.overall) }}>{fa(data.overall)}٪</b> · مجموعِ فعالیت‌ها: {fa(data.activities)}</div>
+                    {subjects.map((s, i) => (
+                        <div key={i} style={{ background: 'rgba(255,255,255,.05)', borderRadius: 14, padding: 12 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                                <span style={{ width: 42, height: 42, borderRadius: 12, display: 'grid', placeItems: 'center', fontWeight: 900, color: '#fff', background: hue(s.pct), flex: 'none' }}>{s.pct == null ? '—' : `${fa(s.pct)}٪`}</span>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 900, fontSize: 15 }}>{s.subject}</div>
+                                    <div style={{ fontSize: 11, opacity: .7 }}>{fa(s.activities)} فعالیت · {s.status === 'good' ? 'مسلط 🌟' : s.status === 'mid' ? 'در حال پیشرفت 📈' : s.status === 'low' ? 'نیاز به تمرین 💪' : 'مشارکتی'}</div>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                {Object.entries(s.sections).map(([k, v]) => (
+                                    <span key={k} style={{ fontSize: 11.5, background: 'rgba(255,255,255,.08)', borderRadius: 20, padding: '3px 10px' }}>
+                                        {SEC_ICON[k]} {SEC_LABEL[k]}{v.pct != null ? `: ${fa(v.pct)}٪` : ''} <span style={{ opacity: .6 }}>({fa(v.count)})</span>
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
     );
 }
 
