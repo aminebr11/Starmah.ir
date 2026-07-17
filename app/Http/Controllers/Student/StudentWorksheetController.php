@@ -5,16 +5,21 @@ namespace App\Http\Controllers\Student;
 use App\Http\Controllers\Controller;
 use App\Models\Worksheet;
 use App\Models\WorksheetSubmission;
+use App\Services\GamificationService;
 use App\Support\Jalali;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
-/** کاربرگِ دانش‌آموز — مشاهده/چاپ + ارسالِ کاربرگِ پرشده (عکس/فایل) به معلم. */
+/** کاربرگِ دانش‌آموز — مشاهده/چاپ/دانلود (امتیازِ یک‌بار) + ارسالِ کاربرگِ پرشده (امتیازِ یک‌بار). */
 class StudentWorksheetController extends Controller
 {
+    private const DOWNLOAD_XP = 5;
+    private const SUBMIT_XP = 15;
+
     /** آیا این کاربرگ برای کلاسِ دانش‌آموز منتشر شده؟ */
     private function accessible($user, Worksheet $worksheet): bool
     {
@@ -35,18 +40,45 @@ class StudentWorksheetController extends Controller
         return Inertia::render('Student/WorksheetView', [
             'worksheet' => [
                 'id' => $worksheet->id, 'title' => $worksheet->title,
+                'mode' => $worksheet->mode ?? 'manual',
                 'html' => $worksheet->render_html,
                 'image' => $worksheet->image_path ? Storage::disk('public')->url($worksheet->image_path) : null,
+                'file' => $worksheet->file_path ? Storage::disk('public')->url($worksheet->file_path) : null,
             ],
-            'submitted' => $mine ? [
+            'downloadXp' => self::DOWNLOAD_XP,
+            'submitXp' => self::SUBMIT_XP,
+            'downloaded' => $mine ? (bool) $mine->download_xp : false,
+            'submitted' => $mine && $mine->file_path ? [
                 'url' => Storage::disk('public')->url($mine->file_path),
                 'note' => $mine->note, 'date' => Jalali::format($mine->submitted_at ?? $mine->created_at, true),
             ] : null,
         ]);
     }
 
-    /** ارسالِ کاربرگِ پرشده (عکس یا فایل). */
-    public function submit(Request $request, Worksheet $worksheet): RedirectResponse
+    /** ثبتِ دانلود/مشاهده — امتیازِ یک‌بار (بدون نیاز به ارسال). */
+    public function download(Request $request, Worksheet $worksheet, GamificationService $game): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($this->accessible($user, $worksheet), 403);
+
+        $sub = WorksheetSubmission::firstOrCreate(
+            ['worksheet_id' => $worksheet->id, 'student_id' => $user->id]
+        );
+        $gained = 0;
+        if (! $sub->download_xp) {
+            $game->award($user, self::DOWNLOAD_XP, '🎨 دریافتِ کاربرگ — ' . $worksheet->title,
+                $worksheet->teacher, Worksheet::class, $worksheet->id);
+            $sub->download_xp = true;
+            $sub->downloaded_at = now();
+            $sub->save();
+            $gained = self::DOWNLOAD_XP;
+        }
+
+        return response()->json(['ok' => true, 'gained' => $gained]);
+    }
+
+    /** ارسالِ کاربرگِ پرشده (عکس یا فایل) — امتیازِ یک‌بار. */
+    public function submit(Request $request, Worksheet $worksheet, GamificationService $game): RedirectResponse
     {
         $user = $request->user();
         abort_unless($this->accessible($user, $worksheet), 403);
@@ -57,18 +89,28 @@ class StudentWorksheetController extends Controller
         ]);
 
         // جایگزینیِ ارسالِ قبلی
-        $prev = WorksheetSubmission::where('worksheet_id', $worksheet->id)->where('student_id', $user->id)->first();
-        if ($prev && $prev->file_path) {
-            Storage::disk('public')->delete($prev->file_path);
+        $sub = WorksheetSubmission::firstOrCreate(
+            ['worksheet_id' => $worksheet->id, 'student_id' => $user->id]
+        );
+        if ($sub->file_path) {
+            Storage::disk('public')->delete($sub->file_path);
         }
 
-        $path = $request->file('file')->store('worksheet-submissions', 'public');
+        $sub->file_path = $request->file('file')->store('worksheet-submissions', 'public');
+        $sub->note = $data['note'] ?? null;
+        $sub->submitted_at = now();
 
-        WorksheetSubmission::updateOrCreate(
-            ['worksheet_id' => $worksheet->id, 'student_id' => $user->id],
-            ['file_path' => $path, 'note' => $data['note'] ?? null, 'submitted_at' => now()]
-        );
+        $awarded = false;
+        if (! $sub->submit_xp) {
+            $game->award($user, self::SUBMIT_XP, '🎨 ارسالِ کاربرگ — ' . $worksheet->title,
+                $worksheet->teacher, WorksheetSubmission::class, $sub->id);
+            $sub->submit_xp = true;
+            $awarded = true;
+        }
+        $sub->save();
 
-        return back()->with('flash', 'کاربرگِ پرشده برای معلم ارسال شد ✅');
+        return back()->with('flash', $awarded
+            ? "کاربرگِ پرشده ارسال شد و +" . self::SUBMIT_XP . " امتیاز گرفتی ✅"
+            : 'کاربرگِ پرشده به‌روزرسانی شد ✅');
     }
 }

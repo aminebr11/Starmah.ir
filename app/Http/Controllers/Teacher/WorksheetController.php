@@ -117,6 +117,7 @@ class WorksheetController extends Controller
     {
         $data = $request->validate([
             'title' => ['required', 'string', 'max:180'],
+            'mode' => ['nullable', 'in:manual,upload,ai'],
             'level' => ['nullable', 'string', 'max:60'],
             'grade' => ['nullable', 'string', 'max:60'],
             'subject' => ['nullable', 'string', 'max:120'],
@@ -126,15 +127,34 @@ class WorksheetController extends Controller
             'classroom_id' => ['nullable', 'integer', 'exists:classrooms,id'],
             'publish' => ['nullable', 'boolean'],
             'gen_image' => ['nullable', 'boolean'],
-            'questions' => ['required', 'array', 'min:1'],
-            'questions.*.prompt' => ['required', 'string'],
+            'file' => ['nullable', 'file', 'max:20480', 'mimes:pdf,doc,docx,jpg,jpeg,png,webp'],
+            'questions' => ['nullable', 'array'],
+            'questions.*.prompt' => ['nullable', 'string'],
         ]);
 
         $user = $request->user();
+        $mode = $data['mode'] ?? 'manual';
         $themeKey = array_key_exists($data['theme'], self::THEMES) ? $data['theme'] : 'classic';
         $scope = $user->hasRole(Roles::SUPER_ADMIN) ? 'global' : 'school';
+        $questions = array_values(array_filter($data['questions'] ?? [], fn ($q) => trim((string) ($q['prompt'] ?? '')) !== ''));
 
-        $html = $this->renderWorksheet($data['title'], $data['subject'] ?? '', $data['grade'] ?? '', $themeKey, $data['questions']);
+        // اعتبارسنجیِ وابسته به حالت
+        if ($mode === 'upload') {
+            if (! $request->hasFile('file')) {
+                return back()->withErrors(['file' => 'در حالتِ «بارگذاری» باید فایلِ کاربرگ را انتخاب کنید.']);
+            }
+        } elseif (empty($questions)) {
+            return back()->withErrors(['questions' => 'حداقل یک سؤال لازم است (یا از حالتِ «بارگذاری فایل» استفاده کنید).']);
+        }
+
+        // فایلِ بارگذاری‌شده (حالتِ upload)
+        $filePath = null;
+        if ($request->hasFile('file')) {
+            $filePath = $request->file('file')->store('worksheets', 'public');
+        }
+
+        $html = $mode === 'upload' ? null
+            : $this->renderWorksheet($data['title'], $data['subject'] ?? '', $data['grade'] ?? '', $themeKey, $questions);
 
         // تولیدِ تصویر با AI (اختیاری — اگر ادمین فعال کرده و معلم خواسته)
         $imagePath = null;
@@ -149,12 +169,12 @@ class WorksheetController extends Controller
             'scope' => $scope, 'level' => $data['level'] ?? null,
             'title' => $data['title'], 'subject' => $data['subject'] ?? null,
             'lesson_no' => $data['lesson_no'] ?? null, 'grade' => $data['grade'] ?? null,
-            'theme' => $themeKey, 'spec' => $data['spec'] ?? null,
+            'theme' => $themeKey, 'mode' => $mode, 'spec' => $data['spec'] ?? null,
             'questions' => array_map(fn ($q) => [
                 'prompt' => (string) ($q['prompt'] ?? ''), 'type' => $q['type'] ?? 'mc',
                 'choices' => $q['choices'] ?? [], 'answer' => $q['answer'] ?? null,
-            ], $data['questions']),
-            'render_html' => $html, 'image_path' => $imagePath,
+            ], $questions),
+            'render_html' => $html, 'image_path' => $imagePath, 'file_path' => $filePath,
             'is_published' => $publish, 'published_at' => $publish ? now() : null,
         ]);
 

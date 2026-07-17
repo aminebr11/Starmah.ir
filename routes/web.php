@@ -120,6 +120,7 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::post('/class-content/{classContent}/progress', [\App\Http\Controllers\Student\StudentHubController::class, 'contentProgress'])->name('my.content.progress');
     Route::get('/homework', [\App\Http\Controllers\Student\StudentHubController::class, 'homework'])->name('my.homework');
     Route::get('/worksheets/{worksheet}', [\App\Http\Controllers\Student\StudentWorksheetController::class, 'show'])->name('my.worksheet');
+    Route::post('/worksheets/{worksheet}/download', [\App\Http\Controllers\Student\StudentWorksheetController::class, 'download'])->name('my.worksheet.download');
     Route::post('/worksheets/{worksheet}/submit', [\App\Http\Controllers\Student\StudentWorksheetController::class, 'submit'])->name('my.worksheet.submit');
     Route::get('/my-activities', [\App\Http\Controllers\Student\StudentHubController::class, 'activities'])->name('my.activities');
     Route::get('/my-reports', \App\Http\Controllers\Student\StudentReportController::class)->name('my.reports');

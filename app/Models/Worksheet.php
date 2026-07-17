@@ -16,7 +16,7 @@ class Worksheet extends Model
 
     protected $fillable = [
         'school_id', 'teacher_id', 'classroom_id', 'scope', 'level', 'title', 'subject', 'lesson_no', 'grade',
-        'theme', 'spec', 'questions', 'render_html', 'image_path', 'is_published', 'published_at',
+        'theme', 'mode', 'spec', 'questions', 'render_html', 'image_path', 'file_path', 'is_published', 'published_at',
     ];
 
     protected $casts = [
