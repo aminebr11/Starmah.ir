@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { router } from '@inertiajs/react';
 
 const FILTERS = [
     { v: 'all', t: '📋 همه' },
@@ -20,6 +21,8 @@ export default function NoticeList({ notices = [] }) {
     });
 
     const count = (v) => notices.filter((n) => v === 'all' || (v === 'personal' ? n.personal : !n.personal)).length;
+    const dismiss = (id) => router.post(route('notices.dismiss', id), {}, { preserveScroll: true });
+    const clearAll = () => { if (confirm('همه‌ی اعلان‌ها حذف شوند؟')) router.post(route('notices.clear'), {}, { preserveScroll: true }); };
 
     return (
         <div className="panel">
@@ -27,6 +30,7 @@ export default function NoticeList({ notices = [] }) {
                 <h3 style={{ margin: 0 }}>📢 اعلان‌ها و پیام‌های من</h3>
                 <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔍 جست‌وجو…"
                     style={{ marginInlineStart: 'auto', width: 'auto', maxWidth: 220, padding: '8px 12px' }} />
+                {notices.length > 0 && <button onClick={clearAll} className="btn btn-sm" style={{ background: '#e8505b' }}>🗑️ حذف همه</button>}
             </div>
 
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
@@ -54,6 +58,8 @@ export default function NoticeList({ notices = [] }) {
                                 </span>
                                 <span style={{ color: 'var(--muted-2)', fontSize: 12 }}>از {n.sender || 'مدرسه'} · {n.date}</span>
                             </span>
+                            <span onClick={(ev) => { ev.stopPropagation(); dismiss(n.id); }} title="حذف این اعلان"
+                                style={{ flex: 'none', display: 'grid', placeItems: 'center', border: 0, background: '#fdecee', color: '#e8505b', borderRadius: 8, width: 30, height: 30, fontSize: 14, cursor: 'pointer' }}>🗑️</span>
                             <span style={{ color: 'var(--muted)', fontSize: 18 }}>{isOpen ? '▲' : '▼'}</span>
                         </button>
                         {isOpen && (

@@ -67,9 +67,6 @@ export default function Missions() {
                 ))}
             </div>
 
-            <div style={{ marginTop: 16, textAlign: 'center' }}>
-                <Link href={route('practice.start')} className="k3-btn ghost" style={{ fontSize: 13 }}>🎲 تمرینِ آزادِ تم‌دار</Link>
-            </div>
         </ThemedDash>
     );
 }

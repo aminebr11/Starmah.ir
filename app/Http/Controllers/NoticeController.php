@@ -36,4 +36,29 @@ class NoticeController extends Controller
 
         return Inertia::render($component, ['notices' => $notices]);
     }
+
+    /** حذف/پنهان‌کردنِ یک اعلان فقط برای همین کاربر. */
+    public function dismiss(Request $request, Announcement $announcement): \Illuminate\Http\RedirectResponse
+    {
+        \Illuminate\Support\Facades\DB::table('announcement_dismissals')->updateOrInsert(
+            ['user_id' => $request->user()->id, 'announcement_id' => $announcement->id],
+            ['updated_at' => now(), 'created_at' => now()],
+        );
+        return back()->with('flash', 'اعلان حذف شد');
+    }
+
+    /** حذف/پنهان‌کردنِ همه‌ی اعلان‌های فعلیِ کاربر. */
+    public function clear(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $user = $request->user();
+        $ids = Announcement::forUser($user)->pluck('id');
+        $now = now();
+        $rows = $ids->map(fn ($id) => [
+            'user_id' => $user->id, 'announcement_id' => $id, 'created_at' => $now, 'updated_at' => $now,
+        ])->all();
+        if ($rows) {
+            \Illuminate\Support\Facades\DB::table('announcement_dismissals')->insertOrIgnore($rows);
+        }
+        return back()->with('flash', 'همه‌ی اعلان‌ها حذف شدند');
+    }
 }

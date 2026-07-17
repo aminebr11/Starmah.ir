@@ -23,6 +23,13 @@ export default function StudentPoints() {
     const delEntry = (id) => { if (confirm('این ردیفِ امتیاز حذف شود؟')) router.delete(route('teacher.points.entry.destroy', id), { preserveScroll: true }); };
     const clearAll = () => { if (selected && confirm(`کلِ سابقه‌ی امتیازاتِ «${selected.name}» پاک شود؟ این کار برگشت‌پذیر نیست.`)) router.post(route('teacher.points.clear'), { student_id: selected.id }, { preserveScroll: true }); };
 
+    // انتخابِ گروهیِ ردیف‌ها
+    const [sel, setSel] = useState([]);
+    useEffect(() => { setSel([]); }, [selected?.id, ledger.length]);
+    const toggle = (id) => setSel((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
+    const allSel = ledger.length > 0 && sel.length === ledger.length;
+    const delSelected = () => { if (sel.length && confirm(`${sel.length} ردیفِ امتیازِ انتخاب‌شده حذف شود؟`)) router.post(route('teacher.points.destroyMany'), { ids: sel }, { preserveScroll: true, onSuccess: () => setSel([]) }); };
+
     return (
         <DashLayout title="مدیریت امتیازات" roleLabel="معلم" menu={teacherMenu} active="points">
             {banner && <div className="panel" style={{ borderColor: 'var(--gold)', background: '#fff8e8' }}><b>{banner}</b></div>}
@@ -73,11 +80,20 @@ export default function StudentPoints() {
                             </div>
 
                             {/* سابقه‌ی امتیازات */}
-                            <h3 style={{ marginBottom: 6 }}>📜 سابقه‌ی امتیازات ({fa(ledger.length)})</h3>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
+                                <h3 style={{ margin: 0 }}>📜 سابقه‌ی امتیازات ({fa(ledger.length)})</h3>
+                                {ledger.length > 0 && (
+                                    <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13, cursor: 'pointer' }}>
+                                        <input type="checkbox" checked={allSel} onChange={(e) => setSel(e.target.checked ? ledger.map((x) => x.id) : [])} /> انتخابِ همه
+                                    </label>
+                                )}
+                                {sel.length > 0 && <button onClick={delSelected} className="btn btn-sm" style={{ marginInlineStart: 'auto', background: '#e8505b' }}>🗑️ حذفِ انتخابی‌ها ({fa(sel.length)})</button>}
+                            </div>
                             {ledger.length === 0 && <p style={{ color: 'var(--muted)' }}>سابقه‌ای ثبت نشده است.</p>}
-                            <div style={{ display: 'grid', gap: 6 }}>
+                            <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
                                 {ledger.map((e) => (
-                                    <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--line)', borderRadius: 10, padding: '8px 12px' }}>
+                                    <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, border: sel.includes(e.id) ? '1px solid #e8505b' : '1px solid var(--line)', background: sel.includes(e.id) ? '#fdecee' : '#fff', borderRadius: 10, padding: '8px 12px' }}>
+                                        <input type="checkbox" checked={sel.includes(e.id)} onChange={() => toggle(e.id)} />
                                         <span style={{ fontWeight: 900, minWidth: 48, color: e.kind === 'plus' ? '#16a34a' : '#dc2626' }}>{e.kind === 'plus' ? '+' : ''}{fa(e.amount)}</span>
                                         <span style={{ flex: 1, fontSize: 13.5 }}>{e.reason}</span>
                                         <span style={{ color: 'var(--muted)', fontSize: 12 }}>{e.date}</span>

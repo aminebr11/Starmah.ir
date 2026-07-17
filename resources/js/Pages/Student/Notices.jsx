@@ -1,4 +1,4 @@
-import { usePage } from '@inertiajs/react';
+import { usePage, router } from '@inertiajs/react';
 import { useState } from 'react';
 import ThemedDash from '@/Layouts/ThemedDash';
 
@@ -23,6 +23,8 @@ export default function Notices() {
         return true;
     });
     const count = (v) => notices.filter((n) => v === 'all' || (v === 'personal' ? n.personal : !n.personal)).length;
+    const dismiss = (id) => router.post(route('notices.dismiss', id), {}, { preserveScroll: true });
+    const clearAll = () => { if (confirm('همه‌ی اعلان‌ها حذف شوند؟')) router.post(route('notices.clear'), {}, { preserveScroll: true }); };
 
     return (
         <ThemedDash title="اعلان‌ها و پیام‌ها" active="notices">
@@ -31,6 +33,7 @@ export default function Notices() {
                     <div style={{ fontWeight: 900, fontSize: 18 }}>📢 اعلان‌ها و پیام‌های من</div>
                     <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔍 جست‌وجو…"
                         style={{ marginInlineStart: 'auto', width: 'auto', maxWidth: 220, padding: '9px 12px', borderRadius: 12, border: '1px solid rgba(255,255,255,.2)', background: 'rgba(255,255,255,.1)', color: '#fff', fontFamily: 'inherit' }} />
+                    {notices.length > 0 && <button onClick={clearAll} style={{ cursor: 'pointer', fontFamily: 'inherit', padding: '9px 14px', borderRadius: 12, border: 0, background: 'rgba(232,80,91,.85)', color: '#fff', fontWeight: 800, fontSize: 12.5 }}>🗑️ حذف همه</button>}
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
                     {FILTERS.map((f) => (
@@ -67,7 +70,11 @@ export default function Notices() {
                                         </a>
                                     )}
                                 </div>
-                                <span style={{ flex: 'none', opacity: .85, fontSize: 16 }}>{isOpen ? '▲' : '▼'}</span>
+                                <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                                    <button onClick={(ev) => { ev.stopPropagation(); dismiss(n.id); }} title="حذف این اعلان"
+                                        style={{ cursor: 'pointer', border: 0, background: 'rgba(255,255,255,.18)', color: '#fff', borderRadius: 8, width: 28, height: 28, fontSize: 14 }}>🗑️</button>
+                                    <span style={{ opacity: .85, fontSize: 16 }}>{isOpen ? '▲' : '▼'}</span>
+                                </div>
                             </div>
                         </div>
                     );

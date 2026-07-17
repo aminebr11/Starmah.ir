@@ -80,7 +80,7 @@ export default function Dashboard() {
                         {unreadNotices > 0 && <span className="tag" style={{ background: '#e8505b', color: '#fff', marginInlineStart: 8 }}>{fa(unreadNotices)} نخوانده</span>}
                         <Link href="/notices" className="btn btn-ghost btn-sm" style={{ marginInlineStart: 'auto' }}>همه ←</Link>
                     </h3>
-                    {announcements.map((a) => (
+                    {announcements.slice(0, 4).map((a) => (
                         <Link key={a.id} href="/notices" style={{ display: 'block', padding: '10px 0', borderBottom: '1px solid var(--line)', color: 'var(--ink)' }}>
                             <div style={{ fontWeight: 800 }}>
                                 {a.personal ? '✉️ ' : '📢 '}{a.title}

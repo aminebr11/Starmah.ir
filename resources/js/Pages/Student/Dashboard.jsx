@@ -154,7 +154,7 @@ export default function Dashboard() {
                         <Link href="/notices" style={{ marginInlineStart: 'auto', color: 'var(--acc)', fontWeight: 800, fontSize: 13 }}>همه ←</Link>
                     </div>
                     <div style={{ display: 'grid', gap: 10 }}>
-                        {notifications.slice(0, 5).map((n, i) => (
+                        {notifications.slice(0, 4).map((n, i) => (
                             <Link key={n.id} href={n.href} className={`notice-tpl nt-c${i % 6}`} style={{ display: 'block' }}>
                                 <div className="nt-title">
                                     <span style={{ marginInlineEnd: 6 }}>{n.icon}</span>{n.title}

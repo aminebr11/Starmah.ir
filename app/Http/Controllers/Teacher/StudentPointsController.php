@@ -85,6 +85,21 @@ class StudentPointsController extends Controller
         return back()->with('flash', 'ردیفِ امتیاز حذف شد');
     }
 
+    /** حذفِ گروهیِ چند ردیفِ امتیازِ انتخاب‌شده. */
+    public function destroyMany(Request $request): RedirectResponse
+    {
+        $teacher = $request->user();
+        $data = $request->validate([
+            'ids'   => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+        $myIds = $this->myStudentIds($teacher);
+        $n = XpEntry::whereIn('id', $data['ids'])
+            ->whereIn('student_id', $myIds)->delete();
+
+        return back()->with('flash', "{$n} ردیفِ امتیاز حذف شد");
+    }
+
     /** پاک‌کردنِ کلِ سابقه‌ی امتیازاتِ یک دانش‌آموز. */
     public function clear(Request $request): RedirectResponse
     {

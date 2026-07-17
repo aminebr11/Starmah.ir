@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\Schema;
 
 /** اطلاعیه/پیام مدرسه — عمومی (معلم‌ها/دانش‌آموزان/همه/یک پایه) یا شخصی. */
 class Announcement extends Model
@@ -31,6 +32,15 @@ class Announcement extends Model
         $isTeacher = $user->hasRole(Roles::TEACHER);
         $isStudent = $user->hasRole(Roles::STUDENT);
         $grade = $isStudent ? optional($user->classrooms()->first())->grade : null;
+
+        // اعلان‌هایی که کاربر برای خودش حذف/پنهان کرده را نشان نده
+        if (Schema::hasTable('announcement_dismissals')) {
+            $q->whereNotExists(function ($sub) use ($user) {
+                $sub->selectRaw('1')->from('announcement_dismissals')
+                    ->whereColumn('announcement_dismissals.announcement_id', 'announcements.id')
+                    ->where('announcement_dismissals.user_id', $user->id);
+            });
+        }
 
         return $q->where(function (Builder $w) use ($user, $isTeacher, $isStudent, $grade) {
             $w->where('audience', 'all');
