@@ -43,7 +43,9 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => env('PUBLIC_DISK_ROOT', public_path('storage')),
-            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
+            // آدرسِ نسبی (/storage) تا مستقل از APP_URL همیشه روی همان دامنه‌ی جاری
+            // (مثلاً new.starmah.ir) حل شود؛ از هدایتِ اشتباه به دامنه‌ی اصلی جلوگیری می‌کند.
+            'url' => env('PUBLIC_DISK_URL', '/storage'),
             'visibility' => 'public',
             'throw' => false,
             'report' => false,
