@@ -13,24 +13,51 @@ const TYPE = {
 const isImageUrl = (u) => /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(u || '');
 const isAudioUrl = (u) => /\.(mp3|m4a|aac|ogg|wav|opus)$/i.test(u || '');
 
+const TABS = [
+    { v: 'material', ic: '📄', t: 'جزوه و فایل' },
+    { v: 'podcast', ic: '🎧', t: 'پادکست' },
+    { v: 'gallery', ic: '🖼️', t: 'گالری تصاویر' },
+];
+
 export default function ClassContent() {
     const { items = [] } = usePage().props;
+    // نخستین بخشی که محتوا دارد را پیش‌فرض انتخاب کن
+    const firstWith = TABS.find((t) => items.some((i) => i.type === t.v))?.v || 'material';
+    const [tab, setTab] = useState(firstWith);
+    const list = items.filter((i) => i.type === tab);
+    const active = TABS.find((t) => t.v === tab) || TABS[0];
 
     return (
         <ThemedDash title="محتوای کلاس" active="content">
             <div className="k3-card">
                 <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 4 }}>📚 محتوای کلاس تو</div>
-                <div style={{ opacity: .8, fontSize: 13 }}>جزوه‌ها، پادکست‌ها و گالریِ کلاس که معلم برایت گذاشته. گوش دادن به پادکست امتیاز (XP) دارد!</div>
+                <div style={{ opacity: .8, fontSize: 13 }}>هر بخش را جداگانه ببین: جزوه‌ها، پادکست‌ها و گالری. گوش دادن به پادکست امتیاز (XP) دارد!</div>
             </div>
 
-            {items.length === 0 && (
+            {/* تب‌های نوعِ محتوا — مطابقِ بخش‌های بارگذاریِ معلم */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginTop: 14 }}>
+                {TABS.map((t) => {
+                    const count = items.filter((i) => i.type === t.v).length;
+                    const on = tab === t.v;
+                    return (
+                        <button key={t.v} onClick={() => setTab(t.v)}
+                            style={{ cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center', borderRadius: 16, padding: '12px 8px', color: '#fff', border: on ? '2px solid var(--acc,#f5b53f)' : '1px solid rgba(255,255,255,.14)', background: on ? 'linear-gradient(135deg,var(--p1),var(--p2))' : 'rgba(255,255,255,.06)' }}>
+                            <div style={{ fontSize: 24 }}>{t.ic}</div>
+                            <div style={{ fontWeight: 800, fontSize: 13, marginTop: 3 }}>{t.t}</div>
+                            <div style={{ fontSize: 11, opacity: .8 }}>{fa(count)} مورد</div>
+                        </button>
+                    );
+                })}
+            </div>
+
+            {list.length === 0 && (
                 <div className="k3-card" style={{ marginTop: 14, textAlign: 'center', opacity: .8 }}>
-                    هنوز محتوایی اضافه نشده 📭
+                    هنوز {active.t} اضافه نشده 📭
                 </div>
             )}
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 14, marginTop: 14 }}>
-                {items.map((it) => <ContentCard key={it.id} it={it} />)}
+                {list.map((it) => <ContentCard key={it.id} it={it} />)}
             </div>
         </ThemedDash>
     );

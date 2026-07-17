@@ -38,9 +38,11 @@ return [
             'report' => false,
         ],
 
+        // فایل‌ها مستقیماً در پوشه‌ی وب‌سِرو‌شده (public/storage) نوشته می‌شوند تا روی
+        // میزبان‌هایی مثل cPanel که symlink کار نمی‌کند، نیازی به `php artisan storage:link` نباشد.
         'public' => [
             'driver' => 'local',
-            'root' => storage_path('app/public'),
+            'root' => env('PUBLIC_DISK_ROOT', public_path('storage')),
             'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
             'visibility' => 'public',
             'throw' => false,
