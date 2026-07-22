@@ -1,5 +1,6 @@
 import { Head, Link, usePage, router } from '@inertiajs/react';
 import { useState } from 'react';
+import AssistantWidget from '@/Components/AssistantWidget';
 
 /**
  * چیدمان داشبورد مدیریتی (سوپرادمین / مدیر مدرسه / معلم) با سایدبار.
@@ -66,6 +67,7 @@ export default function DashLayout({ title, roleLabel, menu = [], active = '', c
                 </div>
                 {children}
             </main>
+            <AssistantWidget />
         </div>
     );
 }

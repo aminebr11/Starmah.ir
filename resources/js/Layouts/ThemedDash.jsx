@@ -1,6 +1,7 @@
 import { Head, Link, usePage, router } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import { cssVars } from '@/theme';
+import AssistantWidget from '@/Components/AssistantWidget';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -142,6 +143,8 @@ export default function ThemedDash({ title, active = '', children, actions = nul
                     </Link>
                 ))}
             </nav>
+
+            <AssistantWidget />
         </div>
     );
 }
