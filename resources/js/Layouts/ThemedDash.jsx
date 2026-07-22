@@ -18,21 +18,23 @@ export default function ThemedDash({ title, active = '', children, actions = nul
 
     const menu = [
         { key: 'home', label: 'خانه', icon: '🏠', href: '/dashboard' },
+        { divider: 'یادگیری و بازی' },
         { key: 'practice', label: 'مأموریت‌های من', icon: '🎯', href: '/missions' },
         { key: 'gameworld', label: 'دنیای بازی‌ها', icon: '🎮', href: '/game-world' },
         ...(smartLab ? [{ key: 'smart', label: 'آزمون هوشمند 🧪', icon: '🧠', href: '/student/smart-exams' }] : []),
+        { divider: 'عملکردِ من' },
+        { key: 'report', label: 'کارنامه', icon: '📊', href: '/report' },
         { key: 'board', label: 'رقابت تیم‌ها', icon: '🏆', href: '/leaderboard' },
-        { key: 'reports', label: 'گزارش‌ها و نمودارها', icon: '📈', href: '/my-reports' },
-        { key: 'progress', label: 'کارنامه‌ی من', icon: '🗂️', href: '/progress' },
-        { key: 'grades', label: 'نمرات کلاسی', icon: '📔', href: '/my-grades' },
         { key: 'activities', label: 'فعالیت‌ها و امتیازها', icon: '🎁', href: '/my-activities' },
         { key: 'discipline', label: 'موارد انضباطی', icon: '⭐', href: '/my-discipline' },
-        { key: 'messages', label: 'ارتباط با معلم', icon: '💬', href: '/messages' },
+        { divider: 'کلاس' },
         { key: 'content', label: 'محتوای کلاس', icon: '📚', href: '/class-content' },
         { key: 'homework', label: 'تکالیف', icon: '📝', href: '/homework' },
         { key: 'schedule', label: 'برنامه کلاسی', icon: '🗓️', href: '/schedule' },
+        { divider: 'ارتباط' },
+        { key: 'messages', label: 'ارتباط با معلم', icon: '💬', href: '/messages' },
         { key: 'notices', label: 'اعلان‌ها', icon: '📢', href: '/notices' },
-        { key: 'messages', label: 'پیام‌ها', icon: '💌', href: '/messages' },
+        { divider: null },
         { key: 'profile', label: 'پروفایل من', icon: '👤', href: '/profile' },
     ];
 
@@ -55,12 +57,17 @@ export default function ThemedDash({ title, active = '', children, actions = nul
                     <div>ستاره ماه<div className="dash-role" style={{ background: 'rgba(255,255,255,.14)', borderColor: 'rgba(255,255,255,.25)', color: 'var(--acc)' }}>{theme?.emoji} {theme?.name}</div></div>
                 </Link>
                 <nav className="dash-nav">
-                    {menu.map((m) => (
-                        <Link key={m.key} href={m.href} className={active === m.key ? 'active' : ''} onClick={() => setOpen(false)}
-                            style={active === m.key ? { background: 'linear-gradient(135deg,var(--p1),var(--p2))', color: '#fff' } : {}}>
-                            <span className="ic">{m.icon}</span>{m.label}
-                            {m.key === 'notices' && unreadNotices > 0 && <span className="nav-badge">{fa(unreadNotices)}</span>}
-                        </Link>
+                    {menu.map((m, i) => (
+                        m.divider !== undefined ? (
+                            m.divider ? <div key={`d${i}`} className="dash-nav-section" style={{ color: 'rgba(255,255,255,.5)', borderTopColor: 'rgba(255,255,255,.1)' }}>{m.divider}</div>
+                                : <div key={`d${i}`} style={{ height: 1, background: 'rgba(255,255,255,.1)', margin: '8px 6px' }} />
+                        ) : (
+                            <Link key={m.key} href={m.href} className={active === m.key ? 'active' : ''} onClick={() => setOpen(false)}
+                                style={active === m.key ? { background: 'linear-gradient(135deg,var(--p1),var(--p2))', color: '#fff' } : {}}>
+                                <span className="ic">{m.icon}</span>{m.label}
+                                {m.key === 'notices' && unreadNotices > 0 && <span className="nav-badge">{fa(unreadNotices)}</span>}
+                            </Link>
+                        )
                     ))}
                     <button onClick={() => router.post(route('logout'))}
                         style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 13px', borderRadius: 13, color: '#ffb3b3', background: 'transparent', border: 0, fontFamily: 'inherit', fontWeight: 600, fontSize: 14, cursor: 'pointer', marginTop: 8 }}>

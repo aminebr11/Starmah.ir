@@ -116,11 +116,16 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::post('/missions/submit', [\App\Http\Controllers\Student\MissionController::class, 'submit'])->name('missions.submit');
     Route::post('/missions/{mission}/claim', [\App\Http\Controllers\Student\MissionController::class, 'claim'])->name('missions.claim');
 
-    Route::get('/progress', ProgressController::class)->name('progress');
+    // کارنامه‌ی یکپارچه (خلاصه/درس‌به‌درس/نمرات کلاسی/آزمون هوشمند در یک صفحه‌ی تب‌دار)
+    Route::get('/report', \App\Http\Controllers\Student\ReportHubController::class)->name('report');
+    // مسیرهای قدیمی به تبِ مربوطه‌ی کارنامه هدایت می‌شوند (لینک‌های قدیمی نشکنند)
+    Route::get('/progress', fn () => redirect('/report?tab=overview'))->name('progress');
+    Route::get('/my-reports', fn () => redirect('/report?tab=overview'))->name('my.reports');
+    Route::get('/my-grades', fn () => redirect('/report?tab=grades'))->name('my.grades');
+
     Route::get('/leaderboard', LeaderboardController::class)->name('leaderboard');
     Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'studentView'])->name('schedule');
     Route::get('/my-discipline', [\App\Http\Controllers\StudentDisciplineController::class, 'index'])->name('my.discipline');
-    Route::get('/my-grades', [\App\Http\Controllers\StudentGradesController::class, 'index'])->name('my.grades');
     // کارت‌های صفحه‌ی خانه: محتوای کلاس، تکالیف، فعالیت‌ها، گزارش‌ها
     Route::get('/class-content', [\App\Http\Controllers\Student\StudentHubController::class, 'content'])->name('my.content');
     Route::post('/class-content/{classContent}/progress', [\App\Http\Controllers\Student\StudentHubController::class, 'contentProgress'])->name('my.content.progress');
@@ -129,7 +134,6 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::post('/worksheets/{worksheet}/download', [\App\Http\Controllers\Student\StudentWorksheetController::class, 'download'])->name('my.worksheet.download');
     Route::post('/worksheets/{worksheet}/submit', [\App\Http\Controllers\Student\StudentWorksheetController::class, 'submit'])->name('my.worksheet.submit');
     Route::get('/my-activities', [\App\Http\Controllers\Student\StudentHubController::class, 'activities'])->name('my.activities');
-    Route::get('/my-reports', \App\Http\Controllers\Student\StudentReportController::class)->name('my.reports');
 
     Route::get('/exams', [ExamController::class, 'index'])->name('exams');
     Route::get('/exams/{assignment}/take', [ExamController::class, 'take'])->name('exams.take');

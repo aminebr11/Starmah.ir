@@ -53,7 +53,7 @@ export default function Dashboard() {
         { href: '/missions', em: '🎯', label: 'مأموریت روزانه', t1: skin.p1, t2: skin.p2 },
         { href: '/game-world', em: '🎮', label: 'دنیای بازی‌ها', t1: '#e8505b', t2: '#b0333f' },
         ...(smartLab ? [{ href: '/student/smart-exams', em: '🧠', label: 'آزمون هوشمند', t1: '#7c5cf0', t2: '#4c2fb0' }] : []),
-        { href: '/my-grades', em: '📔', label: 'نمرات کلاسی', t1: '#18a97c', t2: '#0d6b4e' },
+        { href: '/report', em: '📊', label: 'کارنامه‌ی من', t1: '#18a97c', t2: '#0d6b4e' },
     ];
 
     // کارت‌های کلاس من (موارد انضباطی، فعالیت‌ها، محتوا، تکالیف، گزارش‌ها)
@@ -62,7 +62,6 @@ export default function Dashboard() {
         { href: '/my-activities', em: '🎁', label: 'فعالیت‌ها و امتیازها', sub: 'تاریخچه‌ی امتیازها', t1: '#2bb673', t2: '#1a8a52' },
         { href: '/class-content', em: '📚', label: 'محتوای کلاس', sub: 'جزوه، پادکست، گالری', t1: '#3d7bf0', t2: '#2555c0' },
         { href: '/homework', em: '📝', label: 'تکالیف', sub: 'کارهای در پیش', t1: '#a24cf0', t2: '#6f2fb0' },
-        { href: '/my-reports', em: '📈', label: 'گزارش‌ها و نمودارها', sub: 'تحلیل کامل عملکرد', t1: '#0ea5b7', t2: '#0a7d8a' },
     ];
 
     return (
@@ -292,7 +291,7 @@ export default function Dashboard() {
                     {/* دسترسی سریع دوم */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 16 }}>
                         <Link href="/leaderboard" className="k3-btn ghost" style={{ fontSize: 13.5 }}>🏆 {w('leaderboard', 'جدول رقابت')}</Link>
-                        <Link href="/progress" className="k3-btn ghost" style={{ fontSize: 13.5 }}>📈 کارنامه‌ی من</Link>
+                        <Link href="/report" className="k3-btn ghost" style={{ fontSize: 13.5 }}>📊 کارنامه‌ی من</Link>
                     </div>
                 </div>
             </div>

@@ -14,8 +14,12 @@ class StudentGradesController extends Controller
 {
     public function index(Request $request): Response
     {
-        $user = $request->user();
+        return Inertia::render('Student/Grades', $this->gradesData($request->user()));
+    }
 
+    /** داده‌ی خامِ نمرات کلاسی — قابلِ استفاده در صفحه‌ی کارنامه‌ی یکپارچه. */
+    public function gradesData(\App\Models\User $user): array
+    {
         $cols = GradeColumn::whereHas('grades', fn ($q) => $q->where('student_id', $user->id))
             ->with(['grades' => fn ($q) => $q->where('student_id', $user->id)])
             ->orderByDesc('graded_at')->orderByDesc('id')->get();
@@ -48,13 +52,13 @@ class StudentGradesController extends Controller
 
         $totalXp = (int) $xpByGrade->sum();
 
-        return Inertia::render('Student/Grades', [
+        return [
             'subjects' => $bySubject,
             'stats' => [
                 'total' => $items->count(),
                 'subjects' => $bySubject->count(),
                 'xp' => $totalXp,
             ],
-        ]);
+        ];
     }
 }

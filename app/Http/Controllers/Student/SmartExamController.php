@@ -86,7 +86,12 @@ class SmartExamController extends Controller
     /** کارنامه‌ی هوشمند: امتیاز و پیشرفتِ دانش‌آموز به تفکیک درس و سرفصل (نقاط قوت/ضعف). */
     public function performance(Request $request): Response
     {
-        $user = $request->user();
+        return Inertia::render('Student/SmartPerformance', $this->performanceData($request->user()));
+    }
+
+    /** داده‌ی خامِ کارنامه‌ی هوشمند — قابلِ استفاده در صفحه‌ی کارنامه‌ی یکپارچه. */
+    public function performanceData(\App\Models\User $user, bool $withAi = true): array
+    {
         $attemptIds = SmartExamAttempt::where('student_id', $user->id)->where('status', '!=', 'in_progress')->pluck('id');
 
         $rows = SmartExamAnswer::whereIn('attempt_id', $attemptIds)
@@ -142,16 +147,16 @@ class SmartExamController extends Controller
             'avg' => (int) round($g->avg('percent')),
         ])->values();
 
-        return Inertia::render('Student/SmartPerformance', [
+        return [
             'student' => ['name' => $user->name],
             'subjects' => $out,
             'totalAnswered' => $rows->count(),
             'examCount' => $examCount,
             'overallPct' => $overall,
             'trend' => $trend,
-            'aiSummary' => $this->aiSummary($user->name, $out, $overall, $examCount),
+            'aiSummary' => $withAi ? $this->aiSummary($user->name, $out, $overall, $examCount) : null,
             'parent' => $this->parentGuidance($out, $overall, $examCount),
-        ]);
+        ];
     }
 
     /** خلاصه‌ی هوش مصنوعی از عملکرد — با کلیدِ ادمین از AI واقعی، وگرنه خلاصه‌ی محلیِ هوشمند. */
