@@ -108,6 +108,7 @@ export const teacherMenu = [
     { key: 'studio', label: 'استودیوی بازی', icon: '🎮', href: '/teacher/studio' },
     { key: 'missions', label: 'مأموریت‌های روزانه', icon: '🎯', href: '/teacher/missions' },
     { key: 'activities', label: 'امتیازدهی گروهی', icon: '🏅', href: '/teacher/activities' },
+    { key: 'groups', label: 'امتیازِ گروه‌ها', icon: '🏆', href: '/teacher/groups' },
     { key: 'points', label: 'مدیریت امتیازات', icon: '⚡', href: '/teacher/points' },
     { key: 'discipline', label: 'دفتر انضباط', icon: '⭐', href: '/teacher/discipline' },
     { key: 'materials', label: 'مطالب و محتوا', icon: '📚', href: '/teacher/materials' },

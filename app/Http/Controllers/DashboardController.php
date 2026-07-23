@@ -35,14 +35,20 @@ class DashboardController extends Controller
         $idxClass = $members->search(fn ($m) => $m['id'] === $user->id);
         $myRankClass = $idxClass === false ? null : $idxClass + 1;
 
-        // رقابت گروه‌ها: جمع امتیاز هر تیم + نفرات برتر
-        $groups = $members->whereNotNull('theme_id')->groupBy('theme_id')->map(function ($g) use ($user) {
+        // امتیازِ دستیِ گروهی (team_points) برای همین کلاس — تا مجموعِ تیم درست باشد
+        $teamBonus = $classroom
+            ? \App\Models\TeamPoint::where('classroom_id', $classroom->id)
+                ->selectRaw('theme_id, SUM(amount) as s')->groupBy('theme_id')->pluck('s', 'theme_id')
+            : collect();
+
+        // رقابت گروه‌ها: جمع امتیاز هر تیم (اعضا + امتیازِ گروهی) + نفرات برتر
+        $groups = $members->whereNotNull('theme_id')->groupBy('theme_id')->map(function ($g, $themeId) use ($user, $teamBonus) {
             $first = $g->first();
             return [
                 'name'  => $first['group'],
                 'emoji' => $first['emoji'],
                 'color' => $first['p1'],
-                'total' => $g->sum('xp'),
+                'total' => $g->sum('xp') + (int) ($teamBonus[$themeId] ?? 0),
                 'count' => $g->count(),
                 'mine'  => $g->contains(fn ($m) => $m['id'] === $user->id),
                 'top'   => $g->take(5)->map(fn ($m) => ['name' => $m['name'], 'xp' => $m['xp'], 'me' => $m['id'] === $user->id])->values(),

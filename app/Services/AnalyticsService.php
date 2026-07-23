@@ -22,17 +22,22 @@ class AnalyticsService
         $students = $classroom->students()->with('theme')->get();
 
         $perStudent = $students->map(fn ($s) => [
-            'id' => $s->id, 'name' => $s->name,
+            'id' => $s->id, 'name' => $s->name, 'theme_id' => $s->theme_id,
             'group' => $s->theme?->name, 'emoji' => $s->theme?->emoji,
             'xp' => $s->totalXp(),
             'mastery' => (int) round($s->skillMastery()->avg('mastery') ?? 0),
             'activities' => ActivityAward::where('student_id', $s->id)->count(),
         ])->sortByDesc('xp')->values();
 
-        // امتیاز هر تیم
-        $byGroup = $perStudent->groupBy('group')->map(fn ($g, $name) => [
+        // امتیازِ دستیِ گروهی برای همین کلاس
+        $teamBonus = \App\Models\TeamPoint::where('classroom_id', $classroom->id)
+            ->selectRaw('theme_id, SUM(amount) as s')->groupBy('theme_id')->pluck('s', 'theme_id');
+
+        // امتیاز هر تیم (اعضا + امتیازِ گروهی)
+        $byGroup = $perStudent->whereNotNull('group')->groupBy('group')->map(fn ($g, $name) => [
             'name' => $name, 'emoji' => $g->first()['emoji'],
-            'total' => $g->sum('xp'), 'count' => $g->count(),
+            'total' => $g->sum('xp') + (int) ($teamBonus[$g->first()['theme_id']] ?? 0),
+            'count' => $g->count(),
         ])->sortByDesc('total')->values();
 
         // امتیاز بر اساس نوع فعالیت

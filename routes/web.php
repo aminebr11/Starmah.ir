@@ -124,6 +124,7 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::get('/my-grades', fn () => redirect('/report?tab=grades'))->name('my.grades');
 
     Route::get('/leaderboard', LeaderboardController::class)->name('leaderboard');
+    Route::get('/my-team', \App\Http\Controllers\Student\TeamController::class)->name('my.team');
     Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'studentView'])->name('schedule');
     Route::get('/my-discipline', [\App\Http\Controllers\StudentDisciplineController::class, 'index'])->name('my.discipline');
     // کارت‌های صفحه‌ی خانه: محتوای کلاس، تکالیف، فعالیت‌ها، گزارش‌ها
@@ -208,6 +209,10 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/materials', [\App\Http\Controllers\Teacher\ClassContentController::class, 'store'])->name('materials.store');
     Route::post('/materials/{classContent}', [\App\Http\Controllers\Teacher\ClassContentController::class, 'update'])->name('materials.update');
     Route::delete('/materials/{classContent}', [\App\Http\Controllers\Teacher\ClassContentController::class, 'destroy'])->name('materials.destroy');
+    // مدیریتِ امتیازِ گروه‌ها (تیم‌های تم‌دار)
+    Route::get('/groups', [\App\Http\Controllers\Teacher\GroupPointsController::class, 'index'])->name('groups');
+    Route::post('/groups/adjust', [\App\Http\Controllers\Teacher\GroupPointsController::class, 'adjust'])->name('groups.adjust');
+    Route::delete('/groups/entry/{teamPoint}', [\App\Http\Controllers\Teacher\GroupPointsController::class, 'destroyEntry'])->name('groups.entry.destroy');
     // تنظیماتِ مأموریت‌های روزانه
     Route::get('/missions', [\App\Http\Controllers\Teacher\MissionController::class, 'index'])->name('missions');
     Route::post('/missions', [\App\Http\Controllers\Teacher\MissionController::class, 'store'])->name('missions.store');
