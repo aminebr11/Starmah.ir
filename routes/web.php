@@ -79,6 +79,7 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
 /* ---------------- مدیر مدرسه ---------------- */
 Route::middleware(['auth', 'role:school_admin'])->prefix('school')->name('school.')->group(function () {
     Route::get('/', [SchoolDashboardController::class, 'overview'])->name('overview');
+    Route::post('/branding', [SchoolDashboardController::class, 'updateBranding'])->name('branding');
     Route::get('/teachers', [SchoolTeacherController::class, 'index'])->name('teachers');
     Route::post('/teachers', [SchoolTeacherController::class, 'store'])->name('teachers.store');
     Route::get('/students', [SchoolDashboardController::class, 'students'])->name('students');

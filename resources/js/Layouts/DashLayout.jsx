@@ -1,6 +1,7 @@
 import { Head, Link, usePage, router } from '@inertiajs/react';
 import { useState } from 'react';
 import AssistantWidget from '@/Components/AssistantWidget';
+import Avatar from '@/Components/Avatar';
 
 /**
  * چیدمان داشبورد مدیریتی (سوپرادمین / مدیر مدرسه / معلم) با سایدبار.
@@ -9,7 +10,7 @@ import AssistantWidget from '@/Components/AssistantWidget';
  * props: title, roleLabel, menu:[{key,label,icon,href}], active, children
  */
 export default function DashLayout({ title, roleLabel, menu = [], active = '', children, actions = null }) {
-    const { auth, unreadNotices = 0, smartLab = false } = usePage().props;
+    const { auth, unreadNotices = 0, smartLab = false, avatarUrl = null, school = null } = usePage().props;
     const [open, setOpen] = useState(false);
     // آیتم‌هایی که flag: 'smart' دارند فقط وقتی ماژول فعال است نمایش داده می‌شوند
     menu = menu.filter((m) => !m.flag || (m.flag === 'smart' && smartLab));
@@ -23,6 +24,14 @@ export default function DashLayout({ title, roleLabel, menu = [], active = '', c
                     <img src="/brand/logo-emblem.png" alt="" />
                     <div>ستاره ماه<div className="dash-role">{roleLabel}</div></div>
                 </Link>
+                {school && (
+                    <div className="dash-school">
+                        {school.logo_url
+                            ? <img src={school.logo_url} alt="" />
+                            : <span className="dash-school-ph">🏫</span>}
+                        <span className="dash-school-nm">{school.name}</span>
+                    </div>
+                )}
                 <nav className="dash-nav">
                     {menu.map((m, idx) => (
                         m.divider ? (
@@ -59,7 +68,7 @@ export default function DashLayout({ title, roleLabel, menu = [], active = '', c
                         </Link>
                         <div className="user-chip">
                             <Link href={route('profile.edit')} className="user-chip-name" title="پروفایل من">
-                                <span className="ic">👤</span><span className="nm">{auth?.user?.name}</span>
+                                <Avatar src={avatarUrl} name={auth?.user?.name} size={26} /><span className="nm">{auth?.user?.name}</span>
                             </Link>
                             <button onClick={() => router.post(route('logout'))} className="user-chip-out" title="خروج از حساب">🚪</button>
                         </div>

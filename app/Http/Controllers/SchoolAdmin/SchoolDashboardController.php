@@ -18,6 +18,8 @@ use Inertia\Response;
 /** پیشخوان و صفحات مدیر مدرسه (فقط مدرسه‌ی خودش). */
 class SchoolDashboardController extends Controller
 {
+    use \App\Http\Controllers\Concerns\StoresUploads;
+
     public function overview(Request $request): Response
     {
         $schoolId = $request->user()->school_id;
@@ -30,7 +32,10 @@ class SchoolDashboardController extends Controller
             ->sortByDesc('xp')->take(5)->values();
 
         return Inertia::render('SchoolAdmin/Overview', [
-            'school' => $school?->only('name', 'city', 'plan', 'status', 'seats'),
+            'school' => $school ? array_merge(
+                $school->only('name', 'city', 'plan', 'status', 'seats'),
+                ['logo_url' => $school->logo ? \Illuminate\Support\Facades\Storage::url($school->logo) : null]
+            ) : null,
             'stats' => [
                 'teachers' => User::role(Roles::TEACHER)->where('school_id', $schoolId)->count(),
                 'students' => $students,
@@ -41,6 +46,26 @@ class SchoolDashboardController extends Controller
             'classes' => Classroom::where('school_id', $schoolId)->withCount('students')->with('teacher:id,name')->get()
                 ->map(fn ($c) => ['name' => $c->name, 'teacher' => $c->teacher?->name, 'students' => $c->students_count, 'code' => $c->join_code]),
         ]);
+    }
+
+    /** آپلود/به‌روزرسانیِ لوگوی مدرسه (نمایش در سایدبارِ همه‌ی نقش‌های همان مدرسه). */
+    public function updateBranding(Request $request): RedirectResponse
+    {
+        $school = $request->user()->school;
+        abort_unless($school, 403);
+        $request->validate(['logo' => ['required', 'file', 'max:2048']]);
+
+        if ($this->extensionAllowed($request->file('logo'), ['jpg', 'jpeg', 'png', 'webp', 'svg'])) {
+            if ($school->logo) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($school->logo);
+            }
+            $school->logo = $this->storeUpload($request->file('logo'), 'school-logos');
+            $school->save();
+
+            return back()->with('flash', 'لوگوی مدرسه به‌روزرسانی شد ✅');
+        }
+
+        return back()->withErrors(['logo' => 'فرمتِ فایل مجاز نیست (jpg/png/webp/svg).']);
     }
 
     public function students(Request $request): Response

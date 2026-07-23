@@ -1,11 +1,20 @@
-import { usePage, Link } from '@inertiajs/react';
+import { usePage, Link, useForm, router } from '@inertiajs/react';
+import { useState, useRef } from 'react';
 import DashLayout, { schoolMenu } from '@/Layouts/DashLayout';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 export default function Overview() {
-    const { auth, school, stats = {}, classes = [], topStudents = [] } = usePage().props;
+    const { auth, school, stats = {}, classes = [], topStudents = [], flash } = usePage().props;
     const name = auth?.user?.name || 'مدیر';
+    const fileRef = useRef(null);
+    const [preview, setPreview] = useState(null);
+
+    const uploadLogo = (file) => {
+        if (!file) return;
+        setPreview(URL.createObjectURL(file));
+        router.post(route('school.branding'), { logo: file, _method: 'post' }, { forceFormData: true, preserveScroll: true });
+    };
 
     const seats = stats.seats;
     const seatPct = seats ? Math.min(100, Math.round((stats.students / seats) * 100)) : null;
@@ -31,12 +40,21 @@ export default function Overview() {
             <div className="panel" style={{ background: 'linear-gradient(135deg,#16264f,#0a1836)', border: 0, color: '#fff' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                        <div style={{ fontSize: 40 }}>🏫</div>
+                        <button type="button" onClick={() => fileRef.current?.click()} title="تغییرِ لوگوی مدرسه"
+                            style={{ position: 'relative', width: 60, height: 60, borderRadius: 16, border: '2px solid rgba(255,255,255,.25)', background: 'rgba(255,255,255,.08)', cursor: 'pointer', display: 'grid', placeItems: 'center', overflow: 'hidden', padding: 0, flex: 'none' }}>
+                            {(preview || school?.logo_url)
+                                ? <img src={preview || school.logo_url} alt="لوگوی مدرسه" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                : <span style={{ fontSize: 34 }}>🏫</span>}
+                            <span style={{ position: 'absolute', insetInlineEnd: 2, bottom: 2, background: 'var(--gold)', color: '#221503', width: 20, height: 20, borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 900 }}>✎</span>
+                        </button>
+                        <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden
+                            onChange={(e) => uploadLogo(e.target.files?.[0])} />
                         <div>
                             <div style={{ fontWeight: 800, fontSize: 20 }}>سلام {name}!</div>
                             <div style={{ color: '#c4d2f0', fontSize: 14 }}>
                                 مدیریت {school?.name ?? 'مدرسه'}{school?.city ? ` · ${school.city}` : ''}
                             </div>
+                            <div style={{ color: '#8fa4cf', fontSize: 11.5, marginTop: 3 }}>برای افزودن/تغییرِ لوگوی مدرسه روی نشان کلیک کنید 🖼️</div>
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

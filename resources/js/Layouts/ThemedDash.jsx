@@ -2,6 +2,7 @@ import { Head, Link, usePage, router } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import { cssVars } from '@/theme';
 import AssistantWidget from '@/Components/AssistantWidget';
+import Avatar from '@/Components/Avatar';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -10,7 +11,7 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
  * لوگوی سایت بالا قرار دارد. ریسپانسیو.
  */
 export default function ThemedDash({ title, active = '', children, actions = null }) {
-    const { auth, theme, notifications = [], unreadNotices = 0, smartLab = false } = usePage().props;
+    const { auth, theme, notifications = [], unreadNotices = 0, smartLab = false, avatarUrl = null } = usePage().props;
     const unread = unreadNotices || 0;
     const skin = theme?.skin ?? {};
     const vars = useMemo(() => cssVars(skin), [theme?.id]);
@@ -123,7 +124,9 @@ export default function ThemedDash({ title, active = '', children, actions = nul
                             )}
                         </div>
                         <Link href="/profile" style={{ color: 'rgba(255,255,255,.85)', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ width: 34, height: 34, borderRadius: '50%', background: 'linear-gradient(135deg,var(--p1),var(--p2))', display: 'grid', placeItems: 'center' }}>{skin.mascot ?? '🙂'}</span>
+                            {avatarUrl
+                                ? <Avatar src={avatarUrl} name={auth?.user?.name} size={34} ring />
+                                : <span style={{ width: 34, height: 34, borderRadius: '50%', background: 'linear-gradient(135deg,var(--p1),var(--p2))', display: 'grid', placeItems: 'center' }}>{skin.mascot ?? '🙂'}</span>}
                             <span className="hide-mobile">{auth?.user?.name}</span>
                         </Link>
                         <button onClick={() => router.post(route('logout'))} title="خروج از حساب کاربری"

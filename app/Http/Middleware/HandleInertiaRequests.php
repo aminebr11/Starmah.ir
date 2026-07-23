@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Services\ThemeEngine;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -39,6 +40,12 @@ class HandleInertiaRequests extends Middleware
                 'user'  => $user,
                 'roles' => $user ? $user->getRoleNames() : [],
             ],
+            // عکسِ کاربر و برندِ مدرسه — در همه‌ی داشبوردها (سایدبار/تاپ‌بار) استفاده می‌شود
+            'avatarUrl' => $user && $user->avatar ? Storage::url($user->avatar) : null,
+            'school' => fn () => $user && $user->school ? [
+                'name'     => $user->school->name,
+                'logo_url' => $user->school->logo ? Storage::url($user->school->logo) : null,
+            ] : null,
             // تم فعال در همه‌ی صفحات در دسترس است تا فرانت ظاهر را بسازد
             'theme' => app(ThemeEngine::class)->presentation($theme),
             'flash' => ['flash' => fn () => $request->session()->get('flash')],
