@@ -23,4 +23,10 @@ require $base.'/vendor/autoload.php';
 /** @var Application $app */
 $app = require_once $base.'/bootstrap/app.php';
 
+// پوشه‌ی عمومیِ وب همان جایی است که این index.php در آن قرار دارد.
+// در چیدمانِ cPanel (ریشه = public_html، هسته = starmah_core) این خط باعث می‌شود
+// مانيفستِ Vite، asset ها و پوشه‌ی storageِ عمومی در public_html پیدا شوند.
+// در چیدمانِ استاندارد هم بی‌اثر است (چون همان مسیرِ پیش‌فرض است).
+$app->usePublicPath(__DIR__);
+
 $app->handleRequest(Request::capture());
