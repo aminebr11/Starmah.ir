@@ -1,7 +1,9 @@
 import { Head, Link, useForm } from '@inertiajs/react';
+import { useState } from 'react';
 
 /** ورود — طراحی دونیمه‌ی کیهانی، با لینک فراموشی رمز. */
 export default function Login({ status }) {
+    const [showPass, setShowPass] = useState(false);
     const { data, setData, post, processing, errors, reset } = useForm({
         login: '', password: '', remember: false,
     });
@@ -48,8 +50,14 @@ export default function Login({ status }) {
                                 <label>رمز عبور</label>
                                 <Link href={route('password.request')} className="link-gold" style={{ fontSize: 12 }}>فراموشی رمز؟</Link>
                             </div>
-                            <input id="password" type="password" className="input" value={data.password}
-                                onChange={(e) => setData('password', e.target.value)} />
+                            <div style={{ position: 'relative' }}>
+                                <input id="password" type={showPass ? 'text' : 'password'} className="input" value={data.password}
+                                    onChange={(e) => setData('password', e.target.value)} style={{ paddingInlineEnd: 40 }} />
+                                <button type="button" onClick={() => setShowPass(!showPass)} title={showPass ? 'پنهان کردن رمز' : 'نمایش رمز'}
+                                    style={{ position: 'absolute', insetInlineEnd: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 0, cursor: 'pointer', fontSize: 16 }}>
+                                    {showPass ? '🙈' : '👁️'}
+                                </button>
+                            </div>
                             {errors.password && <div style={{ color: '#e8505b', fontSize: 12, marginTop: 4 }}>{errors.password}</div>}
                         </div>
 

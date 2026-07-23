@@ -84,10 +84,24 @@ class RegistrationController extends Controller
         $data = $request->validate([
             'first_name'   => ['required', 'string', 'max:60'],
             'last_name'    => ['required', 'string', 'max:60'],
+            'gender'       => ['nullable', 'in:پسر,دختر'],
+            'national_id'  => ['nullable', 'digits:10'],
+            'birth_date'   => ['nullable', 'date'],
+            'grade'        => ['nullable', 'string', 'max:40'],
             'phone'        => ['required', 'string', 'max:20'],
-            'password'     => ['required', 'string', 'min:6'],
+            'password'     => ['required', 'string', 'min:6', 'confirmed'],
             'classroom_id' => ['required', 'exists:classrooms,id'],
             'theme_id'     => ['required', 'exists:themes,id'],
+            // اطلاعاتِ سرپرست/والدین
+            'father_name'    => ['nullable', 'string', 'max:80'],
+            'mother_name'    => ['nullable', 'string', 'max:80'],
+            'parent_relation'=> ['nullable', 'in:پدر,مادر,ولی'],
+            'parent_phone'   => ['required', 'string', 'max:20'],
+            'address'        => ['nullable', 'string', 'max:300'],
+        ], [
+            'password.confirmed' => 'تکرارِ رمزِ عبور با رمز یکی نیست.',
+            'parent_phone.required' => 'شماره‌ی موبایلِ والد/سرپرست را وارد کنید.',
+            'national_id.digits'    => 'کدِ ملی باید ۱۰ رقم باشد.',
         ]);
 
         $classroom = Classroom::findOrFail($data['classroom_id']);
@@ -109,12 +123,26 @@ class RegistrationController extends Controller
         }
 
         $student = User::create([
-            'school_id' => $classroom->school_id,
-            'name'      => trim($data['first_name'] . ' ' . $data['last_name']),
-            'phone'     => $data['phone'],
-            'password'  => Hash::make($data['password']),
-            'theme_id'  => $data['theme_id'],
+            'school_id'   => $classroom->school_id,
+            'name'        => trim($data['first_name'] . ' ' . $data['last_name']),
+            'phone'       => $data['phone'],
+            'password'    => Hash::make($data['password']),
+            'theme_id'    => $data['theme_id'],
+            'national_id' => $data['national_id'] ?? null,
+            'birth_date'  => $data['birth_date'] ?? null,
+            'grade'       => $data['grade'] ?? null,
             'phone_verified_at' => now(),
+            // مشخصاتِ تکمیلی و اطلاعاتِ سرپرست در settings (بدونِ نیاز به ستون‌های تازه)
+            'settings'    => [
+                'gender'   => $data['gender'] ?? null,
+                'guardian' => array_filter([
+                    'father_name' => $data['father_name'] ?? null,
+                    'mother_name' => $data['mother_name'] ?? null,
+                    'relation'    => $data['parent_relation'] ?? null,
+                    'phone'       => $data['parent_phone'] ?? null,
+                    'address'     => $data['address'] ?? null,
+                ], fn ($v) => $v !== null && $v !== ''),
+            ],
         ]);
         $student->assignRole(Roles::STUDENT);
         $classroom->students()->syncWithoutDetaching([$student->id => ['joined_at' => now()]]);
