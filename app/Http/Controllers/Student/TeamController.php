@@ -19,7 +19,8 @@ class TeamController extends Controller
         $teams = $classroom ? $svc->teams($classroom, $user->id) : [];
         $mine = collect($teams)->firstWhere('theme_id', $user->theme_id);
         $rank = collect($teams)->search(fn ($t) => $t['theme_id'] === $user->theme_id);
-        $ledger = ($classroom && $user->theme_id) ? $svc->ledger($user->theme_id, $classroom, 40) : [];
+        // حریمِ خصوصی: دانش‌آموز فقط ریزِ امتیازِ خودش را می‌بیند؛ از هم‌تیمی‌ها فقط جمعِ کل.
+        $ledger = ($classroom && $user->theme_id) ? $svc->ledger($user->theme_id, $classroom, 40, $user->id) : [];
 
         return Inertia::render('Student/Team', [
             'teams'  => $teams,

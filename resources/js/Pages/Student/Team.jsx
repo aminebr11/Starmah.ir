@@ -44,10 +44,11 @@ export default function Team() {
                 })}
             </div>
 
-            {/* اعضای تیمِ من */}
+            {/* اعضای تیمِ من — فقط جمعِ کلِ هرکس (بدونِ ریزِ خصوصیِ دیگران) */}
             {mine && (
                 <div className="k3-card" style={{ marginTop: 14 }}>
-                    <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 10 }}>⭐ اعضای تیمِ ما ({fa(mine.count)})</div>
+                    <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 4 }}>⭐ اعضای تیمِ ما ({fa(mine.count)})</div>
+                    <div style={{ opacity: .7, fontSize: 11.5, marginBottom: 10 }}>فقط مجموعِ امتیازِ هر هم‌تیمی نمایش داده می‌شود.</div>
                     <div style={{ display: 'grid', gap: 6 }}>
                         {mine.members.map((m, i) => (
                             <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 12, background: m.me ? 'rgba(245,181,63,.16)' : 'rgba(255,255,255,.05)' }}>
@@ -60,16 +61,16 @@ export default function Team() {
                 </div>
             )}
 
-            {/* دفترِ ریزِ اخیرِ تیم */}
+            {/* دفترِ ریزِ خودم (خصوصی — فقط امتیازهای خودِ دانش‌آموز) */}
             <div className="k3-card" style={{ marginTop: 14 }}>
-                <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 4 }}>📜 امتیازهای تیمِ ما از کجا آمده</div>
-                <div style={{ opacity: .7, fontSize: 12, marginBottom: 10 }}>هر امتیازی که هم‌تیمی‌هایت از بازی، مأموریت، آزمون و… آورده‌اند این‌جاست.</div>
-                {ledger.length === 0 && <div style={{ opacity: .75, fontSize: 13 }}>هنوز امتیازی ثبت نشده — با انجامِ مأموریت و بازی، تیمت را بالا ببر! 💪</div>}
+                <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 4 }}>📜 ریزِ امتیازهای من</div>
+                <div style={{ opacity: .7, fontSize: 12, marginBottom: 10 }}>امتیازهایی که خودت از بازی، مأموریت، آزمون و… آورده‌ای و به تیمت اضافه شده — این‌ها فقط برای خودت دیده می‌شوند.</div>
+                {ledger.length === 0 && <div style={{ opacity: .75, fontSize: 13 }}>هنوز امتیازی نگرفته‌ای — با انجامِ مأموریت و بازی، تیمت را بالا ببر! 💪</div>}
                 <div style={{ display: 'grid', gap: 6 }}>
                     {ledger.map((e, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 12, background: e.kind === 'team' ? 'rgba(245,181,63,.12)' : 'rgba(255,255,255,.05)' }}>
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 12, background: 'rgba(255,255,255,.05)' }}>
                             <span style={{ fontWeight: 900, minWidth: 44, color: e.amount >= 0 ? '#7be0b0' : '#ffb3b3' }}>{e.amount >= 0 ? '+' : ''}{fa(e.amount)}</span>
-                            <span style={{ flex: 1, fontSize: 12.5 }}>{e.reason}<span style={{ opacity: .7 }}> · {e.who}</span></span>
+                            <span style={{ flex: 1, fontSize: 12.5 }}>{e.reason}</span>
                             <span style={{ opacity: .55, fontSize: 10.5 }}>{e.date}</span>
                         </div>
                     ))}

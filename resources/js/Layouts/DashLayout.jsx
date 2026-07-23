@@ -74,46 +74,68 @@ export default function DashLayout({ title, roleLabel, menu = [], active = '', c
 
 export const adminMenu = [
     { key: 'home', label: 'پیشخوان', icon: '📊', href: '/admin' },
+
+    { divider: 'مدرسه‌ها و اشتراک' },
     { key: 'schools', label: 'مدارس', icon: '🏫', href: '/admin/schools' },
     { key: 'plans', label: 'طرح‌های اشتراک', icon: '🎟️', href: '/admin/plans' },
+
+    { divider: 'محتوا و بازی' },
     { key: 'curriculum', label: 'دروس و کتاب‌ها', icon: '📚', href: '/admin/curriculum' },
+    { key: 'bank', label: 'بانک سؤالات', icon: '🗄️', href: '/question-bank' },
     { key: 'themes', label: 'تم‌ها (دنیاها)', icon: '🎨', href: '/admin/themes' },
     { key: 'game-templates', label: 'قالب‌های بازی', icon: '🎲', href: '/admin/game-templates' },
     { key: 'smart-lab', label: 'آزمایشگاه هوشمند', icon: '🧪', href: '/admin/smart-lab' },
-    { key: 'bank', label: 'بانک سؤالات', icon: '🗄️', href: '/question-bank' },
+
+    { divider: 'گزارش و تنظیمات' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/admin/reports' },
     { key: 'settings', label: 'تنظیمات پلتفرم', icon: '⚙️', href: '/admin/settings' },
 ];
 
 export const schoolMenu = [
     { key: 'home', label: 'پیشخوان مدرسه', icon: '📊', href: '/school' },
+
+    { divider: 'افراد و کلاس‌ها' },
     { key: 'teachers', label: 'معلم‌ها و کلاس‌ها', icon: '👩‍🏫', href: '/school/teachers' },
     { key: 'students', label: 'دانش‌آموزان', icon: '🎓', href: '/school/students' },
     { key: 'schedule', label: 'برنامه‌ی کلاس‌ها', icon: '🗓️', href: '/school/schedule' },
-    { key: 'announcements', label: 'اطلاعیه‌ها', icon: '📢', href: '/school/announcements' },
     { key: 'attendance', label: 'حضور و غیاب', icon: '✅', href: '/school/attendance' },
-    { key: 'examreports', label: 'گزارش آزمون‌ها', icon: '📊', href: '/school/exam-reports' },
+
+    { divider: 'آموزش و آزمون' },
     { key: 'bank', label: 'بانک سؤالات', icon: '🗄️', href: '/question-bank' },
+    { key: 'examreports', label: 'گزارش آزمون‌ها', icon: '📊', href: '/school/exam-reports' },
+
+    { divider: 'ارتباط و گزارش' },
+    { key: 'announcements', label: 'اطلاعیه‌ها', icon: '📢', href: '/school/announcements' },
     { key: 'messages', label: 'ارتباط با والدین/معلم', icon: '💬', href: '/messages' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/school/reports' },
 ];
 
 export const teacherMenu = [
     { key: 'home', label: 'پیشخوان', icon: '📊', href: '/teacher' },
-    { key: 'class', label: 'دانش‌آموزان من', icon: '🎓', href: '/teacher/students' },
+
+    { divider: 'کلاسِ من' },
+    { key: 'class', label: 'دانش‌آموزان', icon: '🎓', href: '/teacher/students' },
     { key: 'attendance', label: 'حضور و غیاب', icon: '✅', href: '/teacher/attendance' },
-    { key: 'schedule', label: 'برنامه کلاسی', icon: '🗓️', href: '/teacher/schedule' },
-    { key: 'gradebook', label: 'دفتر کلاسی', icon: '📔', href: '/teacher/gradebook' },
-    { key: 'smart', label: 'آزمون هوشمند 🧪', icon: '🧠', href: '/teacher/smart-exams', flag: 'smart' },
+    { key: 'schedule', label: 'برنامه‌ی کلاسی', icon: '🗓️', href: '/teacher/schedule' },
+    { key: 'gradebook', label: 'دفترِ نمره', icon: '📔', href: '/teacher/gradebook' },
+
+    { divider: 'آموزش و بازی' },
     { key: 'studio', label: 'استودیوی بازی', icon: '🎮', href: '/teacher/studio' },
     { key: 'missions', label: 'مأموریت‌های روزانه', icon: '🎯', href: '/teacher/missions' },
-    { key: 'activities', label: 'امتیازدهی گروهی', icon: '🏅', href: '/teacher/activities' },
-    { key: 'groups', label: 'امتیازِ گروه‌ها', icon: '🏆', href: '/teacher/groups' },
-    { key: 'points', label: 'مدیریت امتیازات', icon: '⚡', href: '/teacher/points' },
-    { key: 'discipline', label: 'دفتر انضباط', icon: '⭐', href: '/teacher/discipline' },
     { key: 'materials', label: 'مطالب و محتوا', icon: '📚', href: '/teacher/materials' },
+    { key: 'smart', label: 'آزمون هوشمند 🧪', icon: '🧠', href: '/teacher/smart-exams', flag: 'smart' },
+
+    { divider: 'امتیاز و انضباط' },
+    { key: 'points', label: 'امتیازِ دانش‌آموزان', icon: '⚡', href: '/teacher/points' },
+    { key: 'activities', label: 'امتیازدهیِ گروهی', icon: '🏅', href: '/teacher/activities' },
+    { key: 'groups', label: 'امتیازِ تیم‌ها', icon: '🏆', href: '/teacher/groups' },
+    { key: 'discipline', label: 'دفترِ انضباط', icon: '⭐', href: '/teacher/discipline' },
+
+    { divider: 'تنظیمات و گزارش' },
     { key: 'levels', label: 'تنظیم مرحله‌ها', icon: '🎚️', href: '/teacher/levels' },
+    { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/teacher/reports' },
+
+    { divider: 'ارتباط' },
     { key: 'messages', label: 'ارتباط با والدین/مدیر', icon: '💬', href: '/messages' },
     { key: 'notices', label: 'اعلان‌ها', icon: '📢', href: '/notices' },
-    { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/teacher/reports' },
 ];

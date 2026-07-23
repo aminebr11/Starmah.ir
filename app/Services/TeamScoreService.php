@@ -42,10 +42,16 @@ class TeamScoreService
         })->sortByDesc('total')->values()->all();
     }
 
-    /** دفترِ ریزِ یک تیم در یک کلاس: هر ردیفِ امتیازِ اعضا + امتیازهای دستیِ گروهی. */
-    public function ledger(int $themeId, Classroom $classroom, int $limit = 80): array
+    /**
+     * دفترِ ریزِ یک تیم در یک کلاس: هر ردیفِ امتیازِ اعضا + امتیازهای دستیِ گروهی.
+     * اگر $onlyStudentId داده شود فقط ریزِ همان دانش‌آموز برمی‌گردد (بدونِ امتیازِ دستیِ گروهی)
+     * — برای «ریزِ خودم» در سمتِ دانش‌آموز و فیلترِ تک‌نفره در سمتِ معلم.
+     */
+    public function ledger(int $themeId, Classroom $classroom, int $limit = 80, ?int $onlyStudentId = null): array
     {
-        $memberIds = $classroom->students()->where('theme_id', $themeId)->pluck('users.id');
+        $memberIds = $onlyStudentId
+            ? collect([$onlyStudentId])
+            : $classroom->students()->where('theme_id', $themeId)->pluck('users.id');
 
         $entries = XpEntry::whereIn('student_id', $memberIds)->with('student:id,name')
             ->latest('id')->limit($limit)->get()
@@ -57,6 +63,11 @@ class TeamScoreService
                 'date' => Jalali::format($e->created_at, true),
                 'ts' => $e->created_at?->timestamp ?? 0,
             ]);
+
+        // امتیازِ دستیِ گروهی متعلق به کلِ تیم است؛ در نمای «ریزِ یک نفر» نشان داده نمی‌شود.
+        if ($onlyStudentId) {
+            return $entries->sortByDesc('ts')->take($limit)->values()->all();
+        }
 
         $manual = TeamPoint::where('classroom_id', $classroom->id)->where('theme_id', $themeId)
             ->with('awardedBy:id,name')->latest('id')->limit($limit)->get()

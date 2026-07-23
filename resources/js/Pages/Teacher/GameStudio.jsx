@@ -43,12 +43,14 @@ export default function GameStudio() {
     // دستیار AI + بانک سؤال برای بازی
     const flavorTheme = themes.find((t) => t.id === form.data.theme_id);
     const [aiOpen, setAiOpen] = useState(false);
-    const [ai, setAi] = useState({ count: 5, difficulty: 'easy', sample: false });
+    const [ai, setAi] = useState({ count: 5, difficulty: 'easy', sample: false, topic: '' });
     const [aiBusy, setAiBusy] = useState(false); const [aiMsg, setAiMsg] = useState(null); const [aiRes, setAiRes] = useState([]);
     const runAi = async () => {
         setAiBusy(true); setAiMsg(null); setAiRes([]);
         try {
-            const { data } = await axios.post(route('teacher.studio.ai'), { ...ai, subject: form.data.subject, topic: form.data.subject, grade: form.data.grade, flavor: flavorTheme?.name || '' });
+            // موضوعِ بازی: اگر معلم موضوعِ خاص وارد کند همان ملاک است، وگرنه از عنوانِ بازی/درس استفاده می‌شود.
+            const topic = (ai.topic || '').trim() || form.data.title?.trim() || form.data.subject;
+            const { data } = await axios.post(route('teacher.studio.ai'), { ...ai, subject: form.data.subject, topic, grade: form.data.grade, flavor: flavorTheme?.name || '' });
             setAiMsg({ ok: data.ok, text: data.message }); if (data.ok) setAiRes((data.questions || []).map((q) => ({ ...q, _pick: true })));
         } catch (e) { setAiMsg({ ok: false, text: e.response?.data?.message || 'خطا' }); }
         setAiBusy(false);
@@ -170,6 +172,13 @@ export default function GameStudio() {
                         </div>
                         {aiOpen && (
                             <div style={{ border: '1px solid #ddd6fe', borderRadius: 12, padding: 12, marginBottom: 10, background: '#f5f3ff' }}>
+                                {/* موضوعِ بازی — هوش مصنوعی سؤال‌ها را دقیقاً حولِ همین موضوع می‌سازد */}
+                                <div className="field" style={{ margin: '0 0 8px' }}>
+                                    <label>🎯 موضوعِ بازی (روی همین موضوع سؤال ساخته می‌شود)</label>
+                                    <input className="input" value={ai.topic} onChange={(e) => setAi({ ...ai, topic: e.target.value })}
+                                        placeholder={`مثلاً: ${form.data.subject ? form.data.subject + ' — ' : ''}جمع و تفریق، حیواناتِ جنگل، سیاره‌ها…`} />
+                                    <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 3 }}>اگر خالی بماند، از عنوانِ بازی یا نامِ درس استفاده می‌شود.</div>
+                                </div>
                                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'end' }}>
                                     <div className="field" style={{ margin: 0 }}><label>تعداد</label><input type="number" min={1} max={15} className="input" style={{ width: 80 }} value={ai.count} onChange={(e) => setAi({ ...ai, count: +e.target.value })} dir="ltr" /></div>
                                     <div className="field" style={{ margin: 0 }}><label>سختی</label><select className="input" value={ai.difficulty} onChange={(e) => setAi({ ...ai, difficulty: e.target.value })}><option value="easy">آسان</option><option value="medium">متوسط</option><option value="hard">دشوار</option></select></div>

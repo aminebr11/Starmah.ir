@@ -7,12 +7,14 @@ const QUICK = [10, 25, 50, -10, -25];
 
 /** مدیریتِ امتیازِ گروه‌ها — کم/زیادِ گروهی + دفترِ ریزِ هر تیم (امتیاز از کجا آمده). */
 export default function GroupPoints() {
-    const { classroom, teams = [], selectedId, ledger = [], flash } = usePage().props;
+    const { classroom, teams = [], selectedId, studentId = null, members = [], ledger = [], flash } = usePage().props;
     const [banner, setBanner] = useState(null);
     useEffect(() => { if (flash?.flash) setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); }, [flash]);
 
     const pick = (id) => router.get(route('teacher.groups'), { team: id }, { preserveState: true, preserveScroll: true });
+    const filterStudent = (sid) => router.get(route('teacher.groups'), { team: selectedId, ...(sid ? { student: sid } : {}) }, { preserveState: true, preserveScroll: true });
     const selected = teams.find((t) => t.theme_id === selectedId);
+    const filteredName = studentId ? (members.find((m) => m.id === studentId)?.name) : null;
 
     const form = useForm({ theme_id: selectedId || '', amount: 25, reason: '' });
     useEffect(() => { form.setData('theme_id', selectedId || ''); }, [selectedId]);
@@ -78,8 +80,18 @@ export default function GroupPoints() {
                                 </div>
                             </div>
 
-                            {/* دفترِ ریز */}
-                            <h3 style={{ marginBottom: 6, marginTop: 16 }}>📜 امتیاز از کجا آمده ({fa(ledger.length)})</h3>
+                            {/* دفترِ ریز + فیلترِ تک‌نفره */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 16, marginBottom: 6 }}>
+                                <h3 style={{ margin: 0 }}>📜 امتیاز از کجا آمده ({fa(ledger.length)})</h3>
+                                <div style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <label style={{ fontSize: 12, color: 'var(--muted)' }}>فیلترِ دانش‌آموز:</label>
+                                    <select className="input" style={{ width: 180, padding: '6px 10px' }} value={studentId || ''} onChange={(e) => filterStudent(e.target.value)}>
+                                        <option value="">همه‌ی تیم</option>
+                                        {members.map((m) => <option key={m.id} value={m.id}>{m.name} (⚡{fa(m.xp)})</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            {filteredName && <div style={{ fontSize: 12.5, color: '#2555c0', marginBottom: 8 }}>در حالِ نمایشِ ریزِ امتیازِ <b>{filteredName}</b> — <button onClick={() => filterStudent(null)} className="btn btn-ghost btn-sm" style={{ padding: '2px 8px' }}>نمایشِ کلِ تیم</button></div>}
                             {ledger.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز امتیازی ثبت نشده.</p>}
                             <div style={{ display: 'grid', gap: 6 }}>
                                 {ledger.map((e, i) => (
