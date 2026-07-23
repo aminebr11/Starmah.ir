@@ -748,6 +748,10 @@ html{overflow-x:hidden}
 @keyframes gbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 .gbob{display:inline-block;animation:gbob 1.6s ease-in-out infinite}
 .gtoken{animation:gbob 1.4s ease-in-out infinite}
+@keyframes g-shake{0%,100%{transform:translateX(0)}15%{transform:translateX(-9px)}30%{transform:translateX(8px)}45%{transform:translateX(-6px)}60%{transform:translateX(5px)}75%{transform:translateX(-3px)}}
+.g-shake{animation:g-shake .5s ease-in-out}
+@keyframes g-pop{0%{transform:scale(1)}40%{transform:scale(1.14)}100%{transform:scale(1)}}
+.g-pop{animation:g-pop .4s cubic-bezier(.3,1.5,.5,1)}
 
 /* کارت‌های دنیای بازی — کنار هم، بازی‌گونه */
 .gw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
@@ -765,4 +769,4 @@ html{overflow-x:hidden}
 .gw-chips span{background:rgba(255,255,255,.13);border-radius:20px;padding:2px 8px;font-weight:700}
 @keyframes gw-new{0%,100%{box-shadow:0 0 0 0 rgba(43,182,115,.6)}50%{box-shadow:0 0 0 6px rgba(43,182,115,0)}}
 .gw-card.is-new{animation:gw-new 1.6s ease-in-out infinite;border-color:rgba(43,182,115,.6)}
-@media (prefers-reduced-motion:reduce){.gdice,.gkick,.ggoal,.gchest,.gbob,.gtoken,.gw-card.is-new{animation:none}}
+@media (prefers-reduced-motion:reduce){.gdice,.gkick,.ggoal,.gchest,.gbob,.gtoken,.gw-card.is-new,.g-shake,.g-pop{animation:none}}

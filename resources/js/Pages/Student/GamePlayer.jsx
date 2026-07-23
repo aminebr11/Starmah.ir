@@ -1,6 +1,8 @@
 import { Link, usePage, router } from '@inertiajs/react';
 import { useState, useRef, useEffect } from 'react';
 import ThemedDash from '@/Layouts/ThemedDash';
+import Confetti from '@/Components/Confetti';
+import useGameSound from '@/hooks/useGameSound';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const CHEER = ['آفرین! 🎉', 'عالی بود! 🌟', 'ایول! 💪', 'درسته! ✅', 'کارِت درسته! 🚀'];
@@ -12,6 +14,7 @@ export default function GamePlayer() {
     const questions = game.questions || [];
     const rules = game.rules || {};
     const total = questions.length;
+    const sound = useGameSound();
     // وضعیتِ «قبلاً کامل‌شده» را فقط یک‌بار هنگام ورود ثبت می‌کنیم؛ چون پس از پایانِ بازی
     // صفحه با props تازه بارگذاری می‌شود و status به 'completed' تغییر می‌کند (نباید بارِ اول «قبلاً گرفته‌ای» نشان دهد).
     const [alreadyDone] = useState(attempt.status === 'completed');
@@ -20,6 +23,8 @@ export default function GamePlayer() {
     const [lives, setLives] = useState(rules.lives ?? 3);
     const [score, setScore] = useState(0);
     const [correctCount, setCorrect] = useState(0);
+    // موقعیتِ مهره روی تخته — قدم‌به‌قدم انیمیت می‌شود (جدا از correctCount که فوری است)
+    const [tokenPos, setTokenPos] = useState(0);
     const [answers, setAnswers] = useState({});
     const [picked, setPicked] = useState(null);
     const [revealed, setRevealed] = useState(false);
@@ -27,27 +32,56 @@ export default function GamePlayer() {
     const [hintsUsed, setHintsUsed] = useState(0);
     const [done, setDone] = useState(false);
     const [result, setResult] = useState(null);
-    const [fx, setFx] = useState(null); // افکت لحظه‌ای تخته (dice/goal/chest)
+    const [fx, setFx] = useState(null);       // افکت لحظه‌ای تخته (dice/goal/chest)
+    const [shake, setShake] = useState(false); // لرزش روی پاسخِ غلط
+    const [confetti, setConfetti] = useState(null); // انفجارِ کانفتی روی درست/برد
     const startRef = useRef(Date.now());
+    const moveTimer = useRef(null);
 
     useEffect(() => { if (flash?.flash && done) setResult(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); }, [flash, done]);
+    useEffect(() => () => clearTimeout(moveTimer.current), []);
 
     const q = questions[step];
     const correctIdx = q ? q.choices.findIndex((c) => c.correct) : -1;
 
+    // حرکتِ نرمِ مهره: از موقعیتِ فعلی تا correctCount، یک خانه در هر تیک با صدای قدم
+    const stepToken = (target) => {
+        clearTimeout(moveTimer.current);
+        const walk = () => {
+            setTokenPos((p) => {
+                if (p >= target) return p;
+                sound.play('move');
+                if (p + 1 < target) moveTimer.current = setTimeout(walk, 260);
+                return p + 1;
+            });
+        };
+        moveTimer.current = setTimeout(walk, 320);
+    };
+
     const answer = (ci) => {
         if (revealed) return;
+        sound.play('click');
         const ok = ci === correctIdx;
         setPicked(ci); setRevealed(true);
         setAnswers({ ...answers, [step]: ci });
         if (ok) {
+            const nc = correctCount + 1;
             setScore(score + (q.points || 10));
-            setCorrect(correctCount + 1);
+            setCorrect(nc);
             setFx(Date.now());
-        } else if (rules.lives) setLives((l) => Math.max(0, l - 1));
+            setConfetti(Date.now());
+            sound.play('correct');
+            stepToken(nc); // مهره قدم‌به‌قدم جلو می‌رود
+        } else {
+            setShake(true);
+            setTimeout(() => setShake(false), 500);
+            sound.play('wrong');
+            if (rules.lives) setLives((l) => Math.max(0, l - 1));
+        }
     };
 
     const next = () => {
+        sound.play('click');
         const outOfLives = rules.lives && lives <= 0;
         if (step < total - 1 && !outOfLives) {
             setStep(step + 1); setPicked(null); setRevealed(false); setHintN(0);
@@ -56,19 +90,23 @@ export default function GamePlayer() {
 
     const finish = () => {
         setDone(true);
+        const passPct = total ? Math.round((correctCount / total) * 100) : 0;
+        if (passPct >= (rules.pass ?? 50)) { sound.play('win'); setConfetti(Date.now() + 1); }
+        else sound.play('lose');
         const duration = Math.round((Date.now() - startRef.current) / 1000);
         router.post(route('gameworld.finish', game.id), { answers, hints_used: hintsUsed, duration_sec: duration }, { preserveScroll: true });
     };
 
-    const useHint = () => { if (hintN < 2) { setHintN(hintN + 1); setHintsUsed(hintsUsed + 1); } };
+    const useHint = () => { if (hintN < 2) { sound.play('tick'); setHintN(hintN + 1); setHintsUsed(hintsUsed + 1); } };
 
     const pct = total ? Math.round(((step + (done ? 1 : 0)) / total) * 100) : 0;
     const themeVars = { '--gp1': skin.p1 || 'var(--p1)', '--gp2': skin.p2 || 'var(--p2)', '--gacc': skin.acc || 'var(--acc)' };
     const character = skin.character || skin.mascot || '🧑‍🚀';
+    const noAnim = sound.reduced;
 
     return (
         <ThemedDash title={game.title || 'بازی'} active="gameworld">
-            <div style={themeVars}>
+            <div style={themeVars} className={shake && !noAnim ? 'g-shake' : ''}>
                 {/* هدر بازی */}
                 <div className="k3-card" style={{ background: 'linear-gradient(135deg,var(--gp1),var(--gp2))' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -79,6 +117,10 @@ export default function GamePlayer() {
                         </div>
                         {rules.lives ? <div style={{ fontSize: 18 }}>{'❤️'.repeat(lives)}{'🖤'.repeat(Math.max(0, (rules.lives ?? 3) - lives))}</div> : null}
                         <div style={{ background: 'rgba(0,0,0,.25)', borderRadius: 20, padding: '5px 12px', fontWeight: 800 }}>⚡ {fa(score)}</div>
+                        <button onClick={sound.toggleMute} title={sound.muted ? 'روشن‌کردنِ صدا' : 'بی‌صدا'}
+                            style={{ background: 'rgba(0,0,0,.25)', border: 0, color: '#fff', width: 34, height: 34, borderRadius: 12, cursor: 'pointer', fontSize: 16, flex: 'none' }}>
+                            {sound.muted ? '🔇' : '🔊'}
+                        </button>
                         <Link href={route('gameworld')} className="k3-btn ghost" style={{ fontSize: 12, flex: 'none' }}>خروج</Link>
                     </div>
                     {!done && game.desc && step === 0 && !revealed && <div style={{ marginTop: 8, fontSize: 12.5, opacity: .9 }}>🎯 {game.desc}</div>}
@@ -92,11 +134,14 @@ export default function GamePlayer() {
                     </div>
                 )}
 
-                {/* تخته‌ی بازی — سفارشی (تم‌ساز ادمین) یا داخلی */}
+                {/* تخته‌ی بازی — سفارشی (تم‌ساز ادمین) یا داخلی — با کانفتی روی درست/برد */}
                 {!done && (
-                    game.board_html
-                        ? <CustomBoard html={game.board_html} css={game.board_css} pos={correctCount} total={total} percent={total ? Math.round((correctCount / total) * 100) : 0} char={character} score={score} />
-                        : <Board template={game.template} total={total} pos={correctCount} fx={fx} char={character} />
+                    <div style={{ position: 'relative' }}>
+                        <Confetti fire={confetti} disabled={noAnim} />
+                        {game.board_html
+                            ? <CustomBoard html={game.board_html} css={game.board_css} pos={tokenPos} total={total} percent={total ? Math.round((tokenPos / total) * 100) : 0} char={character} score={score} />
+                            : <Board template={game.template} total={total} pos={tokenPos} fx={fx} char={character} />}
+                    </div>
                 )}
 
                 {/* نوار پیشرفت */}
@@ -149,7 +194,12 @@ export default function GamePlayer() {
                     </div>
                 )}
 
-                {done && <Finish score={score} total={total} correct={correctCount} result={result} rules={rules} gameId={game.id} noXp={alreadyDone} />}
+                {done && (
+                    <div style={{ position: 'relative' }}>
+                        <Confetti fire={confetti} big disabled={noAnim} />
+                        <Finish score={score} total={total} correct={correctCount} result={result} rules={rules} gameId={game.id} noXp={alreadyDone} />
+                    </div>
+                )}
             </div>
         </ThemedDash>
     );
