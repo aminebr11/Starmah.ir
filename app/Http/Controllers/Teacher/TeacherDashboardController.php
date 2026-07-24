@@ -126,11 +126,15 @@ class TeacherDashboardController extends Controller
         $studentIds = \App\Models\User::whereHas('classrooms', fn ($q) => $q->where('teacher_id', $teacher->id))
             ->pluck('id')->unique();
 
+        $classIds = $classroom ? $classroom->students()->pluck('users.id') : collect();
+
         return Inertia::render('Teacher/Reports', [
             'classroom' => $classroom?->only('name'),
             'report'    => $classroom ? $analytics->classroomReport($classroom) : null,
             'crossSubject' => $cross->forStudents($studentIds),
             'studentCount' => $studentIds->count(),
+            'trend'   => $classIds->isNotEmpty() ? $analytics->dailyXpSeries($classIds, 28) : [],
+            'heatmap' => $classIds->isNotEmpty() ? $analytics->activityHeatmap($classIds, 6) : null,
         ]);
     }
 

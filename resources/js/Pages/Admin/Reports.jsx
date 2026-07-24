@@ -1,10 +1,11 @@
 import { usePage } from '@inertiajs/react';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
+import { AreaTrend, PAL } from '@/Components/Charts';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 function Card({ ic, lbl, v }) { return <div className="dcard"><div className="ic">{ic}</div><div className="lbl">{lbl}</div><div className="val">{fa(v)}</div></div>; }
 
 export default function Reports() {
-    const { report } = usePage().props;
+    const { report, trend = [] } = usePage().props;
     if (!report) return <DashLayout title="گزارش‌ها" roleLabel="ادمین کل" menu={adminMenu} active="reports"><div className="panel">داده‌ای نیست.</div></DashLayout>;
     const t = report.totals;
     return (
@@ -15,6 +16,10 @@ export default function Reports() {
                 <Card ic="👩‍🏫" lbl="معلم‌ها" v={t.teachers} />
                 <Card ic="🎯" lbl="فعالیت‌ها" v={t.activities} />
                 <Card ic="⭐" lbl="مجموع امتیاز" v={t.points} />
+            </div>
+            <div className="panel">
+                <h3>📈 نبضِ پلتفرم — امتیازِ روزانه‌ی همه‌ی مدارس (۲۸ روز)</h3>
+                <AreaTrend data={trend} color={PAL[0]} />
             </div>
             <div className="panel">
                 <h3>🏫 عملکرد مدارس</h3>

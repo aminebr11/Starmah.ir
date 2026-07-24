@@ -226,8 +226,14 @@ class SchoolDashboardController extends Controller
 
     public function reports(Request $request, \App\Services\AnalyticsService $analytics): Response
     {
+        $school = $request->user()->school;
+        $studentIds = $school
+            ? User::role(Roles::STUDENT)->where('school_id', $school->id)->pluck('id')
+            : collect();
+
         return Inertia::render('SchoolAdmin/Reports', [
-            'report' => $request->user()->school ? $analytics->schoolReport($request->user()->school) : null,
+            'report' => $school ? $analytics->schoolReport($school) : null,
+            'trend'  => $studentIds->isNotEmpty() ? $analytics->dailyXpSeries($studentIds, 28) : [],
         ]);
     }
 }

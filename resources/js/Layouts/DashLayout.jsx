@@ -119,6 +119,12 @@ export const schoolMenu = [
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/school/reports' },
 ];
 
+export const parentMenu = [
+    { key: 'home', label: 'وضعیتِ فرزندِ من', icon: '📊', href: '/parent' },
+    { key: 'messages', label: 'ارتباط با معلم/مدرسه', icon: '💬', href: '/messages' },
+    { key: 'notices', label: 'اعلان‌ها', icon: '📢', href: '/notices' },
+];
+
 export const teacherMenu = [
     { key: 'home', label: 'پیشخوان', icon: '📊', href: '/teacher' },
 

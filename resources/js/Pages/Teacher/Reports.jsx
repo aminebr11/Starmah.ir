@@ -1,15 +1,15 @@
 import { usePage } from '@inertiajs/react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
+import { AreaTrend, Donut, Heatmap, PAL } from '@/Components/Charts';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 export default function Reports() {
-    const { classroom, report, crossSubject = {}, studentCount = 0 } = usePage().props;
+    const { classroom, report, crossSubject = {}, studentCount = 0, trend = [], heatmap = null } = usePage().props;
     if (!report) return <DashLayout title="گزارش کلاس" roleLabel="معلم" menu={teacherMenu} active="reports"><div className="panel"><p style={{ color: 'var(--muted)' }}>کلاسی برای گزارش نیست.</p></div></DashLayout>;
 
     const t = report.totals;
     const maxG = Math.max(1, ...report.by_group.map((g) => g.total));
-    const maxT = Math.max(1, ...report.by_type.map((g) => g.points));
 
     return (
         <DashLayout title={`گزارش کلاس ${classroom?.name ?? ''}`} roleLabel="معلم" menu={teacherMenu} active="reports">
@@ -18,6 +18,20 @@ export default function Reports() {
                 <Card ic="⭐" lbl="مجموع امتیاز" v={t.points} />
                 <Card ic="🎯" lbl="فعالیت‌ها" v={t.activities} />
                 <Card ic="🔥" lbl="درگیری هفته" v={`${t.engagement}٪`} />
+            </div>
+
+            {/* روند و عادتِ کلاس — نمای BI */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20 }} className="themes-grid">
+                <div className="panel">
+                    <h3>📈 نبضِ کلاس — امتیازِ روزانه (۲۸ روز)</h3>
+                    <p style={{ color: 'var(--muted)', fontSize: 12, margin: '0 0 8px' }}>مجموعِ امتیازِ همه‌ی دانش‌آموزانِ کلاس در هر روز — افتِ ناگهانی یعنی کلاس سرد شده.</p>
+                    <AreaTrend data={trend} color={PAL[0]} />
+                </div>
+                <div className="panel">
+                    <h3>🗓️ عادتِ فعالیتِ کلاس (۶ هفته)</h3>
+                    <p style={{ color: 'var(--muted)', fontSize: 12, margin: '0 0 10px' }}>کدام روزهای هفته کلاس فعال‌تر است؟</p>
+                    {heatmap ? <Heatmap weeks={heatmap.weeks} days={heatmap.days} legend="فعالیت" /> : <p style={{ color: 'var(--muted)' }}>داده‌ای نیست.</p>}
+                </div>
             </div>
 
             <TeacherCrossSubject data={crossSubject} studentCount={studentCount} />
@@ -30,10 +44,10 @@ export default function Reports() {
                     ))}
                 </div>
                 <div className="panel">
-                    <h3>📊 امتیاز بر اساس نوع فعالیت</h3>
-                    {report.by_type.length ? report.by_type.map((g, i) => (
-                        <Bar key={i} label={g.label} value={g.points} max={maxT} sub={`${fa(g.count)} بار`} />
-                    )) : <p style={{ color: 'var(--muted)' }}>هنوز امتیازی از فعالیت‌ها ثبت نشده.</p>}
+                    <h3>🧩 ترکیبِ امتیاز بر اساس نوعِ فعالیت</h3>
+                    {report.by_type.length
+                        ? <Donut items={report.by_type.map((g) => ({ label: g.label, value: g.points }))} centerLabel="مجموع" />
+                        : <p style={{ color: 'var(--muted)' }}>هنوز امتیازی از فعالیت‌ها ثبت نشده.</p>}
                 </div>
             </div>
 

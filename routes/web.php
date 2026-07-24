@@ -278,6 +278,11 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::get('/studio/{eduGame}/report', [\App\Http\Controllers\Teacher\EduGameController::class, 'report'])->name('studio.report');
 });
 
+/* ---------------- والد ---------------- */
+Route::middleware(['auth', 'role:parent'])->group(function () {
+    Route::get('/parent', \App\Http\Controllers\ParentHomeController::class)->name('parent.home');
+});
+
 /* ---------------- مشترک ---------------- */
 Route::middleware('auth')->group(function () {
     Route::post('/assistant/chat', [\App\Http\Controllers\AssistantController::class, 'chat'])->name('assistant.chat');

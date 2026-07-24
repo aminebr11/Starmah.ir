@@ -16,7 +16,7 @@ class HomeController extends Controller
             $user->hasRole(Roles::SUPER_ADMIN)  => redirect()->route('admin.overview'),
             $user->hasRole(Roles::SCHOOL_ADMIN) => redirect()->route('school.overview'),
             $user->hasRole(Roles::TEACHER)      => redirect()->route('teacher.dashboard'),
-            $user->hasRole(Roles::PARENT)       => redirect()->route('messages.index'),
+            $user->hasRole(Roles::PARENT)       => redirect()->route('parent.home'),
             // دانش‌آموزی که هنوز دنیای علاقه‌اش را نساخته → onboarding
             $user->isStudent() && ! $user->theme_id => redirect()->route('world.choose'),
             default                              => app(DashboardController::class)($request, app(\App\Services\ThemeEngine::class)),

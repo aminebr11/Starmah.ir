@@ -144,8 +144,11 @@ class PlatformController extends Controller
 
     public function reports(\App\Services\AnalyticsService $analytics): Response
     {
+        $studentIds = \App\Models\User::role(\App\Support\Roles::STUDENT)->pluck('id');
+
         return Inertia::render('Admin/Reports', [
             'report' => $analytics->platformReport(),
+            'trend'  => $studentIds->isNotEmpty() ? $analytics->dailyXpSeries($studentIds, 28) : [],
         ]);
     }
 

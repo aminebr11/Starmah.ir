@@ -1,6 +1,6 @@
 import { usePage, useForm, router } from '@inertiajs/react';
 import { useState } from 'react';
-import DashLayout, { teacherMenu, schoolMenu } from '@/Layouts/DashLayout';
+import DashLayout, { teacherMenu, schoolMenu, parentMenu } from '@/Layouts/DashLayout';
 import ThemedDash from '@/Layouts/ThemedDash';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
@@ -12,12 +12,13 @@ export default function Messages() {
     const inner = <Mailbox />;
     if (roles.includes('teacher')) return <DashLayout title="ارتباط با والدین/مدیر" roleLabel="معلم" menu={teacherMenu} active="messages">{inner}</DashLayout>;
     if (roles.includes('school_admin')) return <DashLayout title="ارتباط با والدین/معلم" roleLabel="مدیر مدرسه" menu={schoolMenu} active="messages">{inner}</DashLayout>;
+    if (roles.includes('parent')) return <DashLayout title="ارتباط با معلم/مدرسه" roleLabel="والد" menu={parentMenu} active="messages">{inner}</DashLayout>;
     return <ThemedDash title="ارتباط با معلم" active="messages">{inner}</ThemedDash>;
 }
 
 function Mailbox() {
     const { contacts = [], thread = [], activeId, activeName, auth } = usePage().props;
-    const dark = !(auth?.roles ?? []).some((r) => r === 'teacher' || r === 'school_admin');
+    const dark = !(auth?.roles ?? []).some((r) => r === 'teacher' || r === 'school_admin' || r === 'parent');
 
     const open = (id) => router.get(route('messages.index'), { with: id }, { preserveState: false, preserveScroll: true });
 

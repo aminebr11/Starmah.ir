@@ -133,6 +133,157 @@ class AnalyticsService
         ];
     }
 
+    /* ---------------- روندها (نمودارهای BI) ---------------- */
+
+    /**
+     * سریِ روزانه‌ی امتیاز برای مجموعه‌ای از دانش‌آموزان (نمودارِ روند).
+     * خروجی: ردیف‌های [date, label(شمسی), value] برای $days روزِ آخر — روزهای بدونِ امتیاز صفر.
+     */
+    public function dailyXpSeries($studentIds, int $days = 28): array
+    {
+        $from = now()->subDays($days - 1)->startOfDay();
+        $rows = DB::table('xp_ledger')->whereIn('student_id', $studentIds)
+            ->where('created_at', '>=', $from)
+            ->selectRaw('DATE(created_at) as d, SUM(amount) as s')
+            ->groupBy('d')->pluck('s', 'd');
+
+        $out = [];
+        for ($i = 0; $i < $days; $i++) {
+            $day = $from->copy()->addDays($i);
+            $key = $day->toDateString();
+            $out[] = [
+                'date'  => $key,
+                'label' => \App\Support\Jalali::format($day),
+                'value' => (int) ($rows[$key] ?? 0),
+            ];
+        }
+
+        return $out;
+    }
+
+    /** نقشه‌ی گرمای فعالیت: روزِ هفته (شنبه..جمعه) × هفته‌های اخیر — تعدادِ ثبت‌های امتیاز. */
+    public function activityHeatmap($studentIds, int $weeks = 6): array
+    {
+        // شنبه‌ی شروعِ بازه (هفته‌ی ایرانی از شنبه است)
+        $start = now()->startOfDay();
+        while ($start->dayOfWeek !== 6) { // Carbon: Saturday = 6
+            $start->subDay();
+        }
+        $start->subWeeks($weeks - 1);
+
+        $rows = DB::table('xp_ledger')->whereIn('student_id', $studentIds)
+            ->where('created_at', '>=', $start)
+            ->selectRaw('DATE(created_at) as d, COUNT(*) as c')
+            ->groupBy('d')->pluck('c', 'd');
+
+        $grid = [];
+        for ($w = 0; $w < $weeks; $w++) {
+            $week = [];
+            for ($d = 0; $d < 7; $d++) {
+                $day = $start->copy()->addWeeks($w)->addDays($d);
+                $week[] = $day->isFuture() ? null : (int) ($rows[$day->toDateString()] ?? 0);
+            }
+            $grid[] = $week;
+        }
+
+        return ['weeks' => $grid, 'days' => ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج']];
+    }
+
+    /* ---------------- گزارشِ فرزند (برای والدین) ---------------- */
+
+    /** گزارشِ کاملِ یک فرزند برای والد: امتیاز، روند، ترکیب، تسلط، حضور، انضباط، جایگاه + توصیه. */
+    public function childReport(User $student): array
+    {
+        $classroom = $student->classrooms()->with('teacher:id,name')->first();
+        $summary = $this->studentSummary($student);
+        $trend = $this->dailyXpSeries([$student->id], 28);
+        $heat = $this->activityHeatmap([$student->id], 6);
+
+        // جایگاه در کلاس
+        $rank = null; $classSize = null; $classAvgWeek = null;
+        if ($classroom) {
+            $peers = $classroom->students()->get()->map(fn ($s) => ['id' => $s->id, 'xp' => $s->totalXp()])->sortByDesc('xp')->values();
+            $classSize = $peers->count();
+            $i = $peers->search(fn ($p) => $p['id'] === $student->id);
+            $rank = $i === false ? null : $i + 1;
+            $peerIds = $peers->pluck('id');
+            $classAvgWeek = $classSize ? (int) round(
+                (int) DB::table('xp_ledger')->whereIn('student_id', $peerIds)
+                    ->where('created_at', '>=', now()->subDays(7))->sum('amount') / $classSize
+            ) : null;
+        }
+
+        // حضور و غیاب (۳۰ روزِ اخیر)
+        $att = DB::table('attendance_records')->where('student_id', $student->id)
+            ->where('date', '>=', now()->subDays(30)->toDateString())
+            ->selectRaw('status, COUNT(*) as c')->groupBy('status')->pluck('c', 'status');
+
+        // انضباط (۳۰ روزِ اخیر)
+        $discipline = DB::table('discipline_records')->where('student_id', $student->id)
+            ->where('created_at', '>=', now()->subDays(30))
+            ->selectRaw("SUM(CASE WHEN points >= 0 THEN 1 ELSE 0 END) as pos, SUM(CASE WHEN points < 0 THEN 1 ELSE 0 END) as neg")
+            ->first();
+
+        $mastery = (int) round($student->skillMastery()->avg('mastery') ?? 0);
+        $weekXp = (int) $summary['week_points'];
+        $prevWeekXp = (int) DB::table('xp_ledger')->where('student_id', $student->id)
+            ->whereBetween('created_at', [now()->subDays(14), now()->subDays(7)])->sum('amount');
+
+        return [
+            'id'        => $student->id,
+            'name'      => $student->name,
+            'classroom' => $classroom?->name,
+            'teacher'   => $classroom?->teacher?->name,
+            'team'      => $student->theme ? ['name' => $student->theme->name, 'emoji' => $student->theme->emoji] : null,
+            'xp_total'  => $student->totalXp(),
+            'week_xp'   => $weekXp,
+            'prev_week_xp' => $prevWeekXp,
+            'class_avg_week' => $classAvgWeek,
+            'rank'      => $rank,
+            'class_size'=> $classSize,
+            'mastery'   => $mastery,
+            'by_type'   => $summary['by_type'],
+            'trend'     => $trend,
+            'heatmap'   => $heat,
+            'attendance'=> [
+                'present' => (int) ($att['present'] ?? 0), 'absent' => (int) ($att['absent'] ?? 0),
+                'late'    => (int) ($att['late'] ?? 0),   'excused' => (int) ($att['excused'] ?? 0),
+            ],
+            'discipline'=> ['pos' => (int) ($discipline->pos ?? 0), 'neg' => (int) ($discipline->neg ?? 0)],
+            'advice'    => $this->childAdvice($weekXp, $prevWeekXp, $classAvgWeek, $mastery, (int) ($att['absent'] ?? 0), (int) ($discipline->neg ?? 0)),
+        ];
+    }
+
+    /** توصیه‌ی خودکارِ قابل‌فهم برای والد — قاعده‌محور، بدونِ نیاز به AI. */
+    private function childAdvice(int $weekXp, int $prevWeekXp, ?int $classAvgWeek, int $mastery, int $absents, int $negDiscipline): array
+    {
+        $advice = [];
+        if ($weekXp > $prevWeekXp && $weekXp > 0) {
+            $advice[] = ['tone' => 'ok', 'text' => 'روندِ این هفته صعودی است — فرزندتان فعال‌تر از هفته‌ی قبل بوده؛ تشویقش کنید. 🎉'];
+        } elseif ($weekXp < $prevWeekXp) {
+            $advice[] = ['tone' => 'warn', 'text' => 'فعالیتِ این هفته نسبت به هفته‌ی قبل کم شده — چند دقیقه بازی یا مأموریتِ مشترک می‌تواند دوباره راهش بیندازد.'];
+        }
+        if ($classAvgWeek !== null && $weekXp < $classAvgWeek) {
+            $advice[] = ['tone' => 'warn', 'text' => 'امتیازِ این هفته از میانگینِ کلاس پایین‌تر است؛ همراهی در مأموریت‌های روزانه کمک می‌کند.'];
+        } elseif ($classAvgWeek !== null && $weekXp >= $classAvgWeek && $weekXp > 0) {
+            $advice[] = ['tone' => 'ok', 'text' => 'فرزندتان بالاتر از میانگینِ کلاس فعالیت می‌کند — عالی است! 👏'];
+        }
+        if ($mastery > 0 && $mastery < 50) {
+            $advice[] = ['tone' => 'warn', 'text' => 'تسلطِ مهارتی هنوز جای رشد دارد؛ تکرارِ بازی‌های درسی (حتی تمرینی) به تثبیتِ یادگیری کمک می‌کند.'];
+        }
+        if ($absents >= 2) {
+            $advice[] = ['tone' => 'warn', 'text' => "در ۳۰ روزِ اخیر {$absents} غیبت ثبت شده — در صورتِ ابهام با معلم در میان بگذارید."];
+        }
+        if ($negDiscipline > 0) {
+            $advice[] = ['tone' => 'warn', 'text' => 'موردِ انضباطیِ منفی ثبت شده است؛ گفت‌وگوی آرام در خانه بهترین قدم است.'];
+        }
+        if (! $advice) {
+            $advice[] = ['tone' => 'ok', 'text' => 'وضعیتِ کلی خوب و پایدار است — همراهی‌تان را ادامه دهید. 🌟'];
+        }
+
+        return $advice;
+    }
+
     /* ---------------- دانش‌آموز (خلاصه‌ی تحلیلی) ---------------- */
     public function studentSummary(User $student): array
     {
