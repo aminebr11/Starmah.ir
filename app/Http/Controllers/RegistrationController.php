@@ -98,6 +98,7 @@ class RegistrationController extends Controller
             'parent_relation'=> ['nullable', 'in:پدر,مادر,ولی'],
             'parent_phone'   => ['required', 'string', 'max:20'],
             'address'        => ['nullable', 'string', 'max:300'],
+            'parent_pin'     => ['nullable', 'digits_between:4,8'],
         ], [
             'password.confirmed' => 'تکرارِ رمزِ عبور با رمز یکی نیست.',
             'parent_phone.required' => 'شماره‌ی موبایلِ والد/سرپرست را وارد کنید.',
@@ -141,6 +142,8 @@ class RegistrationController extends Controller
                     'relation'    => $data['parent_relation'] ?? null,
                     'phone'       => $data['parent_phone'] ?? null,
                     'address'     => $data['address'] ?? null,
+                    // رمزِ «بخشِ والدین» — اگر در فرم داده نشد، خودکار ساخته می‌شود
+                    'pin'         => $data['parent_pin'] ?? (string) random_int(10000, 99999),
                 ], fn ($v) => $v !== null && $v !== ''),
             ],
         ]);

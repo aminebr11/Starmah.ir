@@ -80,7 +80,27 @@ class Notifications
                 ];
             });
 
-        return $items->concat($disc)
+        // پیامِ جدیدِ «بخشِ والدین» — محتوا محرمانه است؛ فقط خبرِ رسیدن نمایش داده می‌شود
+        $family = collect();
+        if ($user->isStudent() && \Illuminate\Support\Facades\Schema::hasTable('parent_notes')) {
+            $family = \App\Models\ParentNote::where('student_id', $user->id)
+                ->where('from_parent', false)->whereNull('read_at')
+                ->latest()->limit(3)->get()
+                ->map(fn ($n) => [
+                    'id'    => 'f'.$n->id,
+                    'kind'  => 'family',
+                    'icon'  => '🔐',
+                    'color' => '#b9831a',
+                    'title' => 'پیامِ جدید برای والدین',
+                    'body'  => 'به پدر و مادرت بگو واردِ «بخشِ والدین» شوند.',
+                    'date'  => Jalali::format($n->created_at),
+                    'href'  => '/family',
+                    'read'  => false,
+                    'ts'    => $n->created_at->timestamp,
+                ]);
+        }
+
+        return $items->concat($disc)->concat($family)
             ->sortByDesc('ts')->take($limit)->values()
             ->map(fn ($i) => collect($i)->except('ts')->all())->all();
     }

@@ -11,7 +11,7 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
  * لوگوی سایت بالا قرار دارد. ریسپانسیو.
  */
 export default function ThemedDash({ title, active = '', children, actions = null }) {
-    const { auth, theme, notifications = [], unreadNotices = 0, smartLab = false, avatarUrl = null } = usePage().props;
+    const { auth, theme, notifications = [], unreadNotices = 0, smartLab = false, avatarUrl = null, familyNew = 0 } = usePage().props;
     const unread = unreadNotices || 0;
     const skin = theme?.skin ?? {};
     const vars = useMemo(() => cssVars(skin), [theme?.id]);
@@ -37,6 +37,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
         { divider: 'ارتباط' },
         { key: 'messages', label: 'ارتباط با معلم', icon: '💬', href: '/messages' },
         { key: 'notices', label: 'اعلان‌ها', icon: '📢', href: '/notices' },
+        { key: 'family', label: 'بخشِ والدین', icon: '🔐', href: '/family' },
         { divider: null },
         { key: 'profile', label: 'پروفایل من', icon: '👤', href: '/profile' },
     ];
@@ -69,6 +70,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
                                 style={active === m.key ? { background: 'linear-gradient(135deg,var(--p1),var(--p2))', color: '#fff' } : {}}>
                                 <span className="ic">{m.icon}</span>{m.label}
                                 {m.key === 'notices' && unreadNotices > 0 && <span className="nav-badge">{fa(unreadNotices)}</span>}
+                                {m.key === 'family' && familyNew > 0 && <span className="nav-badge">{fa(familyNew)}</span>}
                             </Link>
                         )
                     ))}

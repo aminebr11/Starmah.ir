@@ -80,7 +80,9 @@ class SchoolDashboardController extends Controller
                     'id' => $s->id, 'name' => $s->name, 'phone' => $s->phone, 'national_id' => $s->national_id,
                     'birth_date' => $s->birth_date?->toDateString(),
                     'jbirth' => $s->birth_date ? Jalali::format($s->birth_date) : null,
-                    'guardian_name' => $settings['guardian_name'] ?? null, 'guardian_phone' => $settings['guardian_phone'] ?? null,
+                    'guardian_name' => $settings['guardian']['father_name'] ?? $settings['guardian']['mother_name'] ?? ($settings['guardian_name'] ?? null),
+                    'guardian_phone' => $settings['guardian']['phone'] ?? ($settings['guardian_phone'] ?? null),
+                    'parent_pin' => $settings['guardian']['pin'] ?? null,
                     'classroom_id' => $class?->id, 'class' => $class?->name, 'teacher' => $class?->teacher?->name,
                     'xp' => $s->totalXp(),
                 ];

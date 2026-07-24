@@ -17,16 +17,19 @@ use Illuminate\View\View;
  */
 class PrintController extends Controller
 {
-    /** هدرِ مشترک: مدرسه + تاریخ. */
-    private function head(?int $schoolId): array
+    /** هدرِ مشترک: مدرسه + تاریخ + لینکِ بازگشت + جهتِ صفحه. */
+    private function head(?int $schoolId, Request $request = null): array
     {
         $school = $schoolId ? \App\Models\School::find($schoolId) : null;
+        $orient = $request && $request->query('orient') === 'landscape' ? 'landscape' : 'portrait';
 
         return [
             'school_name' => $school?->name,
             'school_city' => $school?->city,
             'school_logo' => $school?->logo ? Storage::url($school->logo) : null,
             'today'       => Jalali::format(now()),
+            'back'        => $request ? ($request->query('back') ?: url()->previous()) : url('/'),
+            'orient'      => $orient,
         ];
     }
 
@@ -55,7 +58,7 @@ class PrintController extends Controller
         $guardian = data_get($user->settings, 'guardian', []);
 
         return view('print.student', [
-            ...$this->head($user->school_id),
+            ...$this->head($user->school_id, $request),
             'title'   => 'کارنامه‌ی جامعِ دانش‌آموز',
             'student' => [
                 'name'        => $user->name,
@@ -81,7 +84,7 @@ class PrintController extends Controller
         $classroom = Classroom::where('teacher_id', $teacher->id)->firstOrFail();
 
         return view('print.classroom', [
-            ...$this->head($teacher->school_id),
+            ...$this->head($teacher->school_id, $request),
             'title'     => 'گزارشِ عملکردِ کلاس',
             'classname' => $classroom->name,
             'teacher'   => $teacher->name,
@@ -118,10 +121,24 @@ class PrintController extends Controller
                 ];
             });
 
+        // ستون‌های قابلِ‌انتخاب (گزارش‌ساز) — ترتیب و برچسب
+        $allCols = [
+            'name' => 'نام و نام‌خانوادگی', 'national_id' => 'کدِ ملی', 'birth' => 'تاریخِ تولد',
+            'grade' => 'پایه', 'class' => 'کلاس / معلم', 'team' => 'تیم', 'phone' => 'موبایل',
+            'guardian' => 'سرپرست', 'g_phone' => 'موبایلِ سرپرست', 'xp' => 'امتیاز',
+        ];
+        $picked = collect(explode(',', (string) $request->query('cols')))
+            ->map(fn ($c) => trim($c))->filter(fn ($c) => isset($allCols[$c]))->values();
+        if ($picked->isEmpty()) {
+            $picked = collect(array_keys($allCols)); // پیش‌فرض: همه
+        }
+        $cols = $picked->mapWithKeys(fn ($c) => [$c => $allCols[$c]])->all();
+
         return view('print.roster', [
-            ...$this->head($admin->school_id),
-            'title'    => 'فهرستِ کاملِ دانش‌آموزان',
+            ...$this->head($admin->school_id, $request),
+            'title'    => 'فهرستِ دانش‌آموزان',
             'students' => $students,
+            'cols'     => $cols,
         ]);
     }
 }

@@ -3,28 +3,29 @@
 @php
     $fa = fn ($n) => str_replace(['0','1','2','3','4','5','6','7','8','9'], ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'], (string)($n ?? ''));
     $dash = fn ($v) => ($v === null || $v === '') ? '—' : $v;
+    $ltr = ['phone', 'g_phone'];
+    $numeric = ['national_id', 'phone', 'g_phone', 'xp'];
 @endphp
 
 @section('content')
-    <h2>👥 فهرستِ کاملِ دانش‌آموزان ({{ $fa($students->count()) }} نفر)</h2>
+    <h2>👥 فهرستِ دانش‌آموزان ({{ $fa($students->count()) }} نفر)</h2>
     <table>
         <tr>
-            <th>#</th><th>نام و نام‌خانوادگی</th><th>کدِ ملی</th><th>تولد</th><th>پایه</th>
-            <th>کلاس / معلم</th><th>تیم</th><th>موبایل</th><th>سرپرست</th><th>موبایلِ سرپرست</th><th>امتیاز</th>
+            <th>#</th>
+            @foreach($cols as $key => $label)<th>{{ $label }}</th>@endforeach
         </tr>
         @foreach($students as $i => $s)
             <tr>
                 <td class="num">{{ $fa($i + 1) }}</td>
-                <td><b>{{ $s['name'] }}</b></td>
-                <td class="num">{{ $fa($dash($s['national_id'])) }}</td>
-                <td class="num" style="white-space:nowrap">{{ $dash($s['birth']) }}</td>
-                <td>{{ $dash($s['grade']) }}</td>
-                <td style="white-space:nowrap">{{ $dash($s['class']) }}@if($s['teacher']) / {{ $s['teacher'] }}@endif</td>
-                <td style="white-space:nowrap">{{ $dash($s['team']) }}</td>
-                <td class="num" dir="ltr" style="text-align:left">{{ $fa($dash($s['phone'])) }}</td>
-                <td>{{ $dash($s['guardian']) }}</td>
-                <td class="num" dir="ltr" style="text-align:left">{{ $fa($dash($s['g_phone'])) }}</td>
-                <td class="num">{{ $fa($s['xp']) }}</td>
+                @foreach($cols as $key => $label)
+                    <td class="{{ in_array($key, $numeric) ? 'num' : '' }}"
+                        @if(in_array($key, $ltr)) dir="ltr" style="text-align:left" @endif>
+                        @if($key === 'name')<b>{{ $s['name'] }}</b>
+                        @elseif($key === 'class'){{ $dash($s['class']) }}@if($s['teacher']) / {{ $s['teacher'] }}@endif
+                        @elseif(in_array($key, $numeric)){{ $fa($dash($s[$key])) }}
+                        @else{{ $dash($s[$key]) }}@endif
+                    </td>
+                @endforeach
             </tr>
         @endforeach
     </table>

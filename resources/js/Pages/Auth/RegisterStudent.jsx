@@ -13,6 +13,7 @@ export default function RegisterStudent() {
         first_name: '', last_name: '', gender: '', national_id: '', birth_date: '', grade: '',
         school_id: '', classroom_id: '', theme_id: '',
         father_name: '', mother_name: '', parent_relation: 'پدر', parent_phone: '', address: '',
+        parent_pin: String(Math.floor(10000 + Math.random() * 90000)),
         phone: '', password: '', password_confirmation: '',
     });
 
@@ -150,6 +151,16 @@ export default function RegisterStudent() {
                             <Field label="آدرسِ منزل" error={errors.address}>
                                 <textarea className="input" rows={2} value={data.address} onChange={(e) => setData('address', e.target.value)} placeholder="اختیاری" style={{ resize: 'vertical' }} />
                             </Field>
+                            <div style={{ background: '#fff8e8', border: '1px solid rgba(245,181,63,.5)', borderRadius: 14, padding: '12px 14px' }}>
+                                <Field label="🔐 رمزِ بخشِ والدین (این رمز را فقط والدین بدانند)" error={errors.parent_pin}>
+                                    <input className="input" value={data.parent_pin} dir="ltr" inputMode="numeric" style={{ letterSpacing: 4, fontWeight: 800, maxWidth: 180 }}
+                                        onChange={(e) => setData('parent_pin', e.target.value.replace(/\D/g, '').slice(0, 8))} />
+                                </Field>
+                                <div style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.9 }}>
+                                    والدین با این رمز، از داخلِ حسابِ دانش‌آموز واردِ «بخشِ والدین» می‌شوند و
+                                    گزارش‌های محرمانه و پیام‌های معلم/مدیر را می‌بینند. آن را یادداشت کنید ✍️
+                                </div>
+                            </div>
                         </div>
 
                         {/* بخش ۴ — ورود به حساب */}

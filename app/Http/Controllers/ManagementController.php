@@ -64,6 +64,7 @@ class ManagementController extends Controller
             'phone'       => ['required', 'string', 'max:20', Rule::unique('users', 'phone')->where('school_id', $user->school_id)->ignore($user->id)],
             'national_id' => ['nullable', 'string', 'max:20'],
             'password'    => ['nullable', 'string', 'min:6'],
+            'parent_pin'  => ['nullable', 'digits_between:4,8'],
         ];
         // مدیر/ادمین می‌تواند پایه و نام کلاسِ معلم را هم اصلاح کند
         if (! $isTeacherActor && $user->hasRole(Roles::TEACHER)) {
@@ -76,6 +77,12 @@ class ManagementController extends Controller
         if (! empty($data['password'])) {
             $user->password = Hash::make($data['password']);
             $user->must_change_password = true;
+        }
+        // رمزِ «بخشِ والدین» — مدیر می‌تواند ببیند/عوض کند
+        if (array_key_exists('parent_pin', $data) && $data['parent_pin'] !== null && $data['parent_pin'] !== '') {
+            $settings = $user->settings ?? [];
+            $settings['guardian'] = array_merge($settings['guardian'] ?? [], ['pin' => (string) $data['parent_pin']]);
+            $user->settings = $settings;
         }
         $user->save();
 

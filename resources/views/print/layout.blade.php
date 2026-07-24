@@ -41,17 +41,24 @@
             body{ background:#fff; }
             .sheet{ margin:0; box-shadow:none; padding:8mm 10mm; min-height:auto; max-width:none; }
             .toolbar{ display:none; }
-            @page{ size:A4; margin:8mm; }
+            @page{ size:A4 {{ ($orient ?? 'portrait') === 'landscape' ? 'landscape' : 'portrait' }}; margin:8mm; }
             tr{ break-inside:avoid; }
         }
+        @if(($orient ?? 'portrait') === 'landscape')
+            .sheet{ max-width:297mm; }
+        @endif
     </style>
 </head>
 <body>
     <div class="toolbar">
         <button onclick="window.print()">🖨️ چاپ / ذخیره به PDF</button>
-        <a href="javascript:history.back()">← بازگشت</a>
+        <a href="{{ $back ?? url('/') }}">← بازگشت</a>
+        <button type="button" onclick="tryClose()" style="background:#33405e;color:#fff">✕ بستن</button>
         <span style="margin-inline-start:auto;font-size:12px;opacity:.8">برای PDF: در پنجره‌ی چاپ، «Save as PDF» را انتخاب کنید</span>
     </div>
+    <script>
+        function tryClose(){ window.close(); setTimeout(function(){ if(!window.closed){ window.location.href = @json($back ?? url('/')); } }, 120); }
+    </script>
     <div class="sheet">
         <div class="ph">
             @if($school_logo)<img class="slogo" src="{{ $school_logo }}" alt="">@endif

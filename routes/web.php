@@ -126,6 +126,12 @@ Route::middleware(['auth', 'role:student'])->group(function () {
 
     Route::get('/leaderboard', LeaderboardController::class)->name('leaderboard');
     Route::get('/my-team', \App\Http\Controllers\Student\TeamController::class)->name('my.team');
+
+    // بخشِ والدین (قفل‌شده با رمزِ والدین)
+    Route::get('/family', [\App\Http\Controllers\Student\FamilyController::class, 'index'])->name('family');
+    Route::post('/family/unlock', [\App\Http\Controllers\Student\FamilyController::class, 'unlock'])->name('family.unlock');
+    Route::post('/family/lock', [\App\Http\Controllers\Student\FamilyController::class, 'lock'])->name('family.lock');
+    Route::post('/family/reply', [\App\Http\Controllers\Student\FamilyController::class, 'reply'])->name('family.reply');
     Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'studentView'])->name('schedule');
     Route::get('/my-discipline', [\App\Http\Controllers\StudentDisciplineController::class, 'index'])->name('my.discipline');
     // کارت‌های صفحه‌ی خانه: محتوای کلاس، تکالیف، فعالیت‌ها، گزارش‌ها
@@ -286,6 +292,11 @@ Route::middleware(['auth', 'role:parent'])->group(function () {
 /* ---------------- مشترک ---------------- */
 Route::middleware('auth')->group(function () {
     Route::post('/assistant/chat', [\App\Http\Controllers\AssistantController::class, 'chat'])->name('assistant.chat');
+
+    // ارتباطِ محرمانه‌ی معلم/مدیر با والدین (کنترلِ نقش داخلِ کنترلر)
+    Route::get('/family-notes', [\App\Http\Controllers\ParentNoteController::class, 'index'])->name('family.notes');
+    Route::post('/family-notes', [\App\Http\Controllers\ParentNoteController::class, 'store'])->name('family.notes.store');
+    Route::delete('/family-notes/{parentNote}', [\App\Http\Controllers\ParentNoteController::class, 'destroy'])->name('family.notes.destroy');
 
     // خروجی‌های چاپی (A4 / PDF از طریقِ چاپِ مرورگر)
     Route::get('/print/student/{user}', [\App\Http\Controllers\PrintController::class, 'student'])->name('print.student');
