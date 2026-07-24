@@ -12,7 +12,8 @@ export default function Reports() {
     const maxG = Math.max(1, ...report.by_group.map((g) => g.total));
 
     return (
-        <DashLayout title={`گزارش کلاس ${classroom?.name ?? ''}`} roleLabel="معلم" menu={teacherMenu} active="reports">
+        <DashLayout title={`گزارش کلاس ${classroom?.name ?? ''}`} roleLabel="معلم" menu={teacherMenu} active="reports"
+            actions={<a href="/print/class" target="_blank" rel="noopener" className="btn btn-sm">🖨️ چاپِ گزارشِ کلاس</a>}>
             <div className="dash-cards">
                 <Card ic="🎓" lbl="دانش‌آموز" v={t.students} />
                 <Card ic="⭐" lbl="مجموع امتیاز" v={t.points} />
@@ -69,13 +70,14 @@ export default function Reports() {
             <div className="panel">
                 <h3>👥 جدول کامل دانش‌آموزان</h3>
                 <table className="tbl">
-                    <thead><tr><th>#</th><th>نام</th><th>تیم</th><th>امتیاز</th><th>تسلط</th><th>فعالیت</th></tr></thead>
+                    <thead><tr><th>#</th><th>نام</th><th>تیم</th><th>امتیاز</th><th>تسلط</th><th>فعالیت</th><th>کارنامه</th></tr></thead>
                     <tbody>
                         {report.per_student.map((s, i) => (
                             <tr key={s.id}><td>{fa(i + 1)}</td><td style={{ fontWeight: 700 }}>{s.name}</td>
                                 <td>{s.emoji} {s.group}</td><td style={{ color: 'var(--gold-2)', fontWeight: 800 }}>{fa(s.xp)}</td>
                                 <td><span className={`tag ${s.mastery >= 70 ? 'tag-ok' : s.mastery >= 40 ? 'tag-warn' : 'tag-info'}`}>{fa(s.mastery)}٪</span></td>
-                                <td>{fa(s.activities)}</td></tr>
+                                <td>{fa(s.activities)}</td>
+                                <td><a href={`/print/student/${s.id}`} target="_blank" rel="noopener" title="چاپِ کارنامه‌ی جامع" className="btn btn-ghost btn-sm">🖨️</a></td></tr>
                         ))}
                     </tbody>
                 </table>

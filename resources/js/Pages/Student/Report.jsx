@@ -15,12 +15,13 @@ const TABS = [
 
 /** کارنامه‌ی یکپارچه — چهار بخش در یک صفحه‌ی تب‌دار. */
 export default function Report() {
-    const { tab: initialTab = 'overview', report = {}, crossSubject = {}, grades = {}, smart = {} } = usePage().props;
+    const { tab: initialTab = 'overview', report = {}, crossSubject = {}, grades = {}, smart = {}, auth } = usePage().props;
     const [tab, setTab] = useState(TABS.some((t) => t.v === initialTab) ? initialTab : 'overview');
     const go = (v) => { setTab(v); window.history.replaceState(null, '', `/report?tab=${v}`); };
 
     return (
-        <ThemedDash title="کارنامه‌ی من" active="report">
+        <ThemedDash title="کارنامه‌ی من" active="report"
+            actions={<a href={`/print/student/${auth?.user?.id}`} target="_blank" rel="noopener" className="k3-btn ghost" style={{ fontSize: 12.5, flex: 'none' }}>🖨️ چاپ</a>}>
             <div className="k3-card" style={{ background: 'linear-gradient(135deg,#6d28d9,#4c1d95)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 38 }}>📊</span>

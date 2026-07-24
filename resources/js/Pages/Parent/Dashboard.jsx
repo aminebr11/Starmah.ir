@@ -59,6 +59,7 @@ export default function Dashboard() {
                                     <div style={{ fontSize: 10.5, color: '#c4d2f0' }}>رتبه در کلاسِ {fa(r.class_size)} نفره</div>
                                 </div>
                             )}
+                            <a href={`/print/student/${r.id}`} target="_blank" rel="noopener" className="btn btn-sm" style={{ flex: 'none' }}>🖨️ چاپِ کارنامه</a>
                         </div>
                     </div>
 

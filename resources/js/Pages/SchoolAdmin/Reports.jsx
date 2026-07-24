@@ -9,7 +9,8 @@ export default function Reports() {
     if (!report) return <DashLayout title="گزارش‌ها" roleLabel="مدیر مدرسه" menu={schoolMenu} active="reports"><div className="panel">داده‌ای نیست.</div></DashLayout>;
     const t = report.totals;
     return (
-        <DashLayout title="گزارش‌ها و تحلیل عملکرد" roleLabel="مدیر مدرسه" menu={schoolMenu} active="reports">
+        <DashLayout title="گزارش‌ها و تحلیل عملکرد" roleLabel="مدیر مدرسه" menu={schoolMenu} active="reports"
+            actions={<a href="/print/roster" target="_blank" rel="noopener" className="btn btn-sm">🖨️ چاپِ فهرستِ دانش‌آموزان</a>}>
             <div className="dash-cards">
                 <Card ic="👩‍🏫" lbl="معلم‌ها" v={t.teachers} />
                 <Card ic="🎓" lbl="دانش‌آموزان" v={t.students} />

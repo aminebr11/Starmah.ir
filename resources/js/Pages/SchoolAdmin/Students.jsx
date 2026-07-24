@@ -38,7 +38,8 @@ export default function Students() {
     const printList = printClass ? students.filter((s) => s.classroom_id === printClass.id) : [];
 
     return (
-        <DashLayout title="دانش‌آموزان" roleLabel="مدیر مدرسه" menu={schoolMenu} active="students">
+        <DashLayout title="دانش‌آموزان" roleLabel="مدیر مدرسه" menu={schoolMenu} active="students"
+            actions={<a href="/print/roster" target="_blank" rel="noopener" className="btn btn-sm">🖨️ چاپِ فهرستِ کامل</a>}>
             {banner && <div className="panel no-print" style={{ borderColor: 'var(--gold)', background: '#fff8e8' }}><b>{banner}</b></div>}
 
             <div className="panel no-print" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>

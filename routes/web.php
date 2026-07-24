@@ -287,6 +287,11 @@ Route::middleware(['auth', 'role:parent'])->group(function () {
 Route::middleware('auth')->group(function () {
     Route::post('/assistant/chat', [\App\Http\Controllers\AssistantController::class, 'chat'])->name('assistant.chat');
 
+    // خروجی‌های چاپی (A4 / PDF از طریقِ چاپِ مرورگر)
+    Route::get('/print/student/{user}', [\App\Http\Controllers\PrintController::class, 'student'])->name('print.student');
+    Route::get('/print/class', [\App\Http\Controllers\PrintController::class, 'classroom'])->name('print.class');
+    Route::get('/print/roster', [\App\Http\Controllers\PrintController::class, 'roster'])->name('print.roster');
+
     Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
     Route::post('/messages', [MessageController::class, 'store'])->name('messages.store');
     Route::put('/messages/{message}', [MessageController::class, 'update'])->name('messages.update');
