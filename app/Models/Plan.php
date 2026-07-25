@@ -11,12 +11,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Plan extends Model
 {
     protected $fillable = [
-        'key', 'name', 'description', 'max_classes', 'max_students_per_class',
-        'duration_days', 'price', 'is_active', 'sort',
+        'key', 'name', 'description', 'features', 'max_classes', 'max_students_per_class',
+        'duration_days', 'price', 'period_label', 'is_active', 'highlighted', 'sort',
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
+        'is_active'   => 'boolean',
+        'highlighted' => 'boolean',
+        'features'    => 'array',
     ];
 
     public function schools(): HasMany { return $this->hasMany(School::class); }

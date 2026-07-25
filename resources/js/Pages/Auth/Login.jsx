@@ -48,7 +48,11 @@ export default function Login({ status }) {
                         <div className="field">
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <label>رمز عبور</label>
-                                <Link href={route('password.request')} className="link-gold" style={{ fontSize: 12 }}>فراموشی رمز؟</Link>
+                                <span style={{ fontSize: 12, display: 'flex', gap: 8 }}>
+                                    <Link href={route('password.phone')} className="link-gold">با پیامک</Link>
+                                    <span style={{ color: 'var(--muted-2)' }}>·</span>
+                                    <Link href={route('password.request')} className="link-gold">با ایمیل</Link>
+                                </span>
                             </div>
                             <div style={{ position: 'relative' }}>
                                 <input id="password" type={showPass ? 'text' : 'password'} className="input" value={data.password}

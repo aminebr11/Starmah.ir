@@ -6,6 +6,7 @@ export const NAV = [
     { key: 'features', label: 'امکانات', href: '/#features' },
     { key: 'worlds', label: 'دنیاها', href: '/#worlds' },
     { key: 'how', label: 'چطور کار می‌کند', href: '/#how' },
+    { key: 'pricing', label: 'قیمت‌ها', href: '/pricing' },
     { key: 'about', label: 'درباره من', href: '/about' },
     { key: 'schools', label: 'برای مدارس', href: '/register/school' },
 ];

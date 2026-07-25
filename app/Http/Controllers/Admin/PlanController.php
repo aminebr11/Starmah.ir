@@ -18,6 +18,7 @@ class PlanController extends Controller
         return Inertia::render('Admin/Plans', [
             'plans' => Plan::orderBy('sort')->withCount('schools')->get()->map(fn ($p) => [
                 'id' => $p->id, 'key' => $p->key, 'name' => $p->name, 'description' => $p->description,
+                'features' => $p->features ?: [], 'highlighted' => (bool) $p->highlighted, 'period_label' => $p->period_label,
                 'max_classes' => $p->max_classes, 'max_students_per_class' => $p->max_students_per_class,
                 'duration_days' => $p->duration_days, 'price' => $p->price,
                 'is_active' => $p->is_active, 'schools' => $p->schools_count,
@@ -62,15 +63,25 @@ class PlanController extends Controller
 
     private function validated(Request $request, ?int $ignoreId = null): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'key'  => ['nullable', 'string', 'max:40', 'regex:/^[a-z0-9_-]*$/'],
             'name' => ['required', 'string', 'max:60'],
             'description' => ['nullable', 'string', 'max:200'],
+            'features' => ['nullable', 'array', 'max:20'],
+            'features.*' => ['string', 'max:120'],
+            'period_label' => ['nullable', 'string', 'max:40'],
             'max_classes' => ['nullable', 'integer', 'min:1', 'max:100000'],
             'max_students_per_class' => ['nullable', 'integer', 'min:1', 'max:100000'],
             'duration_days' => ['nullable', 'integer', 'min:1', 'max:36500'],
             'price' => ['required', 'integer', 'min:0'],
             'is_active' => ['boolean'],
+            'highlighted' => ['boolean'],
         ]);
+        // پاک‌سازیِ ویژگی‌های خالی
+        if (isset($data['features'])) {
+            $data['features'] = array_values(array_filter(array_map('trim', $data['features']), fn ($f) => $f !== ''));
+        }
+
+        return $data;
     }
 }

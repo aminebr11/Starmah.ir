@@ -30,6 +30,14 @@ Route::middleware('guest')->group(function () {
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
         ->name('password.store');
+
+    // بازیابیِ رمز با کدِ پیامکی (روشِ دوم)
+    Route::get('forgot-password/sms', [\App\Http\Controllers\Auth\PhoneResetController::class, 'create'])
+        ->name('password.phone');
+    Route::post('forgot-password/sms', [\App\Http\Controllers\Auth\PhoneResetController::class, 'send'])
+        ->name('password.phone.send');
+    Route::post('forgot-password/sms/reset', [\App\Http\Controllers\Auth\PhoneResetController::class, 'reset'])
+        ->name('password.phone.reset');
 });
 
 Route::middleware('auth')->group(function () {

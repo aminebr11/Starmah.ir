@@ -28,6 +28,10 @@ Route::get('/about', fn () => Inertia::render('About'))->name('about');
 // نقطه‌ی ورود مشترک — بر اساس نقش هدایت می‌شود
 Route::get('/dashboard', HomeController::class)->middleware('auth')->name('dashboard');
 
+// صفحه‌ی قیمت (عمومی) + بازگشت از درگاهِ پرداخت
+Route::get('/pricing', [\App\Http\Controllers\PricingController::class, 'index'])->name('pricing');
+Route::get('/pay/callback/{transaction}', [\App\Http\Controllers\PublicPaymentController::class, 'callback'])->name('pay.callback');
+
 /* ---------------- ثبت‌نام (عمومی) ---------------- */
 Route::middleware('guest')->group(function () {
     Route::get('/register', [RegistrationController::class, 'choice'])->name('register');
@@ -53,6 +57,12 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::put('/plans/{plan}', [\App\Http\Controllers\Admin\PlanController::class, 'update'])->name('plans.update');
     Route::post('/plans/{plan}/toggle', [\App\Http\Controllers\Admin\PlanController::class, 'toggle'])->name('plans.toggle');
     Route::delete('/plans/{plan}', [\App\Http\Controllers\Admin\PlanController::class, 'destroy'])->name('plans.destroy');
+    // درگاه‌ها: پیامک و پرداخت
+    Route::get('/integrations', [PlatformController::class, 'integrations'])->name('integrations');
+    Route::put('/integrations', [PlatformController::class, 'storeIntegrations'])->name('integrations.store');
+    Route::post('/integrations/test-sms', [PlatformController::class, 'testSms'])->name('integrations.test-sms');
+    // ساختِ مستقیمِ مدرسه توسطِ ادمین (تریال/پرو/…)
+    Route::post('/schools/create', [SchoolApprovalController::class, 'storeDirect'])->name('schools.create');
     // دروس/کتاب‌های مقاطع
     Route::get('/curriculum', [\App\Http\Controllers\Admin\CurriculumController::class, 'index'])->name('curriculum');
     Route::post('/curriculum', [\App\Http\Controllers\Admin\CurriculumController::class, 'store'])->name('curriculum.store');

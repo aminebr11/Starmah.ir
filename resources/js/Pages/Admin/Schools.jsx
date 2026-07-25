@@ -1,4 +1,4 @@
-import { usePage, router, Link } from '@inertiajs/react';
+import { usePage, router, Link, useForm } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
 
@@ -34,13 +34,59 @@ export default function Schools() {
         router.post(route('admin.schools.plan', schoolId), { plan_id: planId }, { preserveScroll: true });
     };
 
+    // ساختِ مستقیمِ مدرسه توسطِ ادمین (تریال/پرو/…)
+    const [createOpen, setCreateOpen] = useState(false);
+    const cForm = useForm({
+        school_name: '', city: '', level: 'دبستان', manager_name: '', manager_phone: '', manager_email: '',
+        plan_id: defaultPlan, days_override: '', password_mode: 'auto', password: '',
+    });
+    const createSchool = (e) => { e.preventDefault(); cForm.post(route('admin.schools.create'), { preserveScroll: true, onSuccess: () => { cForm.reset(); setCreateOpen(false); } }); };
+
     return (
-        <DashLayout title="مدیریت مدارس" roleLabel="ادمین کل" menu={adminMenu} active="schools">
+        <DashLayout title="مدیریت مدارس" roleLabel="ادمین کل" menu={adminMenu} active="schools"
+            actions={<button onClick={() => setCreateOpen((o) => !o)} className="btn btn-sm">➕ ساختِ مستقیمِ مدرسه</button>}>
             {banner && (
                 <div className="panel" style={{ borderColor: 'var(--gold)', background: '#fff8e8' }}>
                     <b>{banner.message}</b>
                     {banner.type === 'credentials' && <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 6 }}>این اطلاعات را به مدیر مدرسه بدهید (یک‌بار نمایش داده می‌شود).</div>}
                 </div>
+            )}
+
+            {/* ساختِ مستقیمِ مدرسه توسطِ ادمین */}
+            {createOpen && (
+                <form onSubmit={createSchool} className="panel" style={{ border: '2px solid var(--gold)', background: '#fffdf6' }}>
+                    <h3 style={{ marginTop: 0 }}>➕ ساختِ مستقیمِ مدرسه (بدونِ نیاز به درخواست/پرداخت)</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }} className="grid-2-form">
+                        <CF label="نامِ مدرسه" err={cForm.errors.school_name}><input className="input" value={cForm.data.school_name} onChange={(e) => cForm.setData('school_name', e.target.value)} /></CF>
+                        <CF label="شهر"><input className="input" value={cForm.data.city} onChange={(e) => cForm.setData('city', e.target.value)} /></CF>
+                        <CF label="مقطع">
+                            <select className="input" value={cForm.data.level} onChange={(e) => cForm.setData('level', e.target.value)}>
+                                <option>دبستان</option><option>متوسطه اول</option><option>متوسطه دوم</option>
+                            </select>
+                        </CF>
+                        <CF label="نامِ مدیر" err={cForm.errors.manager_name}><input className="input" value={cForm.data.manager_name} onChange={(e) => cForm.setData('manager_name', e.target.value)} /></CF>
+                        <CF label="موبایلِ مدیر" err={cForm.errors.manager_phone}><input className="input" value={cForm.data.manager_phone} onChange={(e) => cForm.setData('manager_phone', e.target.value)} dir="ltr" /></CF>
+                        <CF label="ایمیل (اختیاری)"><input className="input" value={cForm.data.manager_email} onChange={(e) => cForm.setData('manager_email', e.target.value)} dir="ltr" /></CF>
+                        <CF label="طرح">
+                            <select className="input" value={cForm.data.plan_id} onChange={(e) => cForm.setData('plan_id', e.target.value)}>
+                                {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            </select>
+                        </CF>
+                        <CF label="اعتبار (روز) — خالی = طبقِ طرح"><input type="number" min="1" className="input" value={cForm.data.days_override} onChange={(e) => cForm.setData('days_override', e.target.value)} placeholder="مثلاً 30 برای تریال" /></CF>
+                        <CF label="رمزِ مدیر">
+                            <select className="input" value={cForm.data.password_mode} onChange={(e) => cForm.setData('password_mode', e.target.value)}>
+                                <option value="auto">تولیدِ خودکار</option><option value="manual">تعیینِ دستی</option>
+                            </select>
+                        </CF>
+                    </div>
+                    {cForm.data.password_mode === 'manual' && (
+                        <CF label="رمزِ دستی" err={cForm.errors.password}><input className="input" value={cForm.data.password} onChange={(e) => cForm.setData('password', e.target.value)} dir="ltr" placeholder="حداقل ۶ کاراکتر" /></CF>
+                    )}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                        <button type="submit" disabled={cForm.processing} className="btn">✅ ساختِ مدرسه</button>
+                        <button type="button" onClick={() => setCreateOpen(false)} className="btn btn-ghost">انصراف</button>
+                    </div>
+                </form>
             )}
 
             <div className="panel">
@@ -109,5 +155,15 @@ export default function Schools() {
                 </table>
             </div>
         </DashLayout>
+    );
+}
+
+function CF({ label, err, children }) {
+    return (
+        <div className="field" style={{ margin: 0 }}>
+            <label>{label}</label>
+            {children}
+            {err && <div style={{ color: '#e8505b', fontSize: 12, marginTop: 3 }}>{err}</div>}
+        </div>
     );
 }

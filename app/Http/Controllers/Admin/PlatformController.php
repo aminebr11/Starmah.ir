@@ -205,4 +205,73 @@ class PlatformController extends Controller
 
         return back()->with('flash', 'تنظیمات ذخیره شد ✅');
     }
+
+    /* ---------------- درگاه‌ها: پیامک و پرداخت ---------------- */
+
+    public function integrations(): Response
+    {
+        $mask = fn ($v) => $v ? '••••••••'.mb_substr($v, -4) : '';
+        $S = fn ($k, $d = null) => \App\Models\Setting::get($k, $d);
+
+        return Inertia::render('Admin/Integrations', [
+            'sms' => [
+                'enabled'       => (bool) $S('sms_enabled', false),
+                'provider'      => $S('sms_provider', 'off'),
+                'sender'        => $S('sms_sender', ''),
+                'http_method'   => $S('sms_http_method', 'GET'),
+                'url_template'  => $S('sms_url_template', ''),
+                'body_template' => $S('sms_body_template', ''),
+                'api_key_set'   => (bool) $S('sms_api_key'),
+                'api_key_hint'  => $mask($S('sms_api_key')),
+            ],
+            'pay' => [
+                'enabled'      => (bool) $S('pay_enabled', false),
+                'provider'     => $S('pay_provider', 'off'),
+                'sandbox'      => (bool) $S('pay_sandbox', false),
+                'merchant_set' => (bool) $S('pay_merchant_id'),
+                'merchant_hint'=> $mask($S('pay_merchant_id')),
+            ],
+        ]);
+    }
+
+    public function storeIntegrations(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'sms_enabled'       => ['boolean'],
+            'sms_provider'      => ['nullable', 'string', 'max:40'],
+            'sms_sender'        => ['nullable', 'string', 'max:40'],
+            'sms_http_method'   => ['nullable', 'in:GET,POST'],
+            'sms_url_template'  => ['nullable', 'string', 'max:1000'],
+            'sms_body_template' => ['nullable', 'string', 'max:2000'],
+            'sms_api_key'       => ['nullable', 'string', 'max:300'],
+            'pay_enabled'       => ['boolean'],
+            'pay_provider'      => ['nullable', 'in:off,zarinpal,idpay'],
+            'pay_sandbox'       => ['boolean'],
+            'pay_merchant_id'   => ['nullable', 'string', 'max:200'],
+        ]);
+
+        $put = fn ($k, $v) => \App\Models\Setting::put($k, $v);
+        $put('sms_enabled', $request->boolean('sms_enabled'));
+        $put('sms_provider', $data['sms_provider'] ?? 'off');
+        $put('sms_sender', $data['sms_sender'] ?? '');
+        $put('sms_http_method', $data['sms_http_method'] ?? 'GET');
+        $put('sms_url_template', $data['sms_url_template'] ?? '');
+        $put('sms_body_template', $data['sms_body_template'] ?? '');
+        if (! empty($data['sms_api_key'])) $put('sms_api_key', $data['sms_api_key']);
+
+        $put('pay_enabled', $request->boolean('pay_enabled'));
+        $put('pay_provider', $data['pay_provider'] ?? 'off');
+        $put('pay_sandbox', $request->boolean('pay_sandbox'));
+        if (! empty($data['pay_merchant_id'])) $put('pay_merchant_id', $data['pay_merchant_id']);
+
+        return back()->with('flash', 'تنظیماتِ درگاه‌ها ذخیره شد ✅');
+    }
+
+    public function testSms(Request $request, \App\Services\SmsService $sms): RedirectResponse
+    {
+        $request->validate(['phone' => ['required', 'string', 'max:20']]);
+        $res = $sms->test($request->phone);
+
+        return back()->with('flash', ['type' => $res['ok'] ? 'ok' : 'error', 'message' => $res['message']]);
+    }
 }

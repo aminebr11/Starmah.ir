@@ -12,14 +12,15 @@ export default function Plans() {
     const [editing, setEditing] = useState(null);
     useEffect(() => { if (flash?.flash) setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); }, [flash]);
 
-    const form = useForm({ key: '', name: '', description: '', max_classes: '', max_students_per_class: '', duration_days: '', price: 0, is_active: true });
+    const form = useForm({ key: '', name: '', description: '', features_text: '', period_label: '', max_classes: '', max_students_per_class: '', duration_days: '', price: 0, is_active: true, highlighted: false });
 
     const startEdit = (p) => {
         setEditing(p.id);
         form.setData({
             key: p.key, name: p.name, description: p.description || '',
+            features_text: (p.features || []).join('\n'), period_label: p.period_label || '',
             max_classes: p.max_classes ?? '', max_students_per_class: p.max_students_per_class ?? '',
-            duration_days: p.duration_days ?? '', price: p.price ?? 0, is_active: p.is_active,
+            duration_days: p.duration_days ?? '', price: p.price ?? 0, is_active: p.is_active, highlighted: !!p.highlighted,
         });
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -27,6 +28,11 @@ export default function Plans() {
 
     const submit = (e) => {
         e.preventDefault();
+        // features_text (هر خط یک ویژگی) → آرایه‌ی features
+        form.transform((d) => ({
+            ...d,
+            features: (d.features_text || '').split('\n').map((s) => s.trim()).filter(Boolean),
+        }));
         const opts = { preserveScroll: true, onSuccess: () => cancel() };
         if (editing) form.put(route('admin.plans.update', editing), opts);
         else form.post(route('admin.plans.store'), opts);
@@ -49,6 +55,13 @@ export default function Plans() {
                     <Field label="توضیح کوتاه" err={form.errors.description}>
                         <input className="input" value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} />
                     </Field>
+                    <Field label="ویژگی‌ها (هر خط یک مورد — در صفحه‌ی قیمت نمایش داده می‌شود)" err={form.errors.features}>
+                        <textarea className="input" rows={5} value={form.data.features_text} onChange={(e) => form.setData('features_text', e.target.value)}
+                            placeholder={'مثلاً:\n۱۰ کلاس\nآزمونِ هوشمند\nپشتیبانیِ اولویت‌دار'} style={{ resize: 'vertical' }} />
+                    </Field>
+                    <Field label="برچسبِ دوره (مثلاً «سالانه»)" err={form.errors.period_label}>
+                        <input className="input" value={form.data.period_label} onChange={(e) => form.setData('period_label', e.target.value)} placeholder="سالانه / ماهانه / ۱۴ روزه" />
+                    </Field>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                         <Field label="حداکثر کلاس" err={form.errors.max_classes}>
                             <input type="number" min="1" className="input" value={form.data.max_classes} onChange={(e) => form.setData('max_classes', e.target.value)} placeholder="خالی = نامحدود" />
@@ -70,6 +83,9 @@ export default function Plans() {
                     )}
                     <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '6px 0 14px', fontSize: 14 }}>
                         <input type="checkbox" checked={form.data.is_active} onChange={(e) => form.setData('is_active', e.target.checked)} /> طرح فعال باشد
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, margin: '6px 0 10px' }}>
+                        <input type="checkbox" checked={form.data.highlighted} onChange={(e) => form.setData('highlighted', e.target.checked)} /> طرحِ «پیشنهادِ ویژه» (برجسته در صفحه‌ی قیمت)
                     </label>
                     <div style={{ display: 'flex', gap: 8 }}>
                         <button type="submit" disabled={form.processing} className="btn">{editing ? '💾 ذخیره تغییرات' : '➕ ساخت طرح'}</button>

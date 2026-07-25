@@ -97,6 +97,7 @@ export const adminMenu = [
 
     { divider: 'گزارش و تنظیمات' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/admin/reports' },
+    { key: 'integrations', label: 'درگاه‌ها (پیامک/پرداخت)', icon: '🔌', href: '/admin/integrations' },
     { key: 'settings', label: 'تنظیمات پلتفرم', icon: '⚙️', href: '/admin/settings' },
 ];
 

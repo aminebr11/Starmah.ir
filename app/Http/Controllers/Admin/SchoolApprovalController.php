@@ -93,6 +93,59 @@ class SchoolApprovalController extends Controller
         ]);
     }
 
+    /** ساختِ مستقیمِ مدرسه توسطِ ادمین (بدونِ درخواست) با انتخابِ طرح/تریال. */
+    public function storeDirect(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'school_name'   => ['required', 'string', 'max:150'],
+            'city'          => ['nullable', 'string', 'max:80'],
+            'level'         => ['required', 'in:دبستان,متوسطه اول,متوسطه دوم'],
+            'manager_name'  => ['required', 'string', 'max:100'],
+            'manager_phone' => ['required', 'string', 'max:20'],
+            'manager_email' => ['nullable', 'email'],
+            'plan_id'       => ['required', 'exists:plans,id'],
+            'days_override' => ['nullable', 'integer', 'min:1', 'max:36500'],
+            'password_mode' => ['required', 'in:auto,manual'],
+            'password'      => ['nullable', 'required_if:password_mode,manual', 'string', 'min:6', 'max:60'],
+        ]);
+
+        $plan = Plan::findOrFail($data['plan_id']);
+        $password = $data['password_mode'] === 'manual' ? $data['password'] : Str::random(8);
+        $days = $data['days_override'] ?? $plan->duration_days;
+
+        $result = DB::transaction(function () use ($data, $plan, $password, $days) {
+            $school = School::create([
+                'name'    => $data['school_name'],
+                'slug'    => Str::slug($data['school_name']).'-'.Str::lower(Str::random(4)),
+                'city'    => $data['city'] ?? null,
+                'level'   => $data['level'],
+                'plan'    => $plan->key,
+                'plan_id' => $plan->id,
+                'status'  => 'active',
+                'seats'   => ($plan->max_classes ?? 100) * ($plan->max_students_per_class ?? 35),
+                'subscription_ends_at' => $days ? now()->addDays($days) : null,
+            ]);
+
+            $manager = User::create([
+                'school_id' => $school->id,
+                'name'      => $data['manager_name'],
+                'phone'     => $data['manager_phone'],
+                'email'     => $data['manager_email'] ?? null,
+                'password'  => Hash::make($password),
+                'phone_verified_at' => now(),
+                'must_change_password' => $data['password_mode'] === 'auto',
+            ]);
+            $manager->assignRole(Roles::SCHOOL_ADMIN);
+
+            return ['phone' => $manager->phone, 'school' => $school->name, 'plan' => $plan->name];
+        });
+
+        return back()->with('flash', [
+            'type' => 'credentials',
+            'message' => "مدرسه‌ی «{$result['school']}» با طرح «{$result['plan']}» ساخته شد. موبایل مدیر: {$result['phone']} | رمز: {$password}",
+        ]);
+    }
+
     /** تغییر طرح یک مدرسه‌ی موجود (ارتقا/تنزل). */
     public function updatePlan(Request $request, School $school): RedirectResponse
     {

@@ -788,3 +788,21 @@ html{overflow-x:hidden}
 @keyframes gw-new{0%,100%{box-shadow:0 0 0 0 rgba(43,182,115,.6)}50%{box-shadow:0 0 0 6px rgba(43,182,115,0)}}
 .gw-card.is-new{animation:gw-new 1.6s ease-in-out infinite;border-color:rgba(43,182,115,.6)}
 @media (prefers-reduced-motion:reduce){.gdice,.gkick,.ggoal,.gchest,.gbob,.gtoken,.gw-card.is-new,.g-shake,.g-pop{animation:none}}
+
+/* ---------- صفحه‌ی قیمت ---------- */
+.pricing-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;align-items:stretch;margin-top:26px}
+@media(max-width:980px){.pricing-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.pricing-grid{grid-template-columns:1fr}}
+.price-card{position:relative;display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);border-radius:20px;padding:24px 20px;box-shadow:var(--shadow)}
+.price-card.featured{border:2px solid var(--gold);box-shadow:0 20px 44px -22px rgba(245,181,63,.6);transform:translateY(-6px)}
+@media(max-width:560px){.price-card.featured{transform:none}}
+.price-badge{position:absolute;top:-13px;inset-inline-start:50%;transform:translateX(-50%);background:linear-gradient(135deg,var(--gold),#e79a1e);color:#221503;font-weight:800;font-size:12px;padding:5px 16px;border-radius:20px;white-space:nowrap;box-shadow:0 6px 14px -6px rgba(245,181,63,.8)}
+.price-name{color:var(--navy-800);font-size:20px;font-weight:800;margin:6px 0 4px}
+.price-desc{color:var(--muted);font-size:13px;margin:0 0 14px;min-height:38px}
+.price-amount{border-block:1px solid var(--line);padding:14px 0;margin-bottom:14px}
+.price-amount b{font-size:30px;color:var(--navy-800);font-weight:900}
+.price-amount .cur{font-size:14px;color:var(--muted);font-weight:700}
+.price-period{font-size:12.5px;color:var(--muted);margin-top:2px}
+.price-features{list-style:none;padding:0;margin:0 0 18px;display:grid;gap:9px;flex:1}
+.price-features li{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;color:#33405e;line-height:1.7}
+.price-features .tick{color:#2bb673;font-weight:900;flex:none}

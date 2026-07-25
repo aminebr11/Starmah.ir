@@ -25,12 +25,18 @@ class RegistrationController extends Controller
 
     /* ---------------- ثبت‌نام مدرسه (درخواست) ---------------- */
 
-    public function schoolForm(): Response
+    public function schoolForm(Request $request): Response
     {
-        return Inertia::render('Auth/RegisterSchool');
+        $plans = \App\Models\Plan::where('is_active', true)->orderBy('sort')->get()
+            ->map(fn ($p) => ['key' => $p->key, 'name' => $p->name, 'price' => (int) $p->price, 'period_label' => $p->period_label, 'highlighted' => (bool) $p->highlighted]);
+
+        return Inertia::render('Auth/RegisterSchool', [
+            'plans' => $plans,
+            'selectedPlan' => $request->query('plan'),
+        ]);
     }
 
-    public function schoolStore(Request $request): RedirectResponse
+    public function schoolStore(Request $request, \App\Services\PaymentService $pay): RedirectResponse
     {
         $data = $request->validate([
             'school_name'   => ['required', 'string', 'max:150'],
@@ -40,17 +46,42 @@ class RegistrationController extends Controller
             'city'          => ['nullable', 'string', 'max:80'],
             'level'         => ['required', 'in:دبستان,متوسطه اول,متوسطه دوم'],
             'classes_count' => ['required', 'integer', 'min:1', 'max:200'],
+            'plan_key'      => ['nullable', 'string', 'max:40'],
             'note'          => ['nullable', 'string', 'max:500'],
         ]);
 
-        SchoolRequest::create($data);
+        $req = SchoolRequest::create($data);
+        $plan = $data['plan_key'] ? \App\Models\Plan::where('key', $data['plan_key'])->where('is_active', true)->first() : null;
 
-        return redirect()->route('register.thanks');
+        // اگر طرحِ رایگان/بدونِ قیمت است → مستقیم به تشکر (بررسیِ دستیِ ادمین)
+        if (! $plan || (int) $plan->price === 0) {
+            return redirect()->route('register.thanks');
+        }
+
+        // ایجادِ تراکنش و آغازِ پرداخت
+        $tx = \App\Models\PaymentTransaction::create([
+            'gateway' => $pay->provider(), 'amount' => (int) $plan->price,
+            'purpose' => 'school_subscription', 'plan_id' => $plan->id,
+            'school_request_id' => $req->id, 'payer_name' => $data['manager_name'],
+            'payer_phone' => $data['manager_phone'], 'status' => 'pending',
+        ]);
+        $start = $pay->start($tx, route('pay.callback', $tx));
+
+        if ($start['ok'] && $start['redirect']) {
+            return redirect()->away($start['redirect']);
+        }
+
+        // درگاه خاموش/ناموفق → پیامِ «بررسیِ دستی»
+        return redirect()->route('register.thanks', ['manual' => 1]);
     }
 
-    public function thanks(): Response
+    public function thanks(Request $request): Response
     {
-        return Inertia::render('Auth/RegisterThanks');
+        return Inertia::render('Auth/RegisterThanks', [
+            'ref'    => $request->query('ref'),
+            'failed' => (bool) $request->query('failed'),
+            'manual' => (bool) $request->query('manual'),
+        ]);
     }
 
     /* ---------------- ثبت‌نام دانش‌آموز ---------------- */
