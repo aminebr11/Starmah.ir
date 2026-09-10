@@ -247,22 +247,31 @@
 /* ================= RESPONSIVE ================= */
 @media(max-width:980px){
   .sm-hero{min-height:auto;padding:84px 0 24px}
-  .sm-hero-grid{grid-template-columns:1fr;text-align:center;gap:20px}
-  .sm-lead{margin-inline:auto}
+  .sm-hero-grid{grid-template-columns:1fr;text-align:center;gap:14px}
+  .sm-lead{margin-inline:auto;margin-bottom:20px}
   .sm-cta,.sm-hint,.sm-trust{justify-content:center}
-  .sm-stage{order:-1;min-height:340px;transform:none!important}
+  /* استیج جمع‌تر شد: پیش از این ۳۴۰px بود و متن و دکمه‌ی اصلی را
+     به زیر خطِ تا (fold) می‌راند. */
+  .sm-stage{order:-1;min-height:0;transform:none!important}
   .sm-bento{grid-template-columns:repeat(2,1fr);grid-auto-rows:172px}
   .sm-stats{grid-template-columns:repeat(2,1fr)}
   .sm-steps{grid-template-columns:1fr}
+  .sm-hero-img{width:min(48%,240px)}
 }
 @media(max-width:600px){
-  .sm-section{padding:56px 0}
+  .sm-section{padding:48px 0}
   .sm-worlds{grid-template-columns:1fr}
-  .sm-bento{grid-template-columns:1fr}.sm-b.wide{grid-column:span 1}
+  /* دو ستون روی موبایل: پیش از این تک‌ستونه بود و ۷ کارت،
+     اسکرول را بی‌دلیل بلند می‌کرد. */
+  .sm-bento{grid-template-columns:repeat(2,1fr);grid-auto-rows:auto}
+  .sm-b.wide{grid-column:span 2}
   .sm-stats{grid-template-columns:1fr 1fr}
   .sm-chip.c3{display:none}
-  .sm-hero-img{width:78%}
+  .sm-hero-img{width:min(46%,210px)}
   .sm-cta-band{padding:48px 22px}
+  /* دکمه‌های اقدام تمام‌عرض و هم‌اندازه ⇒ هدف لمسی بزرگ‌تر */
+  .sm-cta{width:100%;flex-direction:column;gap:10px}
+  .sm-cta .sm-btn{width:100%}
 }
 /* روی موبایل/تاچ افکت‌های تیلت و شناوریِ سنگین ساده می‌شوند */
 @media(hover:none){

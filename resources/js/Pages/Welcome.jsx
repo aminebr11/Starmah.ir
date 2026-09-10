@@ -156,7 +156,20 @@ export default function Welcome() {
                             <span className="sm-spark" style={{ top: '8%', insetInlineStart: '10%', fontSize: 24, transform: 'translateZ(100px)' }}>✨</span>
                             <span className="sm-spark" style={{ bottom: '14%', insetInlineEnd: '8%', fontSize: 20, transform: 'translateZ(95px)', animationDelay: '-2s' }}>⭐</span>
 
-                            <img className="sm-hero-img" src="/brand/logo-illustration.png" alt="ستاره ماه — کودک در مسیر کشف" />
+                            {/* نشانِ تصویری بدون متن؛ نسخه‌ی logo-illustration متنِ برند و شعار را
+                                داخل خود داشت و border-radius:50% آن را می‌برید.
+                                width/height صریح ⇒ جلوگیری از پرشِ چیدمان (CLS). */}
+                            <img
+                                className="sm-hero-img"
+                                src="/brand/hero-emblem-880.webp"
+                                srcSet="/brand/hero-emblem-560.webp 560w, /brand/hero-emblem-880.webp 880w"
+                                sizes="(max-width: 980px) 60vw, 440px"
+                                width="880"
+                                height="880"
+                                fetchPriority="high"
+                                decoding="async"
+                                alt="کودکی با کتاب، در حال قدم زدن روی جاده‌ای به‌سوی آسمانِ پرستاره"
+                            />
                         </div>
                     </div>
                 </header>

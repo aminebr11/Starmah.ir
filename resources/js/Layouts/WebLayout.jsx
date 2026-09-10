@@ -33,7 +33,7 @@ export default function WebLayout({ title, active = '', variant = '', children }
             <header className={`nav ${cosmic ? 'nav-cosmic' : ''} ${scrolled ? 'scrolled' : ''}`}>
                 <div className="container nav-inner">
                     <Link href="/" className="nav-logo">
-                        <span className="emblem"><img src="/brand/logo-emblem.png" alt="ستاره ماه" /></span>
+                        <span className="emblem"><img src="/brand/emblem-120.webp" width="120" height="120" alt="ستاره ماه" /></span>
                         <span>ستاره<span style={{ color: 'var(--gold-2)' }}> ماه</span></span>
                     </Link>
 
@@ -69,7 +69,7 @@ export default function WebLayout({ title, active = '', variant = '', children }
                 <div className="container">
                     <div className="footer-grid">
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12, maxWidth: 360 }}>
-                            <img src="/brand/logo-emblem.png" width="50" height="50" alt="" style={{ borderRadius: 12 }} />
+                            <img src="/brand/emblem-120.webp" width="50" height="50" alt="" loading="lazy" style={{ borderRadius: 12 }} />
                             <div>
                                 <div style={{ fontWeight: 800, color: '#fff', fontSize: 17 }}>ستاره ماه</div>
                                 <div style={{ fontSize: 13 }}>پلتفرم آموزش هوشمند و شخصی‌سازی‌شده برای مدارس</div>
