@@ -4,6 +4,27 @@
 
 > هر دانش‌آموز دنیای آموزشی خودش را دارد: عاشق فوتبال در قالب لیگ و گل یاد می‌گیرد، عاشق ماشین در قالب گرنپری و نیترو — اما محتوای آموزشی یکی است.
 
+## 📍 از اینجا شروع کنید
+
+**برانچ `main` تنها مرجع پروژه است.** هر توسعه‌ی جدید روی `main` انجام می‌شود.
+
+| دنبال چه هستید؟ | کجا |
+|---|---|
+| صفحه‌ی اول سایت (لندینگ) | `resources/js/Pages/Welcome.jsx` |
+| قالب و هدر صفحات عمومی | `resources/js/Layouts/WebLayout.jsx` |
+| مسیرها (routes) | `routes/web.php` |
+| راهنمای نصب روی cPanel | [`DEPLOY.md`](DEPLOY.md) |
+| نسخه‌ی ۱ (سایت قدیمیِ PHP، بازنشسته) | `legacy/` |
+
+### درباره‌ی برانچ‌های `claude/*`
+
+برانچ‌های `claude/festive-mayer-v9t1q8`، `claude/homepage-redesign-3d-hs9tw8` و
+`claude/install-ui-ux-pro-max-zsb73y` تاریخی هستند و کارشان **قبلاً در `main` ادغام شده**.
+به آن‌ها مراجعه نکنید — ممکن است عقب‌تر از `main` باشند.
+
+> ⚠️ پیش از این، `main` فقط شامل نسخه‌ی قدیمیِ PHP (همان `legacy/www.zip`) بود و کار
+> واقعی روی برانچ‌های `claude/*` مانده بود. این وضعیت اصلاح شد تا مرجع پروژه ابهام نداشته باشد.
+
 ## 🧱 استک فنی
 
 | لایه | فناوری |
@@ -59,6 +80,7 @@ php artisan serve
 - `app/Services/ThemeEngine.php` — موتور تم
 - `app/Models/Concerns/BelongsToSchool.php` — چندمستأجری
 - `database/seeders/` — نقش‌ها، تم‌ها (فوتبال/ماشین)، ریاضی چهارم، داده‌ی نمونه
+- `resources/js/Pages/Welcome.jsx` — صفحه‌ی اول سایت (هیرو، پلن‌ها، امکانات)
 - `resources/js/Pages/Student/Dashboard.jsx` — داشبورد تم‌دار
 - `demo/` — پروتوتایپ طراحی اولیه (HTML)
 - `docs/PRODUCT_PLAN.md` — طرح جامع محصول
