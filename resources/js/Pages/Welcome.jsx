@@ -83,6 +83,10 @@ function Counter({ to = 0, suffix = '' }) {
     return <b ref={ref}>{fa(n)}{suffix}</b>;
 }
 
+/* کمترین تعداد دانش‌آموز برای نمایشِ آمار در هیرو.
+   زیر این حد، عدد نشان داده نمی‌شود تا ادعای ضعیف مطرح نشود. */
+const TRUST_MIN_STUDENTS = 50;
+
 const SUBJECTS = ['🧮 ریاضی', '📖 فارسی', '🔬 علوم', '🌍 اجتماعی', '✍️ املا', '🎨 هنر', '🧠 هوش', '📐 هندسه', '🚀 کاوش', '🏆 مسابقه'];
 
 const BENTO = [
@@ -132,17 +136,21 @@ export default function Welcome() {
                                     </>
                                 )}
                             </div>
+                            {/* راهنمای «کدام دکمه را بزن» حذف شد؛ خودِ برچسبِ دکمه‌ها گویاست.
+                                فقط مسیرِ کاربرِ بازگشتی باقی مانده. */}
                             {!user && (
                                 <div className="sm-hint">
-                                    <span>👦👧 دانش‌آموزی؟ روی دکمه‌ی طلایی «ثبت‌نام دانش‌آموز» بزن.</span>
-                                    <span style={{ opacity: .5 }}>|</span>
                                     <Link href={route('login')}>قبلاً ثبت‌نام کرده‌ای؟ ورود ←</Link>
                                 </div>
                             )}
-                            <div className="sm-trust">
-                                <div className="sm-ava"><span>🦁</span><span>🐯</span><span>🦊</span><span>🐼</span></div>
-                                <span>+{fa(stats.students ?? 0)} دانش‌آموز در حال یادگیری و رقابت</span>
-                            </div>
+                            {/* شمارِ دانش‌آموزان تنها پس از رسیدن به یک حدِ باورپذیر نشان داده
+                                می‌شود؛ اعلامِ عددِ کوچک به اعتبار آسیب می‌زند. */}
+                            {(stats.students ?? 0) >= TRUST_MIN_STUDENTS && (
+                                <div className="sm-trust">
+                                    <div className="sm-ava"><span>🦁</span><span>🐯</span><span>🦊</span><span>🐼</span></div>
+                                    <span>+{fa(stats.students)} دانش‌آموز در حال یادگیری و رقابت</span>
+                                </div>
+                            )}
                         </div>
 
                         {/* صحنه‌ی سه‌بعدیِ شخصیت */}

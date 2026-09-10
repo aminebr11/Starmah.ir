@@ -55,7 +55,15 @@ export default function WebLayout({ title, active = '', variant = '', children }
                         ) : (
                             <>
                                 <Link href={route('login')} className="btn btn-ghost btn-sm">ورود</Link>
-                                <Link href="/register" className="btn btn-sm">ثبت‌نام</Link>
+                                {/* در بالای صفحه‌ی اول، دکمه‌ی ثبت‌نامِ هدر ثانویه می‌ماند تا با
+                                    دکمه‌ی طلاییِ هیرو بر سرِ توجه رقابت نکند؛ به‌محضِ اسکرول
+                                    (که هیرو از نما بیرون می‌رود) طلایی و شاخص می‌شود. */}
+                                <Link
+                                    href="/register"
+                                    className={`btn btn-sm${cosmic && !scrolled ? ' btn-ghost' : ''}`}
+                                >
+                                    ثبت‌نام
+                                </Link>
                             </>
                         )}
                         <button className="hamburger" onClick={() => setOpen(!open)} aria-label="منو">☰</button>
