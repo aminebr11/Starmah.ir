@@ -110,15 +110,16 @@ export default function Manage() {
                                             )}
                                         </div>
                                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                                            {/* کلاس att-status-btn به‌جای استایلِ inline، تا قاعده‌ی
+                                                هدفِ لمسیِ ۴۴px روی موبایل بتواند اعمال شود. */}
                                             {STATUSES.map((st) => (
                                                 <button key={st.v} onClick={() => setOne(s.id, st.v)}
-                                                    style={{ cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 12.5, padding: '7px 11px', borderRadius: 10,
-                                                        border: cur === st.v ? `2px solid ${st.on}` : '1px solid var(--line)',
-                                                        background: cur === st.v ? st.on : '#fff', color: cur === st.v ? '#fff' : 'var(--muted)' }}>
+                                                    className={`att-status-btn ${cur === st.v ? 'on' : ''}`}
+                                                    style={cur === st.v ? { borderColor: st.on, background: st.on } : undefined}>
                                                     {st.ic} {st.t}
                                                 </button>
                                             ))}
-                                            {s.recorded && <button onClick={() => delOne(s.id, s.name)} title="حذف رکورد این دانش‌آموز در این روز" style={{ cursor: 'pointer', border: 0, background: 'none', color: '#e8505b', fontSize: 15 }}>🗑️</button>}
+                                            {s.recorded && <button onClick={() => delOne(s.id, s.name)} className="icon-btn-touch" title="حذف رکورد این دانش‌آموز در این روز" style={{ cursor: 'pointer', border: 0, background: 'none', color: '#e8505b', fontSize: 15 }}>🗑️</button>}
                                         </div>
                                     </div>
                                 );

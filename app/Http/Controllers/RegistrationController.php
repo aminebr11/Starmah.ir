@@ -17,6 +17,8 @@ use Inertia\Response;
 
 class RegistrationController extends Controller
 {
+    use \App\Http\Controllers\Concerns\StoresUploads;
+
     /** صفحه‌ی انتخاب نوع ثبت‌نام: مدرسه یا دانش‌آموز. */
     public function choice(): Response
     {
@@ -130,10 +132,14 @@ class RegistrationController extends Controller
             'parent_phone'   => ['required', 'string', 'max:20'],
             'address'        => ['nullable', 'string', 'max:300'],
             'parent_pin'     => ['nullable', 'digits_between:4,8'],
+            // عکسِ دانش‌آموز — در مرورگر به JPEGِ کوچک تبدیل می‌شود، پس سقفِ ۴ مگابایت
+            // با فاصله‌ی امن کافی است (سقفِ قبلیِ ۲ مگابایت عکسِ خامِ گوشی را رد می‌کرد).
+            'avatar'         => ['nullable', 'file', 'max:4096'],
         ], [
             'password.confirmed' => 'تکرارِ رمزِ عبور با رمز یکی نیست.',
             'parent_phone.required' => 'شماره‌ی موبایلِ والد/سرپرست را وارد کنید.',
             'national_id.digits'    => 'کدِ ملی باید ۱۰ رقم باشد.',
+            'avatar.max'            => 'حجمِ عکس بیش از حد است. دوباره عکس بگیرید تا خودکار فشرده شود.',
         ]);
 
         $classroom = Classroom::findOrFail($data['classroom_id']);
@@ -178,6 +184,13 @@ class RegistrationController extends Controller
                 ], fn ($v) => $v !== null && $v !== ''),
             ],
         ]);
+        // الصاقِ عکس به حسابِ همین دانش‌آموز (پس از ساختِ کاربر، تا مسیر قطعی باشد)
+        if ($request->hasFile('avatar')) {
+            $path = $this->storeImageOrFail($request->file('avatar'), 'avatars');
+            $student->avatar = $path;
+            $student->save();
+        }
+
         $student->assignRole(Roles::STUDENT);
         $classroom->students()->syncWithoutDetaching([$student->id => ['joined_at' => now()]]);
 

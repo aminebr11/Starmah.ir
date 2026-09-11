@@ -125,7 +125,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
                                 </div>
                             )}
                         </div>
-                        <Link href="/profile" style={{ color: 'rgba(255,255,255,.85)', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Link href="/profile" className="td-profile-link" style={{ color: 'rgba(255,255,255,.85)', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
                             {avatarUrl
                                 ? <Avatar src={avatarUrl} name={auth?.user?.name} size={34} ring />
                                 : <span style={{ width: 34, height: 34, borderRadius: '50%', background: 'linear-gradient(135deg,var(--p1),var(--p2))', display: 'grid', placeItems: 'center' }}>{skin.mascot ?? '🙂'}</span>}

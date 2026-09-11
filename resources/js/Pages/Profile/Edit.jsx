@@ -2,6 +2,7 @@ import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import { useState, useEffect, useRef } from 'react';
 import PasswordInput from '@/Components/PasswordInput';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
+import { normalizeSquare } from '@/lib/imageUpload';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const ROLE_FA = { super_admin: 'ادمین کل', school_admin: 'مدیر مدرسه', teacher: 'معلم', student: 'دانش‌آموز', parent: 'والد' };
@@ -27,9 +28,15 @@ export default function Edit() {
     });
     const pass = useForm({ current_password: '', password: '', password_confirmation: '' });
 
-    const onFile = (e) => {
+    // عکس پیش از ارسال در مرورگر به JPEGِ مربعیِ کوچک تبدیل می‌شود؛
+    // وگرنه عکسِ خامِ گوشی (HEIC یا چند مگابایتی) روی سرور رد می‌شد.
+    const onFile = async (e) => {
         const f = e.target.files[0];
-        if (f) { info.setData('avatar', f); setPreview(URL.createObjectURL(f)); }
+        e.target.value = '';
+        if (!f) return;
+        const normalized = await normalizeSquare(f);
+        info.setData('avatar', normalized);
+        setPreview(URL.createObjectURL(normalized));
     };
     const saveInfo = (e) => { e.preventDefault(); info.post(route('profile.update'), { forceFormData: true, preserveScroll: true }); };
     const savePass = (e) => { e.preventDefault(); pass.put(route('profile.password'), { preserveScroll: true, onSuccess: () => pass.reset() }); };

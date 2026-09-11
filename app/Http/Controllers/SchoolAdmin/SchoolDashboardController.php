@@ -53,19 +53,31 @@ class SchoolDashboardController extends Controller
     {
         $school = $request->user()->school;
         abort_unless($school, 403);
-        $request->validate(['logo' => ['required', 'file', 'max:2048']]);
+        // سقف ۴ مگابایت: لوگو در مرورگر فشرده می‌شود، اما فایلِ خامِ کاربر
+        // ممکن است بزرگ باشد و سقفِ قبلیِ ۲ مگابایت آن را رد می‌کرد.
+        $request->validate(
+            ['logo' => ['required', 'file', 'max:4096']],
+            ['logo.max' => 'حجمِ لوگو بیش از حد است. دوباره انتخاب کنید تا خودکار فشرده شود.']
+        );
 
-        if ($this->extensionAllowed($request->file('logo'), ['jpg', 'jpeg', 'png', 'webp', 'svg'])) {
-            if ($school->logo) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($school->logo);
-            }
-            $school->logo = $this->storeUpload($request->file('logo'), 'school-logos');
-            $school->save();
+        // SVG هم مجاز است (برداری و سبک)، در کنارِ فرمت‌های عکس.
+        $path = $this->extensionAllowed($request->file('logo'), ['svg'])
+            ? $this->storeUpload($request->file('logo'), 'school-logos')
+            : $this->storeImageOrFail($request->file('logo'), 'school-logos', 'logo');
 
-            return back()->with('flash', 'لوگوی مدرسه به‌روزرسانی شد ✅');
+        if ($path === false || $path === '') {
+            return back()->withErrors(['logo' => 'ذخیره‌ی لوگو روی سرور ممکن نشد (دسترسیِ نوشتن روی پوشه‌ی آپلود).']);
         }
 
-        return back()->withErrors(['logo' => 'فرمتِ فایل مجاز نیست (jpg/png/webp/svg).']);
+        $old = $school->logo;
+        $school->logo = $path;
+        $school->save();
+
+        if ($old) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($old);
+        }
+
+        return back()->with('flash', 'لوگوی مدرسه به‌روزرسانی شد ✅');
     }
 
     public function students(Request $request): Response

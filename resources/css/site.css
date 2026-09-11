@@ -806,3 +806,143 @@ html{overflow-x:hidden}
 .price-features{list-style:none;padding:0;margin:0 0 18px;display:grid;gap:9px;flex:1}
 .price-features li{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;color:#33405e;line-height:1.7}
 .price-features .tick{color:#2bb673;font-weight:900;flex:none}
+
+/* =========================================================
+   PhotoField — انتخاب/گرفتنِ عکس (آواتار، لوگو، عکسِ ثبت‌نام)
+   ========================================================= */
+.photo-field{margin-bottom:14px}
+.photo-field-label{display:block;font-size:13px;font-weight:700;color:#33405e;margin-bottom:8px}
+.photo-field-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+
+.photo-avatar{position:relative;flex:none;border-radius:50%;overflow:hidden;
+  background:#f1f4fb;border:2px dashed #cdd6ea;display:grid;place-items:center}
+.photo-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-avatar-ph{font-size:30px;opacity:.5}
+.photo-busy{position:absolute;inset:0;display:grid;place-items:center;
+  background:rgba(255,255,255,.7);font-size:22px;font-weight:800;color:#33405e}
+
+.photo-field-actions{display:flex;flex-wrap:wrap;gap:8px;flex:1;min-width:0}
+/* هدفِ لمسیِ حداقل ۴۴px روی موبایل */
+.photo-field-actions .btn{min-height:44px}
+.photo-field-actions .photo-remove{color:#e8505b}
+
+.photo-field-hint{margin-top:8px;font-size:12px;color:#6b7793;line-height:1.8}
+.photo-field-err{margin-top:6px;font-size:12px;color:#e8505b;line-height:1.8}
+
+/* روی موبایل دکمه‌ها تمام‌عرض و زیرِ پیش‌نمایش می‌آیند */
+@media(max-width:560px){
+  .photo-field-row{flex-direction:column;align-items:stretch;gap:12px}
+  .photo-avatar{align-self:center}
+  .photo-field-actions{flex-direction:column}
+  .photo-field-actions .btn{width:100%}
+}
+
+/* پنجره‌ی دوربین */
+.cam-modal{position:fixed;inset:0;z-index:2000;background:rgba(8,12,28,.86);
+  display:grid;place-items:center;padding:16px;backdrop-filter:blur(4px)}
+.cam-box{width:min(94vw,420px);background:#0f1733;border:1px solid rgba(255,255,255,.14);
+  border-radius:20px;overflow:hidden;box-shadow:0 30px 70px -20px rgba(0,0,0,.8)}
+.cam-box video{width:100%;aspect-ratio:1;object-fit:cover;display:block;background:#000;
+  transform:scaleX(-1)}   /* آینه‌ای، مثل دوربینِ سلفی */
+.cam-actions{display:flex;gap:10px;padding:14px}
+.cam-actions .btn{flex:1;min-height:48px}
+
+/* =========================================================
+   هدف‌های لمسی — فقط روی دستگاه‌های لمسی
+   ---------------------------------------------------------
+   ممیزیِ خودکار روی ۷۴ صفحه و ۴ نقش نشان داد چیدمان و منوها
+   سالم‌اند (صفر سرریز افقی، صفر جدولِ بدونِ اسکرول) اما ده‌ها
+   دکمه‌ی ۱۸ تا ۴۰ پیکسلی وجود دارد که روی گوشی درست زده نمی‌شود.
+   این بلوک حداقلِ ۴۴px را فقط برای اشاره‌گرِ لمسی اعمال می‌کند،
+   پس طراحیِ دسکتاپ دست‌نخورده می‌ماند.
+   ========================================================= */
+@media (pointer: coarse) {
+
+  /* دکمه‌ها و ورودی‌های نام‌دار */
+  .btn,
+  .btn-sm,
+  .input,
+  select.input,
+  .print-mode .pm-btn,
+  .smart-scope .smart-chip,
+  button.tag,
+  a.tag,
+  .att-status-btn {
+    min-height: 44px;
+  }
+
+  /* چیپ‌ها و تگ‌های کلیک‌پذیر وسط‌چین بمانند */
+  button.tag, a.tag, .print-mode .pm-btn, .smart-scope .smart-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* دکمه‌های آیکونیِ کوچک: اندازه‌ی ظاهری ثابت می‌ماند، اما ناحیه‌ی
+     لمس با شبه‌عنصر به ۴۴px گسترده می‌شود تا چیدمان به‌هم نریزد. */
+  .sched-del,
+  .profile-avatar-btn,
+  .icon-btn-touch {
+    position: relative;
+  }
+  .sched-del::after,
+  .profile-avatar-btn::after,
+  .icon-btn-touch::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+
+  /* فاصله‌ی کمینه بین کنترل‌های کنارِ هم تا اشتباه زده نشوند */
+  .pick-row, .chip-row, .tag-row { gap: 8px; }
+}
+
+/* دکمه‌های وضعیتِ حضور و غیاب — پیش از این استایلِ inline داشتند
+   و روی موبایل حدودِ ۳۸px بودند. */
+.att-status-btn {
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 12.5px;
+  padding: 7px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.att-status-btn.on { color: #fff; border-width: 2px; }
+
+/* ---------------------------------------------------------
+   هدفِ لمسیِ کنترل‌های داخلِ محتوای داشبورد.
+   هر دو لِی‌اوتِ DashLayout و ThemedDash از .dash-main استفاده
+   می‌کنند، پس این قاعده هر ۷۹ صفحه‌ی داشبورد را پوشش می‌دهد.
+   این دکمه‌ها استایلِ inline دارند اما height تعیین نمی‌کنند،
+   بنابراین min-height بدونِ !important اعمال می‌شود.
+   --------------------------------------------------------- */
+@media (pointer: coarse) {
+  .dash-main button,
+  .dash-main select,
+  .dash-main a.tag,
+  .dash-main .chip,
+  .td-profile-link {
+    min-height: 44px;
+  }
+
+  /* استثنا: دکمه‌هایی که ناحیه‌ی لمسشان با شبه‌عنصر گسترده شده
+     و بزرگ‌کردنِ جعبه‌شان چیدمان را به‌هم می‌ریزد. */
+  .dash-main .icon-btn-touch,
+  .dash-main .sched-del,
+  .dash-main .profile-avatar-btn {
+    min-height: 0;
+  }
+
+  /* لینکِ پروفایل در نوارِ بالای داشبوردِ دانش‌آموز */
+  .td-profile-link { align-items: center; }
+}

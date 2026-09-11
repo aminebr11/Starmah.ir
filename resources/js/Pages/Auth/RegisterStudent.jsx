@@ -1,6 +1,7 @@
 import { useForm, Link, usePage, Head } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
+import PhotoField from '@/Components/PhotoField';
 
 const GRADES = ['اول', 'دوم', 'سوم', 'چهارم', 'پنجم', 'ششم', 'هفتم', 'هشتم', 'نهم', 'دهم', 'یازدهم', 'دوازدهم'];
 
@@ -15,6 +16,7 @@ export default function RegisterStudent() {
         father_name: '', mother_name: '', parent_relation: 'پدر', parent_phone: '', address: '',
         parent_pin: String(Math.floor(10000 + Math.random() * 90000)),
         phone: '', password: '', password_confirmation: '',
+        avatar: null,
     });
 
     const classes = useMemo(
@@ -23,7 +25,8 @@ export default function RegisterStudent() {
     );
     const pickedTheme = themes.find((t) => String(t.id) === String(data.theme_id));
 
-    const submit = (e) => { e.preventDefault(); post(route('register.student.store')); };
+    // forceFormData چون فرم می‌تواند فایلِ عکس داشته باشد
+    const submit = (e) => { e.preventDefault(); post(route('register.student.store'), { forceFormData: true }); };
 
     return (
         <div dir="rtl" className="auth-split">
@@ -61,6 +64,17 @@ export default function RegisterStudent() {
                         {/* بخش ۱ — مشخصاتِ دانش‌آموز */}
                         <div className="auth-sec">
                             <div className="auth-sec-h"><span className="n">۱</span> مشخصاتِ دانش‌آموز</div>
+
+                            {/* عکسِ دانش‌آموز — به حسابِ کاربریِ خودش الصاق می‌شود
+                                و پس از آن در پروفایل، جدول‌ها و کارنامه دیده می‌شود. */}
+                            <PhotoField
+                                label="عکسِ دانش‌آموز"
+                                hint="می‌توانی همین حالا عکس بگیری. عکس به حسابِ کاربریِ دانش‌آموز الصاق می‌شود و در پروفایل و کارنامه دیده خواهد شد."
+                                value={data.avatar}
+                                error={errors.avatar}
+                                onChange={(f) => setData('avatar', f)}
+                            />
+
                             <div className="grid-2-form">
                                 <Field label="نام" error={errors.first_name} req>
                                     <input className="input" value={data.first_name} onChange={(e) => setData('first_name', e.target.value)} />

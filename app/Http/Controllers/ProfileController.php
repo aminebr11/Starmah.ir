@@ -68,7 +68,9 @@ class ProfileController extends Controller
             'name'        => ['required', 'string', 'max:100'],
             'email'       => ['nullable', 'email', 'max:120'],
             'national_id' => ['nullable', 'string', 'max:10'],
-            'avatar'      => ['nullable', 'file', 'max:2048'], // حداکثر ۲ مگابایت
+            // عکس در مرورگر به JPEGِ کوچک تبدیل می‌شود؛ سقفِ قبلیِ ۲ مگابایت
+            // عکسِ خامِ دوربینِ گوشی (۳ تا ۸ مگابایت) را رد می‌کرد.
+            'avatar'      => ['nullable', 'file', 'max:4096'],
             'birth_date'  => ['nullable', 'date'],
             // اطلاعات تکمیلی
             'bio'              => ['nullable', 'string', 'max:500'],
@@ -80,11 +82,15 @@ class ProfileController extends Controller
             'education'        => ['nullable', 'string', 'max:100'],
         ]);
 
-        if ($request->hasFile('avatar') && $this->extensionAllowed($request->file('avatar'), ['jpg', 'jpeg', 'png', 'webp', 'gif'])) {
-            if ($u->avatar) {
-                Storage::disk('public')->delete($u->avatar);
+        // عکس پیش از جایگزینیِ قبلی ذخیره می‌شود تا اگر ذخیره شکست خورد،
+        // آواتارِ فعلیِ کاربر از دست نرود. خطا هم دیگر خاموش نیست.
+        if ($request->hasFile('avatar')) {
+            $newPath = $this->storeImageOrFail($request->file('avatar'), 'avatars');
+            $old = $u->avatar;
+            $u->avatar = $newPath;
+            if ($old) {
+                Storage::disk('public')->delete($old);
             }
-            $u->avatar = $this->storeUpload($request->file('avatar'), 'avatars');
         }
 
         $u->name = $data['name'];
