@@ -109,4 +109,18 @@ class User extends Authenticatable
     {
         return $this->hasRole(Roles::STUDENT);
     }
+
+    /**
+     * نشانیِ وبِ عکسِ کاربر (یا null اگر عکسی ندارد).
+     *
+     * یک‌جا تعریف شده تا همه‌ی کنترلرها به‌جای تکرارِ Storage::url از همین
+     * استفاده کنند و عکسِ کاربر همه‌جا — فهرست‌ها، کارنامه، گزارش — یکسان
+     * در دسترس باشد.
+     */
+    public function getAvatarUrlAttribute(): ?string
+    {
+        return $this->avatar
+            ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->avatar)
+            : null;
+    }
 }

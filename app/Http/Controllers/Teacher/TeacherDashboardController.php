@@ -147,8 +147,11 @@ class TeacherDashboardController extends Controller
             'name' => $s->name,
             'phone' => $s->phone,
             'national_id' => $s->national_id,
+            'avatar' => $s->avatar_url,
             'theme_id' => $s->theme_id,
             'team' => $s->theme ? "{$s->theme->emoji} {$s->theme->name}" : null,
+            'team_name'  => $s->theme?->name,
+            'team_emoji' => $s->theme?->emoji,
             'xp'   => $s->totalXp(),
             'avg'  => (int) round($s->skillMastery()->avg('mastery') ?? 0),
         ])->sortByDesc('xp')->values();

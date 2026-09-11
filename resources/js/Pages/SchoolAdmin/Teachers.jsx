@@ -1,6 +1,7 @@
 import { usePage, useForm, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import DashLayout, { schoolMenu } from '@/Layouts/DashLayout';
+import Avatar from '@/Components/Avatar';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -70,7 +71,13 @@ export default function Teachers() {
                     {shownTeachers.map((t) => (
                         <div key={t.id} style={{ padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                                <div><div style={{ fontWeight: 800 }}>{t.name}</div><div style={{ color: 'var(--muted)', fontSize: 13 }}>{t.phone} · {t.class_name ?? 'بدون کلاس'}{t.grade ? ` · پایه ${t.grade}` : ''}</div></div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
+                                    <Avatar src={t.avatar} name={t.name} size={42} />
+                                    <div style={{ minWidth: 0 }}>
+                                        <div style={{ fontWeight: 800 }}>{t.name}</div>
+                                        <div style={{ color: 'var(--muted)', fontSize: 13 }}>{t.phone} · {t.class_name ?? 'بدون کلاس'}{t.grade ? ` · پایه ${t.grade}` : ''}</div>
+                                    </div>
+                                </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <div style={{ textAlign: 'left' }}>
                                         <span className="tag tag-info">کد: {t.join_code}</span>

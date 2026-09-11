@@ -45,4 +45,12 @@ class School extends Model
     {
         return $this->planModel?->max_students_per_class;
     }
+
+    /** نشانیِ وبِ لوگوی مدرسه (یا null). */
+    public function getLogoUrlAttribute(): ?string
+    {
+        return $this->logo
+            ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->logo)
+            : null;
+    }
 }

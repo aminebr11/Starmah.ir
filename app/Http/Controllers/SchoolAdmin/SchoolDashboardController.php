@@ -28,7 +28,7 @@ class SchoolDashboardController extends Controller
         $students = User::role(Roles::STUDENT)->where('school_id', $schoolId)->count();
 
         $topStudents = User::role(Roles::STUDENT)->where('school_id', $schoolId)->get()
-            ->map(fn ($s) => ['name' => $s->name, 'xp' => $s->totalXp()])
+            ->map(fn ($s) => ['name' => $s->name, 'avatar' => $s->avatar_url, 'xp' => $s->totalXp()])
             ->sortByDesc('xp')->take(5)->values();
 
         return Inertia::render('SchoolAdmin/Overview', [
@@ -89,7 +89,7 @@ class SchoolDashboardController extends Controller
                 $class = $s->classrooms()->with('teacher:id,name')->first();
                 $settings = $s->settings ?? [];
                 return [
-                    'id' => $s->id, 'name' => $s->name, 'phone' => $s->phone, 'national_id' => $s->national_id,
+                    'id' => $s->id, 'name' => $s->name, 'avatar' => $s->avatar_url, 'phone' => $s->phone, 'national_id' => $s->national_id,
                     'birth_date' => $s->birth_date?->toDateString(),
                     'jbirth' => $s->birth_date ? Jalali::format($s->birth_date) : null,
                     'guardian_name' => $settings['guardian']['father_name'] ?? $settings['guardian']['mother_name'] ?? ($settings['guardian_name'] ?? null),
@@ -105,7 +105,7 @@ class SchoolDashboardController extends Controller
                 'teacher' => $c->teacher?->name, 'teacher_id' => $c->teacher_id])->values();
 
         $teachers = User::role(Roles::TEACHER)->where('school_id', $schoolId)
-            ->get(['id', 'name'])->map(fn ($t) => ['id' => $t->id, 'name' => $t->name])->values();
+            ->get(['id', 'name', 'avatar'])->map(fn ($t) => ['id' => $t->id, 'name' => $t->name, 'avatar' => $t->avatar_url])->values();
 
         $audit = \App\Models\AuditLog::where('school_id', $schoolId)->latest()->limit(40)->get()
             ->map(fn ($a) => [

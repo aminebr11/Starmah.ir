@@ -25,6 +25,9 @@ Route::get('/', WelcomeController::class)->name('welcome');
 // صفحه‌ی درباره‌ی معلم/کلاس — عمومی
 Route::get('/about', fn () => Inertia::render('About'))->name('about');
 
+// راهنمای نصبِ اپ روی اندروید و آیفون (PWA)
+Route::get('/install', fn () => Inertia::render('Install'))->name('install');
+
 // نقطه‌ی ورود مشترک — بر اساس نقش هدایت می‌شود
 Route::get('/dashboard', HomeController::class)->middleware('auth')->name('dashboard');
 
@@ -48,6 +51,8 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::get('/schools', [SchoolApprovalController::class, 'index'])->name('schools');
     Route::get('/schools/{school}/manage', [\App\Http\Controllers\Admin\SchoolManageController::class, 'show'])->name('schools.manage');
     Route::put('/schools/{school}', [\App\Http\Controllers\Admin\SchoolManageController::class, 'update'])->name('schools.update');
+    // حذفِ کاملِ مدرسه به‌همراهِ همه‌ی داده‌هایش (نیازمندِ تایپِ نامِ مدرسه)
+    Route::delete('/schools/{school}', [\App\Http\Controllers\Admin\SchoolManageController::class, 'destroy'])->name('schools.destroy');
     Route::post('/schools/requests/{schoolRequest}/approve', [SchoolApprovalController::class, 'approve'])->name('schools.approve');
     Route::post('/schools/requests/{schoolRequest}/reject', [SchoolApprovalController::class, 'reject'])->name('schools.reject');
     Route::post('/schools/{school}/plan', [SchoolApprovalController::class, 'updatePlan'])->name('schools.plan');

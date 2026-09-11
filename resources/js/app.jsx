@@ -3,6 +3,7 @@ import '../css/site.css';
 import '../css/home3d.css';
 import '../css/smart-exams.css';
 import './bootstrap';
+import { initPwa } from './lib/pwa';
 
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
@@ -26,3 +27,6 @@ createInertiaApp({
         color: '#4B5563',
     },
 });
+
+// نصب‌پذیریِ اپ + به‌روزرسانیِ خودکار با هر انتشارِ تازه
+initPwa();

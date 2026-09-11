@@ -1,18 +1,28 @@
 import { usePage, useForm, router, Link } from '@inertiajs/react';
 import { useState, useEffect, Fragment } from 'react';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
+import PersonCell from '@/Components/PersonCell';
+import Avatar from '@/Components/Avatar';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 /** ادمین کل: مدیریت کامل داده‌های یک مدرسه. */
 export default function SchoolManage() {
-    const { school, levels = [], grades = [], admins = [], teachers = [], students = [], classes = [], flash } = usePage().props;
+    const { school, levels = [], grades = [], admins = [], teachers = [], students = [], classes = [], purgePreview = {}, flash } = usePage().props;
     const [banner, setBanner] = useState(null);
     useEffect(() => { if (flash?.flash) setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); }, [flash]);
 
     const STATUS = { pending: 'در انتظار', active: 'فعال', suspended: 'معلق' };
     const sch = useForm({ name: school?.name || '', city: school?.city || '', level: school?.level || '', status: school?.status || 'active' });
     const [editSchool, setEditSchool] = useState(false);
+
+    // حذفِ کاملِ مدرسه — برای جلوگیری از اشتباه، نامِ مدرسه باید تایپ شود
+    const [delOpen, setDelOpen] = useState(false);
+    const delForm = useForm({ confirm_name: '' });
+    const doDelete = (e) => {
+        e.preventDefault();
+        delForm.delete(route('admin.schools.destroy', school.id));
+    };
     const saveSchool = (e) => { e.preventDefault(); sch.put(route('admin.schools.update', school.id), { preserveScroll: true, onSuccess: () => setEditSchool(false) }); };
 
     return (
@@ -22,7 +32,8 @@ export default function SchoolManage() {
 
             <div className="panel">
                 <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <h3 style={{ margin: 0 }}>🏫 {school?.name}</h3>
+                    <PersonCell name={school?.name} avatar={school?.logo_url} emoji="🏫" size={42}
+                        sub={school?.city || undefined} />
                     {school?.city && <span className="tag tag-info">📍 {school.city}</span>}
                     {school?.level && <span className="tag tag-info">مقطع: {school.level}</span>}
                     <span className="tag tag-info">وضعیت: {STATUS[school?.status] ?? school?.status}</span>
@@ -81,6 +92,52 @@ export default function SchoolManage() {
                     </div>
                 )}
             </Section>
+
+            {/* ─── منطقه‌ی خطر: حذفِ کاملِ مدرسه ─── */}
+            <div className="danger-zone">
+                <h3>⚠️ منطقه‌ی خطر</h3>
+                <p>
+                    با حذفِ این مدرسه، <b>همه‌ی داده‌هایش برای همیشه پاک می‌شود</b> —
+                    مدیر، معلم‌ها، دانش‌آموزان، کلاس‌ها، نمره‌ها، حضور و غیاب، آزمون‌ها،
+                    پیام‌ها و فایل‌های آپلودشده. این کار <b>برگشت‌پذیر نیست</b>.
+                </p>
+
+                {Object.keys(purgePreview).length > 0 && (
+                    <div className="danger-preview">
+                        <span className="danger-preview-h">آنچه حذف خواهد شد:</span>
+                        <div className="danger-preview-list">
+                            {Object.entries(purgePreview).map(([label, n]) => (
+                                <span key={label} className="danger-chip">{label}: <b>{fa(n)}</b></span>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {!delOpen ? (
+                    <button onClick={() => setDelOpen(true)} className="btn btn-danger btn-sm">
+                        🗑️ حذفِ کاملِ مدرسه
+                    </button>
+                ) : (
+                    <form onSubmit={doDelete} className="danger-form">
+                        <label>
+                            برای تأیید، نامِ دقیقِ مدرسه را بنویسید:
+                            <b style={{ marginInlineStart: 6 }}>{school?.name}</b>
+                        </label>
+                        <div className="danger-form-row">
+                            <input className="input" value={delForm.data.confirm_name} autoFocus
+                                onChange={(e) => delForm.setData('confirm_name', e.target.value)}
+                                placeholder="نامِ مدرسه" />
+                            <button type="submit" disabled={delForm.processing || !delForm.data.confirm_name}
+                                className="btn btn-danger btn-sm">
+                                {delForm.processing ? 'در حالِ حذف…' : 'حذفِ دائمی'}
+                            </button>
+                            <button type="button" onClick={() => { setDelOpen(false); delForm.reset(); delForm.clearErrors(); }}
+                                className="btn btn-ghost btn-sm">انصراف</button>
+                        </div>
+                        {delForm.errors.confirm_name && <Err>{delForm.errors.confirm_name}</Err>}
+                    </form>
+                )}
+            </div>
         </DashLayout>
     );
 }
@@ -96,7 +153,14 @@ function PersonRow({ p, grades, fields, sub }) {
     return (
         <div style={{ padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <div><b>{p.name}</b><div style={{ color: 'var(--muted)', fontSize: 13 }} dir="ltr">{p.phone}</div>{sub && <div style={{ color: 'var(--muted)', fontSize: 12 }}>{sub}</div>}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
+                    <Avatar src={p.avatar} name={p.name} size={40} />
+                    <div style={{ minWidth: 0 }}>
+                        <b>{p.name}</b>
+                        <div style={{ color: 'var(--muted)', fontSize: 13 }} dir="ltr">{p.phone}</div>
+                        {sub && <div style={{ color: 'var(--muted)', fontSize: 12 }}>{sub}</div>}
+                    </div>
+                </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                     <button onClick={() => setOpen(!open)} className="btn btn-ghost btn-sm">✏️</button>
                     <button onClick={del} className="btn btn-ghost btn-sm" style={{ color: '#e8505b' }}>🗑️</button>
@@ -134,7 +198,7 @@ function StudentRow({ s, i }) {
     return (
         <Fragment>
             <tr>
-                <td>{fa(i + 1)}</td><td style={{ fontWeight: 700 }}>{s.name}</td><td dir="ltr">{s.phone || '—'}</td>
+                <td>{fa(i + 1)}</td><td><PersonCell name={s.name} avatar={s.avatar} size={32} /></td><td dir="ltr">{s.phone || '—'}</td>
                 <td>{s.class ?? '—'}</td><td style={{ color: 'var(--gold-2)', fontWeight: 800 }}>{fa(s.xp)}</td>
                 <td style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>
                     <button onClick={() => setOpen(!open)} className="btn btn-ghost btn-sm">✏️</button>

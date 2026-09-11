@@ -12,6 +12,14 @@
         <link rel="apple-touch-icon" sizes="180x180" href="/brand/icon-180.png">
         <link rel="manifest" href="/manifest.webmanifest">
 
+        {{-- نصب روی آیفون: iOS از manifest برای حالتِ اپ استفاده نمی‌کند
+             و به این متاتگ‌ها نیاز دارد («افزودن به صفحه‌ی اصلی» در سافاری). --}}
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="ستاره ماه">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="application-name" content="ستاره ماه">
+
         <!-- Persian font -->
         <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
         <!-- Team header fonts -->

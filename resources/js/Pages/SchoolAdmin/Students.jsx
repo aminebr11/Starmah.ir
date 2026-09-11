@@ -1,6 +1,8 @@
 import { usePage, useForm, router } from '@inertiajs/react';
 import { useState, useEffect, useRef, Fragment } from 'react';
 import DashLayout, { schoolMenu } from '@/Layouts/DashLayout';
+import PersonCell from '@/Components/PersonCell';
+import ListSearch, { normalizeFa } from '@/Components/ListSearch';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 export default function Students() {
@@ -46,7 +48,14 @@ export default function Students() {
     const moveStudent = (s, cid) => { if (cid && router.post(route('manage.users.move', s.id), { classroom_id: cid }, { preserveScroll: true })); };
     const reassignTeacher = (cid, tid) => { if (tid) router.post(route('manage.classrooms.teacher', cid), { teacher_id: tid }, { preserveScroll: true }); };
 
-    const shown = students.filter((s) => !q || (s.name || '').includes(q) || (s.phone || '').includes(q) || (s.class || '').includes(q));
+    // جست‌وجوی نرمال‌شده: «ی/ك» عربی و نیم‌فاصله دیگر مانعِ یافتن نمی‌شوند
+    const nq = normalizeFa(q);
+    const shown = students.filter((s) => !nq
+        || normalizeFa(s.name).includes(nq)
+        || normalizeFa(s.phone).includes(nq)
+        || normalizeFa(s.national_id).includes(nq)
+        || normalizeFa(s.class).includes(nq)
+        || normalizeFa(s.guardian_name).includes(nq));
 
     // گروه‌بندی بر اساس کلاس
     const groups = classrooms.map((c) => ({ cls: c, list: shown.filter((s) => s.classroom_id === c.id) }));
@@ -95,7 +104,10 @@ export default function Students() {
 
             <div className="panel no-print" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <h3 style={{ margin: 0 }}>🎓 دانش‌آموزان مدرسه ({fa(students.length)})</h3>
-                <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔍 جست‌وجو…" style={{ marginInlineStart: 'auto', width: 'auto', maxWidth: 240, padding: '8px 12px' }} />
+                <div style={{ marginInlineStart: 'auto', minWidth: 220, flex: '0 1 300px' }}>
+                    <ListSearch value={q} onChange={setQ} placeholder="جست‌وجوی نام، موبایل، کد ملی، کلاس یا سرپرست…" />
+                </div>
+                {q && <span className="list-count">{fa(shown.length)} از {fa(students.length)}</span>}
             </div>
 
             {students.length === 0 && <div className="panel no-print"><p style={{ color: 'var(--muted)' }}>هنوز دانش‌آموزی ثبت‌نام نکرده.</p></div>}
@@ -176,7 +188,7 @@ function StudentTable({ list, classrooms, currentClassId, editId, edit, startEdi
                 <tbody>{list.map((s, i) => (
                     <Fragment key={s.id}>
                         <tr>
-                            <td>{fa(i + 1)}</td><td style={{ fontWeight: 700 }}>{s.name}</td><td dir="ltr">{s.phone || '—'}</td><td dir="ltr">{s.national_id || '—'}</td>
+                            <td>{fa(i + 1)}</td><td><PersonCell name={s.name} avatar={s.avatar} size={32} /></td><td dir="ltr">{s.phone || '—'}</td><td dir="ltr">{s.national_id || '—'}</td>
                             <td style={{ color: 'var(--gold-2)', fontWeight: 800 }}>{fa(s.xp)}</td>
                             <td>
                                 <select className="input" style={{ width: 'auto', padding: '6px 9px', fontSize: 12.5 }} value="" onChange={(e) => moveStudent(s, e.target.value)}>

@@ -30,7 +30,7 @@ class TeacherController extends Controller
             ->map(function ($t) {
                 $class = Classroom::where('teacher_id', $t->id)->first();
                 return [
-                    'id' => $t->id, 'name' => $t->name, 'phone' => $t->phone,
+                    'id' => $t->id, 'name' => $t->name, 'avatar' => $t->avatar_url, 'phone' => $t->phone,
                     'class_name' => $class?->name, 'grade' => $class?->grade, 'join_code' => $class?->join_code,
                     'students' => $class ? $class->students()->count() : 0,
                 ];

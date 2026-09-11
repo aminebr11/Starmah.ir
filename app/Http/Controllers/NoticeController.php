@@ -32,9 +32,27 @@ class NoticeController extends Controller
             ->where('user_id', $user->id)->whereNull('read_at')->update(['read_at' => now()]);
         \App\Support\Notifications::markSeen($user);
 
-        $component = $user->hasRole(Roles::TEACHER) ? 'Teacher/Notices' : 'Student/Notices';
+        // هر نقش باید صفحه و منویِ خودش را بگیرد.
+        // پیش از این هر کسی جز معلم صفحه‌ی دانش‌آموز می‌گرفت، و منویِ
+        // دانش‌آموز برای مدیرِ مدرسه و ادمینِ کل ۱۱ لینکِ ۴۰۳ تولید می‌کرد.
+        $role = match (true) {
+            $user->hasRole(Roles::TEACHER)      => Roles::TEACHER,
+            $user->hasRole(Roles::STUDENT)      => Roles::STUDENT,
+            $user->hasRole(Roles::SCHOOL_ADMIN) => Roles::SCHOOL_ADMIN,
+            $user->hasRole(Roles::SUPER_ADMIN)  => Roles::SUPER_ADMIN,
+            default                             => 'parent',
+        };
 
-        return Inertia::render($component, ['notices' => $notices]);
+        $component = match ($role) {
+            Roles::TEACHER => 'Teacher/Notices',
+            Roles::STUDENT => 'Student/Notices',
+            default        => 'Notices',   // ادمین کل، مدیرِ مدرسه و والد
+        };
+
+        return Inertia::render($component, [
+            'notices' => $notices,
+            'role'    => $role,
+        ]);
     }
 
     /** حذف/پنهان‌کردنِ یک اعلان فقط برای همین کاربر. */
