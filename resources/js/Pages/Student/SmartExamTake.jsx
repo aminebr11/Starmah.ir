@@ -6,7 +6,7 @@ import ThemedDash from '@/Layouts/ThemedDash';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 export default function SmartExamTake() {
-    const { exam = {}, token, questions = [], saved = {} } = usePage().props;
+    const { exam = {}, token, questions = [], saved = {}, preview = null } = usePage().props;
     const rules = exam.rules || {};
     const onePer = exam.onePerPage;
     const total = questions.length;
@@ -14,6 +14,8 @@ export default function SmartExamTake() {
     const [answers, setAnswers] = useState(saved.answers || {});
     const [idx, setIdx] = useState(0);
     const [submitting, setSubmitting] = useState(false);
+    // نتیجه‌ی محلیِ پیش‌نمایش — هیچ‌چیز به سرور نمی‌رود
+    const [pv, setPv] = useState(null);
     const startRef = useRef(Date.now());
     const durationSec = (rules.duration || 60) * 60;
     const [left, setLeft] = useState(durationSec);
@@ -31,8 +33,9 @@ export default function SmartExamTake() {
 
     // ذخیره‌ی خودکار هر ۱۵ ثانیه (ادامه بعد از قطع اینترنت)
     const saveProgress = useCallback(() => {
+        if (preview) return;   // در پیش‌نمایش چیزی ذخیره نمی‌شود
         axios.post(route('student.smart.save', exam.id), { token, progress: { answers } }).catch(() => {});
-    }, [answers]);
+    }, [answers, preview]);
     useEffect(() => { const t = setInterval(saveProgress, 15000); return () => clearInterval(t); }, [saveProgress]);
 
     const setAns = (i, value) => setAnswers((a) => ({ ...a, [i]: { i, value } }));
@@ -41,6 +44,34 @@ export default function SmartExamTake() {
     const doSubmit = (auto = false) => {
         if (submitting) return;
         if (!auto && answeredCount < total && !confirm(`${fa(total - answeredCount)} سؤال بی‌پاسخ مانده. ارسال نهایی؟`)) return;
+
+        // پیش‌نمایشِ معلم: تصحیح همین‌جا انجام می‌شود، نه روی سرور
+        if (preview) {
+            const rows = questions.map((qq, i) => {
+                const given = answers[i]?.value ?? null;
+                const right = (qq.choices || []).find((c) => c.correct)?.value
+                    ?? (Array.isArray(qq.answer) ? qq.answer[0] : qq.answer) ?? null;
+                const auto2 = qq.type === 'mc' || qq.type === 'tf';
+                return {
+                    i, prompt: qq.prompt, type: qq.type, points: qq.points,
+                    given, right, auto: auto2,
+                    ok: auto2 ? (given != null && String(given) === String(right)) : null,
+                    explanation: qq.explanation,
+                };
+            });
+            const autoRows = rows.filter((r) => r.auto);
+            setPv({
+                rows,
+                correct: autoRows.filter((r) => r.ok).length,
+                autoTotal: autoRows.length,
+                manual: rows.length - autoRows.length,
+                score: autoRows.filter((r) => r.ok).reduce((n, r) => n + (r.points || 0), 0),
+                maxScore: rows.reduce((n, r) => n + (r.points || 0), 0),
+            });
+            window.scrollTo({ top: 0 });
+            return;
+        }
+
         setSubmitting(true);
         const duration = Math.round((Date.now() - startRef.current) / 1000);
         router.post(route('student.smart.submit', exam.id), { token, answers: Object.values(answers), duration_sec: duration }, {
@@ -77,6 +108,21 @@ export default function SmartExamTake() {
         </div>
     );
 
+    if (preview && pv) return <PreviewResult pv={pv} exam={exam} preview={preview} onRetry={() => { setPv(null); setAnswers({}); setIdx(0); }} />;
+
+    if (total === 0) {
+        return (
+            <ThemedDash title={exam.title || 'آزمون'} active="smart">
+                <div className="k3-card" style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 44 }}>📭</div>
+                    <b>این آزمون هنوز هیچ سؤالی ندارد</b>
+                    <div style={{ fontSize: 12.5, opacity: .85, marginTop: 6 }}>دانش‌آموز هم دقیقاً همین صفحه‌ی خالی را می‌دید.</div>
+                    {preview && <a href={preview.back} className="k3-btn" style={{ marginTop: 14, display: 'inline-block' }}>✏️ افزودنِ سؤال</a>}
+                </div>
+            </ThemedDash>
+        );
+    }
+
     return (
         <ThemedDash title={exam.title || 'آزمون'} active="smart">
             {/* هدر: تایمر + پیشرفت */}
@@ -89,7 +135,7 @@ export default function SmartExamTake() {
                 <div style={{ height: 10, borderRadius: 6, background: 'rgba(255,255,255,.18)', overflow: 'hidden', marginTop: 10 }}>
                     <div style={{ width: `${(answeredCount / total) * 100}%`, height: '100%', background: 'linear-gradient(90deg,#a78bfa,#7c3aed)', transition: 'width .3s' }} />
                 </div>
-                <div style={{ fontSize: 11.5, opacity: .85, marginTop: 5 }}>پاسخ‌داده: {fa(answeredCount)} از {fa(total)} · ذخیره‌ی خودکار فعال 💾</div>
+                <div style={{ fontSize: 11.5, opacity: .85, marginTop: 5 }}>پاسخ‌داده: {fa(answeredCount)} از {fa(total)} · {preview ? 'پیش‌نمایش — چیزی ذخیره نمی‌شود' : 'ذخیره‌ی خودکار فعال 💾'}</div>
             </div>
 
             <div style={{ marginTop: 14 }}>
@@ -115,3 +161,75 @@ export default function SmartExamTake() {
         </ThemedDash>
     );
 }
+
+/* ═══════════════ نتیجه‌ی پیش‌نمایشِ معلم ═══════════════ */
+/**
+ * تصحیح فقط در مرورگرِ معلم انجام می‌شود؛ نه تلاشی ثبت می‌شود و نه نمره‌ای.
+ * هدف این است که معلم پیش از انتشار ببیند سؤال‌ها، گزینه‌ها و پاسخِ درست
+ * سالم‌اند — و اگر جایی ایراد داشت، برگردد و اصلاح کند.
+ */
+function PreviewResult({ pv, exam, preview, onRetry }) {
+    const pct = pv.autoTotal ? Math.round((pv.correct / pv.autoTotal) * 100) : 0;
+    const problems = pv.rows.filter((r) => r.auto && r.right == null);
+
+    return (
+        <ThemedDash title={`پیش‌نمایشِ ${exam.title || 'آزمون'}`} active="smart">
+            <div className="k3-card" style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 52 }}>👁️</div>
+                <div style={{ fontWeight: 900, fontSize: 20, marginTop: 4 }}>پایانِ پیش‌نمایش</div>
+                <div style={{ fontSize: 12.5, opacity: .85, marginTop: 6 }}>
+                    این فقط یک بازبینی بود — نه تلاشی ثبت شد، نه نمره‌ای، نه امتیازی.
+                </div>
+                <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 16, flexWrap: 'wrap' }}>
+                    <M v={`${fa(pv.correct)}/${fa(pv.autoTotal)}`} l="درست (تصحیحِ خودکار)" />
+                    <M v={`${fa(pct)}٪`} l="دقت" />
+                    <M v={`${fa(pv.score)}/${fa(pv.maxScore)}`} l="بارم" />
+                    {pv.manual > 0 && <M v={fa(pv.manual)} l="تشریحی (تصحیحِ دستی)" />}
+                </div>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 18, flexWrap: 'wrap' }}>
+                    <a href={preview.back} className="k3-btn">✏️ بازگشت و اصلاح</a>
+                    <button onClick={onRetry} className="k3-btn ghost">🔁 اجرای دوباره</button>
+                </div>
+            </div>
+
+            {problems.length > 0 && (
+                <div className="k3-card" style={{ marginTop: 14, background: 'rgba(232,80,91,.18)', border: '1px solid rgba(232,80,91,.5)' }}>
+                    <b>⚠️ {fa(problems.length)} سؤالِ چهارگزینه‌ای «پاسخِ درست» ندارد</b>
+                    <div style={{ fontSize: 12.5, opacity: .9, marginTop: 4, lineHeight: 1.9 }}>
+                        این سؤال‌ها برای دانش‌آموز همیشه غلط حساب می‌شوند. پیش از انتشار حتماً پاسخِ درستشان را مشخص کن.
+                    </div>
+                </div>
+            )}
+
+            <div className="k3-card" style={{ marginTop: 14 }}>
+                <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 10 }}>📖 بازبینیِ سؤال‌به‌سؤال</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {pv.rows.map((r) => (
+                        <div key={r.i} style={{
+                            borderRadius: 12, padding: '10px 12px', lineHeight: 1.9,
+                            background: r.auto ? (r.ok ? 'rgba(43,182,115,.14)' : 'rgba(232,80,91,.14)') : 'rgba(255,255,255,.07)',
+                            border: `1px solid ${r.auto ? (r.ok ? 'rgba(43,182,115,.45)' : 'rgba(232,80,91,.45)') : 'rgba(255,255,255,.18)'}`,
+                        }}>
+                            <div style={{ fontWeight: 800, fontSize: 13.5 }}>
+                                {r.auto ? (r.ok ? '✅' : '❌') : '✍️'} {fa(r.i + 1)}. {r.prompt}
+                            </div>
+                            <div style={{ fontSize: 12.5, marginTop: 4, opacity: .92 }}>
+                                پاسخِ تو: <b>{r.given ?? '—'}</b>
+                                {r.auto && <> · پاسخِ درست: <b>{r.right ?? '⚠️ مشخص نشده'}</b></>}
+                                {!r.auto && ' · تشریحی — معلم دستی تصحیح می‌کند'}
+                            </div>
+                            {r.explanation && <div style={{ fontSize: 12.5, opacity: .8, marginTop: 4 }}>💡 {r.explanation}</div>}
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </ThemedDash>
+    );
+}
+
+const M = ({ v, l }) => (
+    <div style={{ background: 'rgba(255,255,255,.1)', borderRadius: 14, padding: '12px 16px' }}>
+        <b style={{ fontSize: 20, color: 'var(--gacc,#f5b53f)' }}>{v}</b>
+        <div style={{ fontSize: 11.5, opacity: .8 }}>{l}</div>
+    </div>
+);

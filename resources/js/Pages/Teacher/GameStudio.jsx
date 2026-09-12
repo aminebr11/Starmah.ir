@@ -271,6 +271,18 @@ export default function GameStudio() {
                             <Info k="سطح" v={{ easy: 'آسان', medium: 'متوسط', hard: 'سخت' }[form.data.difficulty]} />
                             <Info k="گروه‌ها" v={form.data.target_themes.length ? `${fa(form.data.target_themes.length)} گروه` : 'همه'} />
                         </div>
+                        {/* پیش از انتشار، معلم دقیقاً همان چیزی را می‌بیند که دانش‌آموز می‌بیند */}
+                        <div style={{ marginTop: 16, border: '1px solid var(--line)', borderRadius: 14, padding: 12, background: '#fffaf0' }}>
+                            <b style={{ fontSize: 13.5 }}>👁️ پیش‌نمایشِ واقعی</b>
+                            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 4, lineHeight: 1.9 }}>
+                                بازی را دقیقاً مثلِ دانش‌آموز اجرا کن، ایرادها را ببین، برگرد و اصلاح کن و بعد منتشر کن.
+                                در پیش‌نمایش هیچ تلاشی ثبت نمی‌شود و هیچ امتیازی داده نمی‌شود.
+                            </div>
+                            {editId
+                                ? <a href={route('teacher.studio.preview', editId)} className="btn btn-sm" style={{ marginTop: 10, display: 'inline-block' }}>👁️ اجرای پیش‌نمایش</a>
+                                : <div style={{ fontSize: 12.5, color: '#b0333f', marginTop: 8 }}>اول «ذخیره‌ی پیش‌نویس» را بزن تا بتوانی پیش‌نمایش بگیری.</div>}
+                        </div>
+
                         <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
                             <button onClick={() => save('draft')} disabled={form.processing} className="btn btn-ghost">💾 ذخیره‌ی پیش‌نویس</button>
                             <button onClick={() => save('published')} disabled={form.processing} className="btn">🚀 انتشار بازی</button>
@@ -303,6 +315,7 @@ export default function GameStudio() {
                             </div>
                             <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
                                 <Link href={route('teacher.studio.edit', g.id)} className="btn btn-ghost btn-sm">✏️ ویرایش</Link>
+                                <a href={route('teacher.studio.preview', g.id)} className="btn btn-ghost btn-sm" title="آنچه دانش‌آموز می‌بیند">👁️ پیش‌نمایش</a>
                                 <Link href={route('teacher.studio.report', g.id)} className="btn btn-ghost btn-sm">📊 گزارش</Link>
                                 {g.status !== 'published'
                                     ? <button onClick={() => router.post(route('teacher.studio.status', g.id), { status: 'published' }, { preserveScroll: true })} className="btn btn-ghost btn-sm">🚀 انتشار</button>

@@ -122,6 +122,53 @@ class SmartExamController extends Controller
         ));
     }
 
+    /**
+     * پیش‌نمایشِ واقعیِ آزمون — همان صفحه‌ای که دانش‌آموز می‌بیند.
+     *
+     * تا پیش از این تنها راهِ دیدنِ آزمون از چشمِ دانش‌آموز، منتشر کردنش بود.
+     * حالا معلم می‌تواند روی نسخه‌ی پیش‌نویس هم آزمون را «بدهد»، غلط‌ها را
+     * ببیند، برگردد و اصلاح کند و بعد منتشر کند.
+     *
+     * هیچ تلاشی (attempt) ساخته نمی‌شود، ذخیره‌ی خودکار خاموش است و ارسالِ
+     * نهایی فقط یک نتیجه‌ی محلی نشان می‌دهد — نه نمره‌ای ثبت می‌شود نه امتیازی.
+     */
+    public function preview(Request $request, SmartExam $smartExam): Response
+    {
+        abort_unless($smartExam->teacher_id === $request->user()->id, 403);
+        $smartExam->load('questions');
+
+        $rules = $smartExam->rules ?? [];
+        $questions = $smartExam->questions->values()->map(function ($q, $i) {
+            $choices = collect($q->choices ?? [])->map(fn ($c) => [
+                'value' => $c['value'] ?? '',
+                // در پیش‌نمایش پاسخِ درست هم می‌آید تا معلم بتواند صحتش را بسنجد
+                'correct' => (bool) ($c['correct'] ?? false),
+            ])->values();
+
+            return [
+                'i' => $i, 'type' => $q->type, 'prompt' => $q->prompt, 'media' => $q->media_path,
+                'choices' => $choices, 'points' => $q->points,
+                'answer' => $q->answer, 'explanation' => $q->explanation,
+                'difficulty' => $q->difficulty,
+            ];
+        });
+
+        return Inertia::render('Student/SmartExamTake', [
+            'exam' => [
+                'id' => $smartExam->id, 'title' => $smartExam->title, 'subject' => $smartExam->subject,
+                'rules' => $rules, 'onePerPage' => (bool) ($rules['one_per_page'] ?? true),
+            ],
+            'token' => null,
+            'questions' => $questions,
+            'saved' => [],
+            'preview' => [
+                'back' => route('teacher.smart.edit', $smartExam->id),
+                'status' => $smartExam->status,
+                'empty' => $smartExam->questions->isEmpty(),
+            ],
+        ]);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $teacher = $request->user();

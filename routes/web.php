@@ -281,6 +281,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::middleware('smartlab')->prefix('smart-exams')->name('smart.')->group(function () {
         Route::get('/', [\App\Http\Controllers\Teacher\SmartExamController::class, 'lab'])->name('lab');
         Route::get('/{smartExam}/edit', [\App\Http\Controllers\Teacher\SmartExamController::class, 'edit'])->name('edit');
+        Route::get('/{smartExam}/preview', [\App\Http\Controllers\Teacher\SmartExamController::class, 'preview'])->name('preview');
         Route::post('/', [\App\Http\Controllers\Teacher\SmartExamController::class, 'store'])->name('store');
         Route::put('/{smartExam}', [\App\Http\Controllers\Teacher\SmartExamController::class, 'update'])->name('update');
         Route::post('/{smartExam}/status', [\App\Http\Controllers\Teacher\SmartExamController::class, 'status'])->name('status');
@@ -299,6 +300,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/studio/ai', [\App\Http\Controllers\Teacher\EduGameController::class, 'aiGenerate'])->name('studio.ai');
     Route::get('/studio/bank', [\App\Http\Controllers\Teacher\EduGameController::class, 'bankQuestions'])->name('studio.bank');
     Route::get('/studio/{eduGame}/edit', [\App\Http\Controllers\Teacher\EduGameController::class, 'show'])->name('studio.edit');
+    Route::get('/studio/{eduGame}/preview', [\App\Http\Controllers\Teacher\EduGameController::class, 'preview'])->name('studio.preview');
     Route::post('/studio', [\App\Http\Controllers\Teacher\EduGameController::class, 'store'])->name('studio.store');
     Route::put('/studio/{eduGame}', [\App\Http\Controllers\Teacher\EduGameController::class, 'update'])->name('studio.update');
     Route::post('/studio/{eduGame}/status', [\App\Http\Controllers\Teacher\EduGameController::class, 'status'])->name('studio.status');

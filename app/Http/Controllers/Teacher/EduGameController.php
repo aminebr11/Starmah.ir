@@ -137,6 +137,55 @@ class EduGameController extends Controller
         ]));
     }
 
+    /**
+     * پیش‌نمایشِ واقعیِ بازی — دقیقاً همان صفحه‌ای که دانش‌آموز می‌بیند.
+     *
+     * ── چرا لازم شد ───────────────────────────────────────────────────
+     * معلم تا پیش از این فقط فرمِ ساخت را می‌دید و تنها راهِ دیدنِ نتیجه
+     * «انتشار» بود؛ یعنی اگر سؤالی غلط یا گزینه‌ای جابه‌جا بود، دانش‌آموزها
+     * پیش از معلم می‌دیدند.
+     *
+     * همان کامپوننتِ Student/GamePlayer با همان ساختارِ داده رندر می‌شود،
+     * ولی با پرچمِ preview: هیچ تلاشی ساخته نمی‌شود، هیچ امتیازی ثبت
+     * نمی‌شود و دکمه‌ی پایان چیزی به سرور نمی‌فرستد. روی بازیِ پیش‌نویس
+     * هم کار می‌کند، پس اصلاح پیش از انتشار ممکن است.
+     */
+    public function preview(Request $request, EduGame $eduGame): Response
+    {
+        abort_unless($eduGame->teacher_id === $request->user()->id, 403);
+        $eduGame->load(['template', 'theme', 'questions']);
+
+        return Inertia::render('Student/GamePlayer', [
+            'game' => [
+                'id' => $eduGame->id, 'title' => $eduGame->title, 'desc' => $eduGame->description,
+                'template' => $eduGame->template_key, 'template_name' => optional($eduGame->template)->name,
+                'board_html' => optional($eduGame->template)->board_html,
+                'board_css' => optional($eduGame->template)->board_css,
+                'difficulty' => $eduGame->difficulty,
+                'rules' => $eduGame->rules ?? [],
+                'theme' => $eduGame->theme ? [
+                    'name' => $eduGame->theme->name, 'emoji' => $eduGame->theme->emoji,
+                    'skin' => $eduGame->theme->skin,
+                ] : null,
+                'questions' => $eduGame->questions->map(fn ($q, $i) => [
+                    'i' => $i, 'type' => $q->type, 'prompt' => $q->prompt,
+                    'media' => $q->media_path,
+                    'choices' => collect($q->choices ?? [])->map(fn ($c) => [
+                        'value' => $c['value'] ?? '', 'correct' => (bool) ($c['correct'] ?? false),
+                    ])->values(),
+                    'hint1' => $q->hint1, 'hint2' => $q->hint2,
+                    'explanation' => $q->explanation, 'points' => $q->points,
+                ])->values(),
+            ],
+            'attempt' => ['status' => 'preview', 'progress' => [], 'score' => 0],
+            'preview' => [
+                'back' => route('teacher.studio.edit', $eduGame->id),
+                'status' => $eduGame->status,
+                'empty' => $eduGame->questions->isEmpty(),
+            ],
+        ]);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $teacher = $request->user();

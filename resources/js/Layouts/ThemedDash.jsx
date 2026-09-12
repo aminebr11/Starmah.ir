@@ -6,12 +6,32 @@ import Avatar from '@/Components/Avatar';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
+/** نوارِ ثابتِ بالای صفحه در حالتِ «پیش‌نمایشِ معلم». */
+function PreviewRibbon({ preview }) {
+    const st = { draft: 'پیش‌نویس', published: 'منتشرشده', closed: 'بسته‌شده', archived: 'بایگانی' }[preview.status] || preview.status;
+    return (
+        <div style={{
+            position: 'fixed', insetInlineStart: 0, insetInlineEnd: 0, top: 0, zIndex: 120,
+            background: 'linear-gradient(90deg,#f5b53f,#e8862e)', color: '#231603',
+            display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', flexWrap: 'wrap',
+            fontWeight: 800, fontSize: 13, boxShadow: '0 4px 18px -8px rgba(0,0,0,.6)',
+        }}>
+            <span>👁️ پیش‌نمایشِ معلم — این دقیقاً همان چیزی است که دانش‌آموز می‌بیند</span>
+            <span style={{ background: 'rgba(0,0,0,.18)', borderRadius: 20, padding: '2px 10px', fontSize: 11.5 }}>وضعیت: {st}</span>
+            <span style={{ fontWeight: 600, fontSize: 11.5, opacity: .85 }}>هیچ امتیاز و نمره‌ای ثبت نمی‌شود</span>
+            <a href={preview.back} style={{ marginInlineStart: 'auto', background: '#231603', color: '#ffe9b8', borderRadius: 10, padding: '6px 14px', textDecoration: 'none', fontSize: 12.5 }}>
+                ← بازگشت و ویرایش
+            </a>
+        </div>
+    );
+}
+
 /**
  * داشبورد دانش‌آموز — مثل صفحات معلم (سایدبار) ولی با رنگ تیم/گروه خودش.
  * لوگوی سایت بالا قرار دارد. ریسپانسیو.
  */
 export default function ThemedDash({ title, active = '', children, actions = null }) {
-    const { auth, theme, notifications = [], unreadNotices = 0, smartLab = false, avatarUrl = null, familyNew = 0 } = usePage().props;
+    const { auth, theme, notifications = [], unreadNotices = 0, smartLab = false, avatarUrl = null, familyNew = 0, preview = null } = usePage().props;
     const unread = unreadNotices || 0;
     const skin = theme?.skin ?? {};
     const vars = useMemo(() => cssVars(skin), [theme?.id]);
@@ -52,10 +72,15 @@ export default function ThemedDash({ title, active = '', children, actions = nul
     ];
 
     return (
-        <div dir="rtl" className="dash kids-dash" style={{ ...vars, background: 'linear-gradient(180deg,var(--bg1),var(--bg2))' }}>
+        <div dir="rtl" className="dash kids-dash" style={{ ...vars, background: 'linear-gradient(180deg,var(--bg1),var(--bg2))', paddingTop: preview ? 46 : 0 }}>
             <Head title={title ? `${title} — ستاره ماه` : 'ستاره ماه'} />
 
-            <aside className={`dash-side ${open ? 'open' : ''}`} style={{ background: 'rgba(0,0,0,.25)' }}>
+            {/* نوارِ پیش‌نمایشِ معلم — تا لحظه‌ای هم گمان نرود این صفحه واقعی است */}
+            {preview && <PreviewRibbon preview={preview} />}
+
+            {/* در پیش‌نمایش، منویِ دانش‌آموز فقط تزئینی است تا معلم با کلیک به خطای دسترسی نخورد */}
+            <aside className={`dash-side ${open ? 'open' : ''}`}
+                style={{ background: 'rgba(0,0,0,.25)', ...(preview ? { pointerEvents: 'none', opacity: .55 } : {}) }}>
                 <Link href="/" className="dash-brand" style={{ color: '#fff' }}>
                     <img src="/brand/logo-emblem.png" alt="" />
                     <div>ستاره ماه<div className="dash-role" style={{ background: 'rgba(255,255,255,.14)', borderColor: 'rgba(255,255,255,.25)', color: 'var(--acc)' }}>{theme?.emoji} {theme?.name}</div></div>
@@ -141,7 +166,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
             </main>
 
             {/* نوار بازی‌گونه‌ی پایین — فقط موبایل */}
-            <nav className="bottom-nav">
+            <nav className="bottom-nav" style={preview ? { pointerEvents: 'none', opacity: .55 } : undefined}>
                 {bottomNav.map((m) => (
                     <Link key={m.key} href={m.href} className={active === m.key ? 'on' : ''}>
                         <span className="bic">{m.icon}</span>{m.label}

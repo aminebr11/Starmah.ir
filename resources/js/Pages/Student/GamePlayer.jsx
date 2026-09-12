@@ -9,7 +9,7 @@ const CHEER = ['آفرین! 🎉', 'عالی بود! 🌟', 'ایول! 💪', '�
 const NUDGE = ['اشکالی نداره، ادامه بده! 💛', 'دفعه‌ی بعد می‌گیریش! 🙂', 'یاد گرفتن مهم‌تره! 🌱'];
 
 export default function GamePlayer() {
-    const { game = {}, attempt = {}, flash } = usePage().props;
+    const { game = {}, attempt = {}, flash, preview = null } = usePage().props;
     const skin = game.theme?.skin || {};
     const questions = game.questions || [];
     const rules = game.rules || {};
@@ -43,6 +43,8 @@ export default function GamePlayer() {
 
     const q = questions[step];
     const correctIdx = q ? q.choices.findIndex((c) => c.correct) : -1;
+    // بازیِ بدونِ سؤال (در پیش‌نمایشِ پیش‌نویس ممکن است) نباید صفحه را بشکند
+    const emptyGame = total === 0;
 
     // حرکتِ نرمِ مهره: از موقعیتِ فعلی تا correctCount، یک خانه در هر تیک با صدای قدم
     const stepToken = (target) => {
@@ -93,6 +95,8 @@ export default function GamePlayer() {
         const passPct = total ? Math.round((correctCount / total) * 100) : 0;
         if (passPct >= (rules.pass ?? 50)) { sound.play('win'); setConfetti(Date.now() + 1); }
         else sound.play('lose');
+        // در پیش‌نمایشِ معلم هیچ‌چیز به سرور نمی‌رود: نه تلاشی ثبت می‌شود نه امتیازی
+        if (preview) return;
         const duration = Math.round((Date.now() - startRef.current) / 1000);
         router.post(route('gameworld.finish', game.id), { answers, hints_used: hintsUsed, duration_sec: duration }, { preserveScroll: true });
     };
@@ -121,7 +125,9 @@ export default function GamePlayer() {
                             style={{ background: 'rgba(0,0,0,.25)', border: 0, color: '#fff', width: 34, height: 34, borderRadius: 12, cursor: 'pointer', fontSize: 16, flex: 'none' }}>
                             {sound.muted ? '🔇' : '🔊'}
                         </button>
-                        <Link href={route('gameworld')} className="k3-btn ghost" style={{ fontSize: 12, flex: 'none' }}>خروج</Link>
+                        {preview
+                            ? <a href={preview.back} className="k3-btn ghost" style={{ fontSize: 12, flex: 'none' }}>بازگشت</a>
+                            : <Link href={route('gameworld')} className="k3-btn ghost" style={{ fontSize: 12, flex: 'none' }}>خروج</Link>}
                     </div>
                     {!done && game.desc && step === 0 && !revealed && <div style={{ marginTop: 8, fontSize: 12.5, opacity: .9 }}>🎯 {game.desc}</div>}
                 </div>
@@ -134,8 +140,20 @@ export default function GamePlayer() {
                     </div>
                 )}
 
+                {/* پیش‌نمایشِ بازیِ بدونِ سؤال — به‌جای صفحه‌ی خالی، راهنمای روشن */}
+                {emptyGame && (
+                    <div className="k3-card" style={{ marginTop: 12, textAlign: 'center' }}>
+                        <div style={{ fontSize: 40 }}>📭</div>
+                        <b>این بازی هنوز هیچ سؤالی ندارد</b>
+                        <div style={{ fontSize: 12.5, opacity: .85, marginTop: 6 }}>
+                            دانش‌آموز هم دقیقاً همین صفحه‌ی خالی را می‌دید. برگرد و چند سؤال اضافه کن.
+                        </div>
+                        {preview && <a href={preview.back} className="k3-btn" style={{ marginTop: 12, display: 'inline-block' }}>✏️ افزودنِ سؤال</a>}
+                    </div>
+                )}
+
                 {/* تخته‌ی بازی — سفارشی (تم‌ساز ادمین) یا داخلی — با کانفتی روی درست/برد */}
-                {!done && (
+                {!done && !emptyGame && (
                     <div style={{ position: 'relative' }}>
                         <Confetti fire={confetti} disabled={noAnim} />
                         {game.board_html
@@ -197,7 +215,7 @@ export default function GamePlayer() {
                 {done && (
                     <div style={{ position: 'relative' }}>
                         <Confetti fire={confetti} big disabled={noAnim} />
-                        <Finish score={score} total={total} correct={correctCount} result={result} rules={rules} gameId={game.id} noXp={alreadyDone} />
+                        <Finish score={score} total={total} correct={correctCount} result={result} rules={rules} gameId={game.id} noXp={alreadyDone} preview={preview} />
                     </div>
                 )}
             </div>
@@ -319,7 +337,7 @@ function TreasureBoard({ total, pos, char }) {
     );
 }
 
-function Finish({ score, total, correct, result, rules, gameId, noXp }) {
+function Finish({ score, total, correct, result, rules, gameId, noXp, preview }) {
     const passPct = total ? Math.round((correct / total) * 100) : 0;
     const passed = passPct >= (rules.pass ?? 50);
     return (
@@ -329,14 +347,27 @@ function Finish({ score, total, correct, result, rules, gameId, noXp }) {
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 16, flexWrap: 'wrap' }}>
                 <Metric v={`${fa(correct)}/${fa(total)}`} l="پاسخ درست" />
                 <Metric v={`${fa(passPct)}٪`} l="دقت" />
-                <Metric v={noXp ? '—' : `⚡${fa(score)}`} l={noXp ? 'XP (قبلاً گرفته‌ای)' : 'امتیاز'} />
+                <Metric v={`⚡${fa(score)}`} l={preview ? 'امتیازی که دانش‌آموز می‌گیرد' : noXp ? 'XP (قبلاً گرفته‌ای)' : 'امتیاز'} />
             </div>
-            {noXp && <div style={{ marginTop: 12, fontSize: 13, background: 'rgba(240,149,46,.25)', border: '1px solid rgba(240,149,46,.5)', borderRadius: 12, padding: '9px 13px', display: 'inline-block' }}>ℹ️ امتیاز (XP) این بازی را قبلاً گرفته‌ای — این دور فقط تمرین بود.</div>}
-            {passed && !noXp && <div style={{ marginTop: 14, fontSize: 14 }}>🏅 نشانِ «قهرمانِ این بازی» برایت ثبت شد!</div>}
-            {rules.group_race && !noXp && score > 0 && <div style={{ marginTop: 12, fontSize: 13.5, background: 'rgba(43,182,115,.22)', border: '1px solid rgba(43,182,115,.5)', borderRadius: 12, padding: '9px 13px', display: 'inline-block' }}>🏆 امتیازِ تو به مجموعِ امتیازِ تیمت اضافه شد و جایگاهِ تیمت را در رقابتِ گروهی بالا برد!</div>}
+            {/* در پیش‌نمایش هیچ‌چیز ثبت نشده، پس نباید ادعای ثبتِ نشان یا امتیازِ تیمی شود */}
+            {preview && (
+                <div style={{ marginTop: 12, fontSize: 13, background: 'rgba(245,181,63,.25)', border: '1px solid rgba(245,181,63,.55)', borderRadius: 12, padding: '9px 13px', display: 'inline-block' }}>
+                    👁️ این فقط پیش‌نمایش بود — نه تلاشی ثبت شد، نه امتیازی، نه نشانی.
+                </div>
+            )}
+            {!preview && noXp && <div style={{ marginTop: 12, fontSize: 13, background: 'rgba(240,149,46,.25)', border: '1px solid rgba(240,149,46,.5)', borderRadius: 12, padding: '9px 13px', display: 'inline-block' }}>ℹ️ امتیاز (XP) این بازی را قبلاً گرفته‌ای — این دور فقط تمرین بود.</div>}
+            {!preview && passed && !noXp && <div style={{ marginTop: 14, fontSize: 14 }}>🏅 نشانِ «قهرمانِ این بازی» برایت ثبت شد!</div>}
+            {!preview && rules.group_race && !noXp && score > 0 && <div style={{ marginTop: 12, fontSize: 13.5, background: 'rgba(43,182,115,.22)', border: '1px solid rgba(43,182,115,.5)', borderRadius: 12, padding: '9px 13px', display: 'inline-block' }}>🏆 امتیازِ تو به مجموعِ امتیازِ تیمت اضافه شد و جایگاهِ تیمت را در رقابتِ گروهی بالا برد!</div>}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 18, flexWrap: 'wrap' }}>
-                <Link href={route('gameworld')} className="k3-btn">🎮 بازی‌های دیگر</Link>
-                {rules.retry !== false && <Link href={route('gameworld.play', gameId)} className="k3-btn ghost">🔁 دوباره (بدون XP)</Link>}
+                {preview
+                    ? <>
+                        <a href={preview.back} className="k3-btn">✏️ بازگشت و اصلاح</a>
+                        <a href={window.location.pathname} className="k3-btn ghost">🔁 اجرای دوباره‌ی پیش‌نمایش</a>
+                      </>
+                    : <>
+                        <Link href={route('gameworld')} className="k3-btn">🎮 بازی‌های دیگر</Link>
+                        {rules.retry !== false && <Link href={route('gameworld.play', gameId)} className="k3-btn ghost">🔁 دوباره (بدون XP)</Link>}
+                      </>}
             </div>
         </div>
     );
