@@ -33,7 +33,10 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // serve خاموش است: این دیسک هیچ‌جا برای سرویس‌دهی به‌کار نمی‌رود، ولی
+            // روشن‌بودنش مسیرِ /storage/{path} را می‌گرفت و جلوی تورِ ایمنیِ
+            // فایل‌های آپلودی (PublicFileController) را می‌گرفت.
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],

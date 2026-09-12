@@ -83,6 +83,31 @@ class ClassContentController extends Controller
         ]);
     }
 
+    /**
+     * پسوندهای مجاز برای هر نوعِ محتوا.
+     *
+     * پیش از این هیچ محدودیتی نبود: قاعده‌ی اعتبارسنجی فقط «file» و سقفِ حجم
+     * بود. چون پوشه‌ی آپلود را وب‌سرور مستقیم سِرو می‌کند، یک فایلِ .php
+     * آپلودشده روی سرور **اجرا** می‌شد. حالا هم اینجا و هم در خودِ
+     * StoresUploads جلویش گرفته شده است.
+     */
+    private const ALLOWED_EXT = [
+        'material' => ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'rtf', 'zip', 'jpg', 'jpeg', 'png', 'webp'],
+        'homework' => ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'rtf', 'zip', 'jpg', 'jpeg', 'png', 'webp'],
+        // پادکست حالا صوتی و تصویری است
+        'podcast'  => ['mp3', 'm4a', 'aac', 'ogg', 'oga', 'wav', 'opus', 'mp4', 'webm', 'm4v', 'mov'],
+        'video'    => ['mp4', 'webm', 'ogv', 'm4v', 'mov'],
+        'gallery'  => ['jpg', 'jpeg', 'png', 'webp', 'gif'],
+    ];
+
+    /** پیامِ خطای خوانا برای پسوندِ نامجاز. */
+    private function extError(string $type): string
+    {
+        $list = implode('، ', self::ALLOWED_EXT[$type] ?? []);
+
+        return "فرمتِ این فایل برای «{$type}» پذیرفته نمی‌شود. فرمت‌های مجاز: {$list}.";
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
@@ -104,7 +129,13 @@ class ClassContentController extends Controller
 
         $path = null;
         if ($request->hasFile('file')) {
+            if (! $this->extensionSafe($request->file('file'), self::ALLOWED_EXT[$data['type']] ?? [])) {
+                return back()->withErrors(['file' => $this->extError($data['type'])]);
+            }
             $path = $this->storeUpload($request->file('file'), "class-content/{$data['type']}");
+            if ($path === false) {
+                return back()->withErrors(['file' => 'ذخیره‌ی فایل روی سرور ممکن نشد.']);
+            }
         }
 
         $content = ClassContent::create([
@@ -144,10 +175,18 @@ class ClassContentController extends Controller
 
         // جایگزینیِ فایل (در صورت آپلود فایلِ جدید)
         if ($request->hasFile('file')) {
+            if (! $this->extensionSafe($request->file('file'), self::ALLOWED_EXT[$classContent->type] ?? [])) {
+                return back()->withErrors(['file' => $this->extError($classContent->type)]);
+            }
+            $fresh = $this->storeUpload($request->file('file'), "class-content/{$classContent->type}");
+            if ($fresh === false) {
+                return back()->withErrors(['file' => 'ذخیره‌ی فایل روی سرور ممکن نشد.']);
+            }
+            // فایلِ قبلی فقط پس از موفقیتِ فایلِ تازه پاک می‌شود
             if ($classContent->file_path) {
                 Storage::disk('public')->delete($classContent->file_path);
             }
-            $classContent->file_path = $this->storeUpload($request->file('file'), "class-content/{$classContent->type}");
+            $classContent->file_path = $fresh;
         }
 
         $classContent->fill([

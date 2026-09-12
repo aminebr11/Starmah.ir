@@ -17,6 +17,7 @@ use App\Models\Worksheet;
 use App\Models\WorksheetSubmission;
 use App\Services\GamificationService;
 use App\Support\BankAccess;
+use App\Support\Jalali;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -165,7 +166,7 @@ class MissionController extends Controller
             ->whereDate('play_date', $today)->pluck('mission_id')->all();
         $remaining = $missions->reject(fn (Mission $m) => in_array($m->id, $doneIds, true));
         if ($remaining->isNotEmpty()) {
-            return back()->with('flash', 'هنوز ' . $remaining->count() . ' مأموریت مانده — همه را تمام کن تا جعبه باز شود!');
+            return back()->with('flash', 'هنوز ' . Jalali::fa((string) $remaining->count()) . ' مأموریت مانده — همه را تمام کن تا جعبه باز شود!');
         }
 
         $streak = $this->streak($user);
@@ -177,7 +178,7 @@ class MissionController extends Controller
             'missions_done' => $missions->count(), 'xp_awarded' => $xp, 'streak' => $streak,
         ]);
 
-        return back()->with('flash', "جعبه‌ی گنج باز شد! +{$xp} امتیاز 🎁🎉");
+        return back()->with('flash', 'جعبه‌ی گنج باز شد! +' . Jalali::fa((string) $xp) . ' امتیاز 🎁🎉');
     }
 
     /* ═══════════════════════ پخش و تاریخچه ═══════════════════════ */
@@ -326,7 +327,7 @@ class MissionController extends Controller
             $this->awardBadge($user, $mission);
         }
 
-        return back()->with('flash', "آفرین! جایزهٔ مأموریت را گرفتی: +{$mission->xp_reward} امتیاز 🎉");
+        return back()->with('flash', 'آفرین! جایزهٔ مأموریت را گرفتی: +' . Jalali::fa((string) $mission->xp_reward) . ' امتیاز 🎉');
     }
 
     /* ═══════════════════════ مأموریتِ سؤالی ═══════════════════════ */

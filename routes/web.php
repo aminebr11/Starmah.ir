@@ -129,10 +129,13 @@ Route::middleware(['auth', 'role:student'])->group(function () {
 
     // مأموریت‌های روزانه (معلم‌محور — سؤال‌ها از بانکِ سؤالِ معلم)
     Route::get('/missions', [\App\Http\Controllers\Student\MissionController::class, 'index'])->name('missions');
-    Route::get('/missions/{mission}/play', [\App\Http\Controllers\Student\MissionController::class, 'play'])->name('missions.play');
     Route::post('/missions/submit', [\App\Http\Controllers\Student\MissionController::class, 'submit'])->name('missions.submit');
-    Route::post('/missions/{mission}/claim', [\App\Http\Controllers\Student\MissionController::class, 'claim'])->name('missions.claim');
+    // ⚠️ مسیرهای «ثابت» باید پیش از مسیرهای پارامتری بیایند، وگرنه {mission}
+    //    رشته‌ی «combo» را به‌جای شناسه می‌گیرد و نتیجه ۴۰۴ می‌شود.
+    //    قیدِ whereNumber هم گذاشته شده تا این اشتباه دوباره ممکن نباشد.
     Route::post('/missions/combo/claim', [\App\Http\Controllers\Student\MissionController::class, 'claimCombo'])->name('missions.combo');
+    Route::get('/missions/{mission}/play', [\App\Http\Controllers\Student\MissionController::class, 'play'])->whereNumber('mission')->name('missions.play');
+    Route::post('/missions/{mission}/claim', [\App\Http\Controllers\Student\MissionController::class, 'claim'])->whereNumber('mission')->name('missions.claim');
 
     // کارنامه‌ی یکپارچه (خلاصه/درس‌به‌درس/نمرات کلاسی/آزمون هوشمند در یک صفحه‌ی تب‌دار)
     Route::get('/report', \App\Http\Controllers\Student\ReportHubController::class)->name('report');
@@ -241,13 +244,13 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     // تنظیماتِ مأموریت‌های روزانه
     Route::get('/missions', [\App\Http\Controllers\Teacher\MissionController::class, 'index'])->name('missions');
     Route::post('/missions', [\App\Http\Controllers\Teacher\MissionController::class, 'store'])->name('missions.store');
-    Route::put('/missions/{mission}', [\App\Http\Controllers\Teacher\MissionController::class, 'update'])->name('missions.update');
-    Route::post('/missions/{mission}/toggle', [\App\Http\Controllers\Teacher\MissionController::class, 'toggle'])->name('missions.toggle');
-    Route::post('/missions/{mission}/duplicate', [\App\Http\Controllers\Teacher\MissionController::class, 'duplicate'])->name('missions.duplicate');
+    Route::put('/missions/{mission}', [\App\Http\Controllers\Teacher\MissionController::class, 'update'])->whereNumber('mission')->name('missions.update');
+    Route::post('/missions/{mission}/toggle', [\App\Http\Controllers\Teacher\MissionController::class, 'toggle'])->whereNumber('mission')->name('missions.toggle');
+    Route::post('/missions/{mission}/duplicate', [\App\Http\Controllers\Teacher\MissionController::class, 'duplicate'])->whereNumber('mission')->name('missions.duplicate');
     Route::get('/missions/bank', [\App\Http\Controllers\Teacher\MissionController::class, 'bank'])->name('missions.bank');
     Route::post('/missions/quick-question', [\App\Http\Controllers\Teacher\MissionController::class, 'quickQuestion'])->name('missions.quick');
     Route::post('/missions/ai-questions', [\App\Http\Controllers\Teacher\MissionController::class, 'aiQuestions'])->name('missions.ai');
-    Route::delete('/missions/{mission}', [\App\Http\Controllers\Teacher\MissionController::class, 'destroy'])->name('missions.destroy');
+    Route::delete('/missions/{mission}', [\App\Http\Controllers\Teacher\MissionController::class, 'destroy'])->whereNumber('mission')->name('missions.destroy');
     Route::get('/reports', [TeacherDashboardController::class, 'reports'])->name('reports');
     Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'manage'])->name('schedule');
     Route::post('/schedule', [\App\Http\Controllers\ScheduleController::class, 'store'])->name('schedule.store');
@@ -369,5 +372,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/force-password', [\App\Http\Controllers\ForcePasswordController::class, 'show'])->name('password.force');
     Route::post('/force-password', [\App\Http\Controllers\ForcePasswordController::class, 'update'])->name('password.force.update');
 });
+
+/**
+ * تورِ ایمنیِ فایل‌های آپلودی.
+ * اگر پوشه‌ی «storage» زیرِ ریشه‌ی وب‌سرور نباشد (چیدمانِ رایجِ cPanel)، وب‌سرور
+ * فایل را پیدا نمی‌کند و درخواست به اینجا می‌رسد. در حالتِ درست هرگز اجرا نمی‌شود.
+ * بدونِ auth است، چون همین حالا هم این فایل‌ها با آدرسِ مستقیم عمومی‌اند.
+ */
+Route::get('/storage/{path}', \App\Http\Controllers\PublicFileController::class)
+    ->where('path', '.*')->name('storage.file');
 
 require __DIR__.'/auth.php';

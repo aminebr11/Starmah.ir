@@ -17,13 +17,48 @@ trait StoresUploads
     /** پسوندهایی که به‌عنوانِ عکس پذیرفته می‌شوند. */
     protected array $imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'];
 
-    /** نامِ فایل را از پسوندِ کلاینت می‌سازد (بدونِ MIME-guessing) و در دیسک ذخیره می‌کند. */
+    /**
+     * پسوندهایی که هرگز نباید روی دیسک بنشینند.
+     *
+     * پوشه‌ی آپلود مستقیماً توسطِ وب‌سرور سِرو می‌شود، پس اگر فایلی با پسوندِ
+     * اجرایی ذخیره شود، وب‌سرور آن را **اجرا** می‌کند. این یعنی هر کسی که
+     * اجازه‌ی آپلود دارد (مثلاً معلم، در بخشِ محتوای کلاس) می‌تواند روی
+     * سرور کد اجرا کند. این فهرست آخرین سدِ دفاعی است و مستقل از
+     * اعتبارسنجیِ هر فرم عمل می‌کند.
+     */
+    protected array $blockedExtensions = [
+        'php', 'phtml', 'php3', 'php4', 'php5', 'php7', 'php8', 'phps', 'phar', 'pht',
+        'htaccess', 'htpasswd', 'user.ini', 'ini',
+        'sh', 'bash', 'zsh', 'cgi', 'pl', 'py', 'rb',
+        'exe', 'bat', 'cmd', 'com', 'scr', 'msi', 'dll', 'jar',
+        'svg',   // SVG می‌تواند اسکریپت داشته باشد و در مرورگر اجرا شود
+        'html', 'htm', 'xhtml', 'shtml',
+    ];
+
+    /**
+     * نامِ فایل را از پسوندِ کلاینت می‌سازد (بدونِ MIME-guessing) و در دیسک ذخیره می‌کند.
+     * پسوندِ اجرایی در هر حالت رد می‌شود، حتی اگر فرم فراموش کرده باشد بررسی کند.
+     */
     protected function storeUpload(UploadedFile $file, string $dir, string $disk = 'public'): string|false
     {
         $ext = strtolower($file->getClientOriginalExtension() ?: 'bin');
         $ext = preg_replace('/[^a-z0-9]+/', '', $ext) ?: 'bin';
 
+        if (in_array($ext, $this->blockedExtensions, true)) {
+            return false;
+        }
+
         return $file->storeAs($dir, Str::random(40) . '.' . $ext, $disk);
+    }
+
+    /** بررسیِ پسوندِ مجاز که فهرستِ ممنوع را هم در نظر می‌گیرد. */
+    protected function extensionSafe(UploadedFile $file, array $allowed): bool
+    {
+        $ext = strtolower($file->getClientOriginalExtension());
+
+        return $ext !== ''
+            && ! in_array($ext, $this->blockedExtensions, true)
+            && in_array($ext, $allowed, true);
     }
 
     /** بررسیِ پسوندِ مجاز بدونِ fileinfo (جایگزینِ قاعده‌ی mimes). */
