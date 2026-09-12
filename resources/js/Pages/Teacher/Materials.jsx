@@ -5,9 +5,16 @@ import JalaliDatePicker from '@/Components/JalaliDatePicker';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
+/** نمایشِ مدت به‌صورت دقیقه:ثانیه */
+const secFmt = (s) => (s >= 60 ? `${fa(Math.floor(s / 60))}:${fa(String(s % 60).padStart(2, '0'))}` : `${fa(s)}ث`);
+
+/** همان فرمولِ سرور (ContentProgressService::xpFor) برای پیش‌نمایش به معلم. */
+const autoXp = (seconds) => Math.max(5, Math.min(25, Math.ceil((seconds || 0) / 60) * 2));
+
 const TABS = [
     { v: 'material', ic: '📄', t: 'جزوه و فایل', accept: '.pdf,.doc,.docx,.ppt,.pptx,.zip,image/*', hint: 'فایل PDF، ورد، پاورپوینت یا تصویر' },
-    { v: 'podcast', ic: '🎧', t: 'پادکست صوتی', accept: 'audio/*', hint: 'فایل صوتی MP3/M4A' },
+    { v: 'podcast', ic: '🎧', t: 'پادکست صوتی و تصویری', accept: 'audio/*,video/*', hint: 'فایل صوتی (MP3/M4A) یا تصویری (MP4) — هر دو پخشِ درون‌برنامه‌ای دارند', playable: true },
+    { v: 'video', ic: '🎬', t: 'ویدیوی درسی', accept: 'video/*', hint: 'فایل MP4/WebM — یا نشانیِ ویدیوی بیرونی', playable: true },
     { v: 'gallery', ic: '🖼️', t: 'گالری تصاویر', accept: 'image/*', hint: 'عکس‌های کلاس (JPG/PNG)' },
     { v: 'homework', ic: '📝', t: 'تکلیف', accept: '.pdf,.doc,.docx,image/*', hint: 'شرح تکلیف + فایل ضمیمه (اختیاری)' },
     { v: 'worksheet', ic: '🎨', t: 'کاربرگ', worksheet: true },
@@ -23,7 +30,34 @@ export default function Materials() {
     const active = TABS.find((t) => t.v === tab);
     const list = items.filter((i) => i.type === tab);
 
-    const form = useForm({ type: tab, title: '', description: '', classroom_id: '', external_url: '', due_at: '', file: null });
+    const form = useForm({
+        type: tab, title: '', description: '', classroom_id: '', external_url: '',
+        due_at: '', file: null, duration_seconds: '', xp_reward: '',
+    });
+
+    /**
+     * مدتِ فایلِ صوتی/تصویری را همین‌جا در مرورگر می‌خوانیم و همراهِ فرم
+     * می‌فرستیم. سرور برای تشخیصِ «تکمیل» به این مدت نیاز دارد و خودش
+     * نمی‌تواند بدونِ ابزارِ رسانه‌ای آن را حساب کند.
+     */
+    const readDuration = (file) => new Promise((resolve) => {
+        if (!file || !/^(audio|video)\//.test(file.type)) return resolve(null);
+        const el = document.createElement(file.type.startsWith('video') ? 'video' : 'audio');
+        el.preload = 'metadata';
+        el.onloadedmetadata = () => {
+            URL.revokeObjectURL(el.src);
+            resolve(Number.isFinite(el.duration) ? Math.round(el.duration) : null);
+        };
+        el.onerror = () => resolve(null);
+        el.src = URL.createObjectURL(file);
+    });
+
+    const onPickFile = async (e) => {
+        const f = e.target.files?.[0] ?? null;
+        form.setData('file', f);
+        const d = await readDuration(f);
+        form.setData('duration_seconds', d ?? '');
+    };
 
     const submit = (e) => {
         e.preventDefault();
@@ -48,7 +82,7 @@ export default function Materials() {
             {banner && <div className="panel" style={{ borderColor: 'var(--gold)', background: '#fff8e8' }}><b>{banner}</b></div>}
 
             {/* تب‌های نوع محتوا */}
-            <div className="dash-cards" style={{ gridTemplateColumns: 'repeat(5,1fr)', marginBottom: 4 }}>
+            <div className="dash-cards content-tabs" style={{ marginBottom: 4 }}>
                 {TABS.map((t) => {
                     const count = t.worksheet ? worksheets.length : items.filter((i) => i.type === t.v).length;
                     return (
@@ -88,11 +122,31 @@ export default function Materials() {
                     )}
                     <Field label={`فایل — ${active.hint}`} err={form.errors.file}>
                         <input ref={fileRef} type="file" accept={active.accept} className="input" style={{ padding: 9 }}
-                            onChange={(e) => form.setData('file', e.target.files[0] || null)} />
+                            onChange={onPickFile} />
+                        {form.data.duration_seconds > 0 && (
+                            <div className="xp-note ok">
+                                ⏱️ مدت تشخیص داده شد: <b>{secFmt(form.data.duration_seconds)}</b>
+                            </div>
+                        )}
                     </Field>
                     <Field label="یا لینک بیرونی (اختیاری)" err={form.errors.external_url}>
                         <input className="input" value={form.data.external_url} onChange={(e) => form.setData('external_url', e.target.value)} placeholder="https://…" dir="ltr" />
                     </Field>
+
+                    {/* امتیاز — فقط برای محتوای پخش‌شونده معنا دارد */}
+                    {active.playable && (
+                        <Field label="امتیازِ تکمیل (اختیاری)" err={form.errors.xp_reward}>
+                            <input className="input" type="number" min="0" max="100" inputMode="numeric"
+                                value={form.data.xp_reward}
+                                onChange={(e) => form.setData('xp_reward', e.target.value)}
+                                placeholder={form.data.duration_seconds > 0 ? `خودکار: ${autoXp(form.data.duration_seconds)}` : 'خودکار'} />
+                            <div className="xp-note">
+                                خالی بگذارید تا خودکار از روی مدت حساب شود (هر دقیقه ۲ امتیاز، بین ۵ تا ۲۵).
+                                <br />
+                                امتیاز <b>فقط یک‌بار</b> و <b>فقط پس از پخشِ کامل بدونِ جلو زدن</b> داده می‌شود.
+                            </div>
+                        </Field>
+                    )}
                     {form.progress && (
                         <div style={{ height: 6, background: 'var(--line)', borderRadius: 6, overflow: 'hidden', margin: '4px 0 12px' }}>
                             <div style={{ height: '100%', width: `${form.progress.percentage}%`, background: 'var(--gold)' }} />
@@ -132,11 +186,15 @@ export default function Materials() {
                                         <div style={{ fontWeight: 800 }}>{active.ic} {i.title}</div>
                                         {i.description && <div style={{ color: 'var(--muted)', fontSize: 13 }}>{i.description}</div>}
                                         <div style={{ color: 'var(--muted-2)', fontSize: 12, marginTop: 2 }}>
-                                            {fa(i.date)}{i.due_at && ` · مهلت: ${fa(i.due_at)}`}
+                                            {fa(i.date)}
+                                            {i.duration ? ` · ⏱️ ${secFmt(i.duration)}` : ''}
+                                            {active.playable ? ` · ⭐ ${fa(i.xp_value)} امتیاز${i.xp_reward != null ? ' (دستی)' : ''}` : ''}
+                                            {i.due_at && ` · مهلت: ${fa(i.due_at)}`}
                                             {' · '}
                                             <button onClick={() => setShowViewers(showViewers === i.id ? null : i.id)}
                                                 style={{ border: 0, background: 'none', color: 'var(--navy-800)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700 }}>
-                                                👁️ {fa(i.views_count)} نفر {i.type === 'podcast' ? 'گوش دادند' : 'دیدند'}
+                                                👁️ {fa(i.views_count)} نفر باز کردند
+                                                {active.playable ? ` · ✅ ${fa(i.completed_count ?? 0)} کامل دیدند` : ''}
                                             </button>
                                         </div>
                                     </div>
@@ -207,7 +265,6 @@ function WorksheetPanel({ worksheets }) {
 }
 
 function Viewers({ item }) {
-    const secFmt = (s) => (s >= 60 ? `${fa(Math.floor(s / 60))}:${fa(String(s % 60).padStart(2, '0'))}` : `${fa(s)}ث`);
     if (!item.viewers || item.viewers.length === 0) {
         return <div style={{ marginTop: 8, background: '#f6f8fc', borderRadius: 10, padding: '8px 12px', fontSize: 12.5, color: 'var(--muted)' }}>هنوز کسی این محتوا را ندیده است.</div>;
     }
@@ -217,7 +274,7 @@ function Viewers({ item }) {
                 <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, padding: '3px 0' }}>
                     <span>👤 {v.name}</span>
                     <span style={{ color: 'var(--muted)' }}>
-                        {item.type === 'podcast' ? `🎧 ${secFmt(v.seconds)}` : '✓ دید'}{v.xp > 0 ? ` · ⚡${fa(v.xp)}` : ''}
+                        {v.completed ? '✅ کامل' : (v.seconds > 0 ? `⏳ ${secFmt(v.seconds)}` : '👁️ باز کرد')}{v.xp > 0 ? ` · ⚡${fa(v.xp)}` : ''}
                     </span>
                 </div>
             ))}

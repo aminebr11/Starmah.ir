@@ -14,15 +14,19 @@ class ClassContent extends Model
 {
     use BelongsToSchool;
 
-    public const TYPES = ['material', 'podcast', 'gallery', 'homework'];
+    /** پادکست حالا هم صوتی است هم تصویری؛ video نوعِ جداگانه‌ی ویدیوی درسی است. */
+    public const TYPES = ['material', 'podcast', 'video', 'gallery', 'homework'];
 
     protected $fillable = [
         'school_id', 'teacher_id', 'classroom_id', 'type',
         'title', 'description', 'file_path', 'external_url', 'due_at',
+        'duration_seconds', 'xp_reward',
     ];
 
     protected $casts = [
         'due_at' => 'datetime',
+        'duration_seconds' => 'integer',
+        'xp_reward' => 'integer',
     ];
 
     public function classroom(): BelongsTo { return $this->belongsTo(Classroom::class); }

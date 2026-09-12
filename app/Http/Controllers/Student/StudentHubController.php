@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Student;
 use App\Http\Controllers\Controller;
 use App\Models\ClassContent;
 use App\Models\ContentView;
+use App\Services\ContentProgressService;
 use App\Models\XpEntry;
 use App\Services\GamificationService;
 use App\Support\Jalali;
@@ -43,6 +44,8 @@ class StudentHubController extends Controller
             'due_at'  => $c->due_at ? Jalali::format($c->due_at) : null,
             'overdue' => $c->due_at ? now()->greaterThan($c->due_at) : false,
             'date'    => Jalali::format($c->created_at),
+            'duration' => $c->duration_seconds ? (int) $c->duration_seconds : null,
+            'xp_value' => app(\App\Services\ContentProgressService::class)->xpFor($c),
         ];
     }
 
@@ -51,7 +54,7 @@ class StudentHubController extends Controller
     {
         $user = $request->user();
         $rows = $this->contentQuery($user)
-            ->whereIn('type', ['material', 'podcast', 'gallery'])
+            ->whereIn('type', ['material', 'podcast', 'video', 'gallery'])
             ->get();
 
         // رکوردِ بازدید/گوش‌دادنِ خودِ دانش‌آموز
@@ -61,10 +64,18 @@ class StudentHubController extends Controller
 
         $items = $rows->map(function ($c) use ($views) {
             $v = $views->get($c->id);
+            $total = $c->duration_seconds
+                ? max(1, (int) ceil($c->duration_seconds / \App\Services\ContentProgressService::BUCKET))
+                : 0;
+            $done = $v && is_array($v->covered) ? count($v->covered) : 0;
+
             return $this->mapItem($c) + [
-                'viewed'     => (bool) $v,
-                'my_seconds' => $v ? (int) $v->seconds : 0,
-                'my_xp'      => $v ? (int) $v->xp_awarded : 0,
+                'viewed'      => (bool) $v,
+                'my_seconds'  => $v ? (int) $v->verified_seconds : 0,
+                'my_position' => $v ? (int) $v->max_position : 0,
+                'my_xp'       => $v ? (int) $v->xp_awarded : 0,
+                'completed'   => $v && $v->completed_at !== null,
+                'percent'     => $total > 0 ? min(100, (int) round($done / $total * 100)) : ($v && $v->completed_at ? 100 : 0),
             ];
         });
 
@@ -72,10 +83,17 @@ class StudentHubController extends Controller
     }
 
     /**
-     * ثبتِ پیشرفتِ گوش‌دادن/دیدنِ محتوا + محاسبه‌ی XP (فقط یک‌بار، متناسب با ثانیه).
-     * فرمول: هر ۱۵ ثانیه گوش‌دادن = ۱ XP، سقف ۲۰ XP. عکس/جزوه‌ی صرفاً دیده‌شده = ۱ XP یک‌بار.
+     * ثبتِ پیشرفتِ پخشِ محتوا و امتیازدهی.
+     *
+     * منطقِ امتیاز عمداً در ContentProgressService است، نه اینجا: سرور
+     * نقشه‌ی پوششِ پخش‌شده را نگه می‌دارد و با ساعتِ خودش سرعتِ پیشرفت را
+     * محدود می‌کند. پس نه جلو زدنِ نوارِ پخش کار می‌کند و نه فرستادنِ
+     * عددِ ساختگی از مرورگر. امتیاز دقیقاً یک‌بار و در لحظه‌ی تکمیل
+     * پرداخت می‌شود.
+     *
+     * مرورگر فقط دو چیز می‌فرستد: نقطه‌ی جاریِ پخش و (یک‌بار) مدتِ مدیا.
      */
-    public function contentProgress(Request $request, ClassContent $classContent, GamificationService $game): JsonResponse
+    public function contentProgress(Request $request, ClassContent $classContent, ContentProgressService $progress): JsonResponse
     {
         $user = $request->user();
 
@@ -83,38 +101,26 @@ class StudentHubController extends Controller
         abort_unless($this->teacherId($user) === $classContent->teacher_id, 403);
 
         $data = $request->validate([
-            'seconds'  => ['nullable', 'integer', 'min:0', 'max:100000'],
-            'finished' => ['nullable', 'boolean'],
+            'position' => ['nullable', 'integer', 'min:0', 'max:86400'],
+            'duration' => ['nullable', 'integer', 'min:1', 'max:86400'],
+            'ended'    => ['nullable', 'boolean'],
         ]);
-        $seconds = (int) ($data['seconds'] ?? 0);
 
-        $view = ContentView::firstOrNew([
-            'class_content_id' => $classContent->id,
-            'student_id'       => $user->id,
-        ]);
-        $view->viewed = true;
-        $view->seconds = max((int) ($view->seconds ?? 0), $seconds);
-
-        // XPِ هدف بر اساس نوع محتوا
-        if ($classContent->type === 'podcast') {
-            $target = min(20, intdiv($view->seconds, 15)); // ۱ XP در هر ۱۵ ثانیه، سقف ۲۰
-        } else {
-            $target = 1; // عکس/جزوه‌ی دیده‌شده = ۱ XP یک‌بار
+        // مدتِ مدیا را نخستین‌بار از مرورگر می‌گیریم و سپس ثابت نگه می‌داریم،
+        // تا بعداً با فرستادنِ مدتِ کوچک نتوان «تکمیل» را ارزان کرد.
+        if (! $classContent->duration_seconds && ! empty($data['duration'])) {
+            $classContent->duration_seconds = (int) $data['duration'];
+            $classContent->save();
         }
 
-        $delta = max(0, $target - (int) ($view->xp_awarded ?? 0));
-        if ($delta > 0) {
-            $game->award($user, $delta, '🎧 محتوای کلاس — ' . $classContent->title, null, 'content', $classContent->id);
-            $view->xp_awarded = $target;
-        }
-        $view->save();
+        $result = $progress->report(
+            $user,
+            $classContent,
+            (int) ($data['position'] ?? 0),
+            (bool) ($data['ended'] ?? false),
+        );
 
-        return response()->json([
-            'ok'      => true,
-            'seconds' => $view->seconds,
-            'xp'      => (int) $view->xp_awarded,
-            'gained'  => $delta,
-        ]);
+        return response()->json(['ok' => true] + $result);
     }
 
     /** تکالیف. */

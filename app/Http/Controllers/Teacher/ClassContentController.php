@@ -44,9 +44,15 @@ class ClassContentController extends Controller
                 'is_file' => (bool) $c->file_path,
                 'due_at'  => $c->due_at ? Jalali::format($c->due_at) : null,
                 'date'    => Jalali::format($c->created_at),
+                'duration' => $c->duration_seconds ? (int) $c->duration_seconds : null,
+                'xp_value' => app(\App\Services\ContentProgressService::class)->xpFor($c),
+                'xp_reward' => $c->xp_reward,
+                'completed_count' => $vs->whereNotNull('completed_at')->count(),
                 'viewers' => $vs->map(fn ($v) => [
                     'name'    => $v->student?->name ?? '—',
-                    'seconds' => (int) $v->seconds,
+                    'avatar'  => $v->student?->avatar_url,
+                    'seconds' => (int) ($v->verified_seconds ?: $v->seconds),
+                    'completed' => $v->completed_at !== null,
                     'xp'      => (int) $v->xp_awarded,
                 ])->values(),
                 'views_count' => $vs->count(),
@@ -80,13 +86,20 @@ class ClassContentController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'type'         => 'required|in:material,podcast,gallery,homework',
+            'type'         => 'required|in:material,podcast,video,gallery,homework',
             'title'        => 'required|string|max:150',
             'description'  => 'nullable|string|max:2000',
             'classroom_id' => 'nullable|integer|exists:classrooms,id',
             'external_url' => 'nullable|url|max:500',
-            'file'         => 'nullable|file|max:20480', // حداکثر ۲۰ مگابایت
+            // ویدیو سنگین‌تر است؛ سقف تا ۱۵۰ مگابایت (به .user.ini هم توجه کنید)
+            'file'         => 'nullable|file|max:153600',
             'due_at'       => 'nullable|date',
+            // مدتِ مدیا را مرورگر هنگامِ انتخابِ فایل تشخیص می‌دهد
+            'duration_seconds' => 'nullable|integer|min:1|max:86400',
+            // امتیازِ دلخواهِ معلم؛ خالی یعنی محاسبه‌ی خودکار از روی مدت
+            'xp_reward'    => 'nullable|integer|min:0|max:100',
+        ], [
+            'file.max' => 'حجمِ فایل بیش از حد است (سقف ۱۵۰ مگابایت).',
         ]);
 
         $path = null;
@@ -103,6 +116,8 @@ class ClassContentController extends Controller
             'file_path'    => $path,
             'external_url' => $data['external_url'] ?? null,
             'due_at'       => $data['due_at'] ?? null,
+            'duration_seconds' => $data['duration_seconds'] ?? null,
+            'xp_reward'    => $data['xp_reward'] ?? null,
         ]);
 
         $this->notifyStudents($content);
@@ -119,8 +134,12 @@ class ClassContentController extends Controller
             'description'  => 'nullable|string|max:2000',
             'classroom_id' => 'nullable|integer|exists:classrooms,id',
             'external_url' => 'nullable|url|max:500',
-            'file'         => 'nullable|file|max:20480',
+            'file'         => 'nullable|file|max:153600',
             'due_at'       => 'nullable|date',
+            'duration_seconds' => 'nullable|integer|min:1|max:86400',
+            'xp_reward'    => 'nullable|integer|min:0|max:100',
+        ], [
+            'file.max' => 'حجمِ فایل بیش از حد است (سقف ۱۵۰ مگابایت).',
         ]);
 
         // جایگزینیِ فایل (در صورت آپلود فایلِ جدید)
@@ -137,6 +156,9 @@ class ClassContentController extends Controller
             'classroom_id' => $data['classroom_id'] ?? $classContent->classroom_id,
             'external_url' => $data['external_url'] ?? $classContent->external_url,
             'due_at'       => $data['due_at'] ?? $classContent->due_at,
+            // فایلِ تازه یعنی مدتِ تازه؛ وگرنه مقدارِ قبلی می‌ماند
+            'duration_seconds' => $data['duration_seconds'] ?? $classContent->duration_seconds,
+            'xp_reward'    => array_key_exists('xp_reward', $data) ? $data['xp_reward'] : $classContent->xp_reward,
         ])->save();
 
         return back()->with('flash', 'محتوا ویرایش شد ✅');
