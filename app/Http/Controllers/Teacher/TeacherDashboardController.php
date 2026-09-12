@@ -161,9 +161,16 @@ class TeacherDashboardController extends Controller
             ->map(fn ($t) => ['id' => $t->id, 'name' => $t->name, 'emoji' => $t->emoji]);
 
         return Inertia::render('Teacher/Classroom', [
-            'classroom' => ['id' => $classroom->id, 'name' => $classroom->name, 'join_code' => $classroom->join_code],
+            'classroom' => [
+                'id' => $classroom->id, 'name' => $classroom->name,
+                'grade' => $classroom->grade, 'join_code' => $classroom->join_code,
+                // ظرفیتِ باقی‌مانده، تا معلم پیش از پر کردنِ فرم بداند جا هست یا نه
+                'capacity' => $classroom->school?->maxStudentsPerClass(),
+                'expired'  => (bool) $classroom->school?->isExpired(),
+            ],
             'students'  => $students,
             'themes'    => $themes,
+            'grades'    => \App\Http\Controllers\Teacher\StudentController::grades($request->user()),
         ]);
     }
 

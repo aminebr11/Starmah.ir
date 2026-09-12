@@ -76,6 +76,48 @@ class PrintController extends Controller
         ]);
     }
 
+    /**
+     * شناسنامه‌ی دانش‌آموز — همان اطلاعاتی که هنگامِ ثبت‌نام گرفته شده،
+     * به‌همراه عکس، در یک برگه‌ی A4 برای پرونده‌ی مدرسه.
+     */
+    public function studentCard(Request $request, User $user): View
+    {
+        abort_unless($this->canSeeStudent($request->user(), $user), 403);
+
+        $viewer = $request->user();
+        $class = $user->classrooms()->with('teacher:id,name')->first();
+        $settings = $user->settings ?? [];
+        $g = $settings['guardian'] ?? [];
+        $user->loadMissing('theme');
+
+        return view('print.student-card', [
+            ...$this->head($user->school_id, $request),
+            'title' => 'شناسنامه‌ی دانش‌آموز',
+            // رمزِ بخشِ والدین فقط برای مدیر/ادمین چاپ می‌شود، نه معلم و نه خودِ خانواده
+            'showPin' => $viewer->hasRole(Roles::SUPER_ADMIN) || $viewer->hasRole(Roles::SCHOOL_ADMIN),
+            's' => [
+                'name'        => $user->name,
+                'avatar'      => $user->avatar ? Storage::disk('public')->url($user->avatar) : null,
+                'national_id' => $user->national_id,
+                'gender'      => $settings['gender'] ?? null,
+                'birth'       => $user->birth_date ? Jalali::format($user->birth_date) : null,
+                'grade'       => $user->grade,
+                'phone'       => $user->phone,
+                'class'       => $class?->name,
+                'teacher'     => $class?->teacher?->name,
+                'team'        => $user->theme ? "{$user->theme->emoji} {$user->theme->name}" : null,
+                'joined'      => Jalali::format($user->created_at),
+                'xp'          => $user->totalXp(),
+                'father_name' => $g['father_name'] ?? null,
+                'mother_name' => $g['mother_name'] ?? null,
+                'parent_relation' => $g['relation'] ?? null,
+                'guardian_phone'  => $g['phone'] ?? ($settings['guardian_phone'] ?? null),
+                'address'     => $g['address'] ?? ($settings['address'] ?? null),
+                'parent_pin'  => $g['pin'] ?? null,
+            ],
+        ]);
+    }
+
     /** گزارشِ کاملِ کلاسِ معلم (جدولِ همه‌ی دانش‌آموزان + تیم‌ها + ترکیب). */
     public function classroom(Request $request, AnalyticsService $analytics): View
     {

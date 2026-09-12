@@ -13,9 +13,15 @@ const norm = (s) => String(s ?? '')
     .toLowerCase().trim();
 
 export default function Classroom() {
-    const { classroom, students = [], themes = [], flash } = usePage().props;
+    const { classroom, students = [], themes = [], grades = [], flash } = usePage().props;
     const [banner, setBanner] = useState(null);
     useEffect(() => { if (flash?.flash) setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); }, [flash]);
+
+    // فرمِ «دانش‌آموز جدید» — با ?new=1 (از دکمه‌ی پیشخوان) خودکار باز می‌شود
+    const [creating, setCreating] = useState(false);
+    useEffect(() => {
+        if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('new') === '1') setCreating(true);
+    }, []);
 
     const [q, setQ] = useState('');
     const [team, setTeam] = useState('all');      // all | none | <theme_id>
@@ -98,9 +104,16 @@ export default function Classroom() {
 
     return (
         <DashLayout title={`دانش‌آموزان — ${classroom.name}`} roleLabel="معلم" menu={teacherMenu} active="class"
-            actions={<Link href={route('teacher.discipline')} className="btn btn-sm">⭐ ثبت انضباط</Link>}>
+            actions={<>
+                <button type="button" onClick={() => setCreating((v) => !v)} className="btn btn-sm">➕ دانش‌آموز جدید</button>
+                <Link href={route('teacher.discipline')} className="btn btn-ghost btn-sm">⭐ ثبت انضباط</Link>
+            </>}>
 
-            {banner && <div className="panel" style={{ borderColor: 'var(--gold)', background: '#fff8e8' }}><b>{banner}</b></div>}
+            {banner && <div className="panel" style={{ borderColor: 'var(--gold)', background: '#fff8e8', lineHeight: 1.9 }}><b>{banner}</b></div>}
+
+            {creating && (
+                <NewStudent classroom={classroom} themes={themes} grades={grades} count={students.length} onClose={() => setCreating(false)} />
+            )}
 
             {/* ── نوارِ خلاصه ── */}
             <div className="cls-summary">
@@ -292,3 +305,161 @@ function EditRow({ cols, form, onSave, onCancel }) {
         </td></tr>
     );
 }
+
+/* ═══════════════════ دانش‌آموزِ جدید ═══════════════════ */
+/**
+ * همان فیلدهای فرمِ ثبت‌نام، تا پرونده از روزِ اول کامل باشد.
+ * فقط نام، نام‌خانوادگی و موبایل اجباری‌اند؛ بقیه را می‌شود بعداً
+ * از صفحه‌ی مدیرِ مدرسه کامل کرد.
+ */
+function NewStudent({ classroom, themes = [], grades = [], count = 0, onClose }) {
+    const [more, setMore] = useState(false);
+    const [photo, setPhoto] = useState(null);
+    const form = useForm({
+        first_name: '', last_name: '', phone: '', password: '',
+        gender: '', national_id: '', birth_date: '', grade: classroom?.grade || '', theme_id: '',
+        father_name: '', mother_name: '', parent_relation: '', parent_phone: '', address: '', parent_pin: '',
+        avatar: null,
+    });
+
+    const full = classroom?.capacity != null && count >= classroom.capacity;
+
+    const pickPhoto = (e) => {
+        const f = e.target.files?.[0];
+        if (!f) { setPhoto(null); form.setData('avatar', null); return; }
+        form.setData('avatar', f);
+        const r = new FileReader();
+        r.onload = () => setPhoto(r.result);
+        r.readAsDataURL(f);
+    };
+
+    const submit = (e) => {
+        e.preventDefault();
+        form.post(route('teacher.students.store'), {
+            preserveScroll: true, forceFormData: true,
+            onSuccess: () => { form.reset(); setPhoto(null); onClose(); },
+        });
+    };
+
+    if (classroom?.expired) {
+        return (
+            <div className="panel" style={{ borderColor: '#e8505b', background: '#fdecee' }}>
+                <b>اشتراکِ مدرسه منقضی شده است</b>
+                <div style={{ fontSize: 13, marginTop: 4 }}>فعلاً امکانِ افزودنِ دانش‌آموز نیست. با مدیرِ مدرسه تماس بگیرید.</div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="panel" style={{ borderColor: 'var(--gold)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0 }}>➕ دانش‌آموزِ جدید در «{classroom?.name}»</h3>
+                <button type="button" onClick={onClose} className="btn btn-ghost btn-sm" style={{ marginInlineStart: 'auto' }}>بستن</button>
+            </div>
+            <p style={{ color: 'var(--muted)', fontSize: 12.5, marginTop: 4, lineHeight: 1.9 }}>
+                رمزِ ورود را خالی بگذارید تا خودکار ساخته شود؛ پس از ثبت، موبایل و رمز نمایش داده می‌شود تا به خانواده بدهید.
+                {classroom?.capacity != null && <> ظرفیتِ کلاس: {fa(count)} از {fa(classroom.capacity)}.</>}
+            </p>
+
+            {full && (
+                <div style={{ background: '#fdecee', color: '#b0333f', borderRadius: 12, padding: '9px 12px', fontSize: 13, marginBottom: 10 }}>
+                    ظرفیتِ این کلاس تکمیل است. برای افزودنِ دانش‌آموزِ بیشتر، از مدیرِ مدرسه ارتقای طرح بخواهید.
+                </div>
+            )}
+
+            <form onSubmit={submit}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 12 }}>
+                    <F label="نام" err={form.errors.first_name}>
+                        <input className="input" value={form.data.first_name} onChange={(e) => form.setData('first_name', e.target.value)} />
+                    </F>
+                    <F label="نام خانوادگی" err={form.errors.last_name}>
+                        <input className="input" value={form.data.last_name} onChange={(e) => form.setData('last_name', e.target.value)} />
+                    </F>
+                    <F label="موبایلِ دانش‌آموز" err={form.errors.phone}>
+                        <input className="input" dir="ltr" value={form.data.phone} onChange={(e) => form.setData('phone', e.target.value)} placeholder="09xxxxxxxxx" />
+                    </F>
+                    <F label="رمزِ ورود (خالی = خودکار)" err={form.errors.password}>
+                        <input className="input" dir="ltr" value={form.data.password} onChange={(e) => form.setData('password', e.target.value)} />
+                    </F>
+                </div>
+
+                <button type="button" onClick={() => setMore(!more)} className="btn btn-ghost btn-sm" style={{ marginTop: 6 }}>
+                    {more ? '▴ بستنِ اطلاعاتِ تکمیلی' : '▾ اطلاعاتِ تکمیلی (عکس، کدِ ملی، سرپرست…)'}
+                </button>
+
+                {more && (
+                    <div style={{ marginTop: 10, borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+                        <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ width: 92, height: 92, borderRadius: 18, overflow: 'hidden', border: '1px solid var(--line)', background: '#f4f7fd', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 34 }}>
+                                    {photo ? <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '👤'}
+                                </div>
+                                <label className="btn btn-ghost btn-sm" style={{ marginTop: 6, display: 'inline-block', cursor: 'pointer' }}>
+                                    📷 عکس
+                                    <input type="file" accept="image/*" onChange={pickPhoto} style={{ display: 'none' }} />
+                                </label>
+                                {form.errors.avatar && <div style={{ color: '#e8505b', fontSize: 11.5 }}>{form.errors.avatar}</div>}
+                            </div>
+
+                            <div style={{ flex: 1, minWidth: 260, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12 }}>
+                                <F label="جنسیت">
+                                    <select className="input" value={form.data.gender} onChange={(e) => form.setData('gender', e.target.value)}>
+                                        <option value="">— انتخاب —</option><option value="پسر">پسر</option><option value="دختر">دختر</option>
+                                    </select>
+                                </F>
+                                <F label="کدِ ملی" err={form.errors.national_id}>
+                                    <input className="input" dir="ltr" maxLength={10} value={form.data.national_id} onChange={(e) => form.setData('national_id', e.target.value)} />
+                                </F>
+                                <F label="تاریخِ تولد (میلادی)" err={form.errors.birth_date}>
+                                    <input className="input" type="date" dir="ltr" value={form.data.birth_date} onChange={(e) => form.setData('birth_date', e.target.value)} />
+                                </F>
+                                <F label="پایه">
+                                    <select className="input" value={form.data.grade} onChange={(e) => form.setData('grade', e.target.value)}>
+                                        <option value="">— انتخاب —</option>
+                                        {grades.map((g) => <option key={g} value={g}>{g}</option>)}
+                                    </select>
+                                </F>
+                                <F label="تیم/گروه">
+                                    <select className="input" value={form.data.theme_id} onChange={(e) => form.setData('theme_id', e.target.value)}>
+                                        <option value="">— بعداً —</option>
+                                        {themes.map((t) => <option key={t.id} value={t.id}>{t.emoji} {t.name}</option>)}
+                                    </select>
+                                </F>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 12, marginTop: 10 }}>
+                            <F label="نامِ پدر"><input className="input" value={form.data.father_name} onChange={(e) => form.setData('father_name', e.target.value)} /></F>
+                            <F label="نامِ مادر"><input className="input" value={form.data.mother_name} onChange={(e) => form.setData('mother_name', e.target.value)} /></F>
+                            <F label="نسبتِ سرپرست">
+                                <select className="input" value={form.data.parent_relation} onChange={(e) => form.setData('parent_relation', e.target.value)}>
+                                    <option value="">— انتخاب —</option><option value="پدر">پدر</option><option value="مادر">مادر</option><option value="ولی">ولی</option>
+                                </select>
+                            </F>
+                            <F label="موبایلِ سرپرست" err={form.errors.parent_phone}>
+                                <input className="input" dir="ltr" value={form.data.parent_phone} onChange={(e) => form.setData('parent_phone', e.target.value)} />
+                            </F>
+                            <F label="رمزِ بخشِ والدین (خالی = خودکار)" err={form.errors.parent_pin}>
+                                <input className="input" dir="ltr" value={form.data.parent_pin} onChange={(e) => form.setData('parent_pin', e.target.value)} />
+                            </F>
+                        </div>
+                        <F label="نشانی">
+                            <input className="input" value={form.data.address} onChange={(e) => form.setData('address', e.target.value)} />
+                        </F>
+                    </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                    <button type="submit" disabled={form.processing || full} className="btn">
+                        {form.processing ? 'در حال ثبت…' : '➕ ثبتِ دانش‌آموز'}
+                    </button>
+                    <button type="button" onClick={onClose} className="btn btn-ghost">انصراف</button>
+                </div>
+            </form>
+        </div>
+    );
+}
+
+const F = ({ label, err, children }) => (
+    <div className="field" style={{ margin: 0 }}><label>{label}</label>{children}{err && <div style={{ color: '#e8505b', fontSize: 12, marginTop: 4 }}>{err}</div>}</div>
+);

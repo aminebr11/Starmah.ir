@@ -201,6 +201,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::get('/class/{classroom}', [TeacherDashboardController::class, 'show'])->name('classroom');
     Route::get('/students', [TeacherDashboardController::class, 'myClass'])->name('students');
     Route::post('/students/{user}/team', [TeacherDashboardController::class, 'setTeam'])->name('students.team');
+    Route::post('/students', [\App\Http\Controllers\Teacher\StudentController::class, 'store'])->name('students.store');
     Route::get('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'index'])->name('activities');
     Route::post('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'store'])->name('activities.store');
     Route::post('/activities/{classActivity}/award', [\App\Http\Controllers\Teacher\ActivityController::class, 'award'])->name('activities.award');
@@ -322,6 +323,7 @@ Route::middleware('auth')->group(function () {
 
     // خروجی‌های چاپی (A4 / PDF از طریقِ چاپِ مرورگر)
     Route::get('/print/student/{user}', [\App\Http\Controllers\PrintController::class, 'student'])->name('print.student');
+    Route::get('/print/student/{user}/card', [\App\Http\Controllers\PrintController::class, 'studentCard'])->name('print.student.card');
     Route::get('/print/class', [\App\Http\Controllers\PrintController::class, 'classroom'])->name('print.class');
     Route::get('/print/roster', [\App\Http\Controllers\PrintController::class, 'roster'])->name('print.roster');
 
@@ -349,6 +351,8 @@ Route::middleware('auth')->group(function () {
 
     // مدیریت کاربران و کلاس‌ها (کنترل دسترسی نقش‌محور داخل کنترلر)
     Route::put('/manage/users/{user}', [\App\Http\Controllers\ManagementController::class, 'updateUser'])->name('manage.users.update');
+    // POST است نه PUT: فرم عکس دارد و مرورگر multipart را با PUT نمی‌فرستد
+    Route::post('/manage/students/{user}/profile', [\App\Http\Controllers\ManagementController::class, 'updateStudentProfile'])->name('manage.students.profile');
     Route::delete('/manage/users/{user}', [\App\Http\Controllers\ManagementController::class, 'destroyUser'])->name('manage.users.destroy');
     Route::put('/manage/classrooms/{classroom}', [\App\Http\Controllers\ManagementController::class, 'updateClassroom'])->name('manage.classrooms.update');
     Route::delete('/manage/classrooms/{classroom}', [\App\Http\Controllers\ManagementController::class, 'destroyClassroom'])->name('manage.classrooms.destroy');

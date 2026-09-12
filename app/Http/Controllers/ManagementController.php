@@ -10,6 +10,7 @@ use App\Support\Roles;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 /**
@@ -20,6 +21,8 @@ use Illuminate\Validation\Rule;
  */
 class ManagementController extends Controller
 {
+    use \App\Http\Controllers\Concerns\StoresUploads;
+
     /** آیا کاربر جاری مجاز به مدیریت این کاربرِ هدف است؟ */
     private function canManageUser(User $actor, User $target): bool
     {
@@ -101,6 +104,97 @@ class ManagementController extends Controller
         AuditLog::record($actor, "ویرایش {$roleFa}", "«{$user->name}» ویرایش شد");
 
         return back()->with('flash', "اطلاعات «{$user->name}» به‌روزرسانی شد ✅");
+    }
+
+    /**
+     * ویرایشِ **پرونده‌ی کاملِ** دانش‌آموز — همان فیلدهایی که هنگامِ ثبت‌نام
+     * گرفته شده، به‌علاوه‌ی عکس.
+     *
+     * چرا جدا از updateUser: آن متد فقط نام/موبایل/کدِملی/رمز را می‌گرفت،
+     * پس مشخصاتِ سرپرست، جنسیت، تاریخِ تولد، نشانی و عکس هیچ راهی برای
+     * اصلاح نداشتند و پرونده‌ها ناقص می‌ماندند.
+     */
+    public function updateStudentProfile(Request $request, User $user): RedirectResponse
+    {
+        $actor = $request->user();
+        abort_unless($this->canManageUser($actor, $user) && $user->hasRole(Roles::STUDENT), 403);
+        $level = $user->school?->level;
+
+        $data = $request->validate([
+            'first_name'  => ['required', 'string', 'max:60'],
+            'last_name'   => ['required', 'string', 'max:60'],
+            'phone'       => ['required', 'string', 'max:20', Rule::unique('users', 'phone')->where('school_id', $user->school_id)->ignore($user->id)],
+            'password'    => ['nullable', 'string', 'min:6'],
+            'gender'      => ['nullable', 'in:پسر,دختر'],
+            'national_id' => ['nullable', 'digits:10'],
+            'birth_date'  => ['nullable', 'date'],
+            'grade'       => ['nullable', 'string', Rule::in(Levels::grades($level) ?: Levels::allGrades())],
+            'theme_id'    => ['nullable', 'exists:themes,id'],
+            'father_name' => ['nullable', 'string', 'max:80'],
+            'mother_name' => ['nullable', 'string', 'max:80'],
+            'parent_relation' => ['nullable', 'in:پدر,مادر,ولی'],
+            'parent_phone' => ['nullable', 'string', 'max:20'],
+            'address'      => ['nullable', 'string', 'max:300'],
+            'parent_pin'   => ['nullable', 'digits_between:4,8'],
+            'avatar'       => ['nullable', 'file', 'max:4096'],
+            'remove_avatar' => ['nullable', 'boolean'],
+        ], [
+            'national_id.digits' => 'کدِ ملی باید ۱۰ رقم باشد.',
+            'avatar.max'         => 'حجمِ عکس بیش از حد است. دوباره عکس بگیرید تا خودکار فشرده شود.',
+        ], ['grade' => 'پایه']);
+
+        $settings = $user->settings ?? [];
+        $guardian = $settings['guardian'] ?? [];
+
+        // فیلدهای سرپرست: رشته‌ی خالی یعنی «پاک کن»، نه «دست نزن»
+        foreach ([
+            'father_name' => 'father_name', 'mother_name' => 'mother_name',
+            'parent_relation' => 'relation', 'parent_phone' => 'phone', 'address' => 'address',
+        ] as $in => $key) {
+            if (array_key_exists($in, $data)) {
+                $v = trim((string) ($data[$in] ?? ''));
+                if ($v === '') {
+                    unset($guardian[$key]);
+                } else {
+                    $guardian[$key] = $v;
+                }
+            }
+        }
+        if (! empty($data['parent_pin'])) {
+            $guardian['pin'] = (string) $data['parent_pin'];
+        }
+        $settings['guardian'] = $guardian;
+        $settings['gender'] = $data['gender'] ?: null;
+
+        $user->fill([
+            'name'        => trim($data['first_name'] . ' ' . $data['last_name']),
+            'phone'       => $data['phone'],
+            'national_id' => $data['national_id'] ?: null,
+            'birth_date'  => $data['birth_date'] ?: null,
+            'grade'       => $data['grade'] ?: null,
+            'theme_id'    => $data['theme_id'] ?: null,
+            'settings'    => $settings,
+        ]);
+        if (! empty($data['password'])) {
+            $user->password = Hash::make($data['password']);
+            $user->must_change_password = true;
+        }
+
+        // عکس: جایگزینی یا حذف — فایلِ قبلی پاک می‌شود تا دیسک پر نشود
+        $old = $user->avatar;
+        if ($request->hasFile('avatar')) {
+            $user->avatar = $this->storeImageOrFail($request->file('avatar'), 'avatars');
+        } elseif (! empty($data['remove_avatar'])) {
+            $user->avatar = null;
+        }
+        $user->save();
+        if ($old && $user->avatar !== $old) {
+            Storage::disk('public')->delete($old);
+        }
+
+        AuditLog::record($actor, 'ویرایشِ پرونده‌ی دانش‌آموز', "پرونده‌ی «{$user->name}» به‌روزرسانی شد");
+
+        return back()->with('flash', "پرونده‌ی «{$user->name}» به‌روزرسانی شد ✅");
     }
 
     public function destroyUser(Request $request, User $user): RedirectResponse

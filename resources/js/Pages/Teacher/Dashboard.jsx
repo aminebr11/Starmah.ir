@@ -29,7 +29,10 @@ export default function Dashboard() {
 
     return (
         <DashLayout title="پیشخوان معلم" roleLabel="معلم" menu={teacherMenu} active="home"
-            actions={<Link href={route('teacher.materials')} className="btn btn-sm">➕ مطالب و محتوی</Link>}>
+            actions={<>
+                <Link href="/teacher/students?new=1" className="btn btn-sm">➕ دانش‌آموز جدید</Link>
+                <Link href={route('teacher.materials')} className="btn btn-ghost btn-sm">➕ مطالب و محتوی</Link>
+            </>}>
 
             {/* خوش‌آمد */}
             <div className="panel" style={{ background: 'linear-gradient(135deg,#16264f,#0a1836)', border: 0, color: '#fff' }}>
