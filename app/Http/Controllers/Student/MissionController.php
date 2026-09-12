@@ -17,6 +17,7 @@ use App\Models\Worksheet;
 use App\Models\WorksheetSubmission;
 use App\Services\GamificationService;
 use App\Support\BankAccess;
+use App\Support\MissionAccess;
 use App\Support\Jalali;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -53,25 +54,10 @@ class MissionController extends Controller
 
     /* ═══════════════════════ دامنه‌ی دسترسی ═══════════════════════ */
 
-    private function scope($user): array
-    {
-        $classrooms = $user->classrooms()->with('teacher')->get();
-
-        return [
-            'teacher_ids' => $classrooms->pluck('teacher_id')->filter()->unique()->values()->all(),
-            'classroom_ids' => $classrooms->pluck('id')->all(),
-        ];
-    }
-
+    /** قاعده‌ی دسترسی در MissionAccess است تا فیدِ اعلان‌ها هم همان را ببیند. */
     private function availableQuery($user)
     {
-        ['teacher_ids' => $tids, 'classroom_ids' => $cids] = $this->scope($user);
-
-        return Mission::whereIn('teacher_id', $tids ?: [0])
-            ->where('is_active', true)
-            ->where(fn ($q) => $q->whereNull('classroom_id')->orWhereIn('classroom_id', $cids ?: [0]))
-            // هدف‌گیریِ تیمی: مأموریتِ بدونِ تیم برای همه، یا مأموریتِ تیمِ خودِ دانش‌آموز
-            ->where(fn ($q) => $q->whereNull('theme_id')->orWhere('theme_id', $user->theme_id));
+        return MissionAccess::availableFor($user);
     }
 
     /* ═══════════════════════ فهرستِ مأموریت‌ها ═══════════════════════ */

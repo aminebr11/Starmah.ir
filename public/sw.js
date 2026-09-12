@@ -11,7 +11,9 @@
        تازه نشانیِ تازه می‌گیرند و کشِ قدیمی خودبه‌خود بی‌اثر می‌شود.
    ===================================================================== */
 
-const VERSION = 'v1';
+// با هر تغییرِ راهبردِ کش این عدد بالا می‌رود تا کشِ قدیمی پاک شود.
+// v2: فونت‌ها محلی شدند و باید مثلِ دارایی‌های build کش‌اول باشند.
+const VERSION = 'v2';
 const SHELL_CACHE = `starmah-shell-${VERSION}`;
 const ASSET_CACHE = `starmah-assets-${VERSION}`;
 const PAGE_CACHE = `starmah-pages-${VERSION}`;
@@ -62,7 +64,8 @@ self.addEventListener('fetch', (event) => {
     if (!isCacheable(request, url)) return;
 
     /* ---- ۱) دارایی‌های build و برند: کش‌اول (نامشان هَش‌دار است) ---- */
-    if (/^\/(build|brand)\//.test(url.pathname)) {
+    // fonts هم مثلِ build نامِ ثابت و محتوای تغییرناپذیر دارد
+    if (/^\/(build|brand|fonts)\//.test(url.pathname)) {
         event.respondWith((async () => {
             const cached = await caches.match(request);
             if (cached) return cached;

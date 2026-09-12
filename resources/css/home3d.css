@@ -388,3 +388,52 @@
   .about-parent-list{grid-template-columns:1fr}
   .about-contact{grid-template-columns:1fr}
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   لمس روی موبایل — اصلاحِ «دکمه‌ای که با یک لمس کار نمی‌کند»
+
+   مشکل: همه‌ی جلوه‌های صفحه‌ی اول با :hover نوشته شده بودند. روی گوشی
+   :hover پس از لمس **می‌چسبد**؛ یعنی لمسِ اول فقط حالتِ hover را روشن
+   می‌کرد و کاربر مجبور بود دوباره بزند. دکمه هم با transform جابه‌جا
+   می‌شد و درست زیرِ انگشت از جای خودش می‌رفت.
+
+   حالا: جلوه‌های hover فقط برای دستگاهی که واقعاً ماوس دارد اجرا می‌شود،
+   و برای لمس یک بازخوردِ فوریِ «فشرده‌شدن» گذاشته شده.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* هر چیزِ کلیک‌شدنی در صفحه‌ی اول: بدونِ تأخیرِ ۳۰۰ میلی‌ثانیه و بدونِ
+   هایلایتِ آبیِ پیش‌فرضِ اندروید. */
+.sm-btn, .sm-hint a, .sm-world, .sm-b, .nav-cosmic a, .nav-cosmic button, .about-contact-card {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* لایه‌ی براقِ روی دکمه نباید لمس را بگیرد */
+.sm-btn::after { pointer-events: none; }
+
+/* جلوه‌های hover فقط روی دستگاهِ ماوس‌دار */
+@media (hover: none) {
+    .sm-btn:hover { transform: none; box-shadow: 0 16px 34px -12px rgba(245,181,63,.75), inset 0 2px 0 rgba(255,255,255,.55); }
+    .sm-btn:hover::after { transform: translateX(-160%); }
+    .sm-btn.ghost:hover { background: rgba(255,255,255,.08); }
+    .sm-world:hover .em { transform: none; opacity: .22; }
+    .sm-b:hover { transform: none; border-color: rgba(255,255,255,.12); }
+    .about-contact-card:hover { transform: none; }
+    .nav-cosmic .nav-menu a:hover { background: transparent; }
+    .nav-cosmic .btn-ghost:hover { background: rgba(255,255,255,.08); }
+}
+
+/* بازخوردِ لمس: کمی فرورفتن، همان لحظه */
+.sm-btn:active { transform: scale(.97); transition: transform .06s; }
+.sm-hint a:active, .nav-cosmic a:active { opacity: .7; }
+
+/* هدف‌های لمسیِ استاندارد (۴۴ پیکسل) روی گوشی */
+@media (pointer: coarse) {
+    .sm-btn { min-height: 52px; }
+    .sm-hint a, .nav-cosmic .nav-menu a { min-height: 44px; display: inline-flex; align-items: center; }
+}
+
+/* روی گوشی، تیلت و انیمیشن‌های سنگینِ صحنه لازم نیست — هم باتری و هم روانی */
+@media (hover: none) {
+    .sm-stage { transform: none !important; }
+}

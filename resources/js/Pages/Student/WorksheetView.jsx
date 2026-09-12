@@ -46,14 +46,11 @@ export default function WorksheetView() {
 
             {dlToast && <div className="no-print" style={{ ...card, marginTop: 10, background: gotDl ? 'rgba(43,182,115,.18)' : 'rgba(240,149,46,.16)', border: `1px solid ${gotDl ? 'rgba(43,182,115,.5)' : 'rgba(240,149,46,.5)'}`, fontSize: 13.5, fontWeight: 700 }}>{gotDl ? '✅' : '⚡'} {dlToast}</div>}
 
-            {/* تصویر سرلوحه است و جایِ سؤال‌ها را نمی‌گیرد */}
-            {worksheet.image && (
-                <div className="ws-sheet" style={{ marginTop: 12, textAlign: 'center' }}>
-                    <img src={worksheet.image} alt={worksheet.title} style={{ maxWidth: '100%', borderRadius: 16 }} />
-                </div>
-            )}
+            {/* یک برگه‌ی یکپارچه: تصویر سرلوحه‌ی خودِ کاربرگ است و سؤال‌ها داخلش */}
             {worksheet.html
                 ? <div className="ws-sheet" style={{ marginTop: 12 }} dangerouslySetInnerHTML={{ __html: worksheet.html }} />
+                : worksheet.image
+                ? <div className="ws-sheet" style={{ marginTop: 12, textAlign: 'center' }}><img src={worksheet.image} alt={worksheet.title} style={{ maxWidth: '100%', borderRadius: 16 }} /></div>
                 : worksheet.file
                     ? <div className="ws-sheet no-print" style={{ marginTop: 12, textAlign: 'center', padding: 30 }}><div style={{ fontSize: 40 }}>📄</div><p style={{ opacity: .85 }}>این کاربرگ یک فایلِ آماده است. با دکمه‌ی «دانلود فایلِ کاربرگ» آن را بگیر، چاپ کن و پر کن.</p></div>
                     : null}

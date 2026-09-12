@@ -100,7 +100,35 @@ class Notifications
                 ]);
         }
 
-        return $items->concat($disc)->concat($family)
+        // یادآورِ مأموریت‌های انجام‌نشده‌ی امروز.
+        // این یکی «رویدادِ ذخیره‌شده» نیست، وضعیتِ همین لحظه است: تا وقتی
+        // مأموریتی مانده باشد در زنگوله دیده می‌شود و به‌محضِ تمام‌شدنِ
+        // همه‌شان خودش می‌رود.
+        $missions = collect();
+        if ($user->isStudent()) {
+            $pending = MissionAccess::pendingToday($user);
+            if ($pending->isNotEmpty()) {
+                $xp = (int) $pending->sum('xp_reward');
+                $n = $pending->count();
+                $missions->push([
+                    'id'    => 'm-today',
+                    'kind'  => 'mission',
+                    'icon'  => '🎯',
+                    'color' => '#e8862e',
+                    'title' => 'مأموریتِ امروزت مانده — ' . Jalali::fa((string) $n) . ' مورد',
+                    'body'  => $n === 1
+                        ? '«' . $pending->first()->title . '» را انجام بده و ' . Jalali::fa((string) $xp) . ' امتیاز بگیر.'
+                        : 'با انجامِ همه‌شان ' . Jalali::fa((string) $xp) . ' امتیاز و جعبه‌ی گنجِ روزانه را می‌گیری.',
+                    'date'  => Jalali::format(now()),
+                    'href'  => '/missions',
+                    'read'  => false,
+                    // همیشه بالای فید بماند تا گم نشود
+                    'ts'    => now()->timestamp + 1,
+                ]);
+            }
+        }
+
+        return $items->concat($disc)->concat($family)->concat($missions)
             ->sortByDesc('ts')->take($limit)->values()
             ->map(fn ($i) => collect($i)->except('ts')->all())->all();
     }

@@ -2,7 +2,7 @@
 <html lang="fa" dir="rtl">
     <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
         <meta name="theme-color" content="#0b1224">
 
         <title inertia>{{ config('app.name', 'ستاره ماه') }}</title>
@@ -20,12 +20,17 @@
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="application-name" content="ستاره ماه">
 
-        <!-- Persian font -->
-        <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
-        <!-- Team header fonts -->
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Poppins:wght@600;800&family=Press+Start+2P&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+        {{-- فونتِ فارسی — از خودِ سرورِ سایت، نه CDNِ بیرونی.
+             پیش از این از cdn.jsdelivr.net می‌آمد و چون شیوه‌نامه‌ی مسدودکننده‌ی
+             رندر بود، هر کندی یا قطعیِ آن دامنه صفحه را چند ثانیه سفید نگه
+             می‌داشت و لمس روی دکمه‌ها بی‌اثر می‌شد. --}}
+        <link rel="preload" href="/fonts/vazirmatn/Vazirmatn-Regular.woff2" as="font" type="font/woff2" crossorigin>
+        <link rel="stylesheet" href="/fonts/vazirmatn/vazirmatn.css">
+
+        {{-- فونت‌های سرتیترِ تیم‌ها — همان چهار فونتِ انتخابی، ولی از سرورِ خودمان.
+             مرورگر هر فایل را فقط وقتی می‌گیرد که عنصری از آن استفاده کند،
+             پس روی صفحه‌ی اول هیچ هزینه‌ای ندارد. --}}
+        <link rel="stylesheet" href="/fonts/team/team-fonts.css">
 
         <!-- Scripts -->
         @routes

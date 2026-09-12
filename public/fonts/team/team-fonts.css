@@ -1,0 +1,18 @@
+/* ─────────────────────────────────────────────────────────────────────
+   فونت‌های سرتیترِ تیم‌ها — میزبانیِ محلی.
+
+   همان چهار فونتی که برای نوارِ تیم‌ها انتخاب شده بود، ولی دیگر از
+   fonts.googleapis.com گرفته نمی‌شوند. آن دامنه در ایران اغلب در دسترس
+   نیست و درخواستش تا لحظه‌ی timeout باز می‌ماند.
+
+   نکته: مرورگر فایلِ فونت را فقط وقتی می‌گیرد که عنصری واقعاً از آن
+   استفاده کند. پس این تعریف‌ها روی صفحه‌هایی که نوارِ تیم ندارند
+   (از جمله صفحه‌ی اول) هیچ هزینه‌ای ندارند.
+   ───────────────────────────────────────────────────────────────────── */
+
+@font-face { font-family: 'Bebas Neue'; src: url('BebasNeue-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Poppins'; src: url('Poppins-600.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Poppins'; src: url('Poppins-800.woff2') format('woff2'); font-weight: 800; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Press Start 2P'; src: url('PressStart2P-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Rajdhani'; src: url('Rajdhani-600.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Rajdhani'; src: url('Rajdhani-700.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }

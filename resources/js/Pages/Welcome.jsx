@@ -46,17 +46,22 @@ function useTilt() {
     return ref;
 }
 
-/* تیلت سبک برای کارت‌ها (worlds / bento) */
+/* تیلت سبک برای کارت‌ها (worlds / bento) — فقط با ماوس.
+   روی لمس، pointermove هنگامِ اسکرول هم شلیک می‌شد و کارت زیرِ انگشت
+   جابه‌جا می‌ماند (pointerleave روی تاچ همیشه نمی‌آید)، پس هم ظاهر
+   به‌هم می‌ریخت و هم هدفِ لمس از جای خودش می‌رفت. */
 function tiltHandlers(strength = 10) {
     const onMove = (e) => {
+        if (e.pointerType !== 'mouse') return;
         const el = e.currentTarget;
         const r = el.getBoundingClientRect();
         const px = (e.clientX - r.left) / r.width - 0.5;
         const py = (e.clientY - r.top) / r.height - 0.5;
         el.style.transform = `perspective(700px) rotateY(${px * strength}deg) rotateX(${-py * strength}deg) translateY(-4px)`;
     };
-    const onLeave = (e) => { e.currentTarget.style.transform = ''; };
-    return { onPointerMove: onMove, onPointerLeave: onLeave };
+    const reset = (e) => { e.currentTarget.style.transform = ''; };
+    // pointercancel هم لازم است: روی تاچ، اسکرول باعثِ cancel می‌شود
+    return { onPointerMove: onMove, onPointerLeave: reset, onPointerCancel: reset, onPointerUp: reset };
 }
 
 /* شمارنده‌ی انیمیشنی */

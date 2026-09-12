@@ -4,7 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title }} — ستاره ماه</title>
-    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    {{-- فونت از سرورِ خودمان؛ برگه‌ی چاپ نباید منتظرِ CDNِ بیرونی بماند --}}
+    <link rel="stylesheet" href="/fonts/vazirmatn/vazirmatn.css">
     <style>
         :root{ --navy:#16264f; --gold:#b9831a; --line:#d9dfe9; --muted:#5a6478; }
         *{ box-sizing:border-box; }

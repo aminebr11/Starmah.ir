@@ -1,0 +1,21 @@
+/* ─────────────────────────────────────────────────────────────────────
+   وزیرمتن — میزبانیِ محلی.
+
+   چرا محلی: پیش از این این فونت از cdn.jsdelivr.net و فونت‌های تزئینی از
+   fonts.googleapis.com می‌آمدند. هر دو «شیوه‌نامه‌ی مسدودکننده‌ی رندر»
+   بودند، یعنی تا وقتی آن سرورها جواب ندهند مرورگر هیچ‌چیز نقاشی نمی‌کرد.
+   در ایران این دامنه‌ها اغلب کند یا در دسترس نیستند، و نتیجه‌اش صفحه‌ای
+   بود که چند ثانیه سفید می‌ماند و لمس‌ها روی آن کار نمی‌کرد.
+
+   حالا فونت از خودِ سرورِ سایت می‌آید: نه وابستگی به بیرون، نه انتظار.
+   فقط شش وزنِ واقعاً استفاده‌شده آورده شده (≈۳۰۰ کیلوبایت کل) و
+   font-display:swap یعنی متن بی‌درنگ با فونتِ سیستم دیده می‌شود و بعد
+   جای خودش را به وزیرمتن می‌دهد — هیچ‌وقت صفحه‌ی خالی.
+   ───────────────────────────────────────────────────────────────────── */
+
+@font-face { font-family: Vazirmatn; src: url('Vazirmatn-Regular.woff2') format('woff2');    font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: Vazirmatn; src: url('Vazirmatn-Medium.woff2') format('woff2');     font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: Vazirmatn; src: url('Vazirmatn-SemiBold.woff2') format('woff2');   font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: Vazirmatn; src: url('Vazirmatn-Bold.woff2') format('woff2');       font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: Vazirmatn; src: url('Vazirmatn-ExtraBold.woff2') format('woff2');  font-weight: 800; font-style: normal; font-display: swap; }
+@font-face { font-family: Vazirmatn; src: url('Vazirmatn-Black.woff2') format('woff2');      font-weight: 900; font-style: normal; font-display: swap; }

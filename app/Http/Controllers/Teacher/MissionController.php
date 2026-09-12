@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
+use App\Models\Announcement;
 use App\Models\Classroom;
 use App\Models\ClassContent;
 use App\Models\EduGame;
@@ -316,9 +317,11 @@ class MissionController extends Controller
         $data = $this->validated($request);
         $user = $request->user();
 
-        Mission::create($this->payload($data, $user));
+        $mission = Mission::create($this->payload($data, $user));
+        $sent = $mission->is_active ? $this->notifyStudents($mission) : 0;
 
-        return back()->with('flash', 'مأموریت ساخته شد ✅');
+        return back()->with('flash', 'مأموریت ساخته شد ✅'
+            . ($sent ? ' و به ' . Jalali::fa((string) $sent) . ' دانش‌آموز اعلان داده شد 🔔' : ''));
     }
 
     public function update(Request $request, Mission $mission): RedirectResponse
@@ -334,7 +337,72 @@ class MissionController extends Controller
         abort_unless($mission->teacher_id === $request->user()->id, 403);
         $mission->update(['is_active' => ! $mission->is_active]);
 
-        return back()->with('flash', $mission->is_active ? 'مأموریت فعال شد.' : 'مأموریت غیرفعال شد.');
+        // فعال‌کردن یعنی «از امروز در دسترس است» — پس همان‌جا خبر می‌دهیم
+        $sent = $mission->is_active ? $this->notifyStudents($mission) : 0;
+
+        return back()->with('flash', $mission->is_active
+            ? 'مأموریت فعال شد.' . ($sent ? ' اعلان به ' . Jalali::fa((string) $sent) . ' دانش‌آموز رفت 🔔' : '')
+            : 'مأموریت غیرفعال شد.');
+    }
+
+    /**
+     * اعلانِ «مأموریتِ تازه» به دانش‌آموزانِ هدف.
+     *
+     * هدف‌گیری دقیقاً همان قاعده‌ی نمایشِ مأموریت است: کلاسِ انتخابی (یا
+     * همه‌ی کلاس‌های معلم) و در صورتِ تعیینِ تیم، فقط اعضای همان تیم.
+     * اگر چیزی خطا برود، ساختِ مأموریت نباید شکست بخورد.
+     *
+     * @return int تعدادِ دانش‌آموزانی که اعلان گرفتند
+     */
+    private function notifyStudents(Mission $mission): int
+    {
+        try {
+            $classrooms = $mission->classroom_id
+                ? Classroom::where('id', $mission->classroom_id)->get()
+                : Classroom::where('teacher_id', $mission->teacher_id)->get();
+
+            $ids = collect();
+            foreach ($classrooms as $c) {
+                $q = $c->students();
+                if ($mission->theme_id) {
+                    $q->where('users.theme_id', $mission->theme_id);
+                }
+                $ids = $ids->concat($q->pluck('users.id'));
+            }
+            $ids = $ids->unique()->values()->all();
+            if (! $ids) {
+                return 0;
+            }
+
+            $label = [
+                'quiz' => '🧠 چند سؤال', 'podcast' => '🎧 یک پادکست', 'video' => '🎬 یک ویدیو',
+                'material' => '📄 یک جزوه', 'worksheet' => '🎨 یک کاربرگ', 'game' => '🎮 یک بازی',
+                'exam' => '🧪 یک آزمون',
+            ][$mission->type] ?? '🎯 یک مأموریت';
+
+            $payload = [
+                'school_id' => $mission->school_id,
+                'sender_id' => $mission->teacher_id,
+                'title' => '🎯 مأموریتِ تازه — ' . $mission->title,
+                'audience' => 'personal',
+                'body' => "یک مأموریتِ روزانه‌ی تازه برایت گذاشته شد: «{$mission->title}».\n"
+                    . "{$label} · جایزه: " . Jalali::fa((string) $mission->xp_reward) . " امتیاز"
+                    . ($mission->badge_name ? " و نشانِ «{$mission->badge_name}»" : '') . ".\n"
+                    . ($mission->description ? $mission->description . "\n" : '')
+                    . 'از بخشِ «مأموریت‌های من» انجامش بده.',
+            ];
+            if (\Illuminate\Support\Facades\Schema::hasColumn('announcements', 'link')) {
+                $payload['link'] = '/missions';
+            }
+            $ann = Announcement::create($payload);
+            $ann->recipients()->sync($ids);
+
+            return count($ids);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('mission notify failed: ' . $e->getMessage());
+
+            return 0;
+        }
     }
 
     /** کپیِ یک مأموریت — برای ساختِ سریعِ مأموریتِ فردا از روی امروز. */

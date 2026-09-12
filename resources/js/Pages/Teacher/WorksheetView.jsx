@@ -31,14 +31,13 @@ export default function WorksheetView() {
                 </div>
             )}
 
-            {/* تصویرِ کاربرگ سرلوحه است، نه جایگزینِ سؤال‌ها.
-                پیش از این اگر تصویری وجود داشت، کلِ سؤال‌ها نمایش داده نمی‌شد. */}
-            {worksheet.image && (
-                <div className="ws-sheet" style={{ marginTop: 8, textAlign: 'center' }}>
+            {/* یک برگه‌ی یکپارچه: تصویر سرلوحه‌ی خودِ کاربرگ است و سؤال‌ها داخلش */}
+            {worksheet.html && <div className="ws-sheet" style={{ marginTop: 12 }} dangerouslySetInnerHTML={{ __html: worksheet.html }} />}
+            {!worksheet.html && worksheet.image && (
+                <div className="ws-sheet" style={{ marginTop: 12, textAlign: 'center' }}>
                     <img src={worksheet.image} alt={worksheet.title} style={{ maxWidth: '100%', borderRadius: 16 }} />
                 </div>
             )}
-            {worksheet.html && <div className="ws-sheet" style={{ marginTop: 12 }} dangerouslySetInnerHTML={{ __html: worksheet.html }} />}
             {!worksheet.html && worksheet.file && (
                 <div className="panel" style={{ marginTop: 12, textAlign: 'center' }}>
                     <div style={{ fontWeight: 800, marginBottom: 8 }}>📄 فایلِ کاربرگ</div>

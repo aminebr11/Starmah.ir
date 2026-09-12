@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Worksheet;
 use App\Models\WorksheetSubmission;
 use App\Services\GamificationService;
+use App\Services\WorksheetSheetService;
 use App\Support\Jalali;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -32,7 +33,7 @@ class StudentWorksheetController extends Controller
         return $worksheet->classroom_id === null || in_array($worksheet->classroom_id, $classroomIds, true);
     }
 
-    public function show(Request $request, Worksheet $worksheet): Response
+    public function show(Request $request, Worksheet $worksheet, WorksheetSheetService $sheets): Response
     {
         $user = $request->user();
         abort_unless($this->accessible($user, $worksheet), 403);
@@ -43,7 +44,8 @@ class StudentWorksheetController extends Controller
             'worksheet' => [
                 'id' => $worksheet->id, 'title' => $worksheet->title,
                 'mode' => $worksheet->mode ?? 'manual',
-                'html' => $worksheet->render_html,
+                // برگه زنده رندر می‌شود تا تصویر سرلوحه‌اش باشد و سؤال‌ها داخلش
+                'html' => $sheets->sheet($worksheet),
                 'image' => $worksheet->image_path ? Storage::disk('public')->url($worksheet->image_path) : null,
                 'file' => $worksheet->file_path ? Storage::disk('public')->url($worksheet->file_path) : null,
             ],
