@@ -76,7 +76,7 @@ class DashboardController extends Controller
         $classroomIds = $cls->pluck('id')->all();
         $today = now()->toDateString();
         $doneToday = \App\Models\MissionCompletion::where('student_id', $user->id)
-            ->where('play_date', $today)->pluck('mission_id')->all();
+            ->whereDate('play_date', $today)->pluck('mission_id')->all();
         $openMissions = \App\Models\Mission::whereIn('teacher_id', $teacherIds ?: [0])
             ->where('is_active', true)
             ->where(fn ($q) => $q->whereNull('classroom_id')->orWhereIn('classroom_id', $classroomIds ?: [0]))

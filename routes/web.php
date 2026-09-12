@@ -132,6 +132,7 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::get('/missions/{mission}/play', [\App\Http\Controllers\Student\MissionController::class, 'play'])->name('missions.play');
     Route::post('/missions/submit', [\App\Http\Controllers\Student\MissionController::class, 'submit'])->name('missions.submit');
     Route::post('/missions/{mission}/claim', [\App\Http\Controllers\Student\MissionController::class, 'claim'])->name('missions.claim');
+    Route::post('/missions/combo/claim', [\App\Http\Controllers\Student\MissionController::class, 'claimCombo'])->name('missions.combo');
 
     // کارنامه‌ی یکپارچه (خلاصه/درس‌به‌درس/نمرات کلاسی/آزمون هوشمند در یک صفحه‌ی تب‌دار)
     Route::get('/report', \App\Http\Controllers\Student\ReportHubController::class)->name('report');
@@ -241,6 +242,10 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/missions', [\App\Http\Controllers\Teacher\MissionController::class, 'store'])->name('missions.store');
     Route::put('/missions/{mission}', [\App\Http\Controllers\Teacher\MissionController::class, 'update'])->name('missions.update');
     Route::post('/missions/{mission}/toggle', [\App\Http\Controllers\Teacher\MissionController::class, 'toggle'])->name('missions.toggle');
+    Route::post('/missions/{mission}/duplicate', [\App\Http\Controllers\Teacher\MissionController::class, 'duplicate'])->name('missions.duplicate');
+    Route::get('/missions/bank', [\App\Http\Controllers\Teacher\MissionController::class, 'bank'])->name('missions.bank');
+    Route::post('/missions/quick-question', [\App\Http\Controllers\Teacher\MissionController::class, 'quickQuestion'])->name('missions.quick');
+    Route::post('/missions/ai-questions', [\App\Http\Controllers\Teacher\MissionController::class, 'aiQuestions'])->name('missions.ai');
     Route::delete('/missions/{mission}', [\App\Http\Controllers\Teacher\MissionController::class, 'destroy'])->name('missions.destroy');
     Route::get('/reports', [TeacherDashboardController::class, 'reports'])->name('reports');
     Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'manage'])->name('schedule');
