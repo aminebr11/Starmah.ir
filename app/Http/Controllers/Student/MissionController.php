@@ -306,7 +306,7 @@ class MissionController extends Controller
     {
         $user = $request->user();
         abort_unless($this->availableQuery($user)->whereKey($mission->id)->exists(), 403);
-        abort_if(($mission->type ?? 'quiz') === 'quiz', 400);
+        abort_unless(in_array($mission->type ?? 'quiz', Mission::ACTIVITY_TYPES, true), 400);
 
         $today = now()->toDateString();
         if (MissionCompletion::where('mission_id', $mission->id)->where('student_id', $user->id)->whereDate('play_date', $today)->exists()) {
