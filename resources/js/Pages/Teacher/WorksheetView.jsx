@@ -31,10 +31,20 @@ export default function WorksheetView() {
                 </div>
             )}
 
-            {/* تصویرِ کاربرگ: اگر تصویر AI هست همان، وگرنه HTML */}
-            {worksheet.image
-                ? <div className="ws-sheet" style={{ marginTop: 8, textAlign: 'center' }}><img src={worksheet.image} alt={worksheet.title} style={{ maxWidth: '100%', borderRadius: 16 }} /></div>
-                : <div className="ws-sheet" style={{ marginTop: 8 }} dangerouslySetInnerHTML={{ __html: worksheet.html || '' }} />}
+            {/* تصویرِ کاربرگ سرلوحه است، نه جایگزینِ سؤال‌ها.
+                پیش از این اگر تصویری وجود داشت، کلِ سؤال‌ها نمایش داده نمی‌شد. */}
+            {worksheet.image && (
+                <div className="ws-sheet" style={{ marginTop: 8, textAlign: 'center' }}>
+                    <img src={worksheet.image} alt={worksheet.title} style={{ maxWidth: '100%', borderRadius: 16 }} />
+                </div>
+            )}
+            {worksheet.html && <div className="ws-sheet" style={{ marginTop: 12 }} dangerouslySetInnerHTML={{ __html: worksheet.html }} />}
+            {!worksheet.html && worksheet.file && (
+                <div className="panel" style={{ marginTop: 12, textAlign: 'center' }}>
+                    <div style={{ fontWeight: 800, marginBottom: 8 }}>📄 فایلِ کاربرگ</div>
+                    <a href={worksheet.file} target="_blank" rel="noreferrer" className="btn">⬇️ بازکردن / دانلودِ فایل</a>
+                </div>
+            )}
 
             {/* کاربرگ‌های پرشده‌ی دانش‌آموزان */}
             {canEdit && (

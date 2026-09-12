@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePage, Link, router } from '@inertiajs/react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 
@@ -7,11 +7,16 @@ const THEME_EMOJI = { stars: '🌙', pitch: '⚽', blocks: '🟩', speed: '🏎�
 
 /** بانک کاربرگ‌ها — دقیقاً مثل بانک سؤالات: دسته‌بندی مقطع→کلاس→درس→شماره درس. */
 export default function Worksheets() {
-    const { grouped = [] } = usePage().props;
+    const { grouped = [], flash } = usePage().props;
     const total = grouped.reduce((n, l) => n + l.count, 0);
+    const [banner, setBanner] = useState(null);
+    useEffect(() => { if (flash?.flash) setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); }, [flash]);
+
     return (
         <DashLayout title="بانک کاربرگ‌ها" roleLabel="معلم" menu={teacherMenu} active="assignments"
             actions={<Link href={route('teacher.worksheets.create')} className="btn btn-sm">🎨 کاربرگ جدید</Link>}>
+
+            {banner && <div className="panel" style={{ borderColor: 'var(--gold)', background: '#fff8e8', lineHeight: 1.9 }}><b>{banner}</b></div>}
 
             {total === 0 ? (
                 <div className="panel" style={{ textAlign: 'center', padding: 40 }}>
@@ -67,6 +72,12 @@ function WCard({ w }) {
     const del = () => { if (confirm('این کاربرگ حذف شود؟')) router.delete(route('teacher.worksheets.destroy', w.id), { preserveScroll: true }); };
     return (
         <div style={{ border: '1px solid var(--line)', borderRadius: 12, padding: 12 }}>
+            {w.image && (
+                <Link href={route('teacher.worksheets.show', w.id)} style={{ display: 'block', marginBottom: 8 }}>
+                    <img src={w.image} alt={w.title} loading="lazy"
+                        style={{ width: '100%', aspectRatio: '1024/560', objectFit: 'cover', borderRadius: 12, border: '1px solid var(--line)' }} />
+                </Link>
+            )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 22 }}>{THEME_EMOJI[w.theme] || '📄'}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -79,7 +90,7 @@ function WCard({ w }) {
                 {w.published
                     ? <span className="tag tag-ok">منتشرشده · {fa(w.submissions)} ارسال</span>
                     : <span className="tag" style={{ background: '#f0f3f8', color: 'var(--muted)' }}>منتشرنشده</span>}
-                {w.has_image && <span className="tag" style={{ background: '#ede9fe', color: '#6d28d9' }}>🎨 تصویر AI</span>}
+                {w.has_image && <span className="tag" style={{ background: '#ede9fe', color: '#6d28d9' }}>🎨 تصویردار</span>}
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                 <Link href={route('teacher.worksheets.show', w.id)} className="btn btn-sm" style={{ flex: 1 }}>🖼️ مشاهده / انتشار</Link>

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { usePage, router } from '@inertiajs/react';
 import axios from 'axios';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
@@ -14,15 +14,20 @@ const blankQ = () => ({ prompt: '', type: 'mc', choices: [{ value: '', correct: 
 
 /** کاربرگ‌سازِ سه‌حالته: دستی / بارگذاری فایل / هوش مصنوعی. */
 export default function WorksheetCreate() {
-    const { themes = [], curriculum = [], classrooms = [], imageAi = false } = usePage().props;
+    const { themes = [], curriculum = [], classrooms = [], image = {} } = usePage().props;
     const [mode, setMode] = useState('ai');
     const fileRef = useRef(null);
     const [file, setFile] = useState(null);
     const [spec, setSpec] = useState({
         title: '', level: '', grade: '', subject: '', lesson_no: '', topic: '', goal: '',
-        classroom_id: '', publish: false, gen_image: false,
+        classroom_id: '', publish: false,
+        // تصویر: پیش‌فرض روشن است — اگر کلیدِ AI باشد با AI، وگرنه با موتورِ محلی
+        image_mode: image.enabled ? (image.ai ? 'ai' : 'local') : 'none',
+        save_to_bank: true,
         theme: themes[0]?.key || 'stars', count: 6, difficulty: 'medium', type: 'mc',
     });
+    const [art, setArt] = useState(null);
+    const [artBusy, setArtBusy] = useState(false);
     const set = (k, v) => setSpec((s) => ({ ...s, [k]: v }));
     const gradesOf = (level) => (curriculum.find((l) => l.level === level)?.grades || []).map((g) => g.grade);
     const subjectsOf = (level, grade) => ((curriculum.find((l) => l.level === level)?.grades || []).find((x) => x.grade === grade)?.subjects || []).map((s) => s.name);
@@ -53,6 +58,20 @@ export default function WorksheetCreate() {
         } finally { setBusy(false); }
     };
 
+    /** پیش‌نمایشِ تصویرِ تم — با موتورِ محلی، پس بی‌هزینه و آنی. */
+    const previewArt = async () => {
+        setArtBusy(true);
+        try {
+            const { data } = await axios.post(route('teacher.worksheets.art'), {
+                title: spec.title || 'کاربرگ', subject: spec.subject, theme: spec.theme,
+                spec: spec.topic + (spec.goal ? ' | ' + spec.goal : ''),
+            });
+            if (data.ok) setArt(data.svg);
+        } catch { setArt(null); } finally { setArtBusy(false); }
+    };
+    // با تغییرِ تم، پیش‌نمایشِ قبلی دیگر معتبر نیست
+    useEffect(() => { if (art) previewArt(); /* eslint-disable-next-line */ }, [spec.theme]);
+
     const editQ = (i, k, v) => setQuestions((qs) => qs.map((q, j) => (j === i ? { ...q, [k]: v } : q)));
     const editChoice = (qi, ci, v) => setQuestions((qs) => qs.map((q, j) => {
         if (j !== qi) return q;
@@ -73,7 +92,10 @@ export default function WorksheetCreate() {
         setSaving(true);
         router.post(route('teacher.worksheets.store'), {
             title: spec.title, mode, level: spec.level, grade: spec.grade, subject: spec.subject, lesson_no: spec.lesson_no,
-            classroom_id: spec.classroom_id || null, publish: spec.publish, gen_image: mode === 'ai' ? spec.gen_image : false,
+            classroom_id: spec.classroom_id || null, publish: spec.publish,
+            image_mode: mode === 'upload' ? 'none' : spec.image_mode,
+            save_to_bank: mode !== 'upload' && spec.save_to_bank,
+            difficulty: spec.difficulty,
             theme: spec.theme, spec: spec.topic + (spec.goal ? ' | ' + spec.goal : ''),
             questions: mode === 'upload' ? [] : questions,
             file: mode === 'upload' ? file : null,
@@ -236,12 +258,13 @@ export default function WorksheetCreate() {
                                 <input type="checkbox" checked={spec.publish} onChange={(e) => set('publish', e.target.checked)} disabled={!spec.classroom_id} />
                                 انتشار فوری و اعلان به دانش‌آموزانِ کلاس
                             </label>
-                            {imageAi && mode === 'ai' && (
-                                <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, marginTop: 6 }}>
-                                    <input type="checkbox" checked={spec.gen_image} onChange={(e) => set('gen_image', e.target.checked)} />
-                                    🎨 تولید تصویرِ کاربرگ با هوش مصنوعی (ممکن است چند ثانیه طول بکشد)
-                                </label>
-                            )}
+                            <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, marginTop: 8, lineHeight: 1.8 }}>
+                                <input type="checkbox" checked={spec.save_to_bank} onChange={(e) => set('save_to_bank', e.target.checked)} style={{ marginTop: 4 }} />
+                                <span>🗂️ سؤال‌ها در <b>بانکِ سؤال</b> هم ذخیره شوند<div style={{ fontSize: 11.5, color: 'var(--muted)' }}>تا بعداً در آزمون، بازی و مأموریتِ روزانه هم به‌کار بیایند. سؤالِ تکراری دوباره ثبت نمی‌شود.</div></span>
+                            </label>
+
+                            <ImagePicker spec={spec} set={set} image={image} art={art} artBusy={artBusy} onPreview={previewArt} />
+
                             <button type="button" disabled={saving} onClick={save} className="btn" style={{ width: '100%', marginTop: 12 }}>{saving ? 'در حال ذخیره…' : '🖼️ ساخت کاربرگ و ذخیره در بانک'}</button>
                         </div>
                     )}
@@ -254,3 +277,48 @@ export default function WorksheetCreate() {
 const Field = ({ label, children }) => (
     <div className="field"><label>{label}</label>{children}</div>
 );
+
+/* ═══════════════ انتخابِ تصویرِ کاربرگ ═══════════════ */
+function ImagePicker({ spec, set, image, art, artBusy, onPreview }) {
+    const opts = [
+        { v: 'ai', ic: '🤖', t: 'هوش مصنوعی', d: image.ai ? image.label : 'کلیدِ AI ثبت نشده', off: !image.ai },
+        { v: 'local', ic: '🎨', t: 'تصویرسازِ ستاره ماه', d: 'برداری، آنی و رایگان', off: !image.enabled },
+        { v: 'none', ic: '🚫', t: 'بدونِ تصویر', d: 'فقط کاربرگِ متنی', off: false },
+    ];
+
+    return (
+        <div style={{ marginTop: 12, border: '1px solid var(--line)', borderRadius: 14, padding: 12, background: '#faf9ff' }}>
+            <b style={{ fontSize: 13.5 }}>🖼️ تصویرِ کاربرگ</b>
+            <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 3, lineHeight: 1.9 }}>{image.note}</div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 8, marginTop: 10 }}>
+                {opts.map((o) => (
+                    <button type="button" key={o.v} disabled={o.off} onClick={() => set('image_mode', o.v)}
+                        title={o.off ? 'در حال حاضر در دسترس نیست' : o.d}
+                        style={{ textAlign: 'right', cursor: o.off ? 'not-allowed' : 'pointer', fontFamily: 'inherit', borderRadius: 12, padding: 10,
+                            opacity: o.off ? .45 : 1,
+                            border: spec.image_mode === o.v ? '2px solid var(--gold)' : '1px solid var(--line)',
+                            background: spec.image_mode === o.v ? '#fff8e8' : '#fff' }}>
+                        <div style={{ fontSize: 20 }}>{o.ic}</div>
+                        <div style={{ fontWeight: 800, fontSize: 12.5, marginTop: 2 }}>{o.t}</div>
+                        <div style={{ fontSize: 11, color: 'var(--muted)' }}>{o.d}</div>
+                    </button>
+                ))}
+            </div>
+
+            {spec.image_mode !== 'none' && (
+                <div style={{ marginTop: 10 }}>
+                    <button type="button" onClick={onPreview} disabled={artBusy} className="btn btn-ghost btn-sm">
+                        {artBusy ? 'در حال ساخت…' : '👁️ پیش‌نمایشِ تصویرِ تم'}
+                    </button>
+                    {spec.image_mode === 'ai' && (
+                        <span style={{ fontSize: 11, color: 'var(--muted)', marginInlineStart: 8 }}>
+                            پیش‌نمایش همیشه تصویرِ محلی است؛ تصویرِ هوش مصنوعی هنگامِ ذخیره ساخته می‌شود.
+                        </span>
+                    )}
+                    {art && <img src={art} alt="پیش‌نمایشِ تصویرِ کاربرگ" style={{ width: '100%', borderRadius: 14, marginTop: 10, border: '1px solid var(--line)' }} />}
+                </div>
+            )}
+        </div>
+    );
+}

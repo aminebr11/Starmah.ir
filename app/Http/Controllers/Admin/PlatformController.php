@@ -166,12 +166,23 @@ class PlatformController extends Controller
                 'anthropic_model'=> \App\Models\Setting::get('anthropic_model', 'claude-haiku-4-5-20251001'),
                 'openai_model'   => \App\Models\Setting::get('openai_model', 'gpt-4o-mini'),
                 // تصویرسازِ کاربرگ
-                'ws_image_provider' => \App\Models\Setting::get('ws_image_provider', 'off'),
+                'ws_image_provider' => app(\App\Services\WorksheetImageService::class)->configured(),
                 'ws_image_model'    => \App\Models\Setting::get('ws_image_model', 'gpt-image-1'),
                 'ws_image_set'      => (bool) \App\Models\Setting::get('openai_image_key'),
                 'ws_image_hint'     => $mask(\App\Models\Setting::get('openai_image_key')),
+                'gemini_set'        => (bool) \App\Models\Setting::get('gemini_key'),
+                'gemini_hint'       => $mask(\App\Models\Setting::get('gemini_key')),
+                'gemini_image_model'=> \App\Models\Setting::get('gemini_image_model', 'gemini-2.5-flash-image'),
             ],
+            // موتوری که واقعاً اجرا می‌شود، تا ادمین حدس نزند
+            'imageStatus' => app(\App\Services\WorksheetImageService::class)->status(),
         ]);
+    }
+
+    /** آزمایشِ زنده‌ی تصویرسازِ کاربرگ — یک تصویرِ آزمایشی می‌سازد و پاک می‌کند. */
+    public function testImage(\App\Services\WorksheetImageService $img): \Illuminate\Http\JsonResponse
+    {
+        return response()->json($img->test());
     }
 
     public function storeSettings(Request $request): RedirectResponse
@@ -182,16 +193,19 @@ class PlatformController extends Controller
             'openai_key'      => ['nullable', 'string', 'max:200'],
             'anthropic_model' => ['nullable', 'string', 'max:80'],
             'openai_model'    => ['nullable', 'string', 'max:80'],
-            'ws_image_provider' => ['nullable', 'in:off,openai'],
+            'ws_image_provider' => ['nullable', 'in:auto,openai,gemini,local,off'],
             'ws_image_model'    => ['nullable', 'string', 'max:80'],
             'openai_image_key'  => ['nullable', 'string', 'max:200'],
+            'gemini_key'        => ['nullable', 'string', 'max:200'],
+            'gemini_image_model'=> ['nullable', 'string', 'max:80'],
         ]);
 
         \App\Models\Setting::put('ai_provider', $data['ai_provider']);
         \App\Models\Setting::put('anthropic_model', $data['anthropic_model'] ?: 'claude-haiku-4-5-20251001');
         \App\Models\Setting::put('openai_model', $data['openai_model'] ?: 'gpt-4o-mini');
-        \App\Models\Setting::put('ws_image_provider', $data['ws_image_provider'] ?? 'off');
+        \App\Models\Setting::put('ws_image_provider', $data['ws_image_provider'] ?? 'auto');
         \App\Models\Setting::put('ws_image_model', $data['ws_image_model'] ?: 'gpt-image-1');
+        \App\Models\Setting::put('gemini_image_model', $data['gemini_image_model'] ?: 'gemini-2.5-flash-image');
         // کلیدها فقط در صورت وارد شدن مقدار جدید، به‌روزرسانی می‌شوند (خالی = بدون تغییر)
         if (! empty($data['anthropic_key'])) {
             \App\Models\Setting::put('anthropic_key', $data['anthropic_key']);
@@ -201,6 +215,9 @@ class PlatformController extends Controller
         }
         if (! empty($data['openai_image_key'])) {
             \App\Models\Setting::put('openai_image_key', $data['openai_image_key']);
+        }
+        if (! empty($data['gemini_key'])) {
+            \App\Models\Setting::put('gemini_key', $data['gemini_key']);
         }
 
         return back()->with('flash', 'تنظیمات ذخیره شد ✅');

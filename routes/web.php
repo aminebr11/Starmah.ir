@@ -89,6 +89,7 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::get('/reports', [PlatformController::class, 'reports'])->name('reports');
     Route::get('/settings', [PlatformController::class, 'settings'])->name('settings');
     Route::post('/settings', [PlatformController::class, 'storeSettings'])->name('settings.store');
+    Route::post('/settings/test-image', [PlatformController::class, 'testImage'])->name('settings.test-image');
 });
 
 /* ---------------- مدیر مدرسه ---------------- */
@@ -251,6 +252,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::get('/worksheets', [\App\Http\Controllers\Teacher\WorksheetController::class, 'index'])->name('worksheets');
     Route::get('/worksheets/create', [\App\Http\Controllers\Teacher\WorksheetController::class, 'create'])->name('worksheets.create');
     Route::post('/worksheets/ai', [\App\Http\Controllers\Teacher\WorksheetController::class, 'ai'])->name('worksheets.ai');
+    Route::post('/worksheets/art-preview', [\App\Http\Controllers\Teacher\WorksheetController::class, 'artPreview'])->name('worksheets.art');
     Route::post('/worksheets', [\App\Http\Controllers\Teacher\WorksheetController::class, 'store'])->name('worksheets.store');
     Route::get('/worksheets/{worksheet}', [\App\Http\Controllers\Teacher\WorksheetController::class, 'show'])->name('worksheets.show');
     Route::post('/worksheets/{worksheet}/publish', [\App\Http\Controllers\Teacher\WorksheetController::class, 'publish'])->name('worksheets.publish');
