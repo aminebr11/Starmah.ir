@@ -15,7 +15,7 @@ const colorFor = (s) => { let h = 0; for (const c of (s || '')) h = (h * 31 + c.
 const weekdayOf = (iso) => { try { return (new Date(iso + 'T00:00:00').getDay() + 1) % 7; } catch (e) { return 0; } };
 
 export default function Manage() {
-    const { role, routes, classrooms = [], classroomId, classroom, days = [], entries = {}, books = [], flash } = usePage().props;
+    const { role, routes, classrooms = [], classroomId, classroom, days = [], entries = {}, special = [], books = [], flash } = usePage().props;
     const menu = role === 'teacher' ? teacherMenu : schoolMenu;
     const roleLabel = role === 'teacher' ? 'معلم' : 'مدیر مدرسه';
     const [banner, setBanner] = useState(null);
@@ -144,6 +144,48 @@ export default function Manage() {
                     ))}
                 </div>
             </div>
+
+            {/* جدولِ پیگیرِ تاریخ‌های خاص — جدا از هفته‌ی همیشگی */}
+            <div className="panel">
+                <h3>📌 برنامه‌ی تاریخ‌های خاص <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--muted)' }}>(خارج از برنامه‌ی هفتگی)</span></h3>
+                {special.length === 0 ? (
+                    <p style={{ color: 'var(--muted)' }}>هیچ برنامه‌ی تاریخ‌داری ثبت نشده. برای ثبت، در فرمِ بالا «📅 تاریخِ خاص» را انتخاب کن.</p>
+                ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
+                            <thead>
+                                <tr style={{ background: '#f6f8fc' }}>
+                                    <th style={thS}>تاریخ</th>
+                                    <th style={thS}>روز</th>
+                                    <th style={thS}>ساعت</th>
+                                    <th style={thS}>برنامه</th>
+                                    <th style={thS}>زنگ</th>
+                                    <th style={thS} />
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {special.map((e) => (
+                                    <tr key={e.id} style={{ borderTop: '1px solid var(--line)', opacity: e.past ? .5 : 1, background: e.is_today ? '#fffbe8' : 'transparent' }}>
+                                        <td style={tdS}>
+                                            <b>{fa(e.jdate)}</b>
+                                            {e.is_today && <span className="tag tag-warn" style={{ marginInlineStart: 6, fontSize: 10 }}>امروز</span>}
+                                            {e.past && <span className="tag" style={{ marginInlineStart: 6, fontSize: 10 }}>گذشته</span>}
+                                        </td>
+                                        <td style={tdS}>{e.day}</td>
+                                        <td style={tdS}><span dir="ltr" style={{ display: 'inline-block' }}>{fa(e.time || '—')}</span></td>
+                                        <td style={tdS}>{e.kind === 'recess' ? `☕ ${e.title}` : e.title}</td>
+                                        <td style={tdS}>{e.period ? fa(e.period) : '—'}</td>
+                                        <td style={tdS}><button onClick={() => del(e.id)} className="tag" style={{ border: 0, background: '#fdecee', color: '#b0333f', cursor: 'pointer' }}>حذف</button></td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
         </DashLayout>
     );
 }
+
+const thS = { textAlign: 'start', padding: '9px 10px', fontSize: 12.5, color: 'var(--muted)', fontWeight: 700 };
+const tdS = { padding: '9px 10px', fontSize: 13 };

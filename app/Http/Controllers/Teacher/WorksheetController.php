@@ -371,7 +371,10 @@ class WorksheetController extends Controller
                 'file' => $worksheet->file_path ? Storage::disk('public')->url($worksheet->file_path) : null,
                 'subject' => $worksheet->subject, 'grade' => $worksheet->grade,
                 'lesson_no' => $worksheet->lesson_no, 'mode' => $worksheet->mode,
+                'theme' => $worksheet->theme,
                 'questions' => is_array($worksheet->questions) ? count($worksheet->questions) : 0,
+                // داده‌ی خامِ سؤال‌ها برای ویرایشِ درجا در پیش‌نمایش
+                'items' => is_array($worksheet->questions) ? array_values($worksheet->questions) : [],
                 'published' => (bool) $worksheet->is_published,
                 'classroom_id' => $worksheet->classroom_id,
                 'date' => Jalali::format($worksheet->created_at),
@@ -379,8 +382,76 @@ class WorksheetController extends Controller
             'classrooms' => Classroom::where('teacher_id', $user->id)->get(['id', 'name'])
                 ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name]),
             'canEdit' => WorksheetAccess::canEdit($user, $worksheet),
+            'themes' => $this->sheets->themeList(),
             'submissions' => $submissions,
         ]);
+    }
+
+    /**
+     * ویرایشِ کاربرگ از بانک/پیش‌نمایش.
+     *
+     * تا پیش از این کاربرگ پس از ساخته‌شدن قفل بود و معلم برای اصلاحِ یک
+     * غلطِ تایپی مجبور بود کاربرگ را دوباره از صفر بسازد. اینجا مشخصات و
+     * سؤال‌ها به‌روز می‌شوند و برگه دوباره رندر می‌شود (تصویرِ موجود حفظ
+     * می‌شود تا هزینه‌ی تولیدِ دوباره ندهیم).
+     */
+    public function update(Request $request, Worksheet $worksheet): RedirectResponse
+    {
+        abort_unless(WorksheetAccess::canEdit($request->user(), $worksheet), 403);
+
+        $data = $request->validate([
+            'title' => ['required', 'string', 'max:160'],
+            'subject' => ['nullable', 'string', 'max:120'],
+            'grade' => ['nullable', 'string', 'max:60'],
+            'lesson_no' => ['nullable', 'string', 'max:30'],
+            'theme' => ['nullable', 'string', 'max:40'],
+            'questions' => ['nullable', 'array'],
+            'questions.*.prompt' => ['nullable', 'string'],
+            'questions.*.type' => ['nullable', 'in:mc,tf,desc,blank'],
+            'questions.*.answer' => ['nullable'],
+            'questions.*.explanation' => ['nullable', 'string', 'max:600'],
+            'questions.*.difficulty' => ['nullable', 'in:easy,medium,hard'],
+            'questions.*.choices' => ['nullable', 'array', 'max:8'],
+            'questions.*.choices.*.value' => ['nullable', 'string', 'max:400'],
+            'questions.*.choices.*.correct' => ['nullable', 'boolean'],
+        ]);
+
+        $questions = array_values(array_filter($data['questions'] ?? [], fn ($q) => trim((string) ($q['prompt'] ?? '')) !== ''));
+        if (($worksheet->mode ?? 'manual') !== 'upload' && empty($questions)) {
+            return back()->withErrors(['questions' => 'کاربرگ باید دستِ‌کم یک سؤال داشته باشد.']);
+        }
+
+        $themeKey = $this->sheets->themeKey($data['theme'] ?? $worksheet->theme);
+        $normalized = array_map(fn ($q) => [
+            'prompt' => (string) ($q['prompt'] ?? ''), 'type' => $q['type'] ?? 'mc',
+            'choices' => array_values($q['choices'] ?? []), 'answer' => $q['answer'] ?? null,
+            'explanation' => $q['explanation'] ?? null,
+            'difficulty' => $q['difficulty'] ?? 'medium',
+        ], $questions);
+
+        $worksheet->update([
+            'title' => $data['title'],
+            'subject' => $data['subject'] ?? $worksheet->subject,
+            'grade' => $data['grade'] ?? $worksheet->grade,
+            'lesson_no' => $data['lesson_no'] ?? $worksheet->lesson_no,
+            'theme' => $themeKey,
+            'questions' => $normalized,
+            'render_html' => $normalized ? $this->sheets->renderWorksheet(
+                $data['title'], $data['subject'] ?? '', $data['grade'] ?? '', $themeKey, $normalized,
+                $worksheet->image_path ? Storage::disk('public')->url($worksheet->image_path) : null
+            ) : $worksheet->render_html,
+        ]);
+
+        return back()->with('flash', 'کاربرگ ویرایش شد ✅');
+    }
+
+    /** پنهان‌کردنِ کاربرگ از دیدِ دانش‌آموز، بدونِ حذفِ آن از بانک. */
+    public function unpublish(Request $request, Worksheet $worksheet): RedirectResponse
+    {
+        abort_unless(WorksheetAccess::canEdit($request->user(), $worksheet), 403);
+        $worksheet->update(['is_published' => false]);
+
+        return back()->with('flash', 'کاربرگ از دیدِ دانش‌آموزان پنهان شد 🙈');
     }
 
     public function destroy(Request $request, Worksheet $worksheet): RedirectResponse

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { usePage } from '@inertiajs/react';
+import { usePage, Link } from '@inertiajs/react';
 import axios from 'axios';
 import ThemedDash from '@/Layouts/ThemedDash';
 import ListSearch, { normalizeFa } from '@/Components/ListSearch';
@@ -18,7 +18,12 @@ const TABS = [
     { v: 'podcast', ic: '🎧', t: 'پادکست' },
     { v: 'video', ic: '🎬', t: 'ویدیو' },
     { v: 'gallery', ic: '🖼️', t: 'گالری' },
+    // تکالیف و کاربرگ‌ها هم بخشی از محتوای درسی‌اند، نه منویی جدا
+    { v: 'homework', ic: '📝', t: 'تکالیف' },
+    { v: 'worksheet', ic: '🎨', t: 'کاربرگ‌ها' },
 ];
+
+const THEME_EMOJI = { stars: '🌙', pitch: '⚽', blocks: '🟩', speed: '🏎️', classic: '📘' };
 
 const isImageUrl = (u) => /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(u || '');
 const isAudioUrl = (u) => /\.(mp3|m4a|aac|ogg|wav|opus)$/i.test(u || '');
@@ -31,16 +36,18 @@ const secFmt = (s) => {
 };
 
 export default function ClassContent() {
-    const { items = [] } = usePage().props;
-    const firstWith = TABS.find((t) => items.some((i) => i.type === t.v))?.v || 'material';
-    const [tab, setTab] = useState(firstWith);
+    const { items = [], homework = [], worksheets = [], tab: initialTab } = usePage().props;
+    // شمارشِ هر تب — تکالیف و کاربرگ‌ها از فهرستِ خودشان می‌آیند
+    const countOf = (v) => (v === 'homework' ? homework.length : v === 'worksheet' ? worksheets.length : items.filter((i) => i.type === v).length);
+    const firstWith = TABS.find((t) => countOf(t.v) > 0)?.v || 'material';
+    const [tab, setTab] = useState(TABS.some((t) => t.v === initialTab) ? initialTab : firstWith);
     const [q, setQ] = useState('');
 
     const list = useMemo(() => {
         const nq = normalizeFa(q);
-        return items.filter((i) => i.type === tab
-            && (!nq || normalizeFa(i.title).includes(nq) || normalizeFa(i.description).includes(nq)));
-    }, [items, tab, q]);
+        const src = tab === 'homework' ? homework : items.filter((i) => i.type === tab);
+        return src.filter((i) => !nq || normalizeFa(i.title).includes(nq) || normalizeFa(i.description).includes(nq));
+    }, [items, homework, tab, q]);
 
     const active = TABS.find((t) => t.v === tab) || TABS[0];
 
@@ -51,7 +58,7 @@ export default function ClassContent() {
     const available = items.reduce((a, i) => a + (i.completed ? 0 : (i.xp_value || 0)), 0);
 
     return (
-        <ThemedDash title="محتوای کلاس" active="content">
+        <ThemedDash title="محتوای کلاس" active={tab === 'homework' || tab === 'worksheet' ? 'homework' : 'content'}>
             <div className="k3-card">
                 <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 4 }}>📚 محتوای کلاس تو</div>
                 <div style={{ opacity: .82, fontSize: 13, lineHeight: 1.9 }}>
@@ -69,7 +76,7 @@ export default function ClassContent() {
 
             <div className="cc-tabs">
                 {TABS.map((t) => {
-                    const count = items.filter((i) => i.type === t.v).length;
+                    const count = countOf(t.v);
                     const on = tab === t.v;
                     return (
                         <button key={t.v} onClick={() => setTab(t.v)} className={`cc-tab ${on ? 'on' : ''}`}>
@@ -81,22 +88,72 @@ export default function ClassContent() {
                 })}
             </div>
 
-            {items.filter((i) => i.type === tab).length > 3 && (
+            {tab !== 'worksheet' && countOf(tab) > 3 && (
                 <div style={{ marginTop: 12 }}>
                     <ListSearch value={q} onChange={setQ} placeholder={`جست‌وجو در ${active.t}…`} />
                 </div>
             )}
 
-            {list.length === 0 && (
-                <div className="k3-card" style={{ marginTop: 14, textAlign: 'center', opacity: .85 }}>
-                    {q ? 'با این جست‌وجو چیزی پیدا نشد 🔍' : `هنوز ${active.t} اضافه نشده 📭`}
-                </div>
+            {tab === 'worksheet' ? (
+                <>
+                    {worksheets.length === 0 && (
+                        <div className="k3-card" style={{ marginTop: 14, textAlign: 'center', opacity: .85 }}>هنوز کاربرگی منتشر نشده 📭</div>
+                    )}
+                    <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', marginTop: 12 }}>
+                        {worksheets.map((w) => (
+                            <Link key={w.id} href={route('my.worksheet', w.id)} className="k3-card" style={{ display: 'block', color: '#fff', textDecoration: 'none', borderInlineStart: '5px solid #a24cf0' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span style={{ fontSize: 24 }}>{THEME_EMOJI[w.theme] || '🎨'}</span>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontWeight: 800 }}>{w.title}</div>
+                                        <div style={{ fontSize: 11.5, opacity: .75 }}>{[w.subject].filter(Boolean).join(' · ')} · {w.date}</div>
+                                    </div>
+                                </div>
+                                <div style={{ marginTop: 8, fontSize: 12.5, fontWeight: 800, color: w.submitted ? '#7be0b0' : '#ffd27a' }}>
+                                    {w.submitted ? '✅ فرستادی' : '🖨️ چاپ و ارسال به معلم ←'}
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                </>
+            ) : (
+                <>
+                    {list.length === 0 && (
+                        <div className="k3-card" style={{ marginTop: 14, textAlign: 'center', opacity: .85 }}>
+                            {q ? 'با این جست‌وجو چیزی پیدا نشد 🔍' : `هنوز ${active.t} اضافه نشده 📭`}
+                        </div>
+                    )}
+                    {tab === 'homework' ? (
+                        list.map((it) => <HwCard key={it.id} it={it} dim={it.overdue} />)
+                    ) : (
+                        <div className="cc-grid">
+                            {list.map((it) => <ContentCard key={it.id} it={it} />)}
+                        </div>
+                    )}
+                </>
             )}
-
-            <div className="cc-grid">
-                {list.map((it) => <ContentCard key={it.id} it={it} />)}
-            </div>
         </ThemedDash>
+    );
+}
+
+/* ═══════════════════════ کارتِ تکلیف ═══════════════════════ */
+function HwCard({ it, dim }) {
+    return (
+        <div className="k3-card" style={{ marginTop: 12, opacity: dim ? .72 : 1, borderInlineStart: `5px solid ${it.overdue ? '#e8505b' : '#2bb673'}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 26 }}>📚</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 800, fontSize: 15.5 }}>{it.title}</div>
+                    <div style={{ fontSize: 12, opacity: .75, marginTop: 2 }}>
+                        ثبت: {it.date}
+                        {it.due_at && <span style={{ marginInlineStart: 8, color: it.overdue ? '#ffb3b3' : '#7be0b0', fontWeight: 700 }}>⏰ مهلت: {it.due_at}</span>}
+                    </div>
+                </div>
+                {it.overdue && <span className="tag" style={{ background: 'rgba(232,80,91,.25)', color: '#ffb3b3', flex: 'none' }}>گذشته</span>}
+            </div>
+            {it.description && <div style={{ fontSize: 13.5, opacity: .9, marginTop: 10, lineHeight: 2 }}>{it.description}</div>}
+            {it.url && <a href={it.url} target="_blank" rel="noreferrer" className="k3-btn ghost" style={{ marginTop: 12, fontSize: 13 }}>{it.is_file ? '⬇️ دریافت فایل تکلیف' : '🔗 مشاهده'}</a>}
+        </div>
     );
 }
 

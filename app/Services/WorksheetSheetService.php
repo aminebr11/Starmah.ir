@@ -99,14 +99,18 @@ class WorksheetSheetService
                     $lbl = $e($c['value'] ?? '');
                     $letters = ['الف', 'ب', 'ج', 'د'];
                     $L = $letters[$ci] ?? ($ci + 1);
-                    $body .= "<span style=\"display:inline-flex;align-items:center;gap:7px;font-size:14px\"><span style=\"display:inline-flex;width:22px;height:22px;border:2px solid {$t['p1']};border-radius:50%\"></span><b style=\"color:{$t['p2']}\">{$L})</b> {$lbl}</span>";
+                    $body .= "<span style=\"display:inline-flex;align-items:center;gap:7px;font-size:14px;color:#1b2742\"><span style=\"display:inline-flex;width:22px;height:22px;border:2px solid {$t['p1']};border-radius:50%;flex:0 0 auto\"></span><b style=\"color:{$t['p2']}\">{$L})</b> {$lbl}</span>";
                 }
                 $body .= '</div>';
             } else {
-                $body .= '<div style="margin-top:10px">'
-                    . '<div style="border-bottom:2px dotted #c9d3e6;height:22px"></div>'
-                    . '<div style="border-bottom:2px dotted #c9d3e6;height:22px;margin-top:6px"></div>'
-                    . '</div>';
+                // تشریحی جای بیشتری می‌خواهد، جای‌خالی فقط یک خط.
+                $lines = $type === 'desc' ? 4 : ($type === 'blank' ? 1 : 2);
+                $body .= '<div style="margin-top:10px">';
+                for ($li = 0; $li < $lines; $li++) {
+                    $mt = $li ? 'margin-top:6px' : '';
+                    $body .= "<div style=\"border-bottom:2px dotted #c9d3e6;height:22px;{$mt}\"></div>";
+                }
+                $body .= '</div>';
             }
             $rows .= "<div style=\"background:#fff;border:2px solid #eef2fa;border-inline-start:6px solid {$t['p1']};border-radius:14px;padding:14px 16px;margin-bottom:14px;box-shadow:0 4px 14px -10px rgba(0,0,0,.3)\">"
                 . "<div style=\"display:flex;gap:10px;align-items:flex-start\">"
@@ -129,8 +133,8 @@ class WorksheetSheetService
             : "background:linear-gradient(135deg,{$t['p1']},{$t['p2']});";
         $headPad = $imageUrl ? '110px 24px 20px' : '26px 24px';
 
-        return '<div class="ws-paper" style="font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl;max-width:820px;margin:0 auto;background:#f4f7fd;border-radius:22px;overflow:hidden;box-shadow:0 20px 50px -24px rgba(0,0,0,.5)">'
-            . "<div style=\"position:relative;{$headBg}color:#fff;padding:{$headPad};overflow:hidden\">"
+        return '<div class="ws-paper" style="font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl;max-width:820px;margin:0 auto;background:#f4f7fd;color:#1b2742;border-radius:22px;overflow:hidden;box-shadow:0 20px 50px -24px rgba(0,0,0,.5)">'
+            . "<div class=\"ws-head\" style=\"position:relative;{$headBg}color:#fff;padding:{$headPad};overflow:hidden\">"
             . $floats
             . "<div style=\"position:relative\"><div style=\"font-size:12px;opacity:.9;letter-spacing:1px;text-shadow:0 1px 3px rgba(0,0,0,.5)\">کاربرگ آموزشی · ستاره ماه</div>"
             . "<div style=\"font-size:24px;font-weight:900;margin-top:4px;text-shadow:0 2px 6px rgba(0,0,0,.55)\">" . $e($title) . '</div>'
@@ -138,7 +142,7 @@ class WorksheetSheetService
             . '<div style="display:flex;flex-wrap:wrap;gap:10px 20px;margin-top:14px;font-size:13px;opacity:.97;text-shadow:0 1px 4px rgba(0,0,0,.5)">'
             . '<span>👤 نام: ....................</span><span>🏫 کلاس: ..............</span><span>📅 تاریخ: ..............</span>'
             . '</div></div></div>'
-            . '<div style="padding:22px 20px">' . $rows . '</div>'
+            . '<div class="ws-body" style="padding:22px 20px">' . $rows . '</div>'
             . "<div style=\"text-align:center;padding:14px;color:{$t['p2']};font-weight:800;font-size:13px\">🌟 آفرین! تو می‌تونی 🌟</div>"
             . '</div>';
     }

@@ -61,7 +61,7 @@ export default function Dashboard() {
         { href: '/my-discipline', em: '⭐', label: 'موارد انضباطی', sub: 'تشویق‌ها و تذکرها', t1: '#f5b53f', t2: '#d98f0f' },
         { href: '/my-activities', em: '🎁', label: 'فعالیت‌ها و امتیازها', sub: 'تاریخچه‌ی امتیازها', t1: '#2bb673', t2: '#1a8a52' },
         { href: '/class-content', em: '📚', label: 'محتوای کلاس', sub: 'جزوه، پادکست، گالری', t1: '#3d7bf0', t2: '#2555c0' },
-        { href: '/homework', em: '📝', label: 'تکالیف', sub: 'کارهای در پیش', t1: '#a24cf0', t2: '#6f2fb0' },
+        { href: '/class-content?tab=homework', em: '📝', label: 'تکالیف و کاربرگ', sub: 'کارهای در پیش', t1: '#a24cf0', t2: '#6f2fb0' },
     ];
 
     return (

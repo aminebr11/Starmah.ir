@@ -94,6 +94,7 @@ function WCard({ w }) {
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                 <Link href={route('teacher.worksheets.show', w.id)} className="btn btn-sm" style={{ flex: 1 }}>🖼️ مشاهده / انتشار</Link>
+                {w.can_edit && <Link href={`${route('teacher.worksheets.show', w.id)}?edit=1`} className="btn btn-ghost btn-sm">✏️ ویرایش</Link>}
                 {w.can_edit && <button onClick={del} className="btn btn-ghost btn-sm" style={{ color: '#b0333f' }}>حذف</button>}
             </div>
         </div>

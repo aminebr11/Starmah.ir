@@ -236,6 +236,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::get('/materials', [\App\Http\Controllers\Teacher\ClassContentController::class, 'index'])->name('materials');
     Route::post('/materials', [\App\Http\Controllers\Teacher\ClassContentController::class, 'store'])->name('materials.store');
     Route::post('/materials/{classContent}', [\App\Http\Controllers\Teacher\ClassContentController::class, 'update'])->name('materials.update');
+    Route::post('/materials/{classContent}/visibility', [\App\Http\Controllers\Teacher\ClassContentController::class, 'toggleVisibility'])->name('materials.visibility');
     Route::delete('/materials/{classContent}', [\App\Http\Controllers\Teacher\ClassContentController::class, 'destroy'])->name('materials.destroy');
     // مدیریتِ امتیازِ گروه‌ها (تیم‌های تم‌دار)
     Route::get('/groups', [\App\Http\Controllers\Teacher\GroupPointsController::class, 'index'])->name('groups');
@@ -265,6 +266,8 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/worksheets', [\App\Http\Controllers\Teacher\WorksheetController::class, 'store'])->name('worksheets.store');
     Route::get('/worksheets/{worksheet}', [\App\Http\Controllers\Teacher\WorksheetController::class, 'show'])->name('worksheets.show');
     Route::post('/worksheets/{worksheet}/publish', [\App\Http\Controllers\Teacher\WorksheetController::class, 'publish'])->name('worksheets.publish');
+    Route::post('/worksheets/{worksheet}/update', [\App\Http\Controllers\Teacher\WorksheetController::class, 'update'])->name('worksheets.update');
+    Route::post('/worksheets/{worksheet}/unpublish', [\App\Http\Controllers\Teacher\WorksheetController::class, 'unpublish'])->name('worksheets.unpublish');
     Route::delete('/worksheets/{worksheet}', [\App\Http\Controllers\Teacher\WorksheetController::class, 'destroy'])->name('worksheets.destroy');
     // آزمون‌ساز (دستی + AI)
     Route::get('/exams', [\App\Http\Controllers\Teacher\ExamBuilderController::class, 'index'])->name('exams');

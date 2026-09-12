@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Announcement;
 use App\Models\DisciplineRecord;
+use App\Models\Message;
 use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Support\Carbon;
@@ -33,6 +34,10 @@ class Notifications
     {
         $seen = self::seenAt($user);
 
+        // محتوای زمان‌دارِ سررسیده را همین‌جا منتشر و اعلان می‌کنیم؛
+        // میزبانِ اشتراکی cron ندارد، پس نخستین بازدیدِ هر کاربر این کار را می‌کند.
+        ContentRelease::releaseDue();
+
         // اطلاعیه/پیام‌های قابل‌مشاهده
         $anns = Announcement::forUser($user)->with('sender:id,name')->latest()->limit($limit)->get();
         // خوانده‌نشده‌های شخصی (pivot)
@@ -46,6 +51,9 @@ class Notifications
                 : ($seen && $a->created_at->lessThanOrEqualTo($seen));
             // اعلانِ «بازی جدید» → مستقیم به دنیای بازی‌ها
             $isGame = str_starts_with($a->title, '🎮');
+            // اگر اطلاعیه مقصدِ خودش را دارد (کاربرگ، تکلیف، کارنامه…) همان
+            // اولویت دارد؛ پیش از این نادیده گرفته می‌شد و همه به /notices می‌رفتند.
+            $link = trim((string) ($a->link ?? ''));
             return [
                 'id'    => 'a'.$a->id,
                 'kind'  => $isGame ? 'game' : ($personal ? 'message' : 'announcement'),
@@ -54,7 +62,7 @@ class Notifications
                 'title' => $a->title,
                 'body'  => $a->body,
                 'date'  => Jalali::format($a->created_at),
-                'href'  => $isGame ? '/game-world' : '/notices',
+                'href'  => $link !== '' ? $link : ($isGame ? '/game-world' : '/notices'),
                 'read'  => $read,
                 'ts'    => $a->created_at->timestamp,
             ];
@@ -100,6 +108,58 @@ class Notifications
                 ]);
         }
 
+        // پیام‌های «ارتباط با معلم / والدین / مدیر».
+        //
+        // این پیام‌ها تا امروز هیچ‌جا در زنگوله دیده نمی‌شدند و کاربر تنها
+        // وقتی می‌فهمید پیام دارد که خودش صندوقِ پیام را باز می‌کرد. حالا
+        // هر پیامِ دریافتیِ دو هفته‌ی اخیر در فید می‌آید و خوانده‌نشده‌ها
+        // روی زنگوله شمرده می‌شوند. کلیک → همان گفت‌وگو.
+        $msgs = collect();
+        if (\Illuminate\Support\Facades\Schema::hasTable('messages')) {
+            $msgs = Message::with('sender:id,name')
+                ->where('recipient_id', $user->id)
+                ->where('created_at', '>=', now()->subDays(14))
+                ->latest()->limit($limit)->get()
+                ->map(fn ($m) => [
+                    'id'    => 'msg'.$m->id,
+                    'kind'  => 'message',
+                    'icon'  => '💬',
+                    'color' => '#7c5cf0',
+                    'title' => 'پیامِ جدید از ' . ($m->sender?->name ?: 'کاربر'),
+                    'body'  => \Illuminate\Support\Str::limit((string) $m->body, 90),
+                    'date'  => Jalali::format($m->created_at, true),
+                    'href'  => '/messages?with=' . $m->sender_id,
+                    'read'  => $m->read_at !== null,
+                    'ts'    => $m->created_at->timestamp,
+                ]);
+        }
+
+        // پاسخِ والدین به معلم/مدیر — «ارتباط با والدین».
+        // این هم مثلِ پیام‌ها فقط داخلِ خودِ صفحه دیده می‌شد.
+        $fromParents = collect();
+        if (($user->hasRole(Roles::TEACHER) || $user->hasRole(Roles::SCHOOL_ADMIN))
+            && \Illuminate\Support\Facades\Schema::hasTable('parent_notes')) {
+            $studentIds = $user->hasRole(Roles::TEACHER)
+                ? User::whereHas('classrooms', fn ($q) => $q->where('teacher_id', $user->id))->pluck('id')
+                : User::role(Roles::STUDENT)->where('school_id', $user->school_id)->pluck('id');
+
+            $fromParents = \App\Models\ParentNote::with('student:id,name')
+                ->whereIn('student_id', $studentIds)->where('from_parent', true)
+                ->whereNull('read_at')->latest()->limit($limit)->get()
+                ->map(fn ($n) => [
+                    'id'    => 'pn'.$n->id,
+                    'kind'  => 'family',
+                    'icon'  => '👪',
+                    'color' => '#b9831a',
+                    'title' => 'پیامِ والدِ ' . ($n->student?->name ?: 'دانش‌آموز'),
+                    'body'  => \Illuminate\Support\Str::limit((string) ($n->title ?: $n->body), 90),
+                    'date'  => Jalali::format($n->created_at, true),
+                    'href'  => '/family-notes?student=' . $n->student_id,
+                    'read'  => false,
+                    'ts'    => $n->created_at->timestamp,
+                ]);
+        }
+
         // یادآورِ مأموریت‌های انجام‌نشده‌ی امروز.
         // این یکی «رویدادِ ذخیره‌شده» نیست، وضعیتِ همین لحظه است: تا وقتی
         // مأموریتی مانده باشد در زنگوله دیده می‌شود و به‌محضِ تمام‌شدنِ
@@ -128,7 +188,7 @@ class Notifications
             }
         }
 
-        return $items->concat($disc)->concat($family)->concat($missions)
+        return $items->concat($disc)->concat($family)->concat($msgs)->concat($fromParents)->concat($missions)
             ->sortByDesc('ts')->take($limit)->values()
             ->map(fn ($i) => collect($i)->except('ts')->all())->all();
     }

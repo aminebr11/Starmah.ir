@@ -30,3 +30,6 @@ Thumbs.db
 /database/*.sqlite
 /database/*.sqlite-journal
 /database/starmah_mysql.sql
+
+# خروجیِ اسکرین‌شات‌های آزمایشی
+/art

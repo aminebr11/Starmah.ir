@@ -51,8 +51,9 @@ export default function ThemedDash({ title, active = '', children, actions = nul
         { key: 'activities', label: 'فعالیت‌ها و امتیازها', icon: '🎁', href: '/my-activities' },
         { key: 'discipline', label: 'موارد انضباطی', icon: '⭐', href: '/my-discipline' },
         { divider: 'کلاس' },
+        // تکالیف و کاربرگ‌ها تبی از «محتوای کلاس» هستند، نه منویی جدا
         { key: 'content', label: 'محتوای کلاس', icon: '📚', href: '/class-content' },
-        { key: 'homework', label: 'تکالیف', icon: '📝', href: '/homework' },
+        { key: 'homework', label: 'تکالیف و کاربرگ', icon: '📝', href: '/class-content?tab=homework' },
         { key: 'schedule', label: 'برنامه کلاسی', icon: '🗓️', href: '/schedule' },
         { divider: 'ارتباط' },
         { key: 'messages', label: 'ارتباط با معلم', icon: '💬', href: '/messages' },

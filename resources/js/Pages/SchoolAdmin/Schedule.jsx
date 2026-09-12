@@ -47,9 +47,40 @@ export default function Schedule() {
                                 ))}
                             </div>
                         )}
+
+                        {(c.special || []).length > 0 && (
+                            <div style={{ marginTop: 12 }}>
+                                <div style={{ fontWeight: 800, fontSize: 13.5, marginBottom: 6 }}>📌 تاریخ‌های خاصِ پیشِ رو</div>
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 460 }}>
+                                        <thead>
+                                            <tr style={{ background: '#f6f8fc' }}>
+                                                <th style={thS}>تاریخ</th>
+                                                <th style={thS}>روز</th>
+                                                <th style={thS}>ساعت</th>
+                                                <th style={thS}>برنامه</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {c.special.map((e) => (
+                                                <tr key={e.id} style={{ borderTop: '1px solid var(--line)', background: e.is_today ? '#fffbe8' : 'transparent' }}>
+                                                    <td style={tdS}><b>{fa(e.jdate)}</b>{e.is_today && <span className="tag tag-warn" style={{ marginInlineStart: 6, fontSize: 10 }}>امروز</span>}</td>
+                                                    <td style={tdS}>{e.day}</td>
+                                                    <td style={tdS}><span dir="ltr" style={{ display: 'inline-block' }}>{fa(e.time || '—')}</span></td>
+                                                    <td style={tdS}>{e.kind === 'recess' ? `☕ ${e.title}` : e.title}{e.period ? ` · زنگ ${fa(e.period)}` : ''}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 );
             })}
         </DashLayout>
     );
 }
+
+const thS = { textAlign: 'start', padding: '9px 10px', fontSize: 12.5, color: 'var(--muted)', fontWeight: 700 };
+const tdS = { padding: '9px 10px', fontSize: 13 };

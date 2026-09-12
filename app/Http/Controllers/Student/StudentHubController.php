@@ -28,6 +28,8 @@ class StudentHubController extends Controller
     {
         $teacherId = $this->teacherId($user);
         return ClassContent::query()
+            // فقط محتوایی که نمایش‌اش روشن است و زمانِ انتشارش رسیده
+            ->live()
             ->when($teacherId, fn ($q) => $q->where('teacher_id', $teacherId))
             ->latest();
     }
@@ -49,7 +51,29 @@ class StudentHubController extends Controller
         ];
     }
 
-    /** محتوای کلاس (جزوه، پادکست، گالری) — بدون تکلیف. */
+    /** کاربرگ‌های منتشرشده برای کلاسِ دانش‌آموز. */
+    private function worksheetsFor($user)
+    {
+        $classroomIds = $user->classrooms()->pluck('classrooms.id')->all();
+        $subs = \App\Models\WorksheetSubmission::where('student_id', $user->id)->pluck('worksheet_id')->all();
+
+        return \App\Models\Worksheet::withoutGlobalScopes()
+            ->where('is_published', true)
+            ->where(fn ($q) => $q->whereNull('classroom_id')->when($classroomIds, fn ($x) => $x->orWhereIn('classroom_id', $classroomIds)))
+            ->where('school_id', $user->school_id)
+            ->latest('published_at')->get()
+            ->map(fn ($w) => [
+                'id' => $w->id, 'title' => $w->title, 'subject' => $w->subject, 'theme' => $w->theme,
+                'has_image' => (bool) $w->image_path,
+                'submitted' => in_array($w->id, $subs, true),
+                'date' => Jalali::format($w->published_at ?? $w->created_at),
+            ])->values();
+    }
+
+    /**
+     * محتوای کلاس — حالا تکالیف و کاربرگ‌ها هم همین‌جا هستند.
+     * دانش‌آموز همه‌چیزِ درسی را در یک صفحه‌ی تب‌دار دارد و منو شلوغ نمی‌شود.
+     */
     public function content(Request $request): Response
     {
         $user = $request->user();
@@ -79,7 +103,16 @@ class StudentHubController extends Controller
             ];
         });
 
-        return Inertia::render('Student/ClassContent', ['items' => $items->values()]);
+        $homework = $this->contentQuery($user)->where('type', 'homework')->get()
+            ->map(fn ($c) => $this->mapItem($c))
+            ->sortBy(fn ($i) => $i['overdue'] ? 1 : 0)->values();
+
+        return Inertia::render('Student/ClassContent', [
+            'items' => $items->values(),
+            'homework' => $homework,
+            'worksheets' => $this->worksheetsFor($user),
+            'tab' => $request->query('tab'),
+        ]);
     }
 
     /**
@@ -123,35 +156,13 @@ class StudentHubController extends Controller
         return response()->json(['ok' => true] + $result);
     }
 
-    /** تکالیف. */
-    public function homework(Request $request): Response
+    /**
+     * تکالیف حالا تبی از «محتوای کلاس» است.
+     * این مسیر برای لینک‌های قدیمی و اعلان‌های پیشین نگه داشته شده.
+     */
+    public function homework(Request $request): \Illuminate\Http\RedirectResponse
     {
-        $user = $request->user();
-        $items = $this->contentQuery($user)
-            ->where('type', 'homework')
-            ->get()->map(fn ($c) => $this->mapItem($c))
-            // آینده‌دار اول، بعد قدیمی‌ها
-            ->sortBy(fn ($i) => $i['overdue'] ? 1 : 0)->values();
-
-        // کاربرگ‌های منتشرشده برای کلاسِ دانش‌آموز (قابل چاپ + ارسال به معلم)
-        $classroomIds = $user->classrooms()->pluck('classrooms.id')->all();
-        $subs = \App\Models\WorksheetSubmission::where('student_id', $user->id)->pluck('worksheet_id')->all();
-        $worksheets = \App\Models\Worksheet::withoutGlobalScopes()
-            ->where('is_published', true)
-            ->where(fn ($q) => $q->whereNull('classroom_id')->when($classroomIds, fn ($x) => $x->orWhereIn('classroom_id', $classroomIds)))
-            ->where('school_id', $user->school_id)
-            ->latest('published_at')->get()
-            ->map(fn ($w) => [
-                'id' => $w->id, 'title' => $w->title, 'subject' => $w->subject, 'theme' => $w->theme,
-                'has_image' => (bool) $w->image_path,
-                'submitted' => in_array($w->id, $subs, true),
-                'date' => Jalali::format($w->published_at ?? $w->created_at),
-            ]);
-
-        return Inertia::render('Student/Homework', [
-            'items' => $items->values(),
-            'worksheets' => $worksheets->values(),
-        ]);
+        return redirect('/class-content?tab=homework');
     }
 
     /** فعالیت‌ها و امتیازها — دفترکل XP دانش‌آموز. */

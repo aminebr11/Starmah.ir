@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Teacher;
 use App\Http\Controllers\Controller;
 use App\Models\ClassContent;
 use App\Models\Classroom;
+use App\Support\ContentRelease;
 use App\Support\Jalali;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -44,6 +45,14 @@ class ClassContentController extends Controller
                 'is_file' => (bool) $c->file_path,
                 'due_at'  => $c->due_at ? Jalali::format($c->due_at) : null,
                 'date'    => Jalali::format($c->created_at),
+                // زمان‌بندیِ انتشار و وضعیتِ نمایش
+                'publish_at_raw' => $c->publish_at ? $c->publish_at->format('Y-m-d H:i') : null,
+                // Jalali::format پارامترِ دومش «روزِ هفته» است، نه ساعت؛ ساعت را جدا می‌چسبانیم
+                'publish_at' => $c->publish_at
+                    ? Jalali::format($c->publish_at) . ' ساعت ' . Jalali::fa($c->publish_at->format('H:i'))
+                    : null,
+                'is_visible' => $c->is_visible !== false,
+                'live'    => $c->isLive(),
                 'duration' => $c->duration_seconds ? (int) $c->duration_seconds : null,
                 'xp_value' => app(\App\Services\ContentProgressService::class)->xpFor($c),
                 'xp_reward' => $c->xp_reward,
@@ -73,6 +82,7 @@ class ClassContentController extends Controller
                 'published' => (bool) $w->is_published,
                 'submissions' => $w->submissions_count,
                 'has_image' => (bool) $w->image_path,
+                'can_edit' => \App\Support\WorksheetAccess::canEdit($teacher, $w),
                 'date' => Jalali::format($w->created_at),
             ]);
 
@@ -119,6 +129,8 @@ class ClassContentController extends Controller
             // ویدیو سنگین‌تر است؛ سقف تا ۱۵۰ مگابایت (به .user.ini هم توجه کنید)
             'file'         => 'nullable|file|max:153600',
             'due_at'       => 'nullable|date',
+            // زمانِ انتشار — خالی یعنی همین حالا
+            'publish_at'   => 'nullable|date',
             // مدتِ مدیا را مرورگر هنگامِ انتخابِ فایل تشخیص می‌دهد
             'duration_seconds' => 'nullable|integer|min:1|max:86400',
             // امتیازِ دلخواهِ معلم؛ خالی یعنی محاسبه‌ی خودکار از روی مدت
@@ -147,13 +159,22 @@ class ClassContentController extends Controller
             'file_path'    => $path,
             'external_url' => $data['external_url'] ?? null,
             'due_at'       => $data['due_at'] ?? null,
+            'publish_at'   => $data['publish_at'] ?? null,
+            'is_visible'   => true,
             'duration_seconds' => $data['duration_seconds'] ?? null,
             'xp_reward'    => $data['xp_reward'] ?? null,
         ]);
 
-        $this->notifyStudents($content);
+        // زمان‌دار؟ اعلان سرِ همان ساعت فرستاده می‌شود (releaseDue)، نه حالا.
+        if ($content->isLive()) {
+            $this->notifyStudents($content);
+            $content->forceFill(['notified_at' => now()])->save();
 
-        return back()->with('flash', 'محتوا اضافه شد و به دانش‌آموزان اطلاع داده شد ✅');
+            return back()->with('flash', 'محتوا اضافه شد و به دانش‌آموزان اطلاع داده شد ✅');
+        }
+
+        return back()->with('flash', 'محتوا ذخیره شد ⏰ و در ' . Jalali::format($content->publish_at)
+            . ' ساعت ' . Jalali::fa($content->publish_at->format('H:i')) . ' منتشر می‌شود.');
     }
 
     public function update(Request $request, ClassContent $classContent): RedirectResponse
@@ -167,6 +188,7 @@ class ClassContentController extends Controller
             'external_url' => 'nullable|url|max:500',
             'file'         => 'nullable|file|max:153600',
             'due_at'       => 'nullable|date',
+            'publish_at'   => 'nullable|date',
             'duration_seconds' => 'nullable|integer|min:1|max:86400',
             'xp_reward'    => 'nullable|integer|min:0|max:100',
         ], [
@@ -195,6 +217,8 @@ class ClassContentController extends Controller
             'classroom_id' => $data['classroom_id'] ?? $classContent->classroom_id,
             'external_url' => $data['external_url'] ?? $classContent->external_url,
             'due_at'       => $data['due_at'] ?? $classContent->due_at,
+            // زمانِ انتشار همیشه از فرم می‌آید: خالی‌کردنِ آن یعنی «همین حالا»
+            'publish_at'   => $data['publish_at'] ?? null,
             // فایلِ تازه یعنی مدتِ تازه؛ وگرنه مقدارِ قبلی می‌ماند
             'duration_seconds' => $data['duration_seconds'] ?? $classContent->duration_seconds,
             'xp_reward'    => array_key_exists('xp_reward', $data) ? $data['xp_reward'] : $classContent->xp_reward,
@@ -215,50 +239,29 @@ class ClassContentController extends Controller
         return back()->with('flash', 'محتوا حذف شد ✅');
     }
 
-    /** اعلانِ «محتوای جدید» به دانش‌آموزانِ کلاس (یا همه‌ی دانش‌آموزانِ معلم). best-effort — هرگز آپلود را نمی‌شکند. */
-    private function notifyStudents(ClassContent $content): void
+    /** نمایش/مخفی‌کردنِ یک پست برای دانش‌آموزان — بدونِ حذفِ آن. */
+    public function toggleVisibility(Request $request, ClassContent $classContent): RedirectResponse
     {
-        try {
-            $this->doNotify($content);
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('content notify failed: ' . $e->getMessage());
+        abort_unless($classContent->teacher_id === $request->user()->id, 403);
+
+        $wasLive = $classContent->isLive();
+        $classContent->is_visible = ! $classContent->is_visible;
+        $classContent->save();
+
+        // اگر تازه دیدنی شد و هنوز اعلانی نرفته بود، همین حالا اعلان بده
+        if (! $wasLive && $classContent->isLive() && ! $classContent->notified_at) {
+            ContentRelease::notify($classContent);
+            $classContent->forceFill(['notified_at' => now()])->save();
         }
+
+        return back()->with('flash', $classContent->is_visible
+            ? 'این پست برای دانش‌آموزان نمایش داده می‌شود 👁️'
+            : 'این پست از دیدِ دانش‌آموزان مخفی شد 🙈');
     }
 
-    private function doNotify(ClassContent $content): void
+    /** اعلانِ «محتوای جدید» — منطقش در ContentRelease است تا انتشارِ زمان‌دار هم از همان بگذرد. */
+    private function notifyStudents(ClassContent $content): void
     {
-        $teacher = $content->teacher ?: \App\Models\User::find($content->teacher_id);
-        if ($content->classroom_id) {
-            $ids = Classroom::find($content->classroom_id)?->students()->pluck('users.id')->all() ?? [];
-        } else {
-            $ids = Classroom::where('teacher_id', $content->teacher_id)
-                ->with('students:id')->get()
-                ->flatMap(fn ($c) => $c->students->pluck('id'))->unique()->values()->all();
-        }
-        if (! $ids) {
-            return;
-        }
-
-        $label = [
-            'material' => '📄 جزوه/فایلِ جدید',
-            'podcast'  => '🎧 پادکستِ جدید',
-            'gallery'  => '🖼️ تصویرِ جدید',
-            'homework' => '📝 تکلیفِ جدید',
-        ][$content->type] ?? '📚 محتوای جدید';
-
-        $payload = [
-            'school_id' => $content->school_id ?? optional($teacher)->school_id,
-            'sender_id' => $content->teacher_id,
-            'title' => $label . ' — ' . $content->title,
-            'audience' => 'personal',
-            'body' => "معلمت محتوای جدیدی برایت گذاشت: «{$content->title}». روی همین اعلان بزن تا ببینی"
-                . ($content->type === 'podcast' ? ' و با گوش‌دادن امتیاز بگیری ⚡' : '.'),
-        ];
-        // ستونِ link فقط در نسخه‌هایی که آپگرید v17 را اجرا کرده‌اند وجود دارد
-        if (\Illuminate\Support\Facades\Schema::hasColumn('announcements', 'link')) {
-            $payload['link'] = '/class-content';
-        }
-        $ann = \App\Models\Announcement::create($payload);
-        $ann->recipients()->sync($ids);
+        ContentRelease::notify($content);
     }
 }

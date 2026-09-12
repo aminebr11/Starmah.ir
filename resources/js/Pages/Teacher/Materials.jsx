@@ -35,6 +35,10 @@ export default function Materials() {
         due_at: '', file: null, duration_seconds: '', xp_reward: '',
     });
 
+    // زمانِ انتشار: تاریخِ شمسی + ساعت. خالی یعنی «همین حالا منتشر شود».
+    const [pubDate, setPubDate] = useState('');
+    const [pubTime, setPubTime] = useState('08:00');
+
     /**
      * مدتِ فایلِ صوتی/تصویری را همین‌جا در مرورگر می‌خوانیم و همراهِ فرم
      * می‌فرستیم. سرور برای تشخیصِ «تکمیل» به این مدت نیاز دارد و خودش
@@ -61,11 +65,18 @@ export default function Materials() {
 
     const submit = (e) => {
         e.preventDefault();
-        form.transform((d) => ({ ...d, type: tab }));
+        form.transform((d) => ({
+            ...d, type: tab,
+            publish_at: pubDate ? `${pubDate} ${pubTime || '00:00'}` : null,
+        }));
         form.post(route('teacher.materials.store'), {
             preserveScroll: true,
             forceFormData: true,
-            onSuccess: () => { form.reset(); if (fileRef.current) fileRef.current.value = ''; },
+            onSuccess: () => {
+                form.reset();
+                setPubDate(''); setPubTime('08:00');
+                if (fileRef.current) fileRef.current.value = '';
+            },
         });
     };
 
@@ -73,6 +84,9 @@ export default function Materials() {
         if (!confirm('این محتوا حذف شود؟')) return;
         router.delete(route('teacher.materials.destroy', id), { preserveScroll: true });
     };
+
+    /** نمایش/مخفی‌کردنِ یک پست برای دانش‌آموزان (بدونِ حذف). */
+    const toggleVisible = (id) => router.post(route('teacher.materials.visibility', id), {}, { preserveScroll: true });
 
     const [editing, setEditing] = useState(null);
     const [showViewers, setShowViewers] = useState(null);
@@ -120,6 +134,17 @@ export default function Materials() {
                             <JalaliDatePicker value={form.data.due_at} onChange={(v) => form.setData('due_at', v)} placeholder="انتخاب مهلت" />
                         </Field>
                     )}
+                    <Field label="زمان انتشار (اختیاری)" err={form.errors.publish_at}>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <div style={{ flex: '1 1 150px' }}>
+                                <JalaliDatePicker value={pubDate} onChange={setPubDate} placeholder="تاریخ انتشار" />
+                            </div>
+                            <input type="time" className="input" value={pubTime} onChange={(e) => setPubTime(e.target.value)}
+                                style={{ width: 120 }} dir="ltr" disabled={!pubDate} />
+                            {pubDate && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPubDate('')}>پاک‌کردن</button>}
+                        </div>
+                        <div className="xp-note">{pubDate ? '⏰ در تاریخ و ساعتِ انتخابی منتشر و اعلان می‌شود.' : 'بدون انتخابِ زمان، بلافاصله منتشر می‌شود.'}</div>
+                    </Field>
                     <Field label={`فایل — ${active.hint}`} err={form.errors.file}>
                         <input ref={fileRef} type="file" accept={active.accept} className="input" style={{ padding: 9 }}
                             onChange={onPickFile} />
@@ -171,7 +196,11 @@ export default function Materials() {
                                     <div style={{ padding: '8px 10px' }}>
                                         <div style={{ fontWeight: 700, fontSize: 13 }}>{i.title}</div>
                                         <div style={{ color: 'var(--muted)', fontSize: 11 }}>{fa(i.date)} · 👁️ {fa(i.views_count)}</div>
+                                        <StatusBadge item={i} />
                                         <button onClick={() => setEditing(i)} className="btn btn-ghost btn-sm" style={{ marginTop: 6, width: '100%', padding: '4px' }}>✏️ ویرایش</button>
+                                        <button onClick={() => toggleVisible(i.id)} className="btn btn-ghost btn-sm" style={{ marginTop: 4, width: '100%', padding: '4px' }}>
+                                            {i.is_visible ? '🙈 مخفی‌کردن' : '👁️ نمایش'}
+                                        </button>
                                     </div>
                                     <button onClick={() => remove(i.id)} title="حذف"
                                         style={{ position: 'absolute', top: 6, insetInlineEnd: 6, background: 'rgba(232,80,91,.9)', color: '#fff', border: 0, borderRadius: 8, width: 26, height: 26, cursor: 'pointer' }}>✕</button>
@@ -183,7 +212,7 @@ export default function Materials() {
                             <div key={i.id} style={{ padding: '13px 0', borderBottom: '1px solid var(--line)' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                                     <div style={{ minWidth: 0 }}>
-                                        <div style={{ fontWeight: 800 }}>{active.ic} {i.title}</div>
+                                        <div style={{ fontWeight: 800 }}>{active.ic} {i.title} <StatusBadge item={i} inline /></div>
                                         {i.description && <div style={{ color: 'var(--muted)', fontSize: 13 }}>{i.description}</div>}
                                         <div style={{ color: 'var(--muted-2)', fontSize: 12, marginTop: 2 }}>
                                             {fa(i.date)}
@@ -201,6 +230,9 @@ export default function Materials() {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                         {i.url && <a href={i.url} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">{i.type === 'podcast' ? '▶️ پخش' : '⬇️ دریافت'}</a>}
                                         <button onClick={() => setEditing(i)} className="btn btn-ghost btn-sm">✏️ ویرایش</button>
+                                        <button onClick={() => toggleVisible(i.id)} className="btn btn-ghost btn-sm" title={i.is_visible ? 'مخفی‌کردن از دانش‌آموزان' : 'نمایش به دانش‌آموزان'}>
+                                            {i.is_visible ? '🙈 مخفی' : '👁️ نمایش'}
+                                        </button>
                                         <button onClick={() => remove(i.id)} className="btn btn-ghost btn-sm" style={{ color: '#e8505b' }}>حذف</button>
                                     </div>
                                 </div>
@@ -255,12 +287,35 @@ function WorksheetPanel({ worksheets }) {
                             <div style={{ fontSize: 11.5, color: 'var(--muted-2)', marginTop: 4 }}>{fa(w.date)} · 📥 {fa(w.submissions)} پاسخ</div>
                             <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
                                 <Link href={route('teacher.worksheets.show', w.id)} className="btn btn-ghost btn-sm">📄 مدیریت و پاسخ‌ها</Link>
+                                {w.can_edit !== false && <Link href={`${route('teacher.worksheets.show', w.id)}?edit=1`} className="btn btn-ghost btn-sm">✏️ ویرایش</Link>}
+                                {w.can_edit !== false && (
+                                    <button type="button" className="btn btn-ghost btn-sm" style={{ color: '#b0333f' }}
+                                        onClick={() => { if (confirm(`کاربرگ «${w.title}» از بایگانی و بانک حذف شود؟`)) router.delete(route('teacher.worksheets.destroy', w.id), { preserveScroll: true }); }}>
+                                        🗑️ حذف
+                                    </button>
+                                )}
                             </div>
                         </div>
                     ))}
                 </div>
             </div>
         </div>
+    );
+}
+
+/** وضعیتِ انتشارِ یک پست: منتشرشده / زمان‌بندی‌شده / مخفی. */
+function StatusBadge({ item, inline }) {
+    const st = !item.is_visible
+        ? { t: '🙈 مخفی', bg: '#f1f3f7', fg: '#5a6478' }
+        : item.live === false
+            ? { t: `⏰ انتشار: ${fa(item.publish_at || '')}`, bg: '#fff4e0', fg: '#a05c00' }
+            : null;
+    if (!st) return null;
+    return (
+        <span style={{
+            display: 'inline-block', marginTop: inline ? 0 : 6, marginInlineStart: inline ? 6 : 0,
+            background: st.bg, color: st.fg, borderRadius: 8, padding: '2px 8px', fontSize: 11, fontWeight: 700,
+        }}>{st.t}</span>
     );
 }
 
@@ -288,8 +343,15 @@ function EditModal({ item, classrooms, onClose }) {
         classroom_id: item.classroom_id || '', external_url: item.external_url || '',
         due_at: item.due_at_raw || '', file: null,
     });
+
+    // زمانِ انتشار جدا نگه داشته می‌شود تا «خالی‌کردن» یعنی انتشارِ فوری
+    const raw = item.publish_at_raw || '';
+    const [pubDate, setPubDate] = useState(raw ? raw.slice(0, 10) : '');
+    const [pubTime, setPubTime] = useState(raw ? raw.slice(11, 16) : '08:00');
+
     const submit = (e) => {
         e.preventDefault();
+        form.transform((d) => ({ ...d, publish_at: pubDate ? `${pubDate} ${pubTime || '00:00'}` : null }));
         form.post(route('teacher.materials.update', item.id), {
             preserveScroll: true, forceFormData: true, onSuccess: onClose,
         });
@@ -317,6 +379,17 @@ function EditModal({ item, classrooms, onClose }) {
                         <JalaliDatePicker value={form.data.due_at} onChange={(v) => form.setData('due_at', v)} placeholder="انتخاب مهلت" />
                     </Field>
                 )}
+                <Field label="زمان انتشار" err={form.errors.publish_at}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <div style={{ flex: '1 1 150px' }}>
+                            <JalaliDatePicker value={pubDate} onChange={setPubDate} placeholder="تاریخ انتشار" />
+                        </div>
+                        <input type="time" className="input" value={pubTime} onChange={(e) => setPubTime(e.target.value)}
+                            style={{ width: 120 }} dir="ltr" disabled={!pubDate} />
+                        {pubDate && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPubDate('')}>انتشارِ فوری</button>}
+                    </div>
+                    <div className="xp-note">{pubDate ? '⏰ در تاریخ و ساعتِ انتخابی منتشر می‌شود.' : 'بدون زمان، همین حالا منتشر است.'}</div>
+                </Field>
                 <Field label="جایگزینی فایل (اختیاری)" err={form.errors.file}>
                     <input type="file" className="input" style={{ padding: 9 }} onChange={(e) => form.setData('file', e.target.files[0] || null)} />
                 </Field>

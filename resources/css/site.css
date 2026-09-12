@@ -1204,3 +1204,11 @@ html{overflow-x:hidden}
   border:1px solid rgba(255,255,255,.18);border-radius:11px;padding:9px 13px;display:inline-block}
 .cc-link:hover{background:rgba(255,255,255,.08)}
 @media(pointer:coarse){ .cc-link{min-height:44px;display:inline-flex;align-items:center} }
+
+/* ═══════════════════════════════════════════════════════════════════
+   برگه‌ی کاربرگ همیشه «کاغذ» است: متنِ تیره روی زمینه‌ی روشن.
+   صفحه‌ی دانش‌آموز زمینه‌ی تیره و color:#fff دارد و هر متنی که رنگِ
+   صریح نداشت سفید روی سفید می‌افتاد و ناپیدا می‌شد.
+   ═══════════════════════════════════════════════════════════════════ */
+.ws-paper, .ws-paper .ws-body, .ws-paper .ws-body * { color: #1b2742; }
+.ws-paper .ws-head, .ws-paper .ws-head * { color: #fff; }

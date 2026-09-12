@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { usePage, router } from '@inertiajs/react';
 import axios from 'axios';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
+import QuestionEditor, { Q_TYPES, blankQ, typeLabel } from '@/Components/QuestionEditor';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -10,8 +11,6 @@ const MODES = [
     { v: 'upload', ic: '⬆️', t: 'بارگذاری فایل', d: 'یک کاربرگِ آماده را بارگذاری می‌کنی' },
     { v: 'ai', ic: '🤖', t: 'هوش مصنوعی', d: 'سؤال‌ها (و تصویر) با AI ساخته می‌شود' },
 ];
-const blankQ = () => ({ prompt: '', type: 'mc', choices: [{ value: '', correct: true }, { value: '', correct: false }, { value: '', correct: false }, { value: '', correct: false }], answer: null });
-
 /** کاربرگ‌سازِ سه‌حالته: دستی / بارگذاری فایل / هوش مصنوعی. */
 export default function WorksheetCreate() {
     const { themes = [], curriculum = [], classrooms = [], image = {} } = usePage().props;
@@ -72,18 +71,7 @@ export default function WorksheetCreate() {
     // با تغییرِ تم، پیش‌نمایشِ قبلی دیگر معتبر نیست
     useEffect(() => { if (art) previewArt(); /* eslint-disable-next-line */ }, [spec.theme]);
 
-    const editQ = (i, k, v) => setQuestions((qs) => qs.map((q, j) => (j === i ? { ...q, [k]: v } : q)));
-    const editChoice = (qi, ci, v) => setQuestions((qs) => qs.map((q, j) => {
-        if (j !== qi) return q;
-        const choices = (q.choices || []).map((c, k) => (k === ci ? { ...c, value: v } : c));
-        return { ...q, choices };
-    }));
-    const setCorrect = (qi, ci) => setQuestions((qs) => qs.map((q, j) => {
-        if (j !== qi) return q;
-        return { ...q, choices: (q.choices || []).map((c, k) => ({ ...c, correct: k === ci })) };
-    }));
-    const removeQ = (i) => setQuestions((qs) => qs.filter((_, j) => j !== i));
-    const addManualQ = () => setQuestions((qs) => [...qs, blankQ()]);
+    const addManualQ = () => setQuestions((qs) => [...qs, blankQ(spec.type)]);
 
     const save = () => {
         if (!spec.title.trim()) { setMsg({ t: 'err', m: 'عنوان کاربرگ را وارد کن.' }); return; }
@@ -195,10 +183,7 @@ export default function WorksheetCreate() {
                         </Field>
                         <Field label="نوع سؤال">
                             <select className="input" value={spec.type} onChange={(e) => set('type', e.target.value)}>
-                                <option value="mc">چهارگزینه‌ای</option>
-                                <option value="tf">درست/نادرست</option>
-                                <option value="desc">تشریحی</option>
-                                <option value="blank">جای خالی</option>
+                                {Q_TYPES.map((t) => <option key={t.v} value={t.v}>{t.t}</option>)}
                             </select>
                         </Field>
                     </div>
@@ -216,7 +201,7 @@ export default function WorksheetCreate() {
                             <button type="button" disabled={busy} onClick={() => runAi(true)} className="btn btn-ghost" title="بدون کلید API — سؤال نمونه">نمونه</button>
                         </div>
                     ) : (
-                        <button type="button" onClick={addManualQ} className="btn" style={{ width: '100%', marginTop: 8 }}>➕ افزودن سؤالِ دستی</button>
+                        <button type="button" onClick={addManualQ} className="btn" style={{ width: '100%', marginTop: 8 }}>➕ افزودن سؤالِ {typeLabel(spec.type)}</button>
                     )}
                     {msg && <div style={{ marginTop: 10, fontSize: 13, borderRadius: 10, padding: '9px 12px', background: msg.t === 'err' ? '#fdecee' : msg.t === 'ok' ? '#e6f7ee' : '#eef3ff', color: msg.t === 'err' ? '#b0333f' : msg.t === 'ok' ? '#1a8a52' : '#2555c0' }}>{msg.m}</div>}
                 </div>
@@ -225,26 +210,8 @@ export default function WorksheetCreate() {
                 <div className="panel">
                     <h3>② سؤال‌ها ({fa(questions.length)}) — قابل ویرایش</h3>
                     {questions.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز سؤالی تولید نشده. از سمت راست «پیشنهاد سؤال» را بزن.</p>}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 460, overflowY: 'auto' }}>
-                        {questions.map((q, i) => (
-                            <div key={i} style={{ border: '1px solid var(--line)', borderRadius: 12, padding: 12 }}>
-                                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                                    <span style={{ fontWeight: 900, color: 'var(--muted)' }}>{fa(i + 1)}.</span>
-                                    <textarea className="input" rows={2} value={q.prompt || ''} onChange={(e) => editQ(i, 'prompt', e.target.value)} style={{ flex: 1, resize: 'vertical' }} />
-                                    <button type="button" onClick={() => removeQ(i)} className="tag" style={{ border: 0, background: '#fdecee', color: '#b0333f', cursor: 'pointer' }}>✕</button>
-                                </div>
-                                {(q.type === 'mc' || q.type === 'tf') && (q.choices || []).map((c, ci) => (
-                                    <div key={ci} style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6, marginInlineStart: 22 }}>
-                                        <input type="radio" checked={!!c.correct} onChange={() => setCorrect(i, ci)} title="پاسخ درست" />
-                                        <input className="input" value={c.value || ''} onChange={(e) => editChoice(i, ci, e.target.value)} style={{ flex: 1 }} />
-                                    </div>
-                                ))}
-                                {(q.type === 'desc' || q.type === 'blank') && q.answer != null && (
-                                    <input className="input" value={q.answer || ''} onChange={(e) => editQ(i, 'answer', e.target.value)} placeholder="پاسخ نمونه" style={{ marginTop: 6, marginInlineStart: 22, width: 'calc(100% - 22px)' }} />
-                                )}
-                            </div>
-                        ))}
-                    </div>
+                    <QuestionEditor questions={questions} onChange={setQuestions} />
+
                     {questions.length > 0 && (
                         <div style={{ marginTop: 14, borderTop: '1px solid var(--line)', paddingTop: 12 }}>
                             <b style={{ fontSize: 13.5 }}>③ انتشار</b>

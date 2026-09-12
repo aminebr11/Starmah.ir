@@ -142,13 +142,20 @@ class GradebookController extends Controller
             $body .= "\nبازخورد معلم: {$grade->feedback}";
         }
 
-        $ann = \App\Models\Announcement::create([
+        $payload = [
             'school_id' => $col->school_id,
             'sender_id' => $teacher->id,
             'title'     => '📔 نمره‌ی کلاسی — ' . ($col->lesson ?: $col->title),
             'audience'  => 'personal',
             'body'      => $body,
-        ]);
+        ];
+        // کلیک روی اعلان باید مستقیم تبِ «نمرات کلاسی» کارنامه را باز کند،
+        // نه صفحه‌ی کلیِ اطلاعیه‌ها.
+        if (\Illuminate\Support\Facades\Schema::hasColumn('announcements', 'link')) {
+            $payload['link'] = '/report?tab=grades';
+        }
+
+        $ann = \App\Models\Announcement::create($payload);
         $ann->recipients()->sync([$grade->student_id]);
     }
 

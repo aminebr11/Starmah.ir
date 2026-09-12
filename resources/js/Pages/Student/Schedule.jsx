@@ -9,7 +9,7 @@ const colorFor = (s) => { let h = 0; for (const c of (s || '')) h = (h * 31 + c.
 const emojiFor = (s) => EMOJI[s] || '📘';
 
 export default function Schedule() {
-    const { days = [], entries = {}, today, jtoday } = usePage().props;
+    const { days = [], entries = {}, special = [], today, jtoday } = usePage().props;
 
     return (
         <ThemedDash title="برنامه کلاسی" active="schedule">
@@ -51,6 +51,42 @@ export default function Schedule() {
                     );
                 })}
             </div>
+
+            {/* برنامه‌های تاریخ‌دار — جدا و پس از هفته‌ی همیشگی */}
+            {special.length > 0 && (
+                <div style={{ marginTop: 20, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 18, padding: 14, color: '#fff' }}>
+                    <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 4 }}>📌 برنامه‌های تاریخ‌دارِ پیشِ رو</div>
+                    <div style={{ opacity: .75, fontSize: 12, marginBottom: 10 }}>این‌ها فقط در همین تاریخ‌ها برگزار می‌شوند.</div>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 420 }}>
+                            <thead>
+                                <tr style={{ opacity: .7, fontSize: 12 }}>
+                                    <th style={thD}>تاریخ</th>
+                                    <th style={thD}>روز</th>
+                                    <th style={thD}>ساعت</th>
+                                    <th style={thD}>برنامه</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {special.map((e) => (
+                                    <tr key={e.id} style={{ borderTop: '1px solid rgba(255,255,255,.12)', background: e.is_today ? 'rgba(255,255,255,.10)' : 'transparent' }}>
+                                        <td style={tdD}>
+                                            <b>{fa(e.jdate)}</b>
+                                            {e.is_today && <span style={{ marginInlineStart: 6, fontSize: 10, color: 'var(--acc)' }}>⭐ امروز</span>}
+                                        </td>
+                                        <td style={tdD}>{e.day}</td>
+                                        <td style={tdD}><span dir="ltr" style={{ display: 'inline-block' }}>{fa(e.time || '—')}</span></td>
+                                        <td style={tdD}>{e.kind === 'recess' ? `☕ ${e.title}` : `${emojiFor(e.title)} ${e.title}`}{e.period ? ` · زنگ ${fa(e.period)}` : ''}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
         </ThemedDash>
     );
 }
+
+const thD = { textAlign: 'start', padding: '7px 9px', fontWeight: 700 };
+const tdD = { padding: '9px 9px', fontSize: 13 };

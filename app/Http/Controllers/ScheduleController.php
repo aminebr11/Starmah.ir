@@ -60,6 +60,7 @@ class ScheduleController extends Controller
             'classroom'   => $classroom?->only('id', 'name', 'grade'),
             'days'        => Jalali::weekdays(),
             'entries'     => $this->entriesFor($classroom?->id),
+            'special'     => $this->specialFor($classroom?->id),
             'books'       => $books,
         ]);
     }
@@ -72,6 +73,7 @@ class ScheduleController extends Controller
                 'id' => $c->id, 'name' => $c->name, 'grade' => $c->grade,
                 'teacher' => $c->teacher?->name,
                 'entries' => $this->entriesFor($c->id),
+                'special' => $this->specialFor($c->id, true),
             ])->values();
 
         return Inertia::render('SchoolAdmin/Schedule', [
@@ -149,6 +151,8 @@ class ScheduleController extends Controller
             'today'   => $todayIdx,
             'jtoday'  => Jalali::format(now(), true),
             'entries' => $this->entriesFor($classroom?->id),
+            // دانش‌آموز فقط تاریخ‌های پیشِ رو را می‌بیند
+            'special' => $this->specialFor($classroom?->id, true),
         ]);
     }
 
@@ -170,13 +174,20 @@ class ScheduleController extends Controller
         return $classroom;
     }
 
-    /** ورودی‌های برنامه، مرتب‌شده بر اساس روز و سپس ساعتِ شروع (نه ترتیب ثبت). */
+    /**
+     * ورودی‌های هفتگیِ همیشگی، مرتب‌شده بر اساس روز و سپس ساعتِ شروع.
+     *
+     * برنامه‌های «تاریخِ خاص» دیگر اینجا نمی‌آیند: تا پیش از این قاطیِ
+     * جدولِ هفته می‌شدند و معلم/دانش‌آموز نمی‌فهمید کدام زنگ برای همیشه
+     * است و کدام فقط یک روزِ مشخص. آن‌ها را specialFor() جدا می‌دهد.
+     */
     private function entriesFor(?int $classroomId): array
     {
         if (! $classroomId) {
             return [];
         }
         return ScheduleEntry::where('classroom_id', $classroomId)
+            ->whereNull('specific_date')
             ->orderBy('day_of_week')
             ->orderByRaw('start_time IS NULL, start_time')
             ->orderBy('period')
@@ -189,5 +200,41 @@ class ScheduleController extends Controller
                 'jdate' => $e->specific_date ? Jalali::format($e->specific_date) : null,
             ])->values())
             ->toArray();
+    }
+
+    /**
+     * جدولِ پیگیرِ «تاریخ‌های خاص» — بعد از جدولِ هفته نمایش داده می‌شود.
+     * هر ردیف: تاریخِ شمسی، نامِ روزِ هفته (از روی خودِ تاریخ، نه فیلدِ
+     * ذخیره‌شده) و ساعت.
+     */
+    private function specialFor(?int $classroomId, bool $upcomingOnly = false): array
+    {
+        if (! $classroomId) {
+            return [];
+        }
+        $names = Jalali::weekdays();
+        $today = now()->startOfDay();
+
+        return ScheduleEntry::where('classroom_id', $classroomId)
+            ->whereNotNull('specific_date')
+            ->when($upcomingOnly, fn ($q) => $q->whereDate('specific_date', '>=', $today->toDateString()))
+            ->orderBy('specific_date')
+            ->orderByRaw('start_time IS NULL, start_time')
+            ->get()
+            ->map(function ($e) use ($names, $today) {
+                $d = $e->specific_date;
+                // نامِ روز را از خودِ تاریخ درمی‌آوریم؛ هفته‌ی ایرانی از شنبه آغاز می‌شود
+                $idx = ((int) $d->format('w') + 1) % 7;
+                return [
+                    'id' => $e->id, 'title' => $e->title, 'time' => $e->time_range,
+                    'period' => $e->period, 'kind' => $e->kind ?? 'class',
+                    'start' => $e->start_time, 'end' => $e->end_time,
+                    'date' => $d->toDateString(),
+                    'jdate' => Jalali::format($d),
+                    'day' => $names[$idx] ?? '—',
+                    'past' => $d->lt($today),
+                    'is_today' => $d->isSameDay($today),
+                ];
+            })->values()->toArray();
     }
 }
