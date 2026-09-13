@@ -1257,3 +1257,86 @@ html{overflow-x:hidden}
   .bottom-nav{bottom:calc(10px + var(--sab));
     left:max(10px,var(--sal));right:max(10px,var(--sar))}
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   لمس روی گوشی — اصلاحِ سراسری (مخصوصاً آیفون / سافاری)
+
+   با موتورِ واقعیِ سافاری (WebKit) آزمایش شد و دو چیز ثابت شد:
+
+   ۱) :hover روی iOS پس از نخستین لمس **می‌چسبد**. قاعده‌ی
+      `.btn:hover{transform:translateY(-3px)}` سراسری بود، پس دکمه‌های
+      «ورود» و «ثبت‌نام» در هدر، همان لحظه که انگشت رویشان می‌نشست
+      ۳ پیکسل بالا می‌پریدند و همان‌جا می‌ماندند؛ لمسِ بعدی به جای خالی
+      می‌خورد. (اندازه‌گیری: transform از none به matrix(1,0,0,1,0,-3)
+      رفت و برنگشت.) دورِ قبل فقط دکمه‌های هیرو (.sm-btn) درست شده بود،
+      نه دکمه‌های عمومیِ .btn.
+
+   ۲) بدونِ touch-action:manipulation، سافاری برای هر لمس منتظرِ
+      «دوبار-لمس برای بزرگ‌نمایی» می‌ماند. این را قبلاً فقط برای چند
+      کلاسِ صفحه‌ی اول گذاشته بودیم؛ حالا برای کلِ سایت است.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ۱) حذفِ تأخیرِ دوبار-لمس از هر چیزِ کلیک‌شدنی، در همه‌ی صفحه‌ها */
+a, button, [role="button"], input:not([type="range"]), select, textarea, label, summary {
+  touch-action: manipulation;
+}
+/* لغزنده‌ها استثناءاند: رفتارِ پیش‌فرضِ مرورگر برای کشیدنِ دسته بهتر است */
+a, button, [role="button"], summary { -webkit-tap-highlight-color: transparent; }
+
+@media (hover: none) {
+  /* ۲) هیچ :hover ای نباید جای عنصر را زیرِ انگشت عوض کند */
+  .btn:hover, .btn-ghost:hover, .btn-navy:hover, .btn-glass:hover, .btn-danger:hover,
+  .sm-btn:hover, .world:hover, .world:hover .em, .bento .b:hover, .theme-opt:hover,
+  .tool-card:hover, .k3-homecard:hover, .k3-tile:hover .em, .gw-card:hover,
+  .cls-card:hover, .nav-menu a:hover {
+    transform: none;
+  }
+  /* درخششِ روی دکمه هم نباید با لمس راه بیفتد و بماند */
+  .btn:hover::after { transform: translateX(-150%); }
+  .nav-menu a:hover { background: transparent; }
+
+  /* ۳) به‌جای hover، بازخوردِ فوریِ «فشرده‌شدن» */
+  .btn:active, .sm-btn:active { transform: scale(.97); transition: transform .06s; }
+}
+
+/* ۴) لمسِ کمی طولانی روی دکمه نباید به انتخابِ متن یا منوی کپیِ iOS
+      تبدیل شود — روی گوشی این یکی از دلایلِ «کلیک نگرفت» است. */
+.btn, .sm-btn, .hamburger, .nav-menu a, .bottom-nav a, .tag, .chip {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* ۵) هدف‌های لمسیِ استاندارد در ناوبریِ عمومی */
+@media (pointer: coarse) {
+  .hamburger, .nav-cta .btn, .nav-cta .btn-sm { min-height: 44px; }
+  .nav-menu a { min-height: 44px; display: flex; align-items: center; }
+}
+
+/* ۶) سافاری تا نسخه‌ی ۱۸ فقط نسخه‌ی پیشونددارِ backdrop-filter را
+      می‌شناسد؛ بدونِ آن نوارِ شیشه‌ای روی آیفون مات نمی‌شد. */
+.nav, .btn-glass, .bottom-nav { -webkit-backdrop-filter: blur(14px); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   کفِ اطمینان برای حالتِ اپ (PWA) روی گوشی
+
+   روی iOS با نوارِ وضعیتِ شفاف، گاهی خودِ دستگاه اندازه‌ی حاشیه‌ی امن را
+   صفر گزارش می‌کند (باگِ شناخته‌شده). در آن حالت هدر دوباره زیرِ نوارِ
+   وضعیت می‌رفت. اینجا یک «کف» می‌گذاریم: هرچه دستگاه گفت، دستِ‌کم همین
+   اندازه. چون max است و نه جمع، روی دستگاهی که درست گزارش می‌دهد هیچ
+   فاصله‌ی اضافه‌ای ایجاد نمی‌شود.
+
+   فقط در حالتِ نصب‌شده و روی نمایشگرِ لمسی اعمال می‌شود؛ مرورگرِ معمولی
+   و دسکتاپ دست‌نخورده می‌مانند.
+   ═══════════════════════════════════════════════════════════════════ */
+@media all and (display-mode: standalone) and (pointer: coarse) {
+  .nav        { padding-top: max(var(--sat), 24px); }
+  .auth-form  { padding-top: max(calc(30px + var(--sat)), 54px); }
+  .auth-wrap  { padding-top: max(calc(24px + var(--sat)), 48px); }
+  .dash-main  { padding-top: max(calc(18px + var(--sat)), 42px); }
+  .dash-side  { padding-top: max(calc(20px + var(--sat)), 44px); }
+  /* نوارِ خانه‌ی آیفون: کفِ ۱۶ پیکسل تا دکمه‌های نوارِ پایین دقیقاً
+     روی ناحیه‌ی سوایپِ سیستم نیفتند (آنجا لمسِ اول را سیستم می‌خورد). */
+  .bottom-nav { bottom: max(calc(10px + var(--sab)), 22px); }
+  .footer     { padding-bottom: max(calc(26px + var(--sab)), 42px); }
+}
