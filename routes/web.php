@@ -322,7 +322,9 @@ Route::middleware(['auth', 'role:parent'])->group(function () {
 
 /* ---------------- مشترک ---------------- */
 Route::middleware('auth')->group(function () {
-    Route::post('/assistant/chat', [\App\Http\Controllers\AssistantController::class, 'chat'])->name('assistant.chat');
+    // سقفِ نرخ: هزینه‌ی کلیدِ هوش مصنوعی را از تکرارِ پرشتاب حفظ می‌کند
+    Route::post('/assistant/chat', [\App\Http\Controllers\AssistantController::class, 'chat'])
+        ->middleware('throttle:20,1')->name('assistant.chat');
 
     // ارتباطِ محرمانه‌ی معلم/مدیر با والدین (کنترلِ نقش داخلِ کنترلر)
     Route::get('/family-notes', [\App\Http\Controllers\ParentNoteController::class, 'index'])->name('family.notes');
@@ -342,6 +344,10 @@ Route::middleware('auth')->group(function () {
 
     // کارتابل اعلان‌ها/پیام‌ها (معلم و دانش‌آموز)
     Route::get('/notices', \App\Http\Controllers\NoticeController::class)->name('notices');
+    // مسیرهای ثابت پیش از مسیرِ پارامتری ثبت می‌شوند تا بلعیده نشوند
+    Route::post('/notices/read-all', [\App\Http\Controllers\NoticeController::class, 'readAll'])->name('notices.read-all');
+    Route::post('/notices/read/{key}', [\App\Http\Controllers\NoticeController::class, 'read'])
+        ->where('key', '[A-Za-z0-9_:.\-]{1,60}')->name('notices.read');
     Route::post('/notices/{announcement}/dismiss', [\App\Http\Controllers\NoticeController::class, 'dismiss'])->name('notices.dismiss');
     Route::post('/notices/clear', [\App\Http\Controllers\NoticeController::class, 'clear'])->name('notices.clear');
 

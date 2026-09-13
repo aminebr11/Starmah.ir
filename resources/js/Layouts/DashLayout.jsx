@@ -1,6 +1,7 @@
 import { Head, Link, usePage, router } from '@inertiajs/react';
 import { useState } from 'react';
 import AssistantWidget from '@/Components/AssistantWidget';
+import BellMenu from '@/Components/BellMenu';
 import Avatar from '@/Components/Avatar';
 
 /**
@@ -63,9 +64,8 @@ export default function DashLayout({ title, roleLabel, menu = [], active = '', c
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         {actions}
-                        <Link href="/notices" className={`bell-btn ${unreadNotices > 0 ? 'ring' : ''}`} title="اعلان‌ها و پیام‌ها">
-                            🔔{unreadNotices > 0 && <span className="bell-dot">{unreadNotices}</span>}
-                        </Link>
+                        {/* زنگوله‌ی یکپارچه — همان چیزی که دانش‌آموز می‌بیند */}
+                        <BellMenu tone="light" />
                         <div className="user-chip">
                             <Link href={route('profile.edit')} className="user-chip-name" title="پروفایل من">
                                 <Avatar src={avatarUrl} name={auth?.user?.name} size={26} /><span className="nm">{auth?.user?.name}</span>

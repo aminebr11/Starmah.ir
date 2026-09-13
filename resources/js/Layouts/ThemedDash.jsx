@@ -2,6 +2,7 @@ import { Head, Link, usePage, router } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import { cssVars } from '@/theme';
 import AssistantWidget from '@/Components/AssistantWidget';
+import BellMenu from '@/Components/BellMenu';
 import Avatar from '@/Components/Avatar';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
@@ -31,12 +32,10 @@ function PreviewRibbon({ preview }) {
  * لوگوی سایت بالا قرار دارد. ریسپانسیو.
  */
 export default function ThemedDash({ title, active = '', children, actions = null }) {
-    const { auth, theme, notifications = [], unreadNotices = 0, smartLab = false, avatarUrl = null, familyNew = 0, preview = null } = usePage().props;
-    const unread = unreadNotices || 0;
+    const { auth, theme, unreadNotices = 0, smartLab = false, avatarUrl = null, familyNew = 0, preview = null } = usePage().props;
     const skin = theme?.skin ?? {};
     const vars = useMemo(() => cssVars(skin), [theme?.id]);
     const [open, setOpen] = useState(false);
-    const [bell, setBell] = useState(false);
 
     const menu = [
         { key: 'home', label: 'خانه', icon: '🏠', href: '/dashboard' },
@@ -117,40 +116,8 @@ export default function ThemedDash({ title, active = '', children, actions = nul
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         {actions}
-                        {/* زنگوله‌ی اعلان یکپارچه (اطلاعیه + پیام + انضباط) */}
-                        <div style={{ position: 'relative' }}>
-                            <button onClick={() => setBell(!bell)} className={unread > 0 ? 'bell-live' : ''}
-                                style={{ position: 'relative', background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', width: 40, height: 40, borderRadius: 12, cursor: 'pointer', fontSize: 18 }}>
-                                🔔
-                                {unread > 0 && <span style={{ position: 'absolute', top: -4, insetInlineEnd: -4, background: '#e8505b', color: '#fff', borderRadius: 20, minWidth: 18, height: 18, fontSize: 11, fontWeight: 800, display: 'grid', placeItems: 'center', padding: '0 4px', boxShadow: '0 0 0 2px rgba(255,255,255,.3)' }}>{fa(unread)}</span>}
-                            </button>
-                            {bell && (
-                                <div style={{ position: 'absolute', top: 48, insetInlineEnd: 0, width: 300, maxWidth: '86vw', background: '#fff', color: 'var(--ink)', borderRadius: 16, boxShadow: '0 20px 50px -20px rgba(0,0,0,.5)', zIndex: 80, overflow: 'hidden' }}>
-                                    <div style={{ padding: '12px 14px', fontWeight: 800, borderBottom: '1px solid #eef2f8', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        🔔 اعلان‌ها
-                                        {unread > 0 && <span style={{ background: '#e8505b', color: '#fff', borderRadius: 20, padding: '1px 8px', fontSize: 11 }}>{fa(unread)} جدید</span>}
-                                    </div>
-                                    {notifications.length === 0 && <div style={{ padding: 16, color: '#6b7794', fontSize: 13, textAlign: 'center' }}>اعلان جدیدی نداری 🎉</div>}
-                                    <div style={{ maxHeight: 340, overflowY: 'auto' }}>
-                                        {notifications.map((n) => (
-                                            <Link key={n.id} href={n.href} onClick={() => setBell(false)}
-                                                style={{ padding: '11px 14px', borderBottom: '1px solid #f3f6fb', display: 'flex', alignItems: 'flex-start', gap: 10, color: 'inherit', background: n.read ? '#fff' : '#f4f8ff', borderInlineStart: `4px solid ${n.color}` }}>
-                                                <span style={{ fontSize: 18, flex: 'none' }}>{n.icon}</span>
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={{ fontSize: 13, fontWeight: 700, display: 'flex', gap: 6 }}>
-                                                        <span style={{ flex: 1 }}>{n.title}</span>
-                                                        {!n.read && <span style={{ width: 8, height: 8, borderRadius: 8, background: '#e8505b', flex: 'none', marginTop: 4 }} />}
-                                                    </div>
-                                                    {n.body && <div style={{ fontSize: 12, color: '#6b7794', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.body}</div>}
-                                                    <div style={{ fontSize: 10.5, color: '#9aa6bd', marginTop: 2 }}>{n.date}</div>
-                                                </div>
-                                            </Link>
-                                        ))}
-                                    </div>
-                                    <Link href="/notices" onClick={() => setBell(false)} style={{ display: 'block', padding: '11px 14px', textAlign: 'center', color: 'var(--gold-2)', fontWeight: 700, fontSize: 13 }}>مشاهده‌ی همه ←</Link>
-                                </div>
-                            )}
-                        </div>
+                        {/* زنگوله‌ی اعلان یکپارچه — مؤلفه‌ی مشترکِ همه‌ی نقش‌ها */}
+                        <BellMenu tone="dark" />
                         <Link href="/profile" className="td-profile-link" style={{ color: 'rgba(255,255,255,.85)', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
                             {avatarUrl
                                 ? <Avatar src={avatarUrl} name={auth?.user?.name} size={34} ring />

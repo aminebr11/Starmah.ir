@@ -16,21 +16,13 @@ class NoticeController extends Controller
     {
         $user = $request->user();
 
-        $notices = Announcement::forUser($user)->with('sender:id,name')->latest()->limit(60)->get()
-            ->map(fn ($a) => [
-                'id'       => $a->id,
-                'title'    => $a->title,
-                'body'     => $a->body,
-                'link'     => $a->link,
-                'sender'   => $a->sender?->name,
-                'personal' => $a->audience === 'personal',
-                'date'     => Jalali::format($a->created_at),
-            ]);
+        // همان فیدِ یکپارچه‌ی زنگوله — نه فقط جدولِ اطلاعیه‌ها.
+        // پیش از این صفحه‌ی اعلان‌ها فقط Announcement را می‌خواند، پس پیامِ
+        // صندوق، پاسخِ والدین، موردِ انضباطی و یادآورِ مأموریت اینجا اصلاً
+        // دیده نمی‌شدند.
+        $notices = \App\Support\Notifications::all($user, 80);
 
-        // پیام‌های شخصیِ خوانده‌نشده را خوانده علامت بزن + فید زنگوله را «دیده‌شد»
-        \Illuminate\Support\Facades\DB::table('announcement_recipients')
-            ->where('user_id', $user->id)->whereNull('read_at')->update(['read_at' => now()]);
-        \App\Support\Notifications::markSeen($user);
+        // دیگر همه را خودکار «خوانده» نمی‌کنیم؛ کاربر خودش علامت می‌زند.
 
         // هر نقش باید صفحه و منویِ خودش را بگیرد.
         // پیش از این هر کسی جز معلم صفحه‌ی دانش‌آموز می‌گرفت، و منویِ
@@ -52,7 +44,24 @@ class NoticeController extends Controller
         return Inertia::render($component, [
             'notices' => $notices,
             'role'    => $role,
+            'unread'  => collect($notices)->where('read', false)->count(),
         ]);
+    }
+
+    /** «مطالعه شد» برای یک ردیفِ فید. */
+    public function read(Request $request, string $key): \Illuminate\Http\RedirectResponse
+    {
+        \App\Support\Notifications::markRead($request->user(), $key);
+
+        return back(303);
+    }
+
+    /** «همه را خواندم». */
+    public function readAll(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        \App\Support\Notifications::markAllRead($request->user());
+
+        return back(303)->with('flash', 'همه‌ی اعلان‌ها «مطالعه‌شده» علامت خوردند ✅');
     }
 
     /** حذف/پنهان‌کردنِ یک اعلان فقط برای همین کاربر. */
