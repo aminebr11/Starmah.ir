@@ -97,6 +97,7 @@ export const adminMenu = [
 
     { divider: 'گزارش و تنظیمات' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/admin/reports' },
+    { key: 'sms', label: 'سامانه‌ی پیامک', icon: '📩', href: '/admin/sms' },
     { key: 'integrations', label: 'درگاه‌ها (پیامک/پرداخت)', icon: '🔌', href: '/admin/integrations' },
     { key: 'settings', label: 'تنظیمات پلتفرم', icon: '⚙️', href: '/admin/settings' },
 ];
@@ -118,6 +119,7 @@ export const schoolMenu = [
     { key: 'familynotes', label: 'پیامِ محرمانه به والدین', icon: '🔐', href: '/family-notes' },
     { key: 'announcements', label: 'اطلاعیه‌ها', icon: '📢', href: '/school/announcements' },
     { key: 'messages', label: 'ارتباط با والدین/معلم', icon: '💬', href: '/messages' },
+    { key: 'sms', label: 'سامانه‌ی پیامک', icon: '📩', href: '/school/sms' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/school/reports' },
 ];
 
@@ -155,5 +157,6 @@ export const teacherMenu = [
     { divider: 'ارتباط' },
     { key: 'familynotes', label: 'پیامِ محرمانه به والدین', icon: '🔐', href: '/family-notes' },
     { key: 'messages', label: 'ارتباط با والدین/مدیر', icon: '💬', href: '/messages' },
+    { key: 'sms', label: 'پیامک به اولیا', icon: '📩', href: '/teacher/sms' },
     { key: 'notices', label: 'اعلان‌ها', icon: '📢', href: '/notices' },
 ];

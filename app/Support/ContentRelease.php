@@ -73,6 +73,14 @@ class ContentRelease
 
         $ann = Announcement::create($payload);
         $ann->recipients()->sync($ids);
+
+        // پیامک — تکلیف رویدادِ جداگانه دارد چون معمولاً مهم‌ترینِ آن‌هاست
+        $event = $content->type === 'homework' ? 'homework' : 'content';
+        $label = self::LABELS[$content->type] ?? 'محتوای جدید';
+        foreach (User::whereIn('id', $ids)->get() as $student) {
+            SmsGateway::event($event, $student,
+                "{$label} — «{$content->title}» برای {$student->name} در سامانه‌ی ستاره ماه ثبت شد.", $teacher);
+        }
     }
 
     /**

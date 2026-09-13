@@ -11,12 +11,16 @@ class School extends Model
     protected $fillable = [
         'name', 'slug', 'city', 'level', 'logo', 'plan', 'plan_id', 'status',
         'seats', 'subscription_ends_at', 'branding', 'settings',
+        // سامانه‌ی پیامک: دسترسی، سهمیه‌ی ماهانه، خطِ اختصاصی و رویدادها
+        'sms_enabled', 'sms_quota', 'sms_sender', 'sms_events',
     ];
 
     protected $casts = [
         'branding' => 'array',
         'settings' => 'array',
         'subscription_ends_at' => 'date',
+        'sms_enabled' => 'boolean',
+        'sms_events'  => 'array',
     ];
 
     public function planModel(): BelongsTo { return $this->belongsTo(Plan::class, 'plan_id'); }

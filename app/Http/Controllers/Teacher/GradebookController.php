@@ -157,6 +157,12 @@ class GradebookController extends Controller
 
         $ann = \App\Models\Announcement::create($payload);
         $ann->recipients()->sync([$grade->student_id]);
+
+        // پیامک — فقط اگر مدرسه این رویداد را روشن کرده باشد
+        if ($student = \App\Models\User::find($grade->student_id)) {
+            \App\Support\SmsGateway::event('grade', $student,
+                "{$student->name} عزیز، نمره‌ی تازه ثبت شد: {$lesson}{$col->title} — {$value}", $teacher);
+        }
     }
 
     public function destroyColumn(Request $request, GradeColumn $gradeColumn): RedirectResponse

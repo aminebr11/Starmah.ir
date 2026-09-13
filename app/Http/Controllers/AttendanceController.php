@@ -314,5 +314,13 @@ class AttendanceController extends Controller
                 : "امروز ({$jdate}) با تأخیر وارد کلاس شدی. لطفاً سر وقت حاضر شو.",
         ]);
         $ann->recipients()->sync([$record->student_id]);
+
+        if ($student = \App\Models\User::find($record->student_id)) {
+            \App\Support\SmsGateway::event('absence', $student,
+                $record->status === 'absent'
+                    ? "{$student->name} امروز ({$jdate}) در کلاس غایب بود."
+                    : "{$student->name} امروز ({$jdate}) با تأخیر وارد کلاس شد.",
+                $recorder);
+        }
     }
 }

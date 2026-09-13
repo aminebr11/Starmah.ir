@@ -1,4 +1,4 @@
-import { usePage, useForm, router } from '@inertiajs/react';
+import { usePage, useForm, router, Link } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
 
@@ -27,51 +27,15 @@ export default function Integrations() {
 
             <form onSubmit={save}>
                 {/* ---------- سامانه‌ی پیامک ---------- */}
+                {/* تنظیماتِ پیامک به پنلِ اختصاصیِ خودش منتقل شد تا دو جا
+                    یک تنظیم را ننویسند و از هم دور نیفتند. */}
                 <div className="panel">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                        <h3 style={{ margin: 0 }}>📱 سامانه‌ی پیامک</h3>
-                        <label style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, fontWeight: 700 }}>
-                            <input type="checkbox" checked={form.data.sms_enabled} onChange={(e) => form.setData('sms_enabled', e.target.checked)} /> فعال
-                        </label>
-                    </div>
-                    <p style={{ color: 'var(--muted)', fontSize: 12.5, marginTop: 6 }}>
-                        برای ورود/بازیابیِ رمز با پیامک و اطلاع‌رسانی استفاده می‌شود. آدرسِ سرویسِ پیامکِ خود را با
-                        جای‌گیرها وارد کنید: <code>{'{api_key} {sender} {to} {message}'}</code>
+                    <h3 style={{ marginTop: 0 }}>📱 سامانه‌ی پیامک</h3>
+                    <p style={{ color: 'var(--muted)', fontSize: 13.5, lineHeight: 2 }}>
+                        تنظیماتِ پیامک حالا در پنلِ اختصاصیِ خودش است: اتصالِ درگاه، دسترسی و سهمیه‌ی هر مدرسه،
+                        گزارشِ مصرف و سابقه‌ی ارسال.
                     </p>
-                    <div className="grid grid-2-form">
-                        <Field label="نامِ سرویس‌دهنده (دلخواه)"><input className="input" value={form.data.sms_provider} onChange={(e) => form.setData('sms_provider', e.target.value)} placeholder="مثلاً: kavenegar / off" /></Field>
-                        <Field label="شماره/نامِ فرستنده"><input className="input" value={form.data.sms_sender} onChange={(e) => form.setData('sms_sender', e.target.value)} dir="ltr" placeholder="10008663" /></Field>
-                    </div>
-                    <div className="grid grid-2-form">
-                        <Field label="روشِ درخواست">
-                            <select className="input" value={form.data.sms_http_method} onChange={(e) => form.setData('sms_http_method', e.target.value)}>
-                                <option value="GET">GET</option><option value="POST">POST</option>
-                            </select>
-                        </Field>
-                        <Field label="کلیدِ API">
-                            <input className="input" value={form.data.sms_api_key} onChange={(e) => form.setData('sms_api_key', e.target.value)} dir="ltr"
-                                placeholder={sms.api_key_set ? `ذخیره‌شده (${sms.api_key_hint}) — برای تغییر وارد کنید` : 'کلیدِ API'} />
-                        </Field>
-                    </div>
-                    <Field label="قالبِ آدرسِ ارسال (URL Template)">
-                        <input className="input" value={form.data.sms_url_template} onChange={(e) => form.setData('sms_url_template', e.target.value)} dir="ltr"
-                            placeholder="https://api.example.com/send?key={api_key}&from={sender}&to={to}&text={message}" />
-                    </Field>
-                    {form.data.sms_http_method === 'POST' && (
-                        <Field label="قالبِ بدنه (JSON) — اختیاری">
-                            <textarea className="input" rows={2} value={form.data.sms_body_template} onChange={(e) => form.setData('sms_body_template', e.target.value)} dir="ltr"
-                                placeholder='{"receptor":"{to}","sender":"{sender}","message":"{message}"}' style={{ resize: 'vertical' }} />
-                        </Field>
-                    )}
-                    {/* آزمایش */}
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'end', flexWrap: 'wrap', marginTop: 6, background: '#f6f8fc', border: '1px solid var(--line)', borderRadius: 12, padding: 12 }}>
-                        <div className="field" style={{ margin: 0, flex: 1, minWidth: 180 }}>
-                            <label>ارسالِ پیامکِ آزمایشی به</label>
-                            <input className="input" value={testPhone} onChange={(e) => setTestPhone(e.target.value)} placeholder="09xxxxxxxxx" dir="ltr" />
-                        </div>
-                        <button type="button" onClick={testSms} className="btn btn-ghost">📤 تستِ پیامک</button>
-                        <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>ابتدا تنظیمات را ذخیره کنید، سپس تست بگیرید.</span>
-                    </div>
+                    <Link href="/admin/sms" className="btn">📩 رفتن به سامانه‌ی پیامک</Link>
                 </div>
 
                 {/* ---------- سامانه‌ی پرداخت ---------- */}

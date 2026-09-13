@@ -19,6 +19,8 @@ class User extends Authenticatable
     protected $fillable = [
         'school_id', 'name', 'phone', 'email', 'password', 'avatar',
         'theme_id', 'grade', 'national_id', 'birth_date', 'is_active', 'must_change_password', 'settings',
+        // دسترسیِ پیامک (معلم) و شماره‌ی ولیِ دانش‌آموز
+        'sms_allowed', 'sms_quota', 'parent_phone',
     ];
 
     protected $hidden = ['password', 'remember_token'];

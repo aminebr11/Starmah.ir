@@ -169,6 +169,13 @@ class ExamBuilderController extends Controller
             'link'      => '/exams',
         ]);
         $ann->recipients()->sync($ids);
+
+        // Assignment رابطه‌ی teacher ندارد، پس مستقیم می‌خوانیمش
+        $teacher = \App\Models\User::find($assignment->teacher_id);
+        foreach (\App\Models\User::whereIn('id', $ids)->get() as $student) {
+            \App\Support\SmsGateway::event('exam', $student,
+                "آزمونِ تازه «{$assignment->title}» برای {$student->name} منتشر شد — ستاره ماه.", $teacher);
+        }
     }
 
     public function update(Request $request, Assignment $assignment): RedirectResponse

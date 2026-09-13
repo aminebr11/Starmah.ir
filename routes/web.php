@@ -63,6 +63,11 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::post('/plans/{plan}/toggle', [\App\Http\Controllers\Admin\PlanController::class, 'toggle'])->name('plans.toggle');
     Route::delete('/plans/{plan}', [\App\Http\Controllers\Admin\PlanController::class, 'destroy'])->name('plans.destroy');
     // درگاه‌ها: پیامک و پرداخت
+    // سامانه‌ی جامعِ پیامک — درگاه، دسترسیِ مدرسه‌ها، مصرف و سابقه
+    Route::get('/sms', [\App\Http\Controllers\Admin\SmsAdminController::class, 'index'])->name('sms');
+    Route::post('/sms/gateway', [\App\Http\Controllers\Admin\SmsAdminController::class, 'storeGateway'])->name('sms.gateway');
+    Route::post('/sms/test', [\App\Http\Controllers\Admin\SmsAdminController::class, 'test'])->name('sms.test');
+    Route::post('/sms/school/{school}', [\App\Http\Controllers\Admin\SmsAdminController::class, 'updateSchool'])->name('sms.school');
     Route::get('/integrations', [PlatformController::class, 'integrations'])->name('integrations');
     Route::put('/integrations', [PlatformController::class, 'storeIntegrations'])->name('integrations.store');
     Route::post('/integrations/test-sms', [PlatformController::class, 'testSms'])->name('integrations.test-sms');
@@ -117,6 +122,11 @@ Route::middleware(['auth', 'role:school_admin'])->prefix('school')->name('school
     Route::get('/attendance/monthly-sheet', [\App\Http\Controllers\AttendanceController::class, 'monthlySheet'])->name('attendance.monthly');
     Route::get('/attendance-report', [\App\Http\Controllers\AttendanceReportController::class, 'index'])->name('attendance.report');
     Route::get('/exam-reports', [\App\Http\Controllers\SchoolAdmin\ExamOverviewController::class, 'index'])->name('exam.reports');
+    // پیامک: ارسال، اجازه‌ی معلم‌ها، رویدادها
+    Route::get('/sms', [\App\Http\Controllers\SmsController::class, 'index'])->name('sms');
+    Route::post('/sms/send', [\App\Http\Controllers\SmsController::class, 'send'])->name('sms.send');
+    Route::post('/sms/events', [\App\Http\Controllers\SmsController::class, 'events'])->name('sms.events');
+    Route::post('/sms/teacher/{user}', [\App\Http\Controllers\SmsController::class, 'teacher'])->name('sms.teacher');
 });
 
 /* ---------------- دانش‌آموز ---------------- */
@@ -233,6 +243,9 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::delete('/discipline/topics/{disciplineTopic}', [DisciplineController::class, 'destroyTopic'])->name('discipline.topics.destroy');
     Route::post('/discipline/record', [DisciplineController::class, 'record'])->name('discipline.record');
     // محتوای کلاس: جزوه/فایل، پادکست، گالری، تکلیف (بارگذاری واقعی)
+    // پیامک به دانش‌آموزان و اولیا (در صورتِ اجازه‌ی مدیرِ مدرسه)
+    Route::get('/sms', [\App\Http\Controllers\SmsController::class, 'index'])->name('sms');
+    Route::post('/sms/send', [\App\Http\Controllers\SmsController::class, 'send'])->name('sms.send');
     Route::get('/materials', [\App\Http\Controllers\Teacher\ClassContentController::class, 'index'])->name('materials');
     Route::post('/materials', [\App\Http\Controllers\Teacher\ClassContentController::class, 'store'])->name('materials.store');
     Route::post('/materials/{classContent}', [\App\Http\Controllers\Teacher\ClassContentController::class, 'update'])->name('materials.update');

@@ -202,6 +202,19 @@ class SchoolDashboardController extends Controller
             $ids = User::where('school_id', $request->user()->school_id)
                 ->whereIn('id', $data['recipient_ids'])->pluck('id')->all();
             $announcement->recipients()->sync($ids);
+            $smsTargets = User::whereIn('id', $ids)->get();
+        } else {
+            // اطلاعیه‌ی عمومی → همه‌ی دانش‌آموزانِ مدرسه (یا همان پایه)
+            $smsTargets = User::role(\App\Support\Roles::STUDENT)
+                ->where('school_id', $request->user()->school_id)
+                ->when(! empty($data['grade']), fn ($q) => $q->where('grade', $data['grade']))
+                ->get();
+        }
+
+        foreach ($smsTargets as $person) {
+            \App\Support\SmsGateway::event('announcement', $person,
+                "اطلاعیه‌ی مدرسه: {$data['title']}\n" . \Illuminate\Support\Str::limit($data['body'], 180),
+                $request->user());
         }
 
         return back()->with('flash', 'اطلاعیه ارسال شد ✅');

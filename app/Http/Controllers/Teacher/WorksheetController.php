@@ -342,6 +342,12 @@ class WorksheetController extends Controller
             }
             $ann = Announcement::create($payload);
             $ann->recipients()->sync($ids);
+
+            foreach (\App\Models\User::whereIn('id', $ids)->get() as $student) {
+                \App\Support\SmsGateway::event('worksheet', $student,
+                    "کاربرگِ تازه «{$worksheet->title}» برای {$student->name} منتشر شد — ستاره ماه.",
+                    $worksheet->teacher);
+            }
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('worksheet notify failed: ' . $e->getMessage());
         }

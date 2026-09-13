@@ -107,6 +107,10 @@ class DisciplineController extends Controller
                     ]);
                     $game->awardXp($student, $topic->points,
                         ($topic->kind === 'positive' ? '⭐ تشویق' : '⚠️ انضباط') . ' — ' . $topic->name, $teacher);
+
+                    \App\Support\SmsGateway::event('discipline', $student,
+                        ($topic->kind === 'positive' ? 'تشویق' : 'تذکر') . " برای {$student->name}: {$topic->name}"
+                        . ($topic->points ? ' (' . ($topic->points > 0 ? '+' : '') . $topic->points . ' امتیاز)' : ''), $teacher);
                     $count++;
                 }
             }

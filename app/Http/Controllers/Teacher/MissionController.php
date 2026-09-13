@@ -397,6 +397,11 @@ class MissionController extends Controller
             $ann = Announcement::create($payload);
             $ann->recipients()->sync($ids);
 
+            foreach (\App\Models\User::whereIn('id', $ids)->get() as $student) {
+                \App\Support\SmsGateway::event('mission', $student,
+                    "مأموریتِ تازه «{$mission->title}» برای {$student->name} در ستاره ماه ثبت شد.", $mission->teacher);
+            }
+
             return count($ids);
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('mission notify failed: ' . $e->getMessage());
