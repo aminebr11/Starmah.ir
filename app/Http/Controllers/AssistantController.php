@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\AssistantService;
 use App\Support\AssistantAccess;
+use App\Support\Roles;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -40,11 +41,21 @@ class AssistantController extends Controller
             $result = $assistant->reply($user, $data['history'] ?? [], $data['message']);
         } catch (\Throwable $e) {
             // حتی اگر همه‌چیز بشکند، کاربر نباید «نتوانستم پاسخ بدهم» ببیند
-            Log::warning('assistant failed: ' . $e->getMessage());
+            Log::warning('assistant failed: ' . get_class($e) . ' — ' . $e->getMessage()
+                . ' @ ' . basename($e->getFile()) . ':' . $e->getLine());
             $result = [
                 'reply' => $assistant->safeReply($user, $data['message']),
                 'mode'  => 'local',
             ];
+        }
+
+        // تشخیصِ عیب فقط برای مدیرِ مدرسه و ادمینِ کل: اگر بخشی از داده
+        // ساخته نشد (جدول/مهاجرتِ کم روی سرور) همان‌جا دیده شود، نه فقط در لاگ.
+        $skipped = $result['skipped'] ?? [];
+        unset($result['skipped']);
+        if ($skipped && $user->hasAnyRole([Roles::SCHOOL_ADMIN, Roles::SUPER_ADMIN])) {
+            $result['diag'] = 'این بخش‌ها از پایگاه‌داده خوانده نشد: ' . implode('، ', $skipped)
+                . ' — احتمالاً مهاجرتِ پایگاه‌داده روی سرور اجرا نشده است.';
         }
 
         return response()->json($result);

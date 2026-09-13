@@ -61,6 +61,13 @@ export default function AssistantWidget() {
     const boxRef = useRef(null);
 
     useEffect(() => { if (boxRef.current) boxRef.current.scrollTop = boxRef.current.scrollHeight; }, [msgs, busy, open]);
+    // کلیدِ Esc هم مثلِ دکمه‌ی ✕ پنجره را می‌بندد
+    useEffect(() => {
+        if (!open) return undefined;
+        const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [open]);
     useEffect(() => {
         try { sessionStorage.setItem(storeKey, JSON.stringify(msgs.slice(-20))); } catch { /* بی‌خیال */ }
     }, [msgs]);
@@ -74,7 +81,7 @@ export default function AssistantWidget() {
         setBusy(true);
         try {
             const { data } = await axios.post(route('assistant.chat'), { message, history });
-            setMsgs((m) => [...m, { role: 'assistant', content: data.reply }]);
+            setMsgs((m) => [...m, { role: 'assistant', content: data.reply, diag: data.diag }]);
         } catch (err) {
             // پیامِ عمومیِ قبلی علت را پنهان می‌کرد و کاربر نمی‌دانست چه کند
             const s = err?.response?.status;
@@ -99,21 +106,24 @@ export default function AssistantWidget() {
 
     return (
         <>
-            <button onClick={() => setOpen((o) => !o)} title="دستیارِ هوشمند" className="assistant-fab" aria-label="دستیار هوشمند"
+            <button onClick={() => setOpen((o) => !o)} title="دستیارِ هوشمند" className={`assistant-fab ${open ? 'is-open' : ''}`} aria-label="دستیار هوشمند"
                 style={{ position: 'fixed', insetInlineEnd: 18, bottom: `calc(18px + var(--sab, 0px))`, zIndex: 120, width: 56, height: 56, borderRadius: '50%', border: 0, cursor: 'pointer',
                     background: 'linear-gradient(135deg,#7c5cf0,#4c2fb0)', color: '#fff', fontSize: 26, boxShadow: '0 12px 30px -8px rgba(76,47,176,.6)' }}>
                 {open ? '✕' : '🤖'}
             </button>
 
             {open && (
-                <div className="assistant-panel" dir="rtl"
+                <div className="assistant-panel" dir="rtl" role="dialog" aria-label="دستیارِ هوشمند"
                     style={{ position: 'fixed', insetInlineEnd: 18, bottom: `calc(84px + var(--sab, 0px))`, zIndex: 120, width: 370, maxWidth: 'calc(100vw - 36px)', height: 540, maxHeight: 'calc(100vh - 150px)',
                         background: '#fff', color: '#1b2742', borderRadius: 18, boxShadow: '0 24px 60px -20px rgba(0,0,0,.5)', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: 'inherit' }}>
                     <div style={{ background: 'linear-gradient(135deg,#7c5cf0,#4c2fb0)', color: '#fff', padding: '12px 16px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 20 }}>🤖</span>
-                        <span style={{ flex: 1 }}>دستیارِ ستاره‌ماه</span>
-                        <button onClick={reset} title="گفت‌وگوی تازه"
-                            style={{ border: 0, background: 'rgba(255,255,255,.18)', color: '#fff', borderRadius: 9, width: 28, height: 28, cursor: 'pointer', fontSize: 13 }}>↺</button>
+                        <span style={{ flex: 1, minWidth: 0 }}>دستیارِ ستاره‌ماه</span>
+                        <button onClick={reset} title="گفت‌وگوی تازه" aria-label="گفت‌وگوی تازه" className="asst-hbtn">↺</button>
+                        {/* دکمه‌ی بستن در سربرگ — روی هر صفحه و هر اندازه‌ای در دسترس
+                            است؛ پیش از این فقط حبابِ شناور می‌بست و روی گوشی زیرِ
+                            پنجره می‌ماند. */}
+                        <button onClick={() => setOpen(false)} title="بستنِ دستیار" aria-label="بستن" className="asst-hbtn asst-close">✕</button>
                     </div>
 
                     <div ref={boxRef} style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8, background: '#f6f8fc' }}>
@@ -122,6 +132,11 @@ export default function AssistantWidget() {
                                 background: m.role === 'user' ? 'linear-gradient(135deg,#3d7bf0,#2555c0)' : '#fff', color: m.role === 'user' ? '#fff' : '#1b2742',
                                 border: m.role === 'user' ? 0 : '1px solid #e6ebf3', borderRadius: 14, padding: '9px 12px', fontSize: 13, lineHeight: 1.95, whiteSpace: 'pre-wrap' }}>
                                 <Rich text={m.content} />
+                                {m.diag && (
+                                    <div style={{ marginTop: 7, paddingTop: 7, borderTop: '1px dashed #e6c98f', color: '#8a6410', fontSize: 11.5, lineHeight: 1.8 }}>
+                                        ⚠️ {m.diag}
+                                    </div>
+                                )}
                             </div>
                         ))}
                         {busy && <div style={{ alignSelf: 'flex-end', color: '#8896ad', fontSize: 12, padding: '4px 8px' }}>در حال نوشتن…</div>}

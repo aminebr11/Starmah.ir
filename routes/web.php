@@ -127,6 +127,7 @@ Route::middleware(['auth', 'role:school_admin'])->prefix('school')->name('school
     Route::post('/sms/send', [\App\Http\Controllers\SmsController::class, 'send'])->name('sms.send');
     Route::post('/sms/events', [\App\Http\Controllers\SmsController::class, 'events'])->name('sms.events');
     Route::post('/sms/teacher/{user}', [\App\Http\Controllers\SmsController::class, 'teacher'])->name('sms.teacher');
+    Route::post('/sms/student/{student}', [\App\Http\Controllers\SmsController::class, 'studentAccess'])->name('sms.student');
     // دسترسیِ دستیارِ هوشمند (در همان صفحه‌ی تنظیماتِ مدرسه)
     Route::post('/assistant-access', [\App\Http\Controllers\SmsController::class, 'assistant'])->name('assistant.access');
 });
@@ -248,6 +249,8 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     // پیامک به دانش‌آموزان و اولیا (در صورتِ اجازه‌ی مدیرِ مدرسه)
     Route::get('/sms', [\App\Http\Controllers\SmsController::class, 'index'])->name('sms');
     Route::post('/sms/send', [\App\Http\Controllers\SmsController::class, 'send'])->name('sms.send');
+    // معلم برای هر دانش‌آموزِ خودش تعیین می‌کند پیامک‌های سامانه کجا برود
+    Route::post('/sms/student/{student}', [\App\Http\Controllers\SmsController::class, 'studentAccess'])->name('sms.student');
     Route::get('/materials', [\App\Http\Controllers\Teacher\ClassContentController::class, 'index'])->name('materials');
     Route::post('/materials', [\App\Http\Controllers\Teacher\ClassContentController::class, 'store'])->name('materials.store');
     Route::post('/materials/{classContent}', [\App\Http\Controllers\Teacher\ClassContentController::class, 'update'])->name('materials.update');

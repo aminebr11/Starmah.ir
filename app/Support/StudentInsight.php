@@ -13,6 +13,7 @@ use App\Models\XpEntry;
 use App\Services\AnalyticsService;
 use App\Services\CrossSubjectService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -31,36 +32,70 @@ class StudentInsight
         private AnalyticsService $analytics,
     ) {}
 
+    /**
+     * بخش‌هایی از پرونده که در این درخواست ساخته نشدند.
+     *
+     * هر بخشِ profile() جداگانه و ایمن ساخته می‌شود: اگر یک جدول یا ستون
+     * روی سرور نباشد (مثلاً مهاجرتِ تازه هنوز اجرا نشده باشد)، پیش از این
+     * کلِ پرونده می‌ترکید و دستیار به پیامِ «به داده‌هایت دسترسی ندارم»
+     * می‌افتاد. حالا فقط همان بخش خالی می‌ماند و بقیه ساخته می‌شود.
+     */
+    private array $skipped = [];
+
+    /** @return array<int,string> */
+    public function skippedParts(): array
+    {
+        return $this->skipped;
+    }
+
     /** @return array<string,mixed> */
     public function profile(User $s): array
     {
-        $xp = $s->totalXp();
-        $per = LevelConfig::xpPerLevel($s->school_id);
-        $level = LevelConfig::levelOf($xp, $per);
-        $intoLevel = $per > 0 ? $xp % $per : 0;
-        $classroom = $s->classrooms()->with('teacher')->first();
+        $this->skipped = [];
+        $safe = function (string $part, callable $fn, mixed $default) {
+            try {
+                return $fn();
+            } catch (\Throwable $e) {
+                $this->skipped[] = $part;
+                Log::warning("StudentInsight[{$part}] skipped: " . get_class($e) . ' — ' . $e->getMessage());
+
+                return $default;
+            }
+        };
+
+        $xp = $safe('xp', fn () => $s->totalXp(), 0);
+        $per = $safe('level_config', fn () => LevelConfig::xpPerLevel($s->school_id), 150);
+        $per = $per > 0 ? $per : 150;
+        $level = $safe('level', fn () => LevelConfig::levelOf($xp, $per), 1);
+        $intoLevel = $xp % $per;
+        $classroom = $safe('classroom', fn () => $s->classrooms()->with('teacher')->first(), null);
 
         return [
             'name'       => $s->name,
             'classroom'  => $classroom?->name,
-            'teacher'    => $classroom?->teacher?->name,
-            'team'       => $s->theme?->name,
+            'teacher'    => $safe('teacher', fn () => $classroom?->teacher?->name, null),
+            'team'       => $safe('team', fn () => $s->theme?->name, null),
             'xp'         => $xp,
             'level'      => $level,
             'to_next'    => max(0, $per - $intoLevel),
-            'week_xp'    => (int) XpEntry::where('student_id', $s->id)->where('created_at', '>=', now()->subDays(7))->sum('amount'),
-            'prev_week_xp' => (int) XpEntry::where('student_id', $s->id)
-                ->whereBetween('created_at', [now()->subDays(14), now()->subDays(7)])->sum('amount'),
-            'badges'     => $s->badges()->count(),
-            'rank'       => $this->rank($s, $classroom),
-            'subjects'   => $this->subjects($s),
-            'grades'     => $this->classGrades($s),
-            'exams'      => $this->exams($s),
-            'missions'   => $this->missions($s),
-            'attendance' => $this->attendance($s),
-            'discipline' => $this->discipline($s),
-            'worksheets' => WorksheetSubmission::where('student_id', $s->id)->whereNotNull('file_path')->count(),
-            'xp_by_type' => ($this->analytics->studentSummary($s)['by_type'] ?? collect())->take(5)->all(),
+            'week_xp'    => $safe('week_xp', fn () => (int) XpEntry::where('student_id', $s->id)
+                ->where('created_at', '>=', now()->subDays(7))->sum('amount'), 0),
+            'prev_week_xp' => $safe('prev_week_xp', fn () => (int) XpEntry::where('student_id', $s->id)
+                ->whereBetween('created_at', [now()->subDays(14), now()->subDays(7)])->sum('amount'), 0),
+            'badges'     => $safe('badges', fn () => $s->badges()->count(), 0),
+            'rank'       => $safe('rank', fn () => $this->rank($s, $classroom), ['in_class' => null, 'of' => 0]),
+            'subjects'   => $safe('subjects', fn () => $this->subjects($s), ['overall' => 0, 'rows' => []]),
+            'grades'     => $safe('grades', fn () => $this->classGrades($s), []),
+            'exams'      => $safe('exams', fn () => $this->exams($s), []),
+            'missions'   => $safe('missions', fn () => $this->missions($s), [
+                'pending_today' => 0, 'pending_titles' => [], 'pending_xp' => 0, 'done_30d' => 0,
+            ]),
+            'attendance' => $safe('attendance', fn () => $this->attendance($s), []),
+            'discipline' => $safe('discipline', fn () => $this->discipline($s), ['plus' => 0, 'minus' => 0, 'count' => 0]),
+            'worksheets' => $safe('worksheets', fn () => WorksheetSubmission::where('student_id', $s->id)
+                ->whereNotNull('file_path')->count(), 0),
+            'xp_by_type' => $safe('xp_by_type', fn () => ($this->analytics->studentSummary($s)['by_type'] ?? collect())
+                ->take(5)->all(), []),
         ];
     }
 
@@ -138,8 +173,10 @@ class StudentInsight
     private function missions(User $s): array
     {
         $pending = MissionAccess::pendingToday($s);
-        $done30 = DB::table('mission_completions')->where('student_id', $s->id)
-            ->where('play_date', '>=', now()->subDays(30)->toDateString())->count();
+        $done30 = Schema::hasTable('mission_completions')
+            ? DB::table('mission_completions')->where('student_id', $s->id)
+                ->where('play_date', '>=', now()->subDays(30)->toDateString())->count()
+            : 0;
 
         return [
             'pending_today' => $pending->count(),
@@ -170,6 +207,9 @@ class StudentInsight
     /** تشویق/تذکرِ ۳۰ روزِ اخیر. */
     private function discipline(User $s): array
     {
+        if (! Schema::hasTable('discipline_records')) {
+            return ['plus' => 0, 'minus' => 0, 'count' => 0];
+        }
         $rows = DisciplineRecord::where('student_id', $s->id)
             ->where('created_at', '>=', now()->subDays(30))->get();
 

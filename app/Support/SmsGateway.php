@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\School;
 use App\Models\SmsMessage;
+use App\Models\StudentSmsSetting;
 use App\Models\User;
 use App\Services\SmsService;
 use Illuminate\Support\Facades\Log;
@@ -263,11 +264,26 @@ class SmsGateway
                 return;
             }
 
+            // تنظیمِ اختصاصیِ همین دانش‌آموز (کارِ معلمِ کلاس).
+            // قاعده: ماتریسِ مدرسه «سقف» است — می‌گوید کدام رویداد و کدام
+            // کانال اصلاً مجاز است؛ تنظیمِ دانش‌آموز درونِ همان سقف
+            // تصمیم می‌گیرد. پس معلم می‌تواند کم کند یا ببندد، ولی
+            // نمی‌تواند چیزی را که مدیر بسته باز کند.
+            $pref = self::studentSetting($student);
+            if ($pref && ! $pref->allowsEvent($key)) {
+                return;
+            }
+            $toParent = $cfg['parent'] && (! $pref || $pref->to_parent);
+            $toStudent = $cfg['student'] && (! $pref || $pref->to_student);
+            if (! $toParent && ! $toStudent) {
+                return;
+            }
+
             $targets = [];
-            if ($cfg['student'] && $student->phone) {
+            if ($toStudent && $student->phone) {
                 $targets[] = ['user' => $student, 'phone' => $student->phone];
             }
-            if ($cfg['parent']) {
+            if ($toParent) {
                 foreach (self::parentPhones($student) as $p) {
                     $targets[] = ['user' => null, 'phone' => $p];
                 }
@@ -280,9 +296,39 @@ class SmsGateway
         }
     }
 
+    /**
+     * تنظیمِ پیامکِ اختصاصیِ یک دانش‌آموز — یا null اگر پیش‌فرضِ مدرسه باشد.
+     *
+     * در هر درخواست یک‌بار خوانده می‌شود؛ ثبتِ گروهیِ نمره برای یک کلاس
+     * وگرنه به‌ازای هر دانش‌آموز یک پرس‌وجوی تکراری می‌زد.
+     */
+    private static array $prefCache = [];
+
+    public static function studentSetting(User $student): ?StudentSmsSetting
+    {
+        if (array_key_exists($student->id, self::$prefCache)) {
+            return self::$prefCache[$student->id];
+        }
+        try {
+            $row = StudentSmsSetting::where('student_id', $student->id)->first();
+        } catch (\Throwable) {
+            $row = null;     // جدول هنوز ساخته نشده — پیش‌فرضِ مدرسه
+        }
+
+        return self::$prefCache[$student->id] = $row;
+    }
+
     /** شماره‌ی ولی‌های یک دانش‌آموز (حسابِ والد + فیلدِ شماره‌ی ولی). */
     public static function parentPhones(User $student): array
     {
+        // شماره‌ای که معلم برای همین دانش‌آموز ثبت کرده جایگزینِ بقیه
+        // می‌شود، نه اضافه بر آن‌ها: وقتی خانواده می‌گوید «به این شماره
+        // بفرست»، فرستادن به شماره‌های قدیمی هم نقضِ همان خواسته است.
+        $override = self::studentSetting($student)?->phone_override;
+        if ($override) {
+            return [$override];
+        }
+
         $phones = [];
         if ($student->parent_phone) {
             $phones[] = $student->parent_phone;

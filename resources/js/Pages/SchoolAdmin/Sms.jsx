@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { usePage, useForm } from '@inertiajs/react';
 import DashLayout, { schoolMenu } from '@/Layouts/DashLayout';
 import SmsComposer from '@/Components/SmsComposer';
+import StudentSmsAccess from '@/Components/StudentSmsAccess';
 import { LogTable } from '@/Pages/Admin/Sms';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 /** سامانه‌ی پیامکِ مدرسه — ارسال، اعلان‌های خودکار، دسترسیِ معلم‌ها، سابقه. */
 export default function Sms() {
-    const { can = {}, classrooms = [], quota = {}, log = [], teachers = [], events = {}, eventConfig = {}, sender, assistant = {}, flash, errors = {} } = usePage().props;
+    const { can = {}, classrooms = [], students = [], quota = {}, log = [], teachers = [], events = {}, eventConfig = {}, schoolEvents = {}, sender, assistant = {}, flash, errors = {} } = usePage().props;
     const [tab, setTab] = useState('send');
 
     const banner = typeof flash?.flash === 'string' ? flash.flash : flash?.flash?.message;
@@ -17,6 +18,7 @@ export default function Sms() {
         { v: 'send', t: '📤 ارسالِ پیامک' },
         { v: 'events', t: '🔔 اعلان‌های خودکار' },
         { v: 'teachers', t: `👩‍🏫 دسترسیِ معلم‌ها (${fa(teachers.length)})` },
+        { v: 'students', t: `🎚️ دسترسیِ دانش‌آموزان (${fa(students.length)})` },
         { v: 'assistant', t: '🤖 دستیارِ هوشمند' },
         { v: 'log', t: `📜 سابقه (${fa(log.length)})` },
     ];
@@ -35,9 +37,13 @@ export default function Sms() {
                 ))}
             </div>
 
-            {tab === 'send' && <SmsComposer sendRoute={route('school.sms.send')} classrooms={classrooms} admin can={can} quota={quota} />}
+            {tab === 'send' && <SmsComposer sendRoute={route('school.sms.send')} classrooms={classrooms} students={students} admin can={can} quota={quota} />}
             {tab === 'events' && <EventMatrix events={events} config={eventConfig} sender={sender} />}
             {tab === 'teachers' && <Teachers teachers={teachers} />}
+            {tab === 'students' && (
+                <StudentSmsAccess students={students} events={events} schoolEvents={schoolEvents}
+                    saveRoute={(id) => route('school.sms.student', id)} />
+            )}
             {tab === 'assistant' && <AssistantAccess a={assistant} />}
             {tab === 'log' && <LogTable log={log} />}
         </DashLayout>
@@ -46,6 +52,21 @@ export default function Sms() {
 
 export function QuotaCards({ quota, can }) {
     const pct = quota.school_quota ? Math.min(100, Math.round((quota.school_used / quota.school_quota) * 100)) : 0;
+
+    // ساختارِ استانداردِ .dcard (ic/lbl/val) تا چیدمانِ فشرده‌ی موبایل که
+    // در site.css تعریف شده روی این کارت‌ها هم اعمال شود؛ با استایلِ
+    // درون‌خطیِ قبلی عددها روی گوشی دوخطی می‌شدند.
+    const Card = ({ ic, bg, val, lbl, extra }) => (
+        <div className="dcard">
+            <div className="ic" style={{ background: bg }}>{ic}</div>
+            <div style={{ minWidth: 0 }}>
+                <div className="val" style={{ fontSize: 18 }}>{val}</div>
+                <div className="lbl">{lbl}</div>
+                {extra}
+            </div>
+        </div>
+    );
+
     return (
         <>
             {!can.ok && (
@@ -54,32 +75,20 @@ export function QuotaCards({ quota, can }) {
                 </div>
             )}
             <div className="dash-cards">
-                <div className="dcard">
-                    <div style={{ fontSize: 26 }}>🏫</div>
-                    <div style={{ fontWeight: 800, marginTop: 6 }}>
-                        {quota.school_quota != null ? `${fa(quota.school_used)} از ${fa(quota.school_quota)}` : `${fa(quota.school_used)} قطعه`}
-                    </div>
-                    <div style={{ color: 'var(--muted)', fontSize: 12 }}>مصرفِ مدرسه در {fa(quota.window ?? 30)} روز</div>
-                    {quota.school_quota != null && (
-                        <div style={{ height: 6, background: '#eef2f8', borderRadius: 6, overflow: 'hidden', marginTop: 8 }}>
+                <Card ic="🏫" bg="#e7efff"
+                    val={quota.school_quota != null ? `${fa(quota.school_used)} از ${fa(quota.school_quota)}` : `${fa(quota.school_used)} قطعه`}
+                    lbl={`مصرفِ مدرسه در ${fa(quota.window ?? 30)} روز`}
+                    extra={quota.school_quota != null && (
+                        <div style={{ height: 6, background: '#eef2f8', borderRadius: 6, overflow: 'hidden', marginTop: 7 }}>
                             <div style={{ height: '100%', width: `${pct}%`, background: pct > 85 ? '#e8505b' : 'var(--gold)' }} />
                         </div>
-                    )}
-                </div>
-                <div className="dcard">
-                    <div style={{ fontSize: 26 }}>🎯</div>
-                    <div style={{ fontWeight: 800, marginTop: 6 }}>
-                        {quota.school_left != null ? `${fa(quota.school_left)} قطعه` : 'بدونِ سقف'}
-                    </div>
-                    <div style={{ color: 'var(--muted)', fontSize: 12 }}>باقی‌مانده‌ی مدرسه</div>
-                </div>
-                <div className="dcard">
-                    <div style={{ fontSize: 26 }}>👤</div>
-                    <div style={{ fontWeight: 800, marginTop: 6 }}>
-                        {quota.my_left != null ? `${fa(quota.my_left)} قطعه` : `${fa(quota.my_used)} ارسال‌شده`}
-                    </div>
-                    <div style={{ color: 'var(--muted)', fontSize: 12 }}>{quota.my_left != null ? 'سهمیه‌ی شخصیِ شما' : 'ارسالِ شخصیِ شما'}</div>
-                </div>
+                    )} />
+                <Card ic="🎯" bg="#fff3d6"
+                    val={quota.school_left != null ? `${fa(quota.school_left)} قطعه` : 'بدونِ سقف'}
+                    lbl="باقی‌مانده‌ی مدرسه" />
+                <Card ic="👤" bg="#e3f7ec"
+                    val={quota.my_left != null ? `${fa(quota.my_left)} قطعه` : `${fa(quota.my_used)} ارسال‌شده`}
+                    lbl={quota.my_left != null ? 'سهمیه‌ی شخصیِ شما' : 'ارسالِ شخصیِ شما'} />
             </div>
         </>
     );

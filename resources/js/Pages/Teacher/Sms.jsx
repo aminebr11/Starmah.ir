@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { usePage } from '@inertiajs/react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import SmsComposer from '@/Components/SmsComposer';
+import StudentSmsAccess from '@/Components/StudentSmsAccess';
 import { LogTable } from '@/Pages/Admin/Sms';
 import { QuotaCards } from '@/Pages/SchoolAdmin/Sms';
 
@@ -9,7 +10,7 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
 
 /** پیامکِ معلم — فقط دانش‌آموزانِ کلاس‌های خودش و اولیای آن‌ها. */
 export default function Sms() {
-    const { can = {}, classrooms = [], quota = {}, log = [], flash, errors = {} } = usePage().props;
+    const { can = {}, classrooms = [], students = [], quota = {}, log = [], events = {}, schoolEvents = {}, flash, errors = {} } = usePage().props;
     const [tab, setTab] = useState('send');
     const banner = typeof flash?.flash === 'string' ? flash.flash : flash?.flash?.message;
 
@@ -21,15 +22,25 @@ export default function Sms() {
             <QuotaCards quota={quota} can={can} />
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '14px 0' }}>
-                {[{ v: 'send', t: '📤 ارسالِ پیامک' }, { v: 'log', t: `📜 سابقه‌ی من (${fa(log.length)})` }].map((t) => (
+                {[
+                    { v: 'send', t: '📤 ارسالِ پیامک' },
+                    { v: 'access', t: `🎚️ دسترسیِ دانش‌آموزان (${fa(students.length)})` },
+                    { v: 'log', t: `📜 سابقه‌ی من (${fa(log.length)})` },
+                ].map((t) => (
                     <button key={t.v} onClick={() => setTab(t.v)} className={`tag ${tab === t.v ? 'tag-warn' : 'tag-info'}`}
                         style={{ cursor: 'pointer', border: 0, fontFamily: 'inherit', padding: '9px 16px', fontSize: 13 }}>{t.t}</button>
                 ))}
             </div>
 
-            {tab === 'send'
-                ? <SmsComposer sendRoute={route('teacher.sms.send')} classrooms={classrooms} can={can} quota={quota} />
-                : <LogTable log={log} />}
+            {tab === 'send' && (
+                <SmsComposer sendRoute={route('teacher.sms.send')} classrooms={classrooms}
+                    students={students} can={can} quota={quota} />
+            )}
+            {tab === 'access' && (
+                <StudentSmsAccess students={students} events={events} schoolEvents={schoolEvents}
+                    saveRoute={(id) => route('teacher.sms.student', id)} />
+            )}
+            {tab === 'log' && <LogTable log={log} />}
         </DashLayout>
     );
 }

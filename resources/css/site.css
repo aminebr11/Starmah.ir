@@ -1400,6 +1400,27 @@ a, button, [role="button"], summary { -webkit-tap-highlight-color: transparent; 
   .dash-mobilebtn{min-height:40px;min-width:40px;justify-content:center;align-items:center}
 }
 
+/* ── دستیارِ هوشمند ───────────────────────────────────────────────── */
+/* دکمه‌های سربرگ (تازه‌کردن و بستن) — هدفِ لمسِ درست روی گوشی */
+.asst-hbtn{border:0;background:rgba(255,255,255,.18);color:#fff;border-radius:9px;
+  width:30px;height:30px;min-width:30px;cursor:pointer;font-size:13px;font-family:inherit;
+  display:grid;place-items:center;flex:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.asst-hbtn:active{background:rgba(255,255,255,.34)}
+.asst-close{font-size:15px;font-weight:800}
+
+/* روی گوشی پنجره‌ی شناور جا نمی‌شود؛ یک «ورقه»ی تمام‌عرض از پایین
+   بالا می‌آید و سربرگش (با دکمه‌ی بستن) همیشه دیده می‌شود. */
+@media(max-width:560px){
+  .assistant-panel{
+    inset-inline:8px!important;width:auto!important;max-width:none!important;
+    bottom:calc(8px + var(--sab,0px))!important;
+    height:auto!important;top:calc(8px + var(--sat,0px))!important;max-height:none!important;
+    border-radius:18px!important;
+  }
+  /* وقتی ورقه باز است، حبابِ شناور پشتش پنهان شود */
+  .assistant-fab.is-open{display:none}
+}
+
 /* در داشبوردِ دانش‌آموز نوارِ پایین وجود دارد؛ دکمه‌ی شناورِ دستیار باید
    بالاتر بنشیند وگرنه روی گزینه‌ی «اعلان‌ها» می‌افتد. */
 .dash:has(.bottom-nav) .assistant-fab{bottom:calc(84px + var(--sab,0px))!important}

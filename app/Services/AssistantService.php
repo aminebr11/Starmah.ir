@@ -27,6 +27,22 @@ class AssistantService
     private ?array $cachedProfile = null;
     private ?array $cachedAnalysis = null;
 
+    /**
+     * بخش‌هایی از داده که در این درخواست ساخته نشدند.
+     *
+     * به کاربرِ عادی نشان داده نمی‌شود؛ فقط مدیرِ مدرسه و ادمینِ کل آن را
+     * می‌بینند تا بفهمند کدام جدول/مهاجرت روی سرور کم است.
+     *
+     * @var array<int,string>
+     */
+    private array $skipped = [];
+
+    /** @return array<int,string> */
+    public function skippedParts(): array
+    {
+        return array_values(array_unique(array_merge($this->skipped, $this->insight->skippedParts())));
+    }
+
     private function student(User $user): array
     {
         if ($this->cachedProfile === null) {
@@ -49,20 +65,30 @@ class AssistantService
      */
     public function reply(User $user, array $history, string $message): array
     {
-        $context = $this->userContext($user);
+        try {
+            $context = $this->userContext($user);
+        } catch (\Throwable $e) {
+            Log::warning('assistant context failed: ' . get_class($e) . ' — ' . $e->getMessage()
+                . ' @ ' . basename($e->getFile()) . ':' . $e->getLine());
+            $context = "نام: {$user->name}";
+        }
 
         if ($this->ai->isConfigured() && AssistantAccess::aiAllowed($user)) {
             try {
                 $reply = $this->llm($this->systemPrompt($user, $context), $history, $message);
                 if (trim($reply) !== '') {
-                    return ['reply' => $reply, 'mode' => 'ai'];
+                    return ['reply' => $reply, 'mode' => 'ai', 'skipped' => $this->skippedParts()];
                 }
             } catch (\Throwable $e) {
                 Log::info('assistant AI unavailable, using templates: ' . $e->getMessage());
             }
         }
 
-        return ['reply' => $this->localReply($user, $message, $context), 'mode' => 'local'];
+        return [
+            'reply'   => $this->localReply($user, $message, $context),
+            'mode'    => 'local',
+            'skipped' => $this->skippedParts(),
+        ];
     }
 
     /**
@@ -71,17 +97,81 @@ class AssistantService
      */
     public function safeReply(User $user, string $message): string
     {
+        // پله‌ی اول: پاسخِ محلی با زمینه‌ی کامل
         try {
             return $this->localReply($user, $message, $this->userContext($user));
         } catch (\Throwable $e) {
-            Log::warning('assistant safeReply failed: ' . $e->getMessage());
-
-            return "سلام {$user->name} 👋 الان به داده‌های تو دسترسی ندارم، ولی می‌توانم راهنمایی‌ات کنم:\n"
-                . "• «کارنامه» → همه‌ی نمره‌ها و تحلیلِ درس‌به‌درس\n"
-                . "• «مأموریت‌های من» → کارِ امروزت و امتیازش\n"
-                . "• «محتوای کلاس» → جزوه، پادکست، ویدیو، تکلیف و کاربرگ\n"
-                . 'اگر این پیام تکرار شد، به مدیرِ مدرسه اطلاع بده.';
+            Log::warning('assistant safeReply(full) failed: ' . get_class($e) . ' — ' . $e->getMessage()
+                . ' @ ' . basename($e->getFile()) . ':' . $e->getLine());
         }
+
+        // پله‌ی دوم: همان پاسخِ محلی، بدونِ زمینه‌ی داده‌ای
+        try {
+            return $this->localReply($user, $message, "نام: {$user->name}");
+        } catch (\Throwable $e) {
+            Log::warning('assistant safeReply(bare) failed: ' . get_class($e) . ' — ' . $e->getMessage()
+                . ' @ ' . basename($e->getFile()) . ':' . $e->getLine());
+        }
+
+        // پله‌ی آخر: راهنمای ثابتِ همان نقش
+        return $this->staticGuide($user);
+    }
+
+    /**
+     * اجرای یک پرس‌وجوی داده با تورِ ایمنی.
+     *
+     * @template T
+     * @param  callable():T  $fn
+     * @param  T  $default
+     * @return T
+     */
+    private function tryOr(callable $fn, mixed $default, string $part = 'query'): mixed
+    {
+        try {
+            return $fn();
+        } catch (\Throwable $e) {
+            $this->skipped[] = $part;
+            Log::warning("assistant[{$part}] skipped: " . get_class($e) . ' — ' . $e->getMessage()
+                . ' @ ' . basename($e->getFile()) . ':' . $e->getLine());
+
+            return $default;
+        }
+    }
+
+    /** آخرین تورِ ایمنی — متنِ ثابتِ نقش‌محور، بدونِ هیچ پرس‌وجویی. */
+    private function staticGuide(User $user): string
+    {
+        try {
+            $role = match (true) {
+                $user->hasRole(Roles::TEACHER) => 'teacher',
+                $user->hasRole(Roles::SCHOOL_ADMIN) => 'admin',
+                $user->hasRole(Roles::SUPER_ADMIN) => 'admin',
+                default => 'student',
+            };
+        } catch (\Throwable) {
+            $role = 'student';
+        }
+
+        if ($role === 'teacher') {
+            return "سلام {$user->name} 👋 من دستیارِ آموزشیِ شما هستم. از این‌جا شروع کنید:\n"
+                . "• «مأموریت‌های روزانه» → ساختِ مأموریت برای کلاس\n"
+                . "• «گزارش‌ها» → تحلیلِ درس‌به‌درسِ کلاس‌ها\n"
+                . "• «مطالب و محتوا» → بارگذاریِ جزوه، پادکست، تکلیف و کاربرگ\n"
+                . '• «ارتباط با والدین» و «پیامک به اولیا» → پیام به خانواده‌ها';
+        }
+        if ($role === 'admin') {
+            return "سلام {$user->name} 👋 من تحلیل‌گرِ مدرسه‌ام. از این‌جا شروع کنید:\n"
+                . "• «گزارش‌ها» → وضعیتِ کلیِ مدرسه و درس‌های ضعیف\n"
+                . "• «معلم‌ها و کلاس‌ها» و «دانش‌آموزان» → مدیریتِ افراد\n"
+                . "• «اطلاعیه‌ها» و «سامانه‌ی پیامک» → ارتباط با اولیا\n"
+                . '• «گزارش آزمون‌ها» → نتیجه‌ی آزمون‌های مدرسه';
+        }
+
+        return "سلام {$user->name} 👋 من دستیارِ ستاره‌ماه‌ام. این‌ها را می‌توانی از من بپرسی:\n"
+            . "• «کارنامه» → همه‌ی نمره‌ها و تحلیلِ درس‌به‌درس\n"
+            . "• «مأموریت‌های من» → کارِ امروزت و امتیازش\n"
+            . "• «محتوای کلاس» → جزوه، پادکست، ویدیو، تکلیف و کاربرگ\n"
+            . 'بپرس «گزارش تحلیلی بده» تا وضعیتت را کامل برایت بنویسم.';
     }
 
     /**
@@ -125,26 +215,49 @@ class AssistantService
             . "=== راهنمای سایت ===\n{$guide}\n\n=== اطلاعاتِ کاربر ===\n{$context}";
     }
 
-    /** خلاصه‌ی واقعیِ داده‌ی کاربر (متناسب با نقش). */
+    /**
+     * خلاصه‌ی واقعیِ داده‌ی کاربر (متناسب با نقش).
+     *
+     * هر بخش جداگانه محافظت می‌شود: اگر یک جدول/ستون روی سرور نباشد،
+     * فقط همان سطر نوشته نمی‌شود و دستیار همچنان پاسخِ درست می‌دهد.
+     * پیش از این یک استثنا کلِ دستیار را به پیامِ اضطراری می‌انداخت.
+     */
     private function userContext(User $user): string
     {
         $lines = ["نام: {$user->name}", 'نقش: ' . $this->roleLabel($user)];
+        $add = function (callable $fn, string $part = 'context') use (&$lines) {
+            try {
+                $fn();
+            } catch (\Throwable $e) {
+                $this->skipped[] = $part;
+                Log::warning("assistant[{$part}] skipped: " . get_class($e) . ' — ' . $e->getMessage()
+                    . ' @ ' . basename($e->getFile()) . ':' . $e->getLine());
+            }
+        };
 
         if ($user->hasRole(Roles::STUDENT)) {
             // پرونده‌ی کاملِ تحلیلی: امتیاز، سطح، رتبه، درس‌به‌درس، نمره،
             // آزمون، مأموریت، حضوروغیاب، انضباط + ارزیابی و پیشنهاد.
-            [$p, $a] = $this->student($user);
-            $lines[] = $this->insight->asText($p, $a);
-            $lines[] = 'پیشنهادِ گامِ بعدی: ' . implode(' | ', $a['actions']);
-            foreach ($a['weak'] as $w) {
-                $lines[] = "راهکارِ درسِ ضعیف ({$w['subject']}): {$w['tip']}";
-            }
+            $add(function () use ($user, &$lines) {
+                [$p, $a] = $this->student($user);
+                $lines[] = $this->insight->asText($p, $a);
+                $lines[] = 'پیشنهادِ گامِ بعدی: ' . implode(' | ', $a['actions']);
+                foreach ($a['weak'] as $w) {
+                    $lines[] = "راهکارِ درسِ ضعیف ({$w['subject']}): {$w['tip']}";
+                }
+            }, 'پرونده‌ی دانش‌آموز');
         } elseif ($user->hasRole(Roles::TEACHER)) {
-            $classes = \App\Models\Classroom::where('teacher_id', $user->id)->count();
-            $studentIds = User::whereHas('classrooms', fn ($q) => $q->where('teacher_id', $user->id))->pluck('id');
-            $lines[] = "تعداد کلاس: {$classes} · تعداد دانش‌آموز: {$studentIds->count()}";
+            $studentIds = collect();
+            $add(function () use ($user, &$lines, &$studentIds) {
+                $classes = \App\Models\Classroom::where('teacher_id', $user->id)->count();
+                $studentIds = User::whereHas('classrooms', fn ($q) => $q->where('teacher_id', $user->id))->pluck('id');
+                $lines[] = "تعداد کلاس: {$classes} · تعداد دانش‌آموز: {$studentIds->count()}";
+            }, 'کلاس‌ها');
 
-            if ($studentIds->isNotEmpty()) {
+            $add(function () use (&$lines, $studentIds) {
+                if ($studentIds->isEmpty()) {
+                    return;
+                }
                 $data = $this->cross->forStudents($studentIds);
                 $rows = collect($data['subjects'] ?? [])->filter(fn ($r) => $r['pct'] !== null);
                 if ($rows->isNotEmpty()) {
@@ -152,17 +265,23 @@ class AssistantService
                     $lines[] = 'ضعیف‌ترین درس‌ها: ' . $rows->sortBy('pct')->take(3)
                         ->map(fn ($r) => $r['subject'] . ' ' . $r['pct'] . '٪')->implode('، ');
                 }
-            }
+            }, 'درصدِ درس‌ها');
 
             // کارهای روی میز — همان چیزهایی که در زنگوله هم می‌آیند
-            $pending = \App\Models\ParentNote::whereIn('student_id', $studentIds)
-                ->where('from_parent', true)->whereNull('read_at')->count();
-            $subs = \App\Models\WorksheetSubmission::whereHas('worksheet', fn ($q) => $q->where('teacher_id', $user->id))
-                ->whereNotNull('file_path')->where('updated_at', '>=', now()->subDays(14))->count();
-            $lines[] = "پیامِ خوانده‌نشده‌ی والدین: {$pending} · کاربرگِ ارسالیِ دو هفته‌ی اخیر: {$subs}";
+            $add(function () use ($user, &$lines, $studentIds) {
+                $pending = \App\Models\ParentNote::whereIn('student_id', $studentIds)
+                    ->where('from_parent', true)->whereNull('read_at')->count();
+                $subs = \App\Models\WorksheetSubmission::whereHas('worksheet', fn ($q) => $q->where('teacher_id', $user->id))
+                    ->whereNotNull('file_path')->where('updated_at', '>=', now()->subDays(14))->count();
+                $lines[] = "پیامِ خوانده‌نشده‌ی والدین: {$pending} · کاربرگِ ارسالیِ دو هفته‌ی اخیر: {$subs}";
+            }, 'پیام و کاربرگ');
         } elseif ($user->hasRole(Roles::PARENT)) {
-            $children = $user->children()->pluck('name')->implode('، ');
-            if ($children) $lines[] = "فرزند(ان): {$children}";
+            $add(function () use ($user, &$lines) {
+                $children = $user->children()->pluck('name')->implode('، ');
+                if ($children) {
+                    $lines[] = "فرزند(ان): {$children}";
+                }
+            }, 'فرزندان');
         }
 
         return implode("\n", $lines);
@@ -213,7 +332,10 @@ class AssistantService
         $fa = fn ($n) => \App\Support\Jalali::fa((string) $n);
 
         if ($user->hasRole(Roles::STUDENT)) {
-            [$p, $a] = $this->student($user);
+            [$p, $a] = $this->tryOr(fn () => $this->student($user), [null, null], 'پرونده‌ی دانش‌آموز');
+            if ($p === null) {
+                return $this->staticGuide($user);
+            }
 
             // رتبه
             if ($has(['رتبه', 'چندم', 'جایگاه', 'نفر چند'])) {
@@ -308,10 +430,14 @@ class AssistantService
 
         // ── معلم: تحلیلِ کلاس و پیشنهادِ عملی ─────────────────────────
         if ($user->hasRole(Roles::TEACHER)) {
-            $ids = User::whereHas('classrooms', fn ($q) => $q->where('teacher_id', $user->id))->pluck('id');
-            $rows = $ids->isNotEmpty()
-                ? collect($this->cross->forStudents($ids)['subjects'] ?? [])->filter(fn ($r) => $r['pct'] !== null)
-                : collect();
+            // اگر پرس‌وجو شکست بخورد (جدولِ نبوده، مهاجرتِ اجرانشده) باز هم
+            // باید راهنماییِ کاربردی بدهیم، نه پیامِ خطا.
+            $ids = $this->tryOr(
+                fn () => User::whereHas('classrooms', fn ($q) => $q->where('teacher_id', $user->id))->pluck('id'),
+                collect(), 'دانش‌آموزانِ کلاس');
+            $rows = $ids->isEmpty() ? collect() : $this->tryOr(
+                fn () => collect($this->cross->forStudents($ids)['subjects'] ?? [])->filter(fn ($r) => $r['pct'] !== null),
+                collect(), 'درصدِ درس‌ها');
 
             if ($has(['کلاس', 'وضعیت', 'گزارش', 'تحلیل', 'عملکرد', 'ضعیف', 'ضعف'])) {
                 if ($rows->isEmpty()) {
@@ -357,11 +483,14 @@ class AssistantService
         // ── مدیرِ مدرسه: نمای کلی و اقدامِ مدیریتی ───────────────────
         if ($user->hasRole(Roles::SCHOOL_ADMIN)) {
             if ($has(['گزارش', 'وضعیت', 'تحلیل', 'مدرسه', 'عملکرد', 'ضعیف'])) {
-                $ids = User::role(Roles::STUDENT)->where('school_id', $user->school_id)->pluck('id');
-                $rows = $ids->isNotEmpty()
-                    ? collect($this->cross->forStudents($ids)['subjects'] ?? [])->filter(fn ($r) => $r['pct'] !== null)
-                    : collect();
-                $teachers = User::role(Roles::TEACHER)->where('school_id', $user->school_id)->count();
+                $ids = $this->tryOr(
+                    fn () => User::role(Roles::STUDENT)->where('school_id', $user->school_id)->pluck('id'),
+                    collect(), 'دانش‌آموزانِ مدرسه');
+                $teachers = $this->tryOr(
+                    fn () => User::role(Roles::TEACHER)->where('school_id', $user->school_id)->count(), 0, 'معلم‌ها');
+                $rows = $ids->isEmpty() ? collect() : $this->tryOr(
+                    fn () => collect($this->cross->forStudents($ids)['subjects'] ?? [])->filter(fn ($r) => $r['pct'] !== null),
+                    collect(), 'درصدِ درس‌ها');
                 $out = '🏫 نمای کلیِ مدرسه: ' . $fa($ids->count()) . ' دانش‌آموز · ' . $fa($teachers) . " معلم\n";
                 if ($rows->isNotEmpty()) {
                     $weak = $rows->filter(fn ($r) => $r['pct'] < 70)->sortBy('pct')->take(3);

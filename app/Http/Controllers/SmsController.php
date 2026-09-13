@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Classroom;
 use App\Models\SmsMessage;
+use App\Models\StudentSmsSetting;
 use App\Models\User;
 use App\Support\Jalali;
 use App\Support\Roles;
@@ -39,6 +40,49 @@ class SmsController extends Controller
             ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name, 'students' => $c->students_count]);
     }
 
+    /**
+     * دانش‌آموزانی که این کاربر می‌تواند به آن‌ها پیامک بدهد — با شماره‌ها
+     * و تنظیمِ اختصاصیِ هرکدام.
+     *
+     * چرا کامل: کادرِ ارسال باید پیش از زدنِ دکمه نشان دهد چند نفر واقعاً
+     * شماره دارند. پیش از این معلم «اولیا» را انتخاب می‌کرد، هیچ‌کس شماره‌ی
+     * ولی نداشت و فقط پیامِ «گیرنده‌ای پیدا نشد» می‌گرفت.
+     */
+    private function students(User $u)
+    {
+        $admin = $this->isAdmin($u);
+
+        $rows = User::role(Roles::STUDENT)
+            ->where('school_id', $u->school_id)
+            ->when(! $admin, fn ($q) => $q->whereHas('classrooms', fn ($c) => $c->where('teacher_id', $u->id)))
+            ->with(['classrooms:id,name'])
+            ->orderBy('name')->get();
+
+        $prefs = StudentSmsSetting::whereIn('student_id', $rows->pluck('id'))->get()->keyBy('student_id');
+
+        return $rows->map(function ($s) use ($prefs) {
+            $p = $prefs->get($s->id);
+
+            return [
+                'id'        => $s->id,
+                'name'      => $s->name,
+                'classroom' => $s->classrooms->pluck('name')->implode('، '),
+                'class_ids' => $s->classrooms->pluck('id')->all(),
+                'phone'     => $s->phone,
+                'parents'   => SmsGateway::parentPhones($s),
+                'sms'       => [
+                    'enabled'    => $p ? (bool) $p->enabled : true,
+                    'to_parent'  => $p ? (bool) $p->to_parent : true,
+                    'to_student' => $p ? (bool) $p->to_student : false,
+                    'events'     => $p?->events,
+                    'phone'      => $p?->phone_override,
+                    'note'       => $p?->note,
+                    'custom'     => (bool) $p,
+                ],
+            ];
+        })->values();
+    }
+
     public function index(Request $request): Response
     {
         $user = $request->user();
@@ -50,6 +94,7 @@ class SmsController extends Controller
             'role'       => $admin ? 'school_admin' : 'teacher',
             'can'        => $can,
             'classrooms' => $this->classrooms($user),
+            'students'   => $this->students($user),
             'quota'      => [
                 'window'          => SmsGateway::WINDOW_DAYS,
                 'school_quota'    => $school?->sms_quota,
@@ -62,6 +107,9 @@ class SmsController extends Controller
             'log'    => $this->log($user, $admin),
             'events' => SmsGateway::EVENTS,
             'audiences' => SmsGateway::AUDIENCES,
+            // سقفِ مدرسه را معلم هم می‌بیند تا بداند چرا یک رویداد
+            // با وجودِ روشن‌بودن برای دانش‌آموز پیامک نمی‌شود
+            'schoolEvents' => SmsGateway::events($school),
         ];
 
         if ($admin) {
@@ -126,7 +174,7 @@ class SmsController extends Controller
 
         $targets = $this->targets($user, $data);
         if (! $targets) {
-            return back()->withErrors(['message' => 'گیرنده‌ای پیدا نشد. کلاس یا شماره‌ها را بررسی کن.']);
+            return back()->withErrors(['message' => $this->whyNoTargets($user, $data)]);
         }
 
         $res = SmsGateway::sendMany($user, $user->school, $targets, $data['message'], 'manual');
@@ -134,6 +182,60 @@ class SmsController extends Controller
         return $res['ok']
             ? back()->with('flash', $res['message'])
             : back()->withErrors(['message' => $res['message']]);
+    }
+
+    /**
+     * چرا گیرنده‌ای پیدا نشد؟
+     *
+     * پیامِ قبلی («کلاس یا شماره‌ها را بررسی کن») به کاربر نمی‌گفت مشکل
+     * کجاست؛ معلمی که شماره‌ی ولیِ دانش‌آموزانش ثبت نشده بود، هرچه
+     * می‌فرستاد همین یک جمله را می‌دید و فکر می‌کرد سامانه خراب است.
+     */
+    private function whyNoTargets(User $user, array $data): string
+    {
+        if ($data['audience'] === 'manual') {
+            return 'هیچ شماره‌ای ننوشته‌اید. شماره‌ها را با فاصله یا کاما جدا کنید.';
+        }
+        if ($data['audience'] === 'teachers') {
+            return $this->isAdmin($user)
+                ? 'هیچ معلمی در این مدرسه شماره‌ی موبایل ثبت‌شده ندارد.'
+                : 'ارسال به معلم‌ها فقط برای مدیرِ مدرسه است.';
+        }
+
+        $pool = $this->studentPool($user, $data);
+        if ($pool->isEmpty()) {
+            return ! empty($data['student_ids'])
+                ? 'دانش‌آموزانِ انتخاب‌شده در دسترسِ شما نیستند.'
+                : 'در این کلاس دانش‌آموزی ثبت نشده است.';
+        }
+
+        $noParent = $pool->filter(fn ($s) => ! SmsGateway::parentPhones($s))->count();
+        $noOwn = $pool->filter(fn ($s) => ! $s->phone)->count();
+        $fa = fn ($n) => Jalali::fa((string) $n);
+
+        return match ($data['audience']) {
+            'parents' => 'برای ' . $fa($noParent) . ' دانش‌آموزِ انتخاب‌شده شماره‌ی ولی ثبت نشده است. '
+                . 'شماره‌ی ولی را در پرونده‌ی دانش‌آموز یا در تبِ «دسترسیِ دانش‌آموزان» وارد کنید.',
+            'students' => 'برای ' . $fa($noOwn) . ' دانش‌آموزِ انتخاب‌شده شماره‌ی موبایل ثبت نشده است.',
+            default => 'هیچ‌کدام از دانش‌آموزانِ انتخاب‌شده شماره‌ی موبایل یا شماره‌ی ولی ندارند.',
+        };
+    }
+
+    /** دانش‌آموزانِ هدف — مشترکِ ساختِ گیرنده و تشخیصِ علتِ خالی‌بودن. */
+    private function studentPool(User $user, array $data)
+    {
+        $admin = $this->isAdmin($user);
+
+        return User::role(Roles::STUDENT)->where('school_id', $user->school_id)
+            ->when(! empty($data['student_ids']), fn ($q) => $q->whereIn('id', $data['student_ids']))
+            ->when(! empty($data['classroom_id']), fn ($q) => $q->whereHas(
+                'classrooms', fn ($c) => $c->where('classrooms.id', $data['classroom_id'])
+            ))
+            // معلم فقط دانش‌آموزانِ کلاسِ خودش
+            ->when(! $admin, fn ($q) => $q->whereHas(
+                'classrooms', fn ($c) => $c->where('teacher_id', $user->id)
+            ))
+            ->get();
     }
 
     /**
@@ -169,19 +271,8 @@ class SmsController extends Controller
             return $out;
         }
 
-        // دانش‌آموزان: از کلاسِ انتخابی، یا فهرستِ دستیِ دانش‌آموزان
-        $students = User::role(Roles::STUDENT)->where('school_id', $user->school_id)
-            ->when(! empty($data['student_ids']), fn ($q) => $q->whereIn('id', $data['student_ids']))
-            ->when(! empty($data['classroom_id']), fn ($q) => $q->whereHas(
-                'classrooms', fn ($c) => $c->where('classrooms.id', $data['classroom_id'])
-            ))
-            // معلم فقط دانش‌آموزانِ کلاسِ خودش
-            ->when(! $admin, fn ($q) => $q->whereHas(
-                'classrooms', fn ($c) => $c->where('teacher_id', $user->id)
-            ))
-            ->get();
-
-        foreach ($students as $s) {
+        // دانش‌آموزان: از کلاسِ انتخابی، یا فهرستِ نام‌به‌نامِ انتخاب‌شده
+        foreach ($this->studentPool($user, $data) as $s) {
             if (in_array($data['audience'], ['students', 'both'], true) && $s->phone) {
                 $out[] = ['user' => $s, 'phone' => $s->phone];
             }
@@ -193,6 +284,75 @@ class SmsController extends Controller
         }
 
         return $out;
+    }
+
+    /**
+     * دسترسیِ پیامکِ یک دانش‌آموز — تنظیمِ معلمِ همان کلاس (یا مدیر).
+     *
+     * با `ids` می‌توان همین تنظیم را یک‌جا روی چند دانش‌آموز گذاشت؛
+     * وگرنه فقط روی همان یک نفر.
+     */
+    public function studentAccess(Request $request, User $student): RedirectResponse
+    {
+        $me = $request->user();
+        abort_unless($this->canManage($me, $student), 403);
+
+        $data = $request->validate([
+            'enabled'    => ['boolean'],
+            'to_parent'  => ['boolean'],
+            'to_student' => ['boolean'],
+            'events'     => ['nullable', 'array'],
+            'events.*'   => ['string', 'in:' . implode(',', array_keys(SmsGateway::EVENTS))],
+            'phone'      => ['nullable', 'string', 'max:20'],
+            'note'       => ['nullable', 'string', 'max:200'],
+            'ids'        => ['nullable', 'array'],
+            'ids.*'      => ['integer'],
+        ]);
+
+        $payload = [
+            'enabled'        => $request->boolean('enabled'),
+            'to_parent'      => $request->boolean('to_parent'),
+            'to_student'     => $request->boolean('to_student'),
+            // آرایه‌ی خالی یعنی «هیچ رویدادی»؛ نبودِ کلید یعنی «هرچه مدرسه گفت»
+            'events'         => $request->has('events') ? array_values($data['events'] ?? []) : null,
+            'phone_override' => $data['phone'] ?: null,
+            'note'           => $data['note'] ?: null,
+            'updated_by'     => $me->id,
+        ];
+
+        $targets = collect([$student]);
+        if (! empty($data['ids'])) {
+            $targets = User::role(Roles::STUDENT)->whereIn('id', $data['ids'])->get()
+                ->filter(fn ($s) => $this->canManage($me, $s));
+        }
+
+        foreach ($targets as $s) {
+            StudentSmsSetting::updateOrCreate(
+                ['student_id' => $s->id],
+                $payload + ['school_id' => $s->school_id],
+            );
+        }
+
+        $n = $targets->count();
+
+        return back()->with('flash', $n > 1
+            ? 'تنظیمِ پیامک برای ' . Jalali::fa((string) $n) . ' دانش‌آموز ذخیره شد ✅'
+            : "تنظیمِ پیامکِ «{$student->name}» ذخیره شد ✅");
+    }
+
+    /** آیا این کاربر حقِ تنظیمِ پیامکِ این دانش‌آموز را دارد؟ */
+    private function canManage(User $me, User $student): bool
+    {
+        if (! $student->hasRole(Roles::STUDENT) || $student->school_id !== $me->school_id) {
+            return false;
+        }
+        if ($this->isAdmin($me)) {
+            return true;
+        }
+
+        // معلم فقط دانش‌آموزِ کلاسِ خودش
+        return $me->hasRole(Roles::TEACHER)
+            && $student->classrooms()->where('teacher_id', $me->id)->exists();
     }
 
     /** مدیرِ مدرسه: اجازه و سهمیه‌ی یک معلم. */
