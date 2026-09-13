@@ -32,6 +32,34 @@
              پس روی صفحه‌ی اول هیچ هزینه‌ای ندارد. --}}
         <link rel="stylesheet" href="/fonts/team/team-fonts.css">
 
+        {{-- پیش‌بارگذاریِ تکه‌های صفحه‌ی ورود/ثبت‌نام — فقط روی صفحه‌ی اول.
+             روی موبایل، نخستین کلیکِ «ورود» باید منتظرِ دانلودِ تکه‌ی آن صفحه
+             می‌ماند؛ حالا همان تکه‌ها در پس‌زمینه و با اولویتِ پایین گرفته
+             می‌شوند، پس رفتن به صفحه‌ی ورود تقریباً آنی است. حجمِ هر تکه
+             کم است و فقط روی صفحه‌ی اول انجام می‌شود. --}}
+        @if (($page['component'] ?? '') === 'Welcome')
+            @php
+                $warmFiles = [];
+                $manifestFile = public_path('build/manifest.json');
+                if (is_file($manifestFile)) {
+                    $manifest = json_decode(file_get_contents($manifestFile), true) ?: [];
+                    foreach ([
+                        'resources/js/Pages/Auth/Login.jsx',
+                        'resources/js/Pages/Auth/RegisterChoice.jsx',
+                        'resources/js/Pages/Auth/RegisterStudent.jsx',
+                        'resources/js/Pages/Auth/RegisterSchool.jsx',
+                    ] as $entry) {
+                        if (! empty($manifest[$entry]['file'])) {
+                            $warmFiles[] = '/build/' . $manifest[$entry]['file'];
+                        }
+                    }
+                }
+            @endphp
+            @foreach ($warmFiles as $warmFile)
+                <link rel="modulepreload" href="{{ $warmFile }}">
+            @endforeach
+        @endif
+
         <!-- Scripts -->
         @routes
         @viteReactRefresh

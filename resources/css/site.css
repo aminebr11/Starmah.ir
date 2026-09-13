@@ -1212,3 +1212,48 @@ html{overflow-x:hidden}
    ═══════════════════════════════════════════════════════════════════ */
 .ws-paper, .ws-paper .ws-body, .ws-paper .ws-body * { color: #1b2742; }
 .ws-paper .ws-head, .ws-paper .ws-head * { color: #fff; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   حاشیه‌های امنِ دستگاه (safe-area) — مخصوصِ حالتِ اپ (PWA) روی موبایل
+
+   وقتی سایت روی گوشی نصب می‌شود، نوارِ وضعیت و ناچ **روی** صفحه می‌افتند
+   (viewport-fit=cover + status-bar شفاف در iOS). نتیجه این بود که هدر،
+   دکمه‌های «ورود» و «ثبت‌نام» و دکمه‌ی منو زیرِ همان نوار گم می‌شدند و
+   لمس‌شان هم کار نمی‌کرد. متغیرها را یک‌جا تعریف می‌کنیم تا همه‌ی
+   لِی‌اوت‌ها یک‌دست رفتار کنند (و در آزمون بتوان مقدارِ ساختگی داد).
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  --sat:env(safe-area-inset-top,0px);
+  --sar:env(safe-area-inset-right,0px);
+  --sab:env(safe-area-inset-bottom,0px);
+  --sal:env(safe-area-inset-left,0px);
+}
+
+/* هدرِ سایت زیرِ نوارِ وضعیت نرود */
+.nav{padding-top:var(--sat)}
+/* گوشه‌های گرد و ناچ در حالتِ افقی، حاشیه‌ی کناری را می‌خورند */
+.container{padding-left:max(22px,var(--sal));padding-right:max(22px,var(--sar))}
+.sm-wrap{padding-left:max(20px,var(--sal));padding-right:max(20px,var(--sar))}
+/* نوارِ خانه‌ی آیفون روی فوتر می‌نشست */
+.footer{padding-bottom:calc(26px + var(--sab))}
+
+/* صفحه‌های ورود/ثبت‌نام: روی موبایل تمام‌صفحه‌اند و لوگو/فرم می‌توانست
+   زیرِ نوارِ وضعیت یا نوارِ خانه بیفتد. */
+.auth-wrap{padding:calc(24px + var(--sat)) max(24px,var(--sar)) calc(24px + var(--sab)) max(24px,var(--sal))}
+
+@media(max-width:860px){
+  .auth-form{padding:calc(30px + var(--sat)) max(22px,var(--sar)) calc(30px + var(--sab)) max(22px,var(--sal))}
+}
+
+@media(max-width:900px){
+  /* منوی بازشو باید دقیقاً زیرِ هدر بنشیند، نه در ۷۴ پیکسلیِ ثابت؛
+     با اضافه‌شدنِ حاشیه‌ی امن، ارتفاعِ هدر دیگر ۷۴ نیست. */
+  .nav-menu.open{top:100%}
+
+  /* داشبوردها (معلم/دانش‌آموز/مدیر) هم در حالتِ اپ باز می‌شوند */
+  .dash-side{padding-top:calc(20px + var(--sat))}
+  .dash-main{padding-top:calc(18px + var(--sat))}
+  .dash-main.kids{padding-bottom:calc(96px + var(--sab))}
+  .bottom-nav{bottom:calc(10px + var(--sab));
+    left:max(10px,var(--sal));right:max(10px,var(--sar))}
+}

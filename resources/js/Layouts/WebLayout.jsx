@@ -54,12 +54,16 @@ export default function WebLayout({ title, active = '', variant = '', children }
                             </>
                         ) : (
                             <>
-                                <Link href={route('login')} className="btn btn-ghost btn-sm">ورود</Link>
+                                {/* prefetch="mount": روی لمس رویدادِ hover نداریم، پس
+                                    داده‌ی صفحه‌ی ورود همان اول گرفته می‌شود. */}
+                                <Link href={route('login')} prefetch="mount" cacheFor="5m" className="btn btn-ghost btn-sm">ورود</Link>
                                 {/* در بالای صفحه‌ی اول، دکمه‌ی ثبت‌نامِ هدر ثانویه می‌ماند تا با
                                     دکمه‌ی طلاییِ هیرو بر سرِ توجه رقابت نکند؛ به‌محضِ اسکرول
                                     (که هیرو از نما بیرون می‌رود) طلایی و شاخص می‌شود. */}
                                 <Link
                                     href="/register"
+                                    prefetch="mount"
+                                    cacheFor="5m"
                                     className={`btn btn-sm${cosmic && !scrolled ? ' btn-ghost' : ''}`}
                                 >
                                     ثبت‌نام

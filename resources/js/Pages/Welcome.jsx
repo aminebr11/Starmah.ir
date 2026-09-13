@@ -136,8 +136,8 @@ export default function Welcome() {
                                     <Link href="/dashboard" className="sm-btn">📊 ورود به داشبورد من</Link>
                                 ) : (
                                     <>
-                                        <Link href="/register/student" className="sm-btn">🎓 ثبت‌نام دانش‌آموز</Link>
-                                        <Link href="/register/school" className="sm-btn ghost">🏫 ثبت‌نام مدرسه</Link>
+                                        <Link href="/register/student" prefetch="mount" cacheFor="5m" className="sm-btn">🎓 ثبت‌نام دانش‌آموز</Link>
+                                        <Link href="/register/school" prefetch="mount" cacheFor="5m" className="sm-btn ghost">🏫 ثبت‌نام مدرسه</Link>
                                     </>
                                 )}
                             </div>
@@ -145,7 +145,7 @@ export default function Welcome() {
                                 فقط مسیرِ کاربرِ بازگشتی باقی مانده. */}
                             {!user && (
                                 <div className="sm-hint">
-                                    <Link href={route('login')}>قبلاً ثبت‌نام کرده‌ای؟ ورود ←</Link>
+                                    <Link href={route('login')} prefetch="mount" cacheFor="5m">قبلاً ثبت‌نام کرده‌ای؟ ورود ←</Link>
                                 </div>
                             )}
                             {/* شمارِ دانش‌آموزان تنها پس از رسیدن به یک حدِ باورپذیر نشان داده
