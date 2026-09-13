@@ -19,6 +19,12 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // اگر مدیرِ سایت همین جدول را دستی با SQL ساخته باشد، migrate نباید
+        // با «جدول از قبل هست» بشکند.
+        if (Schema::hasTable('notification_reads')) {
+            return;
+        }
+
         Schema::create('notification_reads', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();

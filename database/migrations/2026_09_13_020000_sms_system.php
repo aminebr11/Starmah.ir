@@ -49,6 +49,10 @@ return new class extends Migration
             }
         });
 
+        if (Schema::hasTable('sms_messages')) {
+            return;   // ساخته‌شده با SQL دستی — دوباره نسازیم
+        }
+
         Schema::create('sms_messages', function (Blueprint $table) {
             $table->id();
             $table->foreignId('school_id')->nullable()->constrained()->nullOnDelete();
