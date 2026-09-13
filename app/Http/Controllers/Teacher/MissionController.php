@@ -60,6 +60,12 @@ class MissionController extends Controller
                 'classroom_id' => $m->classroom_id, 'theme_id' => $m->theme_id, 'resource_id' => $m->resource_id,
                 'resource_title' => $this->resourceTitle($m),
                 'is_active' => $m->is_active,
+                'repeat_mode' => $m->repeat_mode ?? 'daily',
+                'starts_on' => $m->starts_on?->toDateString(),
+                'ends_on' => $m->ends_on?->toDateString(),
+                'schedule' => $m->scheduleLabel(),
+                // آیا همین امروز در دسترسِ دانش‌آموز است؟
+                'running_today' => $m->is_active && $m->runsOn(),
                 'completions' => $m->completions_count,
                 'today' => $m->completions()->whereDate('play_date', $today)->count(),
                 'ready' => $ready['ok'], 'ready_note' => $ready['note'],
@@ -452,6 +458,10 @@ class MissionController extends Controller
             'xp_reward' => $data['xp_reward'],
             'badge_name' => $data['badge_name'] ?? null, 'badge_icon' => $data['badge_icon'] ?? null,
             'is_active' => (bool) ($data['is_active'] ?? true),
+            // «یک‌بار» بدونِ تاریخ بی‌معناست؛ اگر تاریخ نداده، امروز را می‌گذاریم
+            'repeat_mode' => $repeat = ($data['repeat_mode'] ?? 'daily'),
+            'starts_on' => $data['starts_on'] ?? ($repeat === 'once' ? now()->toDateString() : null),
+            'ends_on' => $repeat === 'once' ? null : ($data['ends_on'] ?? null),
         ];
     }
 
@@ -475,6 +485,12 @@ class MissionController extends Controller
             'badge_name' => ['nullable', 'string', 'max:60'],
             'badge_icon' => ['nullable', 'string', 'max:16'],
             'is_active' => ['nullable', 'boolean'],
+            // دوره‌ی اجرا
+            'repeat_mode' => ['nullable', 'in:daily,once'],
+            'starts_on' => ['nullable', 'date'],
+            'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
+        ], [
+            'ends_on.after_or_equal' => 'تاریخِ پایان نمی‌تواند پیش از تاریخِ شروع باشد.',
         ]);
     }
 }

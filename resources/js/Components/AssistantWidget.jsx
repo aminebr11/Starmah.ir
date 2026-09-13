@@ -20,6 +20,8 @@ const CHIPS = {
 
 const GREETING = {
     student: 'سلام 👋 من دستیارِ ستاره‌ماه‌ام — مثلِ یک معلمِ راهنما کنارِ تو.\nاز من بپرس رتبه‌ات چند است، کدام درست ضعیف است، یا امروز چه کار کنی.',
+    teacher: 'سلام 👋 من دستیارِ آموزشیِ شما هستم.\nمی‌توانم وضعیتِ کلاس‌هایتان را تحلیل کنم، ضعیف‌ترین درس‌ها را بگویم و برای همان‌ها مأموریت و محتوا پیشنهاد بدهم.',
+    school_admin: 'سلام 👋 من تحلیلگرِ مدرسه‌ی شما هستم.\nنمای کلیِ مدرسه، درس‌های ضعیف و اقدام‌های مدیریتیِ پیشنهادی را می‌گویم.',
     default: 'سلام 👋 من دستیارِ هوشمندِ ستاره‌ماه‌ام. هر سؤالی درباره‌ی سایت یا وضعیتِ خودت داری بپرس.',
 };
 
@@ -36,7 +38,7 @@ function Rich({ text }) {
 }
 
 export default function AssistantWidget() {
-    const { auth } = usePage().props;
+    const { auth, assistantOn = true } = usePage().props;
     const roles = auth?.roles ?? [];
     const role = ['student', 'teacher', 'school_admin'].find((r) => roles.includes(r)) ?? 'default';
     const chips = CHIPS[role] ?? CHIPS.default;
@@ -73,12 +75,27 @@ export default function AssistantWidget() {
         try {
             const { data } = await axios.post(route('assistant.chat'), { message, history });
             setMsgs((m) => [...m, { role: 'assistant', content: data.reply }]);
-        } catch {
-            setMsgs((m) => [...m, { role: 'assistant', content: 'الان نتوانستم پاسخ بدهم. کمی بعد دوباره امتحان کن.' }]);
+        } catch (err) {
+            // پیامِ عمومیِ قبلی علت را پنهان می‌کرد و کاربر نمی‌دانست چه کند
+            const s = err?.response?.status;
+            const known = {
+                403: err?.response?.data?.reply || 'دستیار برای حسابِ شما بسته است. از مدیرِ مدرسه بخواهید بازش کند.',
+                419: 'نشستِ شما منقضی شده. یک‌بار صفحه را تازه کن (Ctrl+Shift+R) و دوباره بپرس.',
+                429: 'کمی تندتر از حد پرسیدی 🙂 چند لحظه صبر کن و دوباره امتحان کن.',
+                401: 'برای استفاده از دستیار باید دوباره وارد حساب شوی.',
+            };
+            const msg = known[s]
+                || (s >= 500 ? `خطای سرور (کد ${s}). اگر تکرار شد به مدیرِ مدرسه اطلاع بده.` : null)
+                || (err?.message === 'Network Error' ? 'اینترنتت قطع است یا سرور در دسترس نیست.' : null)
+                || 'الان نتوانستم پاسخ بدهم. چند لحظه بعد دوباره امتحان کن.';
+            setMsgs((m) => [...m, { role: 'assistant', content: msg }]);
         } finally { setBusy(false); }
     };
 
     const reset = () => setMsgs([{ role: 'assistant', content: hello }]);
+
+    // مدیرِ مدرسه می‌تواند دستیار را برای این نقش ببندد
+    if (!assistantOn) return null;
 
     return (
         <>

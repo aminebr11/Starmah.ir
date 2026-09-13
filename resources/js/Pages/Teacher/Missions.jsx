@@ -1,4 +1,5 @@
 import { usePage, useForm, router, Link } from '@inertiajs/react';
+import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
@@ -41,6 +42,8 @@ export default function Missions() {
         title: '', description: '', type: 'quiz', resource_id: '', theme_id: '', subject: '', lesson_no: '',
         difficulty: '', classroom_id: '', question_ids: [], question_count: 5, pass_percent: 60,
         xp_reward: 20, badge_name: '', badge_icon: '🎖️', is_active: true,
+        // دوره‌ی اجرا: روزانه (با بازه‌ی اختیاری) یا فقط یک روزِ مشخص
+        repeat_mode: 'daily', starts_on: '', ends_on: '',
     };
     const form = useForm(blank);
     const lessons = (facets.find((s) => s.subject === form.data.subject)?.lessons) || [];
@@ -61,6 +64,7 @@ export default function Missions() {
             classroom_id: m.classroom_id || '', theme_id: m.theme_id || '', resource_id: m.resource_id || '',
             question_ids: m.question_ids || [], badge_name: m.badge_name || '', badge_icon: m.badge_icon || '🎖️',
             description: m.description || '', pass_percent: m.pass_percent ?? 60,
+            repeat_mode: m.repeat_mode || 'daily', starts_on: m.starts_on || '', ends_on: m.ends_on || '',
         });
         formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
@@ -170,8 +174,46 @@ export default function Missions() {
                         </div>
                     </div>
 
+                    {/* ── دوره‌ی اجرا ───────────────────────────────── */}
+                    <div style={{ marginTop: 14, border: '1px solid var(--line)', borderRadius: 14, padding: '12px 14px', background: '#f9fbff' }}>
+                        <div style={{ fontWeight: 800, fontSize: 13.5, marginBottom: 8 }}>🗓️ دوره‌ی اجرای مأموریت</div>
+
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            {[
+                                { v: 'daily', t: '🔁 تکرارِ روزانه', d: 'هر روز تکرار می‌شود' },
+                                { v: 'once', t: '📌 فقط یک روز', d: 'فقط در تاریخِ انتخابی' },
+                            ].map((o) => (
+                                <button type="button" key={o.v} onClick={() => form.setData('repeat_mode', o.v)} title={o.d}
+                                    className={`tag ${form.data.repeat_mode === o.v ? 'tag-warn' : 'tag-info'}`}
+                                    style={{ cursor: 'pointer', border: 0, fontFamily: 'inherit', padding: '9px 15px', fontSize: 13 }}>
+                                    {o.t}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 10, marginTop: 10 }}>
+                            <Field label={form.data.repeat_mode === 'once' ? 'تاریخِ اجرا' : 'شروع (اختیاری)'} err={form.errors.starts_on}>
+                                <JalaliDatePicker value={form.data.starts_on} onChange={(v) => form.setData('starts_on', v)}
+                                    placeholder={form.data.repeat_mode === 'once' ? 'همین امروز' : 'از همین حالا'} />
+                            </Field>
+                            {form.data.repeat_mode !== 'once' && (
+                                <Field label="پایان (اختیاری)" err={form.errors.ends_on}>
+                                    <JalaliDatePicker value={form.data.ends_on} onChange={(v) => form.setData('ends_on', v)} placeholder="بدونِ پایان" />
+                                </Field>
+                            )}
+                        </div>
+
+                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6, lineHeight: 1.9 }}>
+                            {form.data.repeat_mode === 'once'
+                                ? '📌 فقط همان یک روز در فهرستِ دانش‌آموز دیده می‌شود و بعد خودش می‌رود.'
+                                : form.data.starts_on || form.data.ends_on
+                                    ? '🔁 هر روز، ولی فقط داخلِ بازه‌ی انتخابی. برای «چند روز» تاریخِ شروع و پایان را بگذار.'
+                                    : '🔁 هر روز تکرار می‌شود و پایانی ندارد (تا وقتی خودت غیرفعالش کنی).'}
+                        </div>
+                    </div>
+
                     <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, marginTop: 12 }}>
-                        <input type="checkbox" checked={form.data.is_active} onChange={(e) => form.setData('is_active', e.target.checked)} /> از همین امروز فعال باشد
+                        <input type="checkbox" checked={form.data.is_active} onChange={(e) => form.setData('is_active', e.target.checked)} /> فعال باشد
                     </label>
                     <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
                         <button type="submit" disabled={form.processing} className="btn">{editId ? '💾 ذخیره‌ی تغییرات' : '➕ ساختِ مأموریت'}</button>
@@ -454,6 +496,9 @@ function MissionCard({ m, themes, onEdit, onToggle, onDup, onDel }) {
                 <span style={{ fontSize: 22 }}>{m.badge_icon || '🎯'}</span>
                 <b style={{ flex: 1, minWidth: 0 }}>{m.title}</b>
                 <span className={`tag ${m.is_active ? 'tag-ok' : ''}`} style={{ fontSize: 11 }}>{m.is_active ? 'فعال' : 'غیرفعال'}</span>
+                {m.is_active && !m.running_today && (
+                    <span className="tag" style={{ fontSize: 11, background: '#eef3ff', color: '#2555c0' }}>⏳ خارج از دوره</span>
+                )}
             </div>
             {m.description && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 5, lineHeight: 1.8 }}>{m.description}</div>}
 
@@ -470,6 +515,7 @@ function MissionCard({ m, themes, onEdit, onToggle, onDup, onDel }) {
                 🏆 {team ? `${team.emoji} تیمِ ${team.name}` : 'همه‌ی تیم‌ها'}
                 {m.type === 'quiz' && ` · ${fa(m.question_count)} سؤال · قبولی ${fa(m.pass_percent)}٪`}
                 {` · ⚡${fa(m.xp_reward)}`}{m.badge_name ? ` · 🎖️ ${m.badge_name}` : ''}
+                {m.schedule ? ` · 🗓️ ${fa(m.schedule)}` : ''}
             </div>
 
             <div style={{ fontSize: 11.5, marginTop: 6, borderRadius: 9, padding: '6px 9px', lineHeight: 1.8,
@@ -489,10 +535,12 @@ function MissionCard({ m, themes, onEdit, onToggle, onDup, onDel }) {
 }
 
 const Stat = ({ ic, v, l, c }) => (
-    <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: '12px 14px', borderInlineStart: `4px solid ${c}` }}>
-        <div style={{ fontSize: 19 }}>{ic}</div>
-        <div style={{ fontWeight: 900, fontSize: 20, color: c }}>{v}</div>
-        <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{l}</div>
+    <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: '11px 13px', borderInlineStart: `4px solid ${c}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 21, lineHeight: 1, flex: 'none' }}>{ic}</span>
+        <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 900, fontSize: 19, color: c, lineHeight: 1.2 }}>{v}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l}</div>
+        </div>
     </div>
 );
 

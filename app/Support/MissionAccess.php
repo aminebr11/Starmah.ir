@@ -24,11 +24,24 @@ class MissionAccess
         $teacherIds = $classrooms->pluck('teacher_id')->filter()->unique()->values()->all();
         $classroomIds = $classrooms->pluck('id')->all();
 
+        $today = now()->toDateString();
+
         return Mission::whereIn('teacher_id', $teacherIds ?: [0])
             ->where('is_active', true)
             ->where(fn ($q) => $q->whereNull('classroom_id')->orWhereIn('classroom_id', $classroomIds ?: [0]))
             // مأموریتِ بدونِ تیم برای همه؛ مأموریتِ تیم‌دار فقط برای همان تیم
-            ->where(fn ($q) => $q->whereNull('theme_id')->orWhere('theme_id', $student->theme_id));
+            ->where(fn ($q) => $q->whereNull('theme_id')->orWhere('theme_id', $student->theme_id))
+            // دوره‌ی اجرا: «یک‌بار» فقط در همان روز، «روزانه» داخلِ بازه.
+            // تاریخِ خالی یعنی بی‌محدودیت، پس مأموریت‌های قدیمی دست‌نخورده‌اند.
+            ->where(function ($q) use ($today) {
+                $q->where(function ($once) use ($today) {
+                    $once->where('repeat_mode', 'once')->whereDate('starts_on', $today);
+                })->orWhere(function ($daily) use ($today) {
+                    $daily->where('repeat_mode', '!=', 'once')
+                        ->where(fn ($x) => $x->whereNull('starts_on')->orWhereDate('starts_on', '<=', $today))
+                        ->where(fn ($x) => $x->whereNull('ends_on')->orWhereDate('ends_on', '>=', $today));
+                });
+            });
     }
 
     /** شناسه‌ی مأموریت‌هایی که امروز انجام شده‌اند. */

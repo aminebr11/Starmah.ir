@@ -13,7 +13,7 @@
 
 // با هر تغییرِ راهبردِ کش این عدد بالا می‌رود تا کشِ قدیمی پاک شود.
 // v2: فونت‌ها محلی شدند و باید مثلِ دارایی‌های build کش‌اول باشند.
-const VERSION = 'v2';
+const VERSION = 'v3';   // v3: آیکون‌های تازه‌ی برند
 const SHELL_CACHE = `starmah-shell-${VERSION}`;
 const ASSET_CACHE = `starmah-assets-${VERSION}`;
 const PAGE_CACHE = `starmah-pages-${VERSION}`;

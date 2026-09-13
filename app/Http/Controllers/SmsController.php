@@ -74,6 +74,13 @@ class SmsController extends Controller
                 ]);
             $payload['eventConfig'] = SmsGateway::events($school);
             $payload['sender'] = $school?->sms_sender;
+            // دسترسیِ دستیارِ هوشمند هم تنظیمِ همین مدرسه است
+            $payload['assistant'] = [
+                'students' => $school?->assistant_students !== false,
+                'teachers' => $school?->assistant_teachers !== false,
+                'ai'       => $school?->assistant_ai !== false,
+                'ai_ready' => app(\App\Services\AiContentService::class)->isConfigured(),
+            ];
         }
 
         return Inertia::render($admin ? 'SchoolAdmin/Sms' : 'Teacher/Sms', $payload);
@@ -206,6 +213,26 @@ class SmsController extends Controller
         ]);
 
         return back()->with('flash', "دسترسیِ پیامکِ «{$user->name}» به‌روز شد ✅");
+    }
+
+    /** مدیرِ مدرسه: دسترسیِ دستیارِ هوشمند. */
+    public function assistant(Request $request): RedirectResponse
+    {
+        $me = $request->user();
+        abort_unless($this->isAdmin($me), 403);
+        $school = $me->school;
+        abort_unless($school !== null, 403);
+
+        $request->validate([
+            'students' => ['boolean'], 'teachers' => ['boolean'], 'ai' => ['boolean'],
+        ]);
+        $school->update([
+            'assistant_students' => $request->boolean('students'),
+            'assistant_teachers' => $request->boolean('teachers'),
+            'assistant_ai'       => $request->boolean('ai'),
+        ]);
+
+        return back()->with('flash', 'دسترسیِ دستیارِ هوشمند به‌روز شد ✅');
     }
 
     /** مدیرِ مدرسه: کدام اعلان‌ها پیامک شوند. */

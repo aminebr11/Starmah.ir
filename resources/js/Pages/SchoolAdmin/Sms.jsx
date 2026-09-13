@@ -8,7 +8,7 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
 
 /** سامانه‌ی پیامکِ مدرسه — ارسال، اعلان‌های خودکار، دسترسیِ معلم‌ها، سابقه. */
 export default function Sms() {
-    const { can = {}, classrooms = [], quota = {}, log = [], teachers = [], events = {}, eventConfig = {}, sender, flash, errors = {} } = usePage().props;
+    const { can = {}, classrooms = [], quota = {}, log = [], teachers = [], events = {}, eventConfig = {}, sender, assistant = {}, flash, errors = {} } = usePage().props;
     const [tab, setTab] = useState('send');
 
     const banner = typeof flash?.flash === 'string' ? flash.flash : flash?.flash?.message;
@@ -17,6 +17,7 @@ export default function Sms() {
         { v: 'send', t: '📤 ارسالِ پیامک' },
         { v: 'events', t: '🔔 اعلان‌های خودکار' },
         { v: 'teachers', t: `👩‍🏫 دسترسیِ معلم‌ها (${fa(teachers.length)})` },
+        { v: 'assistant', t: '🤖 دستیارِ هوشمند' },
         { v: 'log', t: `📜 سابقه (${fa(log.length)})` },
     ];
 
@@ -37,6 +38,7 @@ export default function Sms() {
             {tab === 'send' && <SmsComposer sendRoute={route('school.sms.send')} classrooms={classrooms} admin can={can} quota={quota} />}
             {tab === 'events' && <EventMatrix events={events} config={eventConfig} sender={sender} />}
             {tab === 'teachers' && <Teachers teachers={teachers} />}
+            {tab === 'assistant' && <AssistantAccess a={assistant} />}
             {tab === 'log' && <LogTable log={log} />}
         </DashLayout>
     );
@@ -80,6 +82,49 @@ export function QuotaCards({ quota, can }) {
                 </div>
             </div>
         </>
+    );
+}
+
+/** دسترسیِ دستیارِ هوشمند برای معلم‌ها و دانش‌آموزان. */
+function AssistantAccess({ a }) {
+    const f = useForm({ students: a.students !== false, teachers: a.teachers !== false, ai: a.ai !== false });
+    const save = (e) => { e.preventDefault(); f.post(route('school.assistant.access'), { preserveScroll: true }); };
+
+    const Row = ({ k, icon, title, hint }) => (
+        <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '12px 14px', border: '1px solid var(--line)',
+            borderRadius: 14, cursor: 'pointer', background: f.data[k] ? '#f6fffa' : '#fff' }}>
+            <input type="checkbox" checked={f.data[k]} onChange={(e) => f.setData(k, e.target.checked)} style={{ width: 20, height: 20, marginTop: 2 }} />
+            <div>
+                <div style={{ fontWeight: 800 }}>{icon} {title}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.9, marginTop: 2 }}>{hint}</div>
+            </div>
+        </label>
+    );
+
+    return (
+        <form onSubmit={save} className="panel">
+            <h3 style={{ marginTop: 0 }}>🤖 دسترسیِ دستیارِ هوشمند</h3>
+            <p style={{ color: 'var(--muted)', fontSize: 13, lineHeight: 1.95 }}>
+                دستیار برای هر نقش شخصیتِ خودش را دارد: برای دانش‌آموز یک «معلمِ راهنما» که رتبه، درس‌های ضعیف و
+                برنامه‌ی امروزش را می‌گوید؛ برای معلم یک «دستیارِ آموزشی» که وضعیتِ کلاس و پیشنهادِ مأموریت می‌دهد؛
+                برای شما یک «تحلیلگرِ مدرسه».
+            </p>
+
+            <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
+                <Row k="students" icon="🎓" title="دستیار برای دانش‌آموزان باز باشد"
+                    hint="رتبه، گزارشِ تحلیلی، درس‌های ضعیف و پیشنهادِ گامِ بعدی — همه از داده‌ی واقعیِ خودِ دانش‌آموز." />
+                <Row k="teachers" icon="👩‍🏫" title="دستیار برای معلم‌ها باز باشد"
+                    hint="میانگینِ کلاس، ضعیف‌ترین درس‌ها و پیشنهادِ ساختِ مأموریت و محتوا." />
+                <Row k="ai" icon="✨" title="استفاده از هوش مصنوعی مجاز باشد"
+                    hint={a.ai_ready
+                        ? 'خاموش کنید تا فقط پاسخ‌های آماده‌ی سامانه داده شود (بی‌هزینه). پاسخ‌ها همچنان از داده‌ی واقعی ساخته می‌شوند.'
+                        : '⚠️ ادمینِ کل هنوز کلیدِ هوش مصنوعی را تنظیم نکرده است؛ فعلاً در هر حالت از پاسخ‌های آماده استفاده می‌شود.'} />
+            </div>
+
+            <button type="submit" disabled={f.processing} className="btn" style={{ marginTop: 14 }}>
+                {f.processing ? 'در حال ذخیره…' : '💾 ذخیره‌ی دسترسی‌ها'}
+            </button>
+        </form>
     );
 }
 

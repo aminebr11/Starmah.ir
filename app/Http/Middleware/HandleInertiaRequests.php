@@ -55,6 +55,8 @@ class HandleInertiaRequests extends Middleware
             'unreadNotices' => fn () => $user ? \App\Support\Notifications::unreadCount($user) : 0,
             // آزمایشگاه هوشمند آزمون — فقط برای گیتِ منو (خاموش = منو نمایش داده نمی‌شود)
             'smartLab' => fn () => $user ? \App\Support\SmartLab::enabledFor($user) : false,
+            // آیا حبابِ دستیار برای این کاربر نمایش داده شود؟ (تصمیمِ مدیرِ مدرسه)
+            'assistantOn' => fn () => \App\Support\AssistantAccess::visible($user),
             // پیامِ خوانده‌نشده‌ی «بخشِ والدین» (نشان روی منوی دانش‌آموز)
             'familyNew' => fn () => ($user && $user->isStudent() && \Illuminate\Support\Facades\Schema::hasTable('parent_notes'))
                 ? \App\Models\ParentNote::where('student_id', $user->id)->where('from_parent', false)->whereNull('read_at')->count()

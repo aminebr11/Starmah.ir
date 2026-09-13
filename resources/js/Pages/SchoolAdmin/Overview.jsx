@@ -39,7 +39,7 @@ export default function Overview() {
             {/* خوش‌آمد + پلن */}
             <div className="panel" style={{ background: 'linear-gradient(135deg,#16264f,#0a1836)', border: 0, color: '#fff' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: '1 1 220px', minWidth: 0 }}>
                         <button type="button" onClick={() => fileRef.current?.click()} title="تغییرِ لوگوی مدرسه"
                             style={{ position: 'relative', width: 60, height: 60, borderRadius: 16, border: '2px solid rgba(255,255,255,.25)', background: 'rgba(255,255,255,.08)', cursor: 'pointer', display: 'grid', placeItems: 'center', overflow: 'hidden', padding: 0, flex: 'none' }}>
                             {(preview || school?.logo_url)
@@ -49,7 +49,7 @@ export default function Overview() {
                         </button>
                         <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden
                             onChange={(e) => uploadLogo(e.target.files?.[0])} />
-                        <div>
+                        <div style={{ minWidth: 0 }}>
                             <div style={{ fontWeight: 800, fontSize: 20 }}>سلام {name}!</div>
                             <div style={{ color: '#c4d2f0', fontSize: 14 }}>
                                 مدیریت {school?.name ?? 'مدرسه'}{school?.city ? ` · ${school.city}` : ''}

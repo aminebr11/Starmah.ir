@@ -13,6 +13,8 @@ class School extends Model
         'seats', 'subscription_ends_at', 'branding', 'settings',
         // سامانه‌ی پیامک: دسترسی، سهمیه‌ی ماهانه، خطِ اختصاصی و رویدادها
         'sms_enabled', 'sms_quota', 'sms_sender', 'sms_events',
+        // دستیارِ هوشمند: برای چه کسی باز باشد و آیا هوش مصنوعی مجاز است
+        'assistant_students', 'assistant_teachers', 'assistant_ai',
     ];
 
     protected $casts = [
@@ -21,6 +23,9 @@ class School extends Model
         'subscription_ends_at' => 'date',
         'sms_enabled' => 'boolean',
         'sms_events'  => 'array',
+        'assistant_students' => 'boolean',
+        'assistant_teachers' => 'boolean',
+        'assistant_ai'       => 'boolean',
     ];
 
     public function planModel(): BelongsTo { return $this->belongsTo(Plan::class, 'plan_id'); }

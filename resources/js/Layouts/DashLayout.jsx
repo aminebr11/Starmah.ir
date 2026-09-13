@@ -17,7 +17,7 @@ export default function DashLayout({ title, roleLabel, menu = [], active = '', c
     menu = menu.filter((m) => !m.flag || (m.flag === 'smart' && smartLab));
 
     return (
-        <div dir="rtl" className="dash">
+        <div dir="rtl" className={`dash ${open ? 'drawer-open' : ''}`}>
             <Head title={title ? `${title} — ستاره ماه` : 'ستاره ماه'} />
 
             <aside className={`dash-side ${open ? 'open' : ''}`}>
@@ -57,22 +57,24 @@ export default function DashLayout({ title, roleLabel, menu = [], active = '', c
             {open && <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 90 }} />}
 
             <main className="dash-main">
+                {/* نوارِ بالا در دو ردیف: ردیفِ اول همیشه (منو، عنوان، زنگوله،
+                    کاربر) و ردیفِ دوم دکمه‌های همان صفحه. روی موبایل ردیفِ
+                    دوم افقی اسکرول می‌شود تا دکمه‌ها دوخطی و درهم نشوند. */}
                 <div className="dash-topbar">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <button className="dash-mobilebtn" onClick={() => setOpen(true)}>☰</button>
+                    <div className="dash-bar-main">
+                        <button className="dash-mobilebtn" onClick={() => setOpen(true)} aria-label="منو">☰</button>
                         <h1>{title}</h1>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        {actions}
-                        {/* زنگوله‌ی یکپارچه — همان چیزی که دانش‌آموز می‌بیند */}
-                        <BellMenu tone="light" />
-                        <div className="user-chip">
-                            <Link href={route('profile.edit')} className="user-chip-name" title="پروفایل من">
-                                <Avatar src={avatarUrl} name={auth?.user?.name} size={26} /><span className="nm">{auth?.user?.name}</span>
-                            </Link>
-                            <button onClick={() => router.post(route('logout'))} className="user-chip-out" title="خروج از حساب">🚪</button>
+                        <div className="dash-bar-tools">
+                            <BellMenu tone="light" />
+                            <div className="user-chip">
+                                <Link href={route('profile.edit')} className="user-chip-name" title="پروفایل من">
+                                    <Avatar src={avatarUrl} name={auth?.user?.name} size={26} /><span className="nm">{auth?.user?.name}</span>
+                                </Link>
+                                <button onClick={() => router.post(route('logout'))} className="user-chip-out" title="خروج از حساب">🚪</button>
+                            </div>
                         </div>
                     </div>
+                    {actions && <div className="dash-actions">{actions}</div>}
                 </div>
                 {children}
             </main>

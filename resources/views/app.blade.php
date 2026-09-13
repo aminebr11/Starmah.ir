@@ -7,9 +7,12 @@
 
         <title inertia>{{ config('app.name', 'ستاره ماه') }}</title>
 
-        <link rel="icon" type="image/svg+xml" href="/brand/logo-mark.svg">
-        <link rel="icon" type="image/png" sizes="32x32" href="/brand/icon-32.png">
-        <link rel="apple-touch-icon" sizes="180x180" href="/brand/icon-180.png">
+        {{-- آیکونِ برند. نسخه‌ی SVG قبلی حذف شد چون مرورگرها آن را به PNG
+             ترجیح می‌دهند و طرحِ قدیمی را نشان می‌دادند. --}}
+        <link rel="icon" href="/favicon.ico?v=3" sizes="any">
+        <link rel="icon" type="image/png" sizes="32x32" href="/brand/icon-32.png?v=3">
+        <link rel="icon" type="image/png" sizes="192x192" href="/brand/icon-192.png?v=3">
+        <link rel="apple-touch-icon" sizes="180x180" href="/brand/icon-180.png?v=3">
         <link rel="manifest" href="/manifest.webmanifest">
 
         {{-- نصب روی آیفون: iOS از manifest برای حالتِ اپ استفاده نمی‌کند

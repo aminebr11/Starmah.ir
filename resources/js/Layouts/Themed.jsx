@@ -22,7 +22,7 @@ export default function Themed({ title, children, nav = null, active = '' }) {
                 borderBottom: '1px solid rgba(255,255,255,.08)' }}>
                 <div style={{ ...ui.container, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
-                        <img src="/brand/logo-mark.svg" alt="ستاره ماه" width="34" height="34" />
+                        <img src="/brand/emblem-120.webp" alt="ستاره ماه" width="34" height="34" style={{ borderRadius: 9 }} />
                         <span style={{ fontWeight: 800, color: '#fff', fontSize: 16 }}>
                             ستاره<span style={{ color: 'var(--p1)' }}>ماه</span>
                         </span>

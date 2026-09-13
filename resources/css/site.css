@@ -327,8 +327,14 @@ img{max-width:100%;display:block}
 .tag-ok{background:#e3f7ec;color:#2bb673}.tag-warn{background:#fff3d6;color:#b9831a}.tag-info{background:#e7efff;color:#3a6fd8}
 @media(max-width:860px){
   .dash{grid-template-columns:1fr}
-  .dash-side{position:fixed;inset-inline-start:0;top:0;width:248px;z-index:100;transform:translateX(100%);transition:.3s}
-  [dir=rtl] .dash-side{transform:translateX(248px)}
+  /* کشوی منو: کمی پهن‌تر از ۲۴۸ تا برچسب‌ها جا شوند، با سایه و حاشیه‌ی
+     امنِ پایین (نوارِ خانه‌ی آیفون). ترجمهٔ ۱۰۰٪ به‌جای ۲۴۸ پیکسلِ ثابت
+     تا با هر پهنایی هماهنگ بماند. */
+  .dash-side{position:fixed;inset-inline-start:0;top:0;width:min(84vw,286px);z-index:100;
+    transform:translateX(-100%);transition:transform .28s ease;will-change:transform;
+    padding-bottom:calc(22px + var(--sab));overscroll-behavior:contain;
+    box-shadow:0 0 40px rgba(4,10,26,.45)}
+  [dir=rtl] .dash-side{transform:translateX(100%)}
   .dash-side.open{transform:none!important}
   .dash-mobilebtn{display:inline-flex;border:1px solid var(--line);background:#fff;border-radius:12px;padding:9px 13px;font-family:inherit;font-weight:700;cursor:pointer;font-size:18px}
   .dash-cards{grid-template-columns:1fr 1fr}
@@ -431,7 +437,7 @@ html{overflow-x:hidden}
 
 /* ---------- PRINT ---------- */
 @media print{
-  .dash-side,.dash-mobilebtn,.dash-topbar .btn,.no-print,.dash-topbar>div:last-child{display:none!important}
+  .dash-side,.dash-mobilebtn,.dash-topbar .btn,.no-print,.dash-bar-tools,.dash-actions{display:none!important}
   .dash{display:block;background:#fff}
   .dash-main{padding:0}
   .panel{box-shadow:none;border:0}
@@ -1340,3 +1346,102 @@ a, button, [role="button"], summary { -webkit-tap-highlight-color: transparent; 
   .bottom-nav { bottom: max(calc(10px + var(--sab)), 22px); }
   .footer     { padding-bottom: max(calc(26px + var(--sab)), 42px); }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   نوارِ بالای داشبورد — چیدمانِ درست روی موبایل
+
+   مشکل: همه‌چیز (عنوان، دکمه‌های صفحه، زنگوله، کارتِ کاربر) در یک ردیفِ
+   flex-wrap بود. روی گوشی ردیف می‌شکست، متنِ دکمه‌ها دوخطی می‌شد و کارتِ
+   کاربر تا حدِ یک حرف فشرده می‌شد.
+
+   حالا دو ردیفِ مشخص: ردیفِ اول نوارِ برنامه (منو · عنوان · زنگوله ·
+   کاربر) و ردیفِ دوم دکمه‌های همان صفحه که افقی اسکرول می‌شوند.
+   ═══════════════════════════════════════════════════════════════════ */
+.dash-bar-main{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
+.dash-bar-tools{display:flex;align-items:center;gap:10px;margin-inline-start:auto;flex:none}
+.dash-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+@media(max-width:860px){
+  /* :not(.kids) — داشبوردِ دانش‌آموز (ThemedDash) نوارِ بالای خودش را با
+     تمِ تیره دارد و نباید پس‌زمینه‌ی روشنِ این نوار را بگیرد. */
+  .dash-main:not(.kids) .dash-topbar{
+    /* نوارِ برنامه بالای صفحه می‌چسبد تا منو همیشه در دسترس باشد */
+    position:sticky;top:0;z-index:70;
+    /* flex-wrap:wrap (قاعده‌ی پایه) در جهتِ ستونی، «خط»های عمودی می‌سازد و
+       align-items:stretch فرزندها را به پهنای max-content همان خط می‌کشد؛
+       نتیجه نوارِ ۴۸۵ پیکسلی روی گوشیِ ۳۹۰ بود. صریحاً nowrap می‌کنیم. */
+    flex-direction:column;flex-wrap:nowrap;align-items:stretch;gap:9px;
+    margin:0 0 14px;padding:max(var(--sat),4px) 0 9px;
+    background:linear-gradient(180deg,var(--bg,#f6f8fc) 78%,rgba(246,248,252,.85));
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  }
+  .dash-main:not(.kids) .dash-topbar h1{
+    font-size:18px;line-height:1.5;
+    /* عنوانِ بلند به‌جای شکستنِ نوار، با سه‌نقطه کوتاه می‌شود */
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1;
+  }
+  .dash-bar-main{gap:9px}
+  .dash-bar-tools{gap:7px}
+
+  /* ردیفِ دوم: یک نوارِ افقیِ اسکرول‌شونده، بدونِ شکستنِ متنِ دکمه‌ها */
+  .dash-actions{
+    flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;gap:8px;
+    padding-bottom:2px;scrollbar-width:none;-ms-overflow-style:none;
+    scroll-snap-type:x proximity;
+  }
+  .dash-actions::-webkit-scrollbar{display:none}
+  .dash-actions>*{flex:0 0 auto;white-space:nowrap;scroll-snap-align:start}
+  .dash-actions .btn,.dash-actions .btn-sm{min-height:40px;padding-inline:14px}
+
+  /* کارتِ کاربر: فقط عکس و دکمه‌ی خروج — نام جا نمی‌شود و بی‌فایده است */
+  .user-chip .nm{display:none}
+  .user-chip-name{padding:8px 10px;max-width:none}
+  .user-chip-out{padding:0 11px}
+  .dash-mobilebtn{min-height:40px;min-width:40px;justify-content:center;align-items:center}
+}
+
+/* در داشبوردِ دانش‌آموز نوارِ پایین وجود دارد؛ دکمه‌ی شناورِ دستیار باید
+   بالاتر بنشیند وگرنه روی گزینه‌ی «اعلان‌ها» می‌افتد. */
+.dash:has(.bottom-nav) .assistant-fab{bottom:calc(84px + var(--sab,0px))!important}
+.dash:has(.bottom-nav) .assistant-panel{bottom:calc(150px + var(--sab,0px))!important;max-height:calc(100vh - 215px)!important}
+
+/* وقتی کشوی منو باز است، دکمه‌ی شناورِ دستیار روی پرده‌ی تیره نماند */
+.dash.drawer-open .assistant-fab{opacity:0;pointer-events:none}
+
+/* روی گوشی‌های خیلی باریک، عنوان کوچک‌تر تا نوار یک‌خطی بماند */
+@media(max-width:400px){
+  .dash-main:not(.kids) .dash-topbar h1{font-size:16.5px}
+  .dash-bar-tools{gap:6px}
+}
+
+/* چاپ: نوارِ ابزار و دکمه‌ها لازم نیستند (قاعده‌ی قدیمی به ساختارِ تازه) */
+@media print{
+  .dash-bar-tools,.dash-actions{display:none!important}
+}
+
+/* کارت‌های آماری روی موبایل: چیدمانِ فشرده‌ی «آیکون کنارِ عدد».
+   float:left باعث می‌شد وسطِ کارت خالی بماند و کارت بی‌دلیل بلند شود. */
+@media(max-width:860px){
+  .dash-cards{gap:10px}
+  .dcard{padding:13px 14px;border-radius:16px;display:flex;align-items:center;gap:12px}
+  .dcard .ic{float:none;width:42px;height:42px;font-size:20px;flex:none;order:-1}
+  .dcard .lbl{font-size:12px}
+  .dcard .val{font-size:22px;margin-top:1px}
+  .panel{padding:15px;border-radius:16px;margin-top:14px}
+  .panel h3{font-size:15.5px;margin-bottom:11px}
+}
+/* برخی صفحه‌ها روی .dash-cards استایلِ درون‌خطی (repeat(3,1fr) یا
+   repeat(5,1fr)) می‌گذارند؛ استایلِ درون‌خطی از مدیا-کوئری قوی‌تر است و
+   روی گوشی سه/پنج ستون باقی می‌ماند و صفحه را پهن‌تر از نمایشگر می‌کند.
+   با !important (که بر استایلِ درون‌خطیِ بدون important می‌چربد) چیدمانِ
+   موبایل را قطعی می‌کنیم. */
+/* minmax(0,1fr) به‌جای 1fr: با 1fr، کفِ ستون «min-content» است و کارتی
+   با متنِ بلند، شبکه را پهن‌تر از نمایشگر می‌کند. */
+@media(max-width:860px){
+  .dash-cards{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .dash-cards>*{min-width:0}
+  .dcard>*{min-width:0;overflow-wrap:anywhere}
+  /* دکمه‌های داخلِ پنل‌ها روی گوشی بشکنند، نه اینکه از کارت بیرون بزنند */
+  .panel .btn,.panel .btn-sm{white-space:normal;text-align:center}
+}
+@media(max-width:360px){.dash-cards{grid-template-columns:minmax(0,1fr)!important}}

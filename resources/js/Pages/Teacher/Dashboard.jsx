@@ -37,8 +37,8 @@ export default function Dashboard() {
             {/* خوش‌آمد */}
             <div className="panel" style={{ background: 'linear-gradient(135deg,#16264f,#0a1836)', border: 0, color: '#fff' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-                    <div style={{ fontSize: 40 }}>👋</div>
-                    <div>
+                    <div style={{ fontSize: 40, flex: 'none' }}>👋</div>
+                    <div style={{ flex: '1 1 190px', minWidth: 0 }}>
                         <div style={{ fontWeight: 800, fontSize: 20 }}>سلام {name}!</div>
                         <div style={{ color: '#c4d2f0', fontSize: 14 }}>به پیشخوان کلاس خوش آمدی — همه‌ی ابزارهای تدریس این‌جاست.</div>
                     </div>

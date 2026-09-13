@@ -127,6 +127,8 @@ Route::middleware(['auth', 'role:school_admin'])->prefix('school')->name('school
     Route::post('/sms/send', [\App\Http\Controllers\SmsController::class, 'send'])->name('sms.send');
     Route::post('/sms/events', [\App\Http\Controllers\SmsController::class, 'events'])->name('sms.events');
     Route::post('/sms/teacher/{user}', [\App\Http\Controllers\SmsController::class, 'teacher'])->name('sms.teacher');
+    // دسترسیِ دستیارِ هوشمند (در همان صفحه‌ی تنظیماتِ مدرسه)
+    Route::post('/assistant-access', [\App\Http\Controllers\SmsController::class, 'assistant'])->name('assistant.access');
 });
 
 /* ---------------- دانش‌آموز ---------------- */
