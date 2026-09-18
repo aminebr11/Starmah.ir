@@ -70,6 +70,15 @@ const PRESETS = {
     },
 };
 
+/** سقفِ هر کادرِ تخته — باید با max: در GameTemplateController یکی بماند. */
+const BOARD_MAX = 200000;
+
+const Counter = ({ n }) => (
+    <div style={{ fontSize: 11, color: n > BOARD_MAX ? '#e8505b' : 'var(--muted-2)', marginTop: 4, textAlign: 'end' }}>
+        {fa(n.toLocaleString('en-US'))} از {fa(BOARD_MAX.toLocaleString('en-US'))} نویسه
+    </div>
+);
+
 export default function GameTemplates() {
     const { templates = [], flash, errors = {} } = usePage().props;
     const [banner, setBanner] = useState(null);
@@ -101,10 +110,12 @@ export default function GameTemplates() {
                 <div>
                     <label style={{ fontWeight: 700, fontSize: 13 }}>HTML تخته</label>
                     <textarea className="input" dir="ltr" rows={11} style={{ fontFamily: 'monospace', fontSize: 12 }} value={form.data.board_html} onChange={(e) => form.setData('board_html', e.target.value)} />
+                    <Counter n={(form.data.board_html || '').length} />
                 </div>
                 <div>
                     <label style={{ fontWeight: 700, fontSize: 13 }}>CSS تخته</label>
                     <textarea className="input" dir="ltr" rows={11} style={{ fontFamily: 'monospace', fontSize: 12 }} value={form.data.board_css} onChange={(e) => form.setData('board_css', e.target.value)} />
+                    <Counter n={(form.data.board_css || '').length} />
                 </div>
             </div>
             <label style={{ fontWeight: 700, fontSize: 13, display: 'block', marginTop: 12 }}>👁️ پیش‌نمایش زنده (خانه ۳ از ۱۰، شخصیت 🦁)</label>
@@ -191,11 +202,30 @@ export default function GameTemplates() {
                                     </div>
                                     <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 6, minHeight: 34 }}>{t.description}</div>
                                     <div style={{ fontSize: 11.5, color: 'var(--muted-2)', marginTop: 4 }}>{fa(t.games)} بازی{t.board_html ? ' · 🧩 تختهٔ سفارشی' : ' · تختهٔ پیش‌فرض'}</div>
+                                    {t.games > 0 && (
+                                        <div style={{ fontSize: 11, color: '#b9831a', marginTop: 3 }}>
+                                            🔒 چون در بازی استفاده شده، حذف نمی‌شود — با ⏸️ می‌توانید از فهرستِ معلم‌ها پنهانش کنید.
+                                        </div>
+                                    )}
                                     <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
                                         <button onClick={() => startEdit(t)} className="btn btn-ghost btn-sm">✏️ ویرایش</button>
                                         <button onClick={() => startBuilder(t)} className="btn btn-ghost btn-sm">🧩 تختهٔ HTML</button>
                                         <button onClick={() => router.post(route('admin.game-templates.toggle', t.id), {}, { preserveScroll: true })} className="btn btn-ghost btn-sm">{t.is_active ? '⏸️' : '▶️'}</button>
-                                        <button onClick={() => confirm(`محیطِ «${t.name}» حذف شود؟`) && router.delete(route('admin.game-templates.destroy', t.id), { preserveScroll: true })} className="btn btn-ghost btn-sm" style={{ color: '#e8505b' }}>🗑️</button>
+                                        <button
+                                            disabled={t.games > 0}
+                                            title={t.games > 0
+                                                ? `این محیط در ${fa(t.games)} بازی استفاده شده و حذف نمی‌شود — اول محیطِ آن بازی‌ها را عوض کنید، یا با ⏸️ غیرفعالش کنید.`
+                                                : 'حذفِ این محیط'}
+                                            onClick={() => confirm(`محیطِ «${t.name}» حذف شود؟`) && router.delete(route('admin.game-templates.destroy', t.id), {
+                                                preserveScroll: true,
+                                                // پیامِ خطا بالای صفحه می‌نشیند؛ بدونِ این، کاربر پایینِ
+                                                // صفحه می‌ماند و فکر می‌کند دکمه اصلاً کار نکرده است.
+                                                onError: () => window.scrollTo({ top: 0, behavior: 'smooth' }),
+                                            })}
+                                            className="btn btn-ghost btn-sm"
+                                            style={{ color: t.games > 0 ? 'var(--muted-2)' : '#e8505b', opacity: t.games > 0 ? .55 : 1, cursor: t.games > 0 ? 'not-allowed' : 'pointer' }}>
+                                            🗑️
+                                        </button>
                                     </div>
                                 </>
                             )}

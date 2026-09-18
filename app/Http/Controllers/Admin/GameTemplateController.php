@@ -33,8 +33,8 @@ class GameTemplateController extends Controller
             'name' => ['required', 'string', 'max:80'],
             'description' => ['nullable', 'string', 'max:300'],
             'icon' => ['nullable', 'string', 'max:16'],
-            'board_html' => ['nullable', 'string', 'max:20000'],
-            'board_css' => ['nullable', 'string', 'max:20000'],
+            'board_html' => ['nullable', 'string', 'max:200000'],
+            'board_css' => ['nullable', 'string', 'max:200000'],
         ]);
         $this->assertSafe($data);
 
@@ -58,12 +58,23 @@ class GameTemplateController extends Controller
 
     public function destroy(Request $request, GameTemplate $gameTemplate): RedirectResponse
     {
-        $used = EduGame::where('template_key', $gameTemplate->key)->count();
-        if ($used > 0) {
-            return back()->withErrors(['delete' => "این محیط در {$used} بازیِ فعال استفاده شده و حذف نمی‌شود — ابتدا آن بازی‌ها را حذف/تغییر دهید."]);
+        $games = EduGame::where('template_key', $gameTemplate->key)->orderBy('id')->get(['id', 'title']);
+        if ($games->isNotEmpty()) {
+            $names = $games->take(3)->pluck('title')->implode('، ');
+            $more = $games->count() > 3 ? ' و ' . \App\Support\Jalali::fa((string) ($games->count() - 3)) . ' بازیِ دیگر' : '';
+
+            return back()->withErrors(['delete' =>
+                'محیطِ «' . $gameTemplate->name . '» در ' . \App\Support\Jalali::fa((string) $games->count())
+                . ' بازی استفاده شده و حذف نمی‌شود: ' . $names . $more
+                . ' — یا محیطِ آن بازی‌ها را عوض کنید، یا به‌جای حذف با دکمهٔ ⏸️ غیرفعالش کنید تا در فهرستِ معلم‌ها دیده نشود.',
+            ]);
         }
+
+        $name = $gameTemplate->name;
         $gameTemplate->delete();
-        return back()->with('flash', 'محیط حذف شد');
+        \App\Models\AuditLog::record($request->user(), 'حذف محیط بازی', "محیطِ «{$name}» حذف شد");
+
+        return back()->with('flash', "محیطِ «{$name}» حذف شد ✅");
     }
 
     public function toggle(GameTemplate $gameTemplate): RedirectResponse
@@ -78,8 +89,8 @@ class GameTemplateController extends Controller
             'name' => ['required', 'string', 'max:80'],
             'description' => ['nullable', 'string', 'max:300'],
             'icon' => ['nullable', 'string', 'max:16'],
-            'board_html' => ['nullable', 'string', 'max:20000'],
-            'board_css' => ['nullable', 'string', 'max:20000'],
+            'board_html' => ['nullable', 'string', 'max:200000'],
+            'board_css' => ['nullable', 'string', 'max:200000'],
         ]);
         $this->assertSafe($data);
         $gameTemplate->update($data);
