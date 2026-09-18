@@ -242,7 +242,8 @@ img{max-width:100%;display:block}
 
 /* ---------- AUTH SPLIT (login / forgot) ---------- */
 .auth-split{min-height:100vh;display:grid;grid-template-columns:1fr 1fr}
-.auth-side{position:relative;overflow:hidden;background:linear-gradient(160deg,#16264f,#070f24);color:#fff;
+.auth-side{position:sticky;top:0;align-self:start;height:100vh;overflow:hidden;
+  background:linear-gradient(160deg,#16264f,#070f24);color:#fff;
   display:flex;flex-direction:column;justify-content:center;padding:54px}
 .auth-side .stars-bg{position:absolute;inset:0;opacity:.6}
 .auth-side .brandrow{display:flex;align-items:center;gap:12px;position:relative;z-index:2}
