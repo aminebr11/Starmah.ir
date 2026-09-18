@@ -34,7 +34,7 @@ class GameTemplateController extends Controller
             'description' => ['nullable', 'string', 'max:300'],
             'icon' => ['nullable', 'string', 'max:16'],
             'board_html' => ['nullable', 'string', 'max:20000'],
-            'board_css' => ['nullable', 'string', 'max:10000'],
+            'board_css' => ['nullable', 'string', 'max:20000'],
         ]);
         $this->assertSafe($data);
 
@@ -79,7 +79,7 @@ class GameTemplateController extends Controller
             'description' => ['nullable', 'string', 'max:300'],
             'icon' => ['nullable', 'string', 'max:16'],
             'board_html' => ['nullable', 'string', 'max:20000'],
-            'board_css' => ['nullable', 'string', 'max:10000'],
+            'board_css' => ['nullable', 'string', 'max:20000'],
         ]);
         $this->assertSafe($data);
         $gameTemplate->update($data);
