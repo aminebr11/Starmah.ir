@@ -3,6 +3,9 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
+import CurriculumFields from '@/Components/Questions/CurriculumFields';
+import AiQuestionPanel from '@/Components/Questions/AiQuestionPanel';
+import BankPicker from '@/Components/Questions/BankPicker';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const blankQ = () => ({ type: 'mc', prompt: '', points: 1, difficulty: 'medium', explanation: '', source: 'manual', choices: [{ value: '', correct: true }, { value: '', correct: false }] });
@@ -12,12 +15,11 @@ const ST_COLOR = { draft: '#8896ad', review: '#0ea5b7', scheduled: '#e8862e', pu
 const ST_LABEL = { draft: 'پیش‌نویس', review: 'آماده بررسی', scheduled: 'زمان‌بندی', published: 'منتشر', closed: 'بسته', archived: 'آرشیو' };
 
 export default function SmartExamLab() {
-    const { exams = [], buckets = {}, bankCount = 0, aiCount = 0, classroomsFull = [], groups = [], themes = [], aiEnabled, adaptiveEnabled, editing, flash } = usePage().props;
+    const { exams = [], buckets = {}, bankCount = 0, aiCount = 0, classroomsFull = [], classes = [], groups = [], themes = [], aiEnabled, adaptiveEnabled, editing, flash } = usePage().props;
     const [banner, setBanner] = useState(null);
     const [step, setStep] = useState(1);
     const [editId, setEditId] = useState(editing?.id ?? null);
-    const [aiBusy, setAiBusy] = useState(false);
-    const [aiMsg, setAiMsg] = useState(null);
+    const [panel, setPanel] = useState(null); // 'ai' | 'bank' | null
     useEffect(() => { if (flash?.flash) { setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); window.scrollTo({ top: 0 }); } }, [flash]);
     useEffect(() => { if (editing) { setEditId(editing.id); setStep(1); } }, [editing?.id]);
 
@@ -26,15 +28,10 @@ export default function SmartExamLab() {
         target_classrooms: editing.target_classrooms || [], target_themes: editing.target_themes || [],
         target_students: editing.target_students || [], questions: editing.questions?.length ? editing.questions : [blankQ()],
     } : {
-        title: '', description: '', grade: classroomsFull[0]?.grade || '', subject: '', book: '', chapter: '', topic: '', goal: '',
+        title: '', description: '', classroom_id: '', level: '', grade: classroomsFull[0]?.grade || '', subject: '', book: '', chapter_id: '', chapter: '', topic: '', goal: '',
         kind: 'practice', status: 'draft', adaptive: false, rules: { ...DEFAULT_RULES }, opens_at: '', closes_at: '',
         target_classrooms: [], target_themes: [], target_students: [], questions: [blankQ()],
     });
-
-    // AI panel state (منوی بسته به‌صورت پیش‌فرض؛ اطلاعات از «اطلاعات پایه» می‌آید)
-    const [aiOpen, setAiOpen] = useState(false);
-    const [ai, setAi] = useState({ count: 5, type: 'mc', difficulty: 'medium', flavor: '', sample: false });
-    const [aiResults, setAiResults] = useState([]);
 
     const setR = (k, v) => form.setData('rules', { ...form.data.rules, [k]: v });
     const toggleArr = (field, id) => form.setData(field, form.data[field].includes(id) ? form.data[field].filter((x) => x !== id) : [...form.data[field], id]);
@@ -47,48 +44,22 @@ export default function SmartExamLab() {
     const addQ = () => form.setData('questions', [...form.data.questions, blankQ()]);
     const rmQ = (i) => form.data.questions.length > 1 && form.setData('questions', form.data.questions.filter((_, j) => j !== i));
 
-    // نام تیمِ انتخاب‌شده برای «طعمِ» سؤال (اگر گروهی هدف باشد)
+    // نام تیمِ هدف برای «فضای داستانی»ِ سؤال‌ها (اگر گروهی هدف باشد)
     const flavorTheme = themes.find((t) => form.data.target_themes.includes(t.id));
-    const runAi = async () => {
-        setAiBusy(true); setAiMsg(null); setAiResults([]);
-        try {
-            // همه‌ی اطلاعاتِ «اطلاعات پایه» به‌صورت خودکار به AI داده می‌شود
-            const { data } = await axios.post(route('teacher.smart.ai'), {
-                ...ai, subject: form.data.subject, grade: form.data.grade,
-                topic: form.data.topic || form.data.chapter || form.data.subject,
-                book: form.data.book, chapter: form.data.chapter, goal: form.data.goal, kind: form.data.kind,
-                flavor: ai.flavor || (flavorTheme ? flavorTheme.name : ''),
-            });
-            setAiMsg({ ok: data.ok, mode: data.mode, text: data.message });
-            if (data.ok) setAiResults((data.questions || []).map((q) => ({ ...q, source: data.mode === 'sample' ? 'sample' : 'ai', _pick: true })));
-        } catch (e) { setAiMsg({ ok: false, text: e.response?.data?.message || 'خطا در ارتباط با سرویس' }); }
-        setAiBusy(false);
-    };
-    const addAiPicked = () => {
-        const picked = aiResults.filter((q) => q._pick).map(({ _pick, ...q }) => ({ ...q, points: 1 }));
-        form.setData('questions', [...form.data.questions.filter((q) => q.prompt.trim()), ...picked]);
-        setAiResults([]); setAiMsg(null); setStep(3);
-    };
+    const setCtx = (patch) => form.setData((d) => ({ ...d, ...patch, ...(patch.subject !== undefined ? { book: patch.subject } : {}) }));
 
-    // بانک سؤالات — انتخابِ درس ← شماره درس + جست‌وجو، افزودن به آزمون
-    const [bankOpen, setBankOpen] = useState(false);
-    const [bankFacets, setBankFacets] = useState([]);
-    const [bankSubject, setBankSubject] = useState(''); const [bankLesson, setBankLesson] = useState(''); const [bankSearch, setBankSearch] = useState('');
-    const [bankList, setBankList] = useState([]); const [bankBusy, setBankBusy] = useState(false);
-    const loadBank = async () => {
-        setBankBusy(true);
-        try {
-            const { data } = await axios.get(route('teacher.smart.bankpick'), { params: { subject: bankSubject, lesson_no: bankLesson, search: bankSearch } });
-            setBankFacets(data.facets || []); setBankList((data.questions || []).map((q) => ({ ...q, _pick: false })));
-        } catch (e) { setBankList([]); }
-        setBankBusy(false);
+    // افزودنِ سؤال از دستیار یا بانک — همه‌ی جزئیات (توضیح، دشواری، سطح، شناسه‌ی بانک) حفظ می‌شود
+    const addQuestions = (list, from) => {
+        const mapped = list.map((q) => ({
+            type: q.type || 'mc', prompt: q.prompt, points: 1,
+            choices: (q.type === 'mc' || q.type === 'tf') ? (q.choices || []).map((c) => ({ value: c.value, correct: !!c.correct })) : [],
+            answer: q.answer || '', explanation: q.explanation || '', difficulty: q.difficulty || 'medium',
+            bloom: q.bloom || null, topic: q.topic || '', source: from === 'bank' ? 'bank' : (q.source || 'ai'),
+            bank_id: from === 'bank' ? q.id : null,
+        }));
+        form.setData('questions', [...form.data.questions.filter((q) => q.prompt.trim()), ...mapped]);
+        setPanel(null);
     };
-    const addBankPicked = () => {
-        const picked = bankList.filter((q) => q._pick).map((q) => ({ type: q.type || 'mc', prompt: q.prompt, explanation: q.explanation || '', answer: q.answer || '', points: 1, choices: (q.choices || []).map((c) => ({ value: c.value, correct: !!c.correct })) }));
-        form.setData('questions', [...form.data.questions.filter((q) => q.prompt.trim()), ...picked]);
-        setBankList(bankList.map((q) => ({ ...q, _pick: false })));
-    };
-    const bankLessons = (bankFacets.find((s) => s.subject === bankSubject)?.lessons) || [];
 
     const save = (status) => {
         const payload = { ...form.data, status };
@@ -98,8 +69,6 @@ export default function SmartExamLab() {
     };
 
     const STEPS = ['اطلاعات پایه', 'مخاطب', 'سؤال‌ها', 'قوانین', 'انتشار'];
-    const selClass = classroomsFull.find((c) => form.data.target_classrooms.includes(c.id)) || classroomsFull[0];
-    const subjects = selClass?.subjects || [];
 
     return (
         <DashLayout title="آزمایشگاه هوشمند آزمون" roleLabel="معلم" menu={teacherMenu} active="smart">
@@ -132,12 +101,9 @@ export default function SmartExamLab() {
                         <div className="smart-grid">
                             <F label="عنوان آزمون" err={form.errors.title}><input className="smart-input" value={form.data.title} onChange={(e) => form.setData('title', e.target.value)} placeholder="مثلاً: آزمون تشخیصی فصل ۲" /></F>
                             <F label="نوع آزمون"><select className="smart-input" value={form.data.kind} onChange={(e) => form.setData('kind', e.target.value)}>{KINDS.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select></F>
-                            <F label="پایه"><input className="smart-input" value={form.data.grade} onChange={(e) => form.setData('grade', e.target.value)} placeholder="چهارم" /></F>
-                            <F label="درس"><input className="smart-input" list="sm-subjects" value={form.data.subject} onChange={(e) => form.setData('subject', e.target.value)} placeholder="مثلاً: علوم" /><datalist id="sm-subjects">{subjects.map((s, i) => <option key={i} value={s} />)}</datalist></F>
-                            <F label="کتاب"><input className="smart-input" value={form.data.book} onChange={(e) => form.setData('book', e.target.value)} /></F>
-                            <F label="فصل"><input className="smart-input" value={form.data.chapter} onChange={(e) => form.setData('chapter', e.target.value)} /></F>
-                            <F label="مبحث"><input className="smart-input" value={form.data.topic} onChange={(e) => form.setData('topic', e.target.value)} /></F>
-                            <F label="هدف آموزشی"><input className="smart-input" value={form.data.goal} onChange={(e) => form.setData('goal', e.target.value)} /></F>
+                            <div style={{ gridColumn: '1/-1' }}>
+                                <CurriculumFields classes={classes} value={form.data} onChange={setCtx} errors={form.errors} />
+                            </div>
                             <div style={{ gridColumn: '1/-1' }}><F label="توضیح آزمون"><textarea className="smart-input" rows={2} value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} /></F></div>
                             <div style={{ gridColumn: '1/-1', background: '#f5f2ff', border: '1px solid #e5ddff', borderRadius: 12, padding: 12 }}>
                                 <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, fontWeight: 700 }}><input type="checkbox" checked={form.data.adaptive} onChange={(e) => form.setData('adaptive', e.target.checked)} /> 🎯 آزمون تطبیقی (سختی بر اساس پاسخ)</label>
@@ -171,81 +137,37 @@ export default function SmartExamLab() {
                     {/* گام ۳ — سؤال‌ها (دستی + AI + بانک) */}
                     {step === 3 && (
                         <div>
-                            {/* بانک سؤالات — انتخاب از سؤال‌های در دسترس بر اساس درس و شماره درس */}
-                            <div className="smart-panel" style={{ background: '#ecfeff', marginBottom: 14 }}>
-                                <button type="button" onClick={() => { const n = !bankOpen; setBankOpen(n); if (n) loadBank(); }} className="smart-h" style={{ fontSize: 15, width: '100%', border: 0, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>
-                                    🗄️ بانک سؤالات
-                                    <span className="smart-muted" style={{ fontSize: 12, fontWeight: 400, marginInlineStart: 8 }}>(انتخاب سؤال از سؤال‌های در دسترس — بر اساس درس و شماره درس)</span>
-                                    <span style={{ marginInlineStart: 'auto', fontSize: 18 }}>{bankOpen ? '▲' : '▼'}</span>
-                                </button>
-                                {bankOpen && (<>
-                                    <div className="smart-grid" style={{ marginTop: 10 }}>
-                                        <F label="درس"><select className="smart-input" value={bankSubject} onChange={(e) => { setBankSubject(e.target.value); setBankLesson(''); }}><option value="">همه‌ی درس‌ها</option>{bankFacets.map((s) => <option key={s.subject} value={s.subject}>{s.subject}</option>)}</select></F>
-                                        <F label="شماره درس"><select className="smart-input" value={bankLesson} onChange={(e) => setBankLesson(e.target.value)} disabled={!bankSubject}><option value="">همه</option>{bankLessons.map((l) => <option key={l} value={l === '—' ? '' : l}>{l}</option>)}</select></F>
-                                        <F label="جست‌وجو"><input className="smart-input" value={bankSearch} onChange={(e) => setBankSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && loadBank()} placeholder="متن سؤال…" /></F>
-                                        <F label="&nbsp;"><button type="button" onClick={loadBank} className="smart-btn sm">{bankBusy ? '…' : '🔍 اعمال'}</button></F>
-                                    </div>
-                                    {bankList.length === 0 ? <div className="smart-muted" style={{ fontSize: 12.5, marginTop: 8 }}>سؤالی یافت نشد.</div> : (
-                                        <div style={{ marginTop: 10 }}>
-                                            {bankList.map((q, i) => (
-                                                <label key={q.id} className="smart-qcard" style={{ display: 'flex', gap: 10, cursor: 'pointer' }}>
-                                                    <input type="checkbox" checked={q._pick} onChange={() => setBankList(bankList.map((x, j) => j === i ? { ...x, _pick: !x._pick } : x))} />
-                                                    <div style={{ flex: 1 }}><b style={{ fontSize: 13.5 }}>{q.prompt}</b>
-                                                        <div className="smart-muted" style={{ fontSize: 12 }}>{[q.subject, q.lesson_no ? `درس ${q.lesson_no}` : null].filter(Boolean).join(' · ')} · {(q.choices || []).map((c) => c.value + (c.correct ? ' ✓' : '')).join(' · ')}</div></div>
-                                                </label>
-                                            ))}
-                                            {bankList.some((q) => q._pick) && <button type="button" onClick={addBankPicked} className="smart-btn sm">➕ افزودن سؤال‌های انتخابی به آزمون</button>}
-                                        </div>
-                                    )}
-                                </>)}
+                            <div className="qk-actions" style={{ marginTop: 0, marginBottom: 12 }}>
+                                {aiEnabled && <button type="button" onClick={() => setPanel(panel === 'ai' ? null : 'ai')} className={`smart-btn ${panel === 'ai' ? '' : 'ghost'}`}>🤖 طراحی با هوش مصنوعی</button>}
+                                <button type="button" onClick={() => setPanel(panel === 'bank' ? null : 'bank')} className={`smart-btn ${panel === 'bank' ? '' : 'ghost'}`}>🗄️ از بانکِ سؤالات</button>
+                                <span className="smart-muted" style={{ fontSize: 12.5 }}>{fa(form.data.questions.filter((q) => q.prompt.trim()).length)} سؤال در آزمون</span>
                             </div>
-
-                            {aiEnabled && (
-                                <div className="smart-panel" style={{ background: '#f5f2ff', marginBottom: 14 }}>
-                                    <button type="button" onClick={() => setAiOpen(!aiOpen)} className="smart-h" style={{ fontSize: 15, width: '100%', border: 0, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>
-                                        🤖 دستیار هوشمند طراحی سؤال
-                                        <span className="smart-muted" style={{ fontSize: 12, fontWeight: 400, marginInlineStart: 8 }}>(اطلاعات از «اطلاعات پایه» گرفته می‌شود)</span>
-                                        <span style={{ marginInlineStart: 'auto', fontSize: 18 }}>{aiOpen ? '▲' : '▼'}</span>
-                                    </button>
-                                    {aiOpen && (<>
-                                    <div style={{ background: '#fff', borderRadius: 10, padding: '8px 12px', marginTop: 10, fontSize: 12.5 }} className="smart-muted">
-                                        درس: <b>{form.data.subject || '—'}</b> · موضوع: <b>{form.data.topic || form.data.chapter || '—'}</b> · پایه: <b>{form.data.grade || '—'}</b>
-                                        {!form.data.subject && <span style={{ color: '#b45309' }}> — ابتدا در گام ۱ «اطلاعات پایه» را کامل کنید.</span>}
-                                    </div>
-                                    <div className="smart-grid" style={{ marginTop: 10 }}>
-                                        <F label="تعداد"><input type="number" min={1} max={20} className="smart-input" value={ai.count} onChange={(e) => setAi({ ...ai, count: +e.target.value })} dir="ltr" /></F>
-                                        <F label="نوع"><select className="smart-input" value={ai.type} onChange={(e) => setAi({ ...ai, type: e.target.value })}><option value="mc">چهارگزینه‌ای</option><option value="tf">درست/نادرست</option><option value="desc">تشریحی</option></select></F>
-                                        <F label="سختی"><select className="smart-input" value={ai.difficulty} onChange={(e) => setAi({ ...ai, difficulty: e.target.value })}><option value="easy">آسان</option><option value="medium">متوسط</option><option value="hard">دشوار</option></select></F>
-                                        <F label="طعمِ تیم (اختیاری)"><select className="smart-input" value={ai.flavor} onChange={(e) => setAi({ ...ai, flavor: e.target.value })}><option value="">{flavorTheme ? `خودکار: ${flavorTheme.name}` : 'بدون طعم'}</option>{themes.map((t) => <option key={t.id} value={t.name}>{t.emoji} {t.name}</option>)}</select></F>
-                                    </div>
-                                    <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, marginTop: 8 }}><input type="checkbox" checked={ai.sample} onChange={(e) => setAi({ ...ai, sample: e.target.checked })} /> حالت نمونه (بدون کلید AI — سؤال‌های نمونه‌ی آزمایشی)</label>
-                                    <button onClick={runAi} disabled={aiBusy || !form.data.subject} className="smart-btn" style={{ marginTop: 10 }}>{aiBusy ? '… در حال تولید' : '✨ تولید سؤال'}</button>
-                                    {aiMsg && <div style={{ marginTop: 10, fontSize: 13, color: aiMsg.ok ? '#166534' : '#b91c1c', fontWeight: 700 }}>{aiMsg.mode === 'sample' && <span className="smart-tag sample">نمونه</span>} {aiMsg.text}</div>}
-                                    {aiResults.length > 0 && (
-                                        <div style={{ marginTop: 12 }}>
-                                            <div className="smart-muted" style={{ marginBottom: 6 }}>سؤال‌های تولیدشده — تیک بزن و «افزودن به آزمون». هیچ سؤالی بدون تأیید تو وارد آزمون نمی‌شود.</div>
-                                            {aiResults.map((q, i) => (
-                                                <label key={i} className="smart-qcard" style={{ display: 'flex', gap: 10, cursor: 'pointer' }}>
-                                                    <input type="checkbox" checked={q._pick} onChange={() => setAiResults(aiResults.map((x, j) => j === i ? { ...x, _pick: !x._pick } : x))} />
-                                                    <div style={{ flex: 1 }}><b style={{ fontSize: 13.5 }}>{q.prompt}</b>
-                                                        <div className="smart-muted" style={{ fontSize: 12 }}>{(q.choices || []).map((c) => c.value + (c.correct ? ' ✓' : '')).join(' · ') || (q.answer || '')}</div></div>
-                                                </label>
-                                            ))}
-                                            <button onClick={addAiPicked} className="smart-btn sm">➕ افزودن سؤال‌های انتخابی</button>
-                                        </div>
-                                    )}
-                                    </>)}
-                                </div>
+                            {panel === 'ai' && aiEnabled && (
+                                <AiQuestionPanel endpoint={route('teacher.smart.ai')} context={form.data} classes={classes}
+                                    types={['mc', 'tf', 'blank', 'desc']} maxCount={20} kind={form.data.kind}
+                                    defaults={{ count: 5, types: ['mc'], difficulty: form.data.kind === 'diagnostic' ? 'mixed' : 'medium' }}
+                                    flavors={themes} flavorDefault={flavorTheme?.name || ''}
+                                    existing={form.data.questions.map((q) => q.prompt).filter((p) => p && p.trim())}
+                                    onAdd={(list) => addQuestions(list, 'ai')} />
+                            )}
+                            {panel === 'bank' && (
+                                <BankPicker endpoint={route('teacher.smart.bankpick')} context={form.data}
+                                    types={['mc', 'tf', 'blank', 'desc']}
+                                    existingIds={form.data.questions.map((q) => q.bank_id).filter(Boolean)}
+                                    onAdd={(rows) => addQuestions(rows, 'bank')} />
                             )}
 
                             {form.data.questions.map((q, qi) => (
                                 <div key={qi} className="smart-qcard">
                                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
-                                        <span className="smart-tag man" style={{ background: q.source === 'ai' ? '#ede9fe' : q.source === 'sample' ? '#fef3c7' : '#e0f2fe', color: q.source === 'ai' ? '#6d28d9' : q.source === 'sample' ? '#b45309' : '#0369a1' }}>{fa(qi + 1)} · {q.source === 'ai' ? 'AI' : q.source === 'sample' ? 'نمونه' : 'دستی'}</span>
+                                        <span className="smart-tag man" style={{ background: q.source === 'ai' ? '#ede9fe' : q.source === 'sample' ? '#fef3c7' : '#e0f2fe', color: q.source === 'ai' ? '#6d28d9' : q.source === 'sample' ? '#b45309' : '#0369a1' }}>{fa(qi + 1)} · {q.source === 'ai' ? 'AI' : q.source === 'sample' ? 'نمونه' : q.source === 'bank' ? 'بانک' : 'دستی'}</span>
                                         <select className="smart-input" style={{ width: 'auto', padding: '5px 8px' }} value={q.type} onChange={(e) => setType(qi, e.target.value)}>
                                             <option value="mc">چهارگزینه‌ای</option><option value="tf">درست/نادرست</option><option value="desc">تشریحی</option><option value="blank">جای خالی</option>
                                         </select>
                                         <input type="number" min={1} max={20} className="smart-input" style={{ width: 70, padding: '5px 8px' }} value={q.points} onChange={(e) => setQ(qi, 'points', +e.target.value)} title="بارم" dir="ltr" />
+                                        <select className="smart-input" style={{ width: 'auto', padding: '5px 8px' }} value={q.difficulty || 'medium'} onChange={(e) => setQ(qi, 'difficulty', e.target.value)} title="دشواری (برای آزمونِ تطبیقی)">
+                                            <option value="easy">آسان</option><option value="medium">متوسط</option><option value="hard">دشوار</option>
+                                        </select>
                                         <button onClick={() => rmQ(qi)} className="smart-btn ghost sm" style={{ marginInlineStart: 'auto', color: '#e8505b' }}>🗑️</button>
                                     </div>
                                     <input className="smart-input" value={q.prompt} onChange={(e) => setQ(qi, 'prompt', e.target.value)} placeholder="متن سؤال" style={{ marginBottom: 8 }} />
@@ -261,7 +183,9 @@ export default function SmartExamLab() {
                                         </div>
                                     ) : q.type === 'blank' ? (
                                         <input className="smart-input" value={q.answer || ''} onChange={(e) => setQ(qi, 'answer', e.target.value)} placeholder="پاسخ صحیح (متن)" />
-                                    ) : <div className="smart-muted" style={{ fontSize: 12 }}>سؤال تشریحی — توسط معلم تصحیح می‌شود.</div>}
+                                    ) : (
+                                        <textarea className="smart-input" rows={2} value={q.answer || ''} onChange={(e) => setQ(qi, 'answer', e.target.value)} placeholder="پاسخِ نمونه برای تصحیحِ معلم (سؤالِ تشریحی دستی تصحیح می‌شود)" />
+                                    )}
                                     <input className="smart-input" value={q.explanation || ''} onChange={(e) => setQ(qi, 'explanation', e.target.value)} placeholder="توضیح آموزشی پس از پاسخ (اختیاری)" style={{ marginTop: 8 }} />
                                 </div>
                             ))}

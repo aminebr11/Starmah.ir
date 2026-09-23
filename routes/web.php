@@ -78,6 +78,9 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::post('/curriculum', [\App\Http\Controllers\Admin\CurriculumController::class, 'store'])->name('curriculum.store');
     Route::put('/curriculum/{curriculumBook}', [\App\Http\Controllers\Admin\CurriculumController::class, 'update'])->name('curriculum.update');
     Route::delete('/curriculum/{curriculumBook}', [\App\Http\Controllers\Admin\CurriculumController::class, 'destroy'])->name('curriculum.destroy');
+    Route::post('/curriculum/{curriculumBook}/chapters', [\App\Http\Controllers\Curriculum\ChapterController::class, 'adminStore'])->name('chapters.store');
+    Route::put('/chapters/{chapter}', [\App\Http\Controllers\Curriculum\ChapterController::class, 'adminUpdate'])->name('chapters.update');
+    Route::delete('/chapters/{chapter}', [\App\Http\Controllers\Curriculum\ChapterController::class, 'adminDestroy'])->name('chapters.destroy');
     Route::get('/themes', [PlatformController::class, 'themes'])->name('themes');
     Route::post('/themes', [PlatformController::class, 'storeTheme'])->name('themes.store');
     Route::post('/themes/{theme}/toggle', [PlatformController::class, 'toggleTheme'])->name('themes.toggle');
@@ -319,6 +322,12 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
         Route::post('/bank', [\App\Http\Controllers\Teacher\SmartExamController::class, 'bankStore'])->name('bank.store');
         Route::delete('/bank/{question}', [\App\Http\Controllers\Teacher\SmartExamController::class, 'bankDestroy'])->name('bank.destroy');
     });
+    // بانکِ سؤالاتِ معلم (همیشه در دسترس؛ مستقل از آزمایشگاه هوشمند)
+    Route::get('/my-bank', [\App\Http\Controllers\Teacher\MyBankController::class, 'index'])->name('mybank');
+    Route::get('/my-bank/list', [\App\Http\Controllers\Teacher\MyBankController::class, 'list'])->name('mybank.list');
+    Route::post('/my-bank/move', [\App\Http\Controllers\Teacher\MyBankController::class, 'move'])->name('mybank.move');
+    Route::put('/my-bank/{question}', [\App\Http\Controllers\Teacher\MyBankController::class, 'update'])->name('mybank.update');
+    Route::delete('/my-bank/{question}', [\App\Http\Controllers\Teacher\MyBankController::class, 'destroy'])->name('mybank.destroy');
     // استودیوی ساخت بازی (دنیای بازی‌های آموزشی)
     Route::get('/studio', [\App\Http\Controllers\Teacher\EduGameController::class, 'index'])->name('studio');
     Route::post('/studio/ai', [\App\Http\Controllers\Teacher\EduGameController::class, 'aiGenerate'])->name('studio.ai');
@@ -341,6 +350,12 @@ Route::middleware(['auth', 'role:parent'])->group(function () {
 /* ---------------- مشترک ---------------- */
 Route::middleware('auth')->group(function () {
     // سقفِ نرخ: هزینه‌ی کلیدِ هوش مصنوعی را از تکرارِ پرشتاب حفظ می‌کند
+    // برنامه‌ی درسی (کلاس‌ها، درس‌ها و فصل‌ها) برای فرم‌های ساختِ آزمون و بازی
+    Route::middleware('role:teacher|school_admin|super_admin')->prefix('curriculum')->name('curriculum.')->group(function () {
+        Route::get('/context', [\App\Http\Controllers\Curriculum\ChapterController::class, 'context'])->name('context');
+        Route::get('/chapters', [\App\Http\Controllers\Curriculum\ChapterController::class, 'index'])->name('chapters');
+        Route::post('/chapters', [\App\Http\Controllers\Curriculum\ChapterController::class, 'storeForSchool'])->name('chapters.store');
+    });
     Route::post('/assistant/chat', [\App\Http\Controllers\AssistantController::class, 'chat'])
         ->middleware('throttle:20,1')->name('assistant.chat');
 

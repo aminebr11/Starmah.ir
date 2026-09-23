@@ -40,6 +40,7 @@ use Inertia\Response;
  */
 class MissionController extends Controller
 {
+    use \App\Http\Controllers\Concerns\BuildsAiQuestions;
     private const PER_PAGE = 12;
 
     public function index(Request $request): Response
@@ -295,25 +296,10 @@ class MissionController extends Controller
     /** پیشنهادِ سؤال با هوش مصنوعی — خروجی پیش از ذخیره به معلم نشان داده می‌شود. */
     public function aiQuestions(Request $request, SmartExamAiService $ai): JsonResponse
     {
-        $data = $request->validate([
-            'subject' => ['nullable', 'string', 'max:120'],
-            'lesson_no' => ['nullable', 'string', 'max:40'],
-            'grade' => ['nullable', 'string', 'max:60'],
-            'topic' => ['nullable', 'string', 'max:160'],
-            'count' => ['nullable', 'integer', 'min:1', 'max:10'],
-            'difficulty' => ['nullable', 'in:easy,medium,hard'],
-            'sample' => ['nullable', 'boolean'],
-        ]);
-        $user = $request->user();
-
-        return response()->json($ai->generate([
-            'subject' => $data['subject'] ?? '', 'topic' => $data['topic'] ?? ($data['subject'] ?? ''),
-            'grade' => $data['grade'] ?? '', 'count' => $data['count'] ?? 4,
-            'difficulty' => $data['difficulty'] ?? 'medium', 'type' => 'mc',
-            'flavor' => 'مأموریتِ روزانه و چالشی',
-            'sample' => (bool) ($data['sample'] ?? false),
-            'school_id' => $user->school_id, 'teacher_id' => $user->id,
-        ]));
+        if (! $request->filled('topic') && $request->filled('lesson_no')) {
+            $request->merge(['topic' => 'درسِ ' . $request->lesson_no]);
+        }
+        return $this->aiRespond($request, $ai, 'mission', ['mc'], 10);
     }
 
     /* ═══════════════════════ CRUD ═══════════════════════ */

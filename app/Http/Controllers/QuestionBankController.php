@@ -23,6 +23,7 @@ use Inertia\Response;
  */
 class QuestionBankController extends Controller
 {
+    use \App\Http\Controllers\Concerns\BuildsAiQuestions;
     use \App\Http\Controllers\Concerns\StoresUploads;
 
     public function index(Request $request): Response
@@ -178,14 +179,7 @@ class QuestionBankController extends Controller
 
     public function ai(Request $request, SmartExamAiService $ai): JsonResponse
     {
-        $data = $request->validate([
-            'subject' => ['nullable', 'string', 'max:80'], 'topic' => ['nullable', 'string', 'max:120'],
-            'grade' => ['nullable', 'string', 'max:40'], 'count' => ['required', 'integer', 'min:1', 'max:20'],
-            'type' => ['nullable', 'in:mc,tf,desc,blank'], 'difficulty' => ['nullable', 'in:easy,medium,hard'],
-            'sample' => ['nullable', 'boolean'],
-        ]);
-        return response()->json($ai->generate([...$data,
-            'school_id' => $request->user()->school_id, 'teacher_id' => $request->user()->id]));
+        return $this->aiRespond($request, $ai, 'bank', ['mc', 'tf', 'blank', 'desc'], 20);
     }
 
     /** افزودنِ یک مجوزِ اشتراک (مقطع/کلاس/درس → مدرسه) — فقط ادمین کل. */

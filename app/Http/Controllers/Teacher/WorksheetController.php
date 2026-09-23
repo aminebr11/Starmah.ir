@@ -128,7 +128,7 @@ class WorksheetController extends Controller
             'subject' => $data['subject'] ?? '', 'topic' => $data['topic'] ?? ($data['subject'] ?? ''),
             'grade' => $data['grade'] ?? 'چهارم', 'goal' => $data['goal'] ?? '',
             'count' => $data['count'] ?? 6, 'difficulty' => $data['difficulty'] ?? 'medium',
-            'type' => $data['type'] ?? 'mc', 'flavor' => $theme['flavor'],
+            'type' => $data['type'] ?? 'mc', 'flavor' => $theme['flavor'], 'audience' => 'worksheet',
             'sample' => (bool) ($data['sample'] ?? false),
             'school_id' => $request->user()->school_id, 'teacher_id' => $request->user()->id,
         ]));

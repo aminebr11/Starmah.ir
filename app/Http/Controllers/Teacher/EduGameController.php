@@ -19,6 +19,7 @@ use Inertia\Response;
 /** استودیوی ساخت بازی (معلم) — قالب + تم + سؤال + قوانین + انتشار. */
 class EduGameController extends Controller
 {
+    use \App\Http\Controllers\Concerns\BuildsAiQuestions;
     public function index(Request $request): Response
     {
         return Inertia::render('Teacher/GameStudio', $this->payload($request));
@@ -27,33 +28,22 @@ class EduGameController extends Controller
     /** تولید سؤالِ بازی با هوش مصنوعی (مشابه آزمون هوشمند). */
     public function aiGenerate(Request $request, \App\Services\SmartExamAiService $ai): \Illuminate\Http\JsonResponse
     {
-        $data = $request->validate([
-            'subject' => ['nullable', 'string', 'max:80'], 'topic' => ['nullable', 'string', 'max:120'],
-            'grade' => ['nullable', 'string', 'max:40'], 'count' => ['required', 'integer', 'min:1', 'max:15'],
-            'difficulty' => ['nullable', 'in:easy,medium,hard'], 'flavor' => ['nullable', 'string', 'max:60'],
-            'sample' => ['nullable', 'boolean'],
-        ]);
-        $result = $ai->generate([...$data, 'type' => 'mc',
-            'school_id' => $request->user()->school_id, 'teacher_id' => $request->user()->id]);
-        if (! empty($result['questions'])) {
-            $result['questions'] = collect($result['questions'])
-                ->filter(fn ($q) => in_array($q['type'] ?? 'mc', ['mc', 'tf']))->values()->all();
-        }
-        return response()->json($result);
+        // بازی‌ها چهارگزینه‌ای، درست/نادرست و پاسخِ کوتاه (= جای خالی) دارند
+        return $this->aiRespond($request, $ai, 'game', ['mc', 'tf', 'blank'], 15);
     }
 
     /** سؤال‌های بانک (قابل‌مشاهده برای معلم) برای استفاده در بازی. */
     public function bankQuestions(Request $request): \Illuminate\Http\JsonResponse
     {
         $user = $request->user();
-        $q = \App\Support\BankAccess::pickerQuery($user, $request->subject, $request->lesson_no, $request->search)
-            ->latest()->limit(150)->get()
-            ->map(fn ($b) => [
-                'id' => $b->id, 'prompt' => $b->prompt, 'choices' => $b->choices ?? [],
-                'subject' => $b->subject ?: $b->book, 'lesson_no' => $b->lesson_no, 'difficulty' => $b->difficulty,
-            ]);
+        $filters = $request->only('grade', 'subject', 'chapter_id', 'chapter', 'uncategorized', 'lesson_no', 'topic', 'difficulty', 'source', 'search', 'exclude');
+        // بازی: چهارگزینه‌ای، درست/نادرست و جای خالی (= پاسخِ کوتاه)
+        $filters['types'] = array_values(array_intersect((array) ($request->types ?: ['mc', 'tf', 'blank']), ['mc', 'tf', 'blank']));
+        $rows = \App\Support\BankAccess::search($user, $filters)->with('teacher:id,name')
+            ->orderByDesc('used_count')->latest('id')->limit(200)->get();
         return response()->json([
-            'questions' => $q,
+            'questions' => $rows->map(fn ($b) => \App\Support\BankAccess::row($b, $user))->values(),
+            'tree' => \App\Support\BankAccess::facetTree($user, $filters['types']),
             'facets' => \App\Support\BankAccess::pickerFacets($user),
         ]);
     }
@@ -77,6 +67,7 @@ class EduGameController extends Controller
             'grade'     => $classroom?->grade,
             'groups'    => $this->groups($classroom),
             'hasClass'  => (bool) $classroom,
+            'classes'   => \App\Support\Curriculum::teacherClasses($teacher),
             'editing'   => null,
         ], $extra);
     }
@@ -123,6 +114,8 @@ class EduGameController extends Controller
                 'id' => $eduGame->id, 'title' => $eduGame->title, 'description' => $eduGame->description,
                 'template_key' => $eduGame->template_key, 'theme_id' => $eduGame->theme_id,
                 'subject' => $eduGame->subject, 'grade' => $eduGame->grade, 'difficulty' => $eduGame->difficulty,
+                'level' => $eduGame->level, 'chapter_id' => $eduGame->chapter_id, 'chapter' => $eduGame->chapter,
+                'topic' => $eduGame->topic, 'goal' => $eduGame->goal,
                 'status' => $eduGame->status, 'rules' => $eduGame->rules ?? [],
                 'publish_at' => optional($eduGame->publish_at)->format('Y-m-d H:i'),
                 'close_at' => optional($eduGame->close_at)->format('Y-m-d H:i'),
@@ -132,6 +125,8 @@ class EduGameController extends Controller
                     'type' => $q->type, 'prompt' => $q->prompt, 'choices' => $q->choices ?? [],
                     'hint1' => $q->hint1, 'hint2' => $q->hint2, 'explanation' => $q->explanation,
                     'points' => $q->points, 'media_url' => $q->media_path,
+                    'difficulty' => $q->difficulty, 'bloom' => $q->bloom, 'topic' => $q->topic,
+                    'source' => $q->source, 'bank_id' => $q->bank_id,
                 ])->values(),
             ],
         ]));
@@ -350,6 +345,7 @@ class EduGameController extends Controller
 
     private function attributes($teacher, ?Classroom $classroom, array $data): array
     {
+        $ctx = \App\Support\Curriculum::resolve($data + ['grade' => $classroom?->grade], $teacher);
         return [
             'school_id' => $teacher->school_id,
             'teacher_id' => $teacher->id,
@@ -357,8 +353,13 @@ class EduGameController extends Controller
             'theme_id' => $data['theme_id'] ?? null,
             'title' => $data['title'],
             'description' => $data['description'] ?? null,
-            'subject' => $data['subject'] ?? null,
-            'grade' => $data['grade'] ?? $classroom?->grade,
+            'level' => $ctx['level'],
+            'subject' => $ctx['subject'] ?: null,
+            'grade' => $ctx['grade'] ?: $classroom?->grade,
+            'chapter_id' => $ctx['chapter_id'],
+            'chapter' => $ctx['chapter'],
+            'topic' => $ctx['topic'],
+            'goal' => $ctx['goal'],
             'difficulty' => $data['difficulty'] ?? 'medium',
             'status' => $data['status'] ?? 'draft',
             'publish_at' => $data['publish_at'] ?? null,
@@ -369,25 +370,38 @@ class EduGameController extends Controller
 
     private function syncQuestions(EduGame $game, array $questions): void
     {
+        // «تعدادِ استفاده» فقط برای سؤالی بالا می‌رود که تازه به این بازی اضافه شده، نه در هر ذخیره
+        $linked = $game->questions()->pluck('bank_id')->filter()->all();
         $game->questions()->delete();
-        $meta = ['subject' => $game->subject, 'grade' => $game->grade, 'source' => 'manual'];
+        $meta = [
+            'level' => $game->level, 'grade' => $game->grade, 'subject' => $game->subject,
+            'chapter_id' => $game->chapter_id, 'chapter' => $game->chapter, 'topic' => $game->topic,
+            'goal' => $game->goal, 'source' => 'manual',
+        ];
         foreach (array_values($questions) as $i => $q) {
+            $type = $q['type'] ?? 'mc';
+            // سؤالِ بازی هم در بانک ثبت/پیوند می‌شود — با همان پایه، درس و فصل
+            $bankId = $game->teacher && in_array($type, ['mc', 'tf', 'short'], true)
+                ? \App\Support\BankAccess::autosave($game->teacher, $q + ['hint' => $q['hint1'] ?? null],
+                    $meta + ['count_use' => ! in_array($q['bank_id'] ?? null, $linked, false)])
+                : null;
             EduGameQuestion::create([
                 'edu_game_id' => $game->id,
-                'type' => $q['type'] ?? 'mc',
+                'bank_id' => $bankId,
+                'type' => $type,
                 'prompt' => $q['prompt'],
                 'media_path' => $q['media_url'] ?? null,
-                'choices' => $q['choices'] ?? [],
+                'choices' => \App\Support\BankAccess::cleanChoices($q['choices'] ?? []),
                 'hint1' => $q['hint1'] ?? null,
                 'hint2' => $q['hint2'] ?? null,
                 'explanation' => $q['explanation'] ?? null,
                 'points' => $q['points'] ?? 10,
+                'difficulty' => in_array($q['difficulty'] ?? null, ['easy', 'medium', 'hard'], true) ? $q['difficulty'] : ($game->difficulty ?: 'medium'),
+                'bloom' => $q['bloom'] ?? null,
+                'topic' => ($q['topic'] ?? null) ?: $game->topic,
+                'source' => $q['source'] ?? 'manual',
                 'sort' => $i,
             ]);
-            // ثبتِ خودکارِ سؤالِ بازی در بانک سؤالات (چه آزمون چه بازی، در بانک نگه‌داری می‌شود)
-            if ($game->teacher && in_array(($q['type'] ?? 'mc'), ['mc', 'tf'])) {
-                \App\Support\BankAccess::autosave($game->teacher, $q, $meta);
-            }
         }
     }
 
@@ -411,6 +425,11 @@ class EduGameController extends Controller
             'theme_id' => ['nullable', 'exists:themes,id'],
             'subject' => ['nullable', 'string', 'max:80'],
             'grade' => ['nullable', 'string', 'max:40'],
+            'classroom_id' => ['nullable', 'integer'],
+            'chapter_id' => ['nullable', 'integer'],
+            'chapter' => ['nullable', 'string', 'max:160'],
+            'topic' => ['nullable', 'string', 'max:160'],
+            'goal' => ['nullable', 'string', 'max:300'],
             'difficulty' => ['nullable', 'in:easy,medium,hard'],
             'status' => ['nullable', 'in:draft,published,archived,disabled'],
             'publish_at' => ['nullable', 'date'],
@@ -425,6 +444,11 @@ class EduGameController extends Controller
             'questions.*.prompt' => ['required', 'string', 'max:400'],
             'questions.*.choices' => ['nullable', 'array'],
             'questions.*.points' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'questions.*.hint1' => ['nullable', 'string', 'max:255'],
+            'questions.*.difficulty' => ['nullable', 'in:easy,medium,hard'],
+            'questions.*.bloom' => ['nullable', 'in:remember,understand,apply,analyze'],
+            'questions.*.bank_id' => ['nullable', 'integer'],
+            'questions.*.source' => ['nullable', 'string', 'max:20'],
         ]);
     }
 }

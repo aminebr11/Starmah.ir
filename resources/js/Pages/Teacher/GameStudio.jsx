@@ -3,13 +3,16 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
+import CurriculumFields from '@/Components/Questions/CurriculumFields';
+import AiQuestionPanel from '@/Components/Questions/AiQuestionPanel';
+import BankPicker from '@/Components/Questions/BankPicker';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const blankQ = () => ({ type: 'mc', prompt: '', points: 10, hint1: '', explanation: '', choices: [{ value: '', correct: true }, { value: '', correct: false }] });
 const DEFAULT_RULES = { lives: 3, retry: true, show_answer: true, shuffle: false, pass: 50, group_race: false };
 
 export default function GameStudio() {
-    const { games = [], templates = [], themes = [], subjects = [], grade, groups = [], hasClass, editing, flash } = usePage().props;
+    const { games = [], templates = [], themes = [], classes = [], grade, groups = [], hasClass, editing, flash } = usePage().props;
     const [banner, setBanner] = useState(null);
     const [step, setStep] = useState(1);
     const [editId, setEditId] = useState(editing?.id ?? null);
@@ -23,7 +26,8 @@ export default function GameStudio() {
         questions: editing.questions?.length ? editing.questions : [blankQ()],
     } : {
         title: '', description: '', template_key: templates[0]?.key || '', theme_id: themes[0]?.id || null,
-        subject: '', grade: grade || '', difficulty: 'medium', status: 'draft',
+        classroom_id: '', level: '', subject: '', grade: grade || '', chapter_id: '', chapter: '', topic: '', goal: '',
+        difficulty: 'medium', status: 'draft',
         publish_at: '', close_at: '', rules: { ...DEFAULT_RULES },
         target_themes: [], target_students: [], questions: [blankQ()],
     });
@@ -40,27 +44,25 @@ export default function GameStudio() {
     const addChoice = (qi) => { const qs = [...form.data.questions]; if (qs[qi].choices.length < 4) { qs[qi].choices = [...qs[qi].choices, { value: '', correct: false }]; form.setData('questions', [...qs]); } };
     const rmChoice = (qi, ci) => { const qs = [...form.data.questions]; if (qs[qi].choices.length > 2) { qs[qi].choices = qs[qi].choices.filter((_, j) => j !== ci); form.setData('questions', [...qs]); } };
     const setType = (qi, t) => { const qs = [...form.data.questions]; qs[qi] = { ...qs[qi], type: t, choices: t === 'tf' ? [{ value: 'درست', correct: true }, { value: 'نادرست', correct: false }] : (t === 'short' ? [{ value: '', correct: true }] : qs[qi].choices) }; form.setData('questions', qs); };
-    // دستیار AI + بانک سؤال برای بازی
+    // دستیار AI + بانک سؤال برای بازی (کامپوننت‌های مشترک با آزمون‌ساز)
     const flavorTheme = themes.find((t) => t.id === form.data.theme_id);
-    const [aiOpen, setAiOpen] = useState(false);
-    const [ai, setAi] = useState({ count: 5, difficulty: 'easy', sample: false, topic: '' });
-    const [aiBusy, setAiBusy] = useState(false); const [aiMsg, setAiMsg] = useState(null); const [aiRes, setAiRes] = useState([]);
-    const runAi = async () => {
-        setAiBusy(true); setAiMsg(null); setAiRes([]);
-        try {
-            // موضوعِ بازی: اگر معلم موضوعِ خاص وارد کند همان ملاک است، وگرنه از عنوانِ بازی/درس استفاده می‌شود.
-            const topic = (ai.topic || '').trim() || form.data.title?.trim() || form.data.subject;
-            const { data } = await axios.post(route('teacher.studio.ai'), { ...ai, subject: form.data.subject, topic, grade: form.data.grade, flavor: flavorTheme?.name || '' });
-            setAiMsg({ ok: data.ok, text: data.message }); if (data.ok) setAiRes((data.questions || []).map((q) => ({ ...q, _pick: true })));
-        } catch (e) { setAiMsg({ ok: false, text: e.response?.data?.message || 'خطا' }); }
-        setAiBusy(false);
+    const [panel, setPanel] = useState(null); // 'ai' | 'bank' | null
+    const setCtx = (patch) => form.setData((d) => ({ ...d, ...patch }));
+    const addQuestions = (list, from) => {
+        const mapped = list.map((q) => {
+            const type = q.type === 'blank' ? 'short' : (q.type || 'mc');
+            const choices = type === 'short'
+                ? [{ value: q.answer || q.choices?.[0]?.value || '', correct: true }]
+                : (q.choices || []).map((c) => ({ value: c.value, correct: !!c.correct }));
+            return {
+                type, prompt: q.prompt, points: 10, choices, hint1: q.hint || '', explanation: q.explanation || '',
+                difficulty: q.difficulty || form.data.difficulty || 'medium', bloom: q.bloom || null, topic: q.topic || '',
+                source: from === 'bank' ? 'bank' : (q.source || 'ai'), bank_id: from === 'bank' ? q.id : null,
+            };
+        });
+        form.setData('questions', [...form.data.questions.filter((q) => q.prompt.trim()), ...mapped]);
+        setPanel(null);
     };
-    const addAi = () => { const picked = aiRes.filter((q) => q._pick).map((q) => ({ type: q.type || 'mc', prompt: q.prompt, explanation: q.explanation, points: 10, choices: (q.choices || []).map((c) => ({ value: c.value, correct: !!c.correct })) })); form.setData('questions', [...form.data.questions.filter((q) => q.prompt.trim()), ...picked]); setAiRes([]); setAiMsg(null); };
-    const [bankOpen, setBankOpen] = useState(false); const [bankQ, setBankQ] = useState([]); const [bankSearch, setBankSearch] = useState('');
-    const [bankFacets, setBankFacets] = useState([]); const [bankSubject, setBankSubject] = useState(''); const [bankLesson, setBankLesson] = useState('');
-    const loadBank = async () => { try { const { data } = await axios.get(route('teacher.studio.bank'), { params: { subject: bankSubject || form.data.subject, lesson_no: bankLesson, search: bankSearch } }); setBankFacets(data.facets || []); setBankQ((data.questions || []).map((q) => ({ ...q, _pick: false }))); } catch (e) { setBankQ([]); } };
-    const bankLessons = (bankFacets.find((s) => s.subject === bankSubject)?.lessons) || [];
-    const addBank = () => { const picked = bankQ.filter((q) => q._pick).map((q) => ({ type: 'mc', prompt: q.prompt, points: 10, choices: (q.choices || []).map((c) => ({ value: c.value, correct: !!c.correct })) })); form.setData('questions', [...form.data.questions.filter((q) => q.prompt.trim()), ...picked]); setBankOpen(false); };
 
     const addQ = () => form.setData('questions', [...form.data.questions, blankQ()]);
     const rmQ = (i) => form.data.questions.length > 1 && form.setData('questions', form.data.questions.filter((_, j) => j !== i));
@@ -108,8 +110,9 @@ export default function GameStudio() {
                 {step === 1 && (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 12 }}>
                         <Field label="عنوان بازی" err={form.errors.title}><input className="input" value={form.data.title} onChange={(e) => form.setData('title', e.target.value)} placeholder="مثلاً: نبرد ریاضی" /></Field>
-                        <Field label="درس"><select className="input" value={form.data.subject} onChange={(e) => form.setData('subject', e.target.value)}><option value="">— انتخاب —</option>{subjects.map((s, i) => <option key={i} value={s}>{s}</option>)}</select></Field>
-                        <Field label="پایه"><input className="input" value={form.data.grade} onChange={(e) => form.setData('grade', e.target.value)} placeholder="مثلاً: چهارم" /></Field>
+                        <div style={{ gridColumn: '1/-1' }}>
+                            <CurriculumFields classes={classes} value={form.data} onChange={setCtx} errors={form.errors} />
+                        </div>
                         <Field label="سطح سختی"><select className="input" value={form.data.difficulty} onChange={(e) => form.setData('difficulty', e.target.value)}><option value="easy">آسان</option><option value="medium">متوسط</option><option value="hard">سخت</option></select></Field>
                         <Field label="تاریخ انتشار — شمسی (اختیاری)">
                             <JalaliDatePicker withTime value={form.data.publish_at || ''} onChange={(v) => form.setData('publish_at', v)} placeholder="بلافاصله" />
@@ -166,45 +169,24 @@ export default function GameStudio() {
                 {step === 3 && (
                     <>
                         {/* دستیار AI + بانک سؤال */}
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-                            <button type="button" onClick={() => { setAiOpen(!aiOpen); setBankOpen(false); }} className="btn btn-ghost btn-sm">🤖 ساخت سؤال با هوش مصنوعی</button>
-                            <button type="button" onClick={() => { setBankOpen(!bankOpen); setAiOpen(false); if (!bankOpen) loadBank(); }} className="btn btn-ghost btn-sm">🗄️ از بانک سؤالات</button>
+                        <div className="qk-actions" style={{ marginTop: 0, marginBottom: 12 }}>
+                            <button type="button" onClick={() => setPanel(panel === 'ai' ? null : 'ai')} className={`btn btn-sm ${panel === 'ai' ? '' : 'btn-ghost'}`}>🤖 طراحی با هوش مصنوعی</button>
+                            <button type="button" onClick={() => setPanel(panel === 'bank' ? null : 'bank')} className={`btn btn-sm ${panel === 'bank' ? '' : 'btn-ghost'}`}>🗄️ از بانکِ سؤالات</button>
+                            <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{fa(form.data.questions.filter((q) => q.prompt.trim()).length)} سؤال در بازی</span>
                         </div>
-                        {aiOpen && (
-                            <div style={{ border: '1px solid #ddd6fe', borderRadius: 12, padding: 12, marginBottom: 10, background: '#f5f3ff' }}>
-                                {/* موضوعِ بازی — هوش مصنوعی سؤال‌ها را دقیقاً حولِ همین موضوع می‌سازد */}
-                                <div className="field" style={{ margin: '0 0 8px' }}>
-                                    <label>🎯 موضوعِ بازی (روی همین موضوع سؤال ساخته می‌شود)</label>
-                                    <input className="input" value={ai.topic} onChange={(e) => setAi({ ...ai, topic: e.target.value })}
-                                        placeholder={`مثلاً: ${form.data.subject ? form.data.subject + ' — ' : ''}جمع و تفریق، حیواناتِ جنگل، سیاره‌ها…`} />
-                                    <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 3 }}>اگر خالی بماند، از عنوانِ بازی یا نامِ درس استفاده می‌شود.</div>
-                                </div>
-                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'end' }}>
-                                    <div className="field" style={{ margin: 0 }}><label>تعداد</label><input type="number" min={1} max={15} className="input" style={{ width: 80 }} value={ai.count} onChange={(e) => setAi({ ...ai, count: +e.target.value })} dir="ltr" /></div>
-                                    <div className="field" style={{ margin: 0 }}><label>سختی</label><select className="input" value={ai.difficulty} onChange={(e) => setAi({ ...ai, difficulty: e.target.value })}><option value="easy">آسان</option><option value="medium">متوسط</option><option value="hard">دشوار</option></select></div>
-                                    <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={ai.sample} onChange={(e) => setAi({ ...ai, sample: e.target.checked })} /> نمونه</label>
-                                    <button type="button" onClick={runAi} disabled={aiBusy || !form.data.subject} className="btn btn-sm">{aiBusy ? '…' : '✨ تولید'}</button>
-                                    {flavorTheme && <span style={{ fontSize: 12, color: 'var(--muted)' }}>طعم: {flavorTheme.name}</span>}
-                                </div>
-                                {!form.data.subject && <div style={{ fontSize: 12, color: '#b45309', marginTop: 6 }}>ابتدا در گام ۱ «درس» را انتخاب کنید.</div>}
-                                {aiMsg && <div style={{ marginTop: 8, fontSize: 12.5, color: aiMsg.ok ? '#166534' : '#b91c1c', fontWeight: 700 }}>{aiMsg.text}</div>}
-                                {aiRes.length > 0 && <div style={{ marginTop: 8 }}>{aiRes.map((q, i) => <label key={i} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 13, cursor: 'pointer' }}><input type="checkbox" checked={q._pick} onChange={() => setAiRes(aiRes.map((x, j) => j === i ? { ...x, _pick: !x._pick } : x))} /><span>{q.prompt}</span></label>)}<button type="button" onClick={addAi} className="btn btn-sm" style={{ marginTop: 6 }}>➕ افزودن به بازی</button></div>}
-                            </div>
+                        {panel === 'ai' && (
+                            <AiQuestionPanel endpoint={route('teacher.studio.ai')} context={form.data} classes={classes}
+                                types={['mc', 'tf', 'blank']} typeLabels={{ blank: 'پاسخِ کوتاه' }} maxCount={15} kind="game"
+                                defaults={{ count: 6, types: ['mc', 'tf'], difficulty: form.data.difficulty || 'easy' }}
+                                flavors={themes} flavorDefault={flavorTheme?.name || ''}
+                                existing={form.data.questions.map((q) => q.prompt).filter((p) => p && p.trim())}
+                                onAdd={(list) => addQuestions(list, 'ai')} />
                         )}
-                        {bankOpen && (
-                            <div style={{ border: '1px solid #bfdbfe', borderRadius: 12, padding: 12, marginBottom: 10, background: '#eff6ff' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 8 }}>
-                                    <select className="input" value={bankSubject} onChange={(e) => { setBankSubject(e.target.value); setBankLesson(''); }}><option value="">همه‌ی درس‌ها</option>{bankFacets.map((s) => <option key={s.subject} value={s.subject}>{s.subject}</option>)}</select>
-                                    <select className="input" value={bankLesson} onChange={(e) => setBankLesson(e.target.value)} disabled={!bankSubject}><option value="">همه شماره‌درس‌ها</option>{bankLessons.map((l) => <option key={l} value={l === '—' ? '' : l}>{l}</option>)}</select>
-                                    <input className="input" value={bankSearch} onChange={(e) => setBankSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && loadBank()} placeholder="جست‌وجو در بانک" />
-                                    <button type="button" onClick={loadBank} className="btn btn-sm">🔍 اعمال</button>
-                                </div>
-                                <div style={{ maxHeight: 220, overflowY: 'auto', marginTop: 8 }}>
-                                    {bankQ.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>سؤالی در بانک یافت نشد.</div>}
-                                    {bankQ.map((q, i) => <label key={q.id} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 13, cursor: 'pointer' }}><input type="checkbox" checked={q._pick} onChange={() => setBankQ(bankQ.map((x, j) => j === i ? { ...x, _pick: !x._pick } : x))} /><span>{q.prompt} <span style={{ color: 'var(--muted)' }}>({[q.subject, q.lesson_no ? `درس ${q.lesson_no}` : null].filter(Boolean).join(' · ')})</span></span></label>)}
-                                </div>
-                                {bankQ.some((q) => q._pick) && <button type="button" onClick={addBank} className="btn btn-sm" style={{ marginTop: 6 }}>➕ افزودن انتخابی‌ها</button>}
-                            </div>
+                        {panel === 'bank' && (
+                            <BankPicker endpoint={route('teacher.studio.bank')} context={form.data}
+                                types={['mc', 'tf', 'blank']} typeLabels={{ blank: 'پاسخِ کوتاه' }}
+                                existingIds={form.data.questions.map((q) => q.bank_id).filter(Boolean)}
+                                onAdd={(rows) => addQuestions(rows, 'bank')} />
                         )}
                         {form.data.questions.map((q, qi) => (
                             <div key={qi} style={{ border: '1px solid var(--line)', borderRadius: 14, padding: 12, marginBottom: 10, background: 'var(--cream)' }}>

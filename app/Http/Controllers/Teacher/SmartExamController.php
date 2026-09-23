@@ -25,6 +25,7 @@ use Inertia\Response;
 /** آزمایشگاه هوشمند آزمون — سمت معلم (ماژول آزمایشی، جدا از آزمون‌ساز فعلی). */
 class SmartExamController extends Controller
 {
+    use \App\Http\Controllers\Concerns\BuildsAiQuestions;
     public function lab(Request $request): Response
     {
         $teacher = $request->user();
@@ -75,6 +76,7 @@ class SmartExamController extends Controller
                 ->get(['id', 'name', 'emoji'])->map(fn ($t) => ['id' => $t->id, 'name' => $t->name, 'emoji' => $t->emoji]),
             'aiEnabled' => SmartLab::flag('smart_ai_enabled'),
             'adaptiveEnabled' => SmartLab::flag('smart_adaptive_enabled'),
+            'classes' => \App\Support\Curriculum::teacherClasses($teacher),
         ];
     }
 
@@ -105,7 +107,7 @@ class SmartExamController extends Controller
                 'classrooms' => Classroom::where('teacher_id', $request->user()->id)->get(['id', 'name', 'grade']),
                 'editing' => [
                     'id' => $smartExam->id,
-                    ...$smartExam->only(['title', 'description', 'grade', 'subject', 'book', 'chapter', 'topic', 'goal', 'kind', 'status', 'adaptive']),
+                    ...$smartExam->only(['title', 'description', 'level', 'grade', 'subject', 'book', 'chapter', 'chapter_id', 'topic', 'goal', 'kind', 'status', 'adaptive']),
                     'rules' => $smartExam->rules ?? [],
                     'opens_at' => optional($smartExam->opens_at)->format('Y-m-d H:i'),
                     'closes_at' => optional($smartExam->closes_at)->format('Y-m-d H:i'),
@@ -116,6 +118,7 @@ class SmartExamController extends Controller
                         'type' => $q->type, 'prompt' => $q->prompt, 'choices' => $q->choices ?? [],
                         'answer' => $q->answer, 'explanation' => $q->explanation, 'difficulty' => $q->difficulty,
                         'points' => $q->points, 'topic' => $q->topic, 'goal' => $q->goal, 'source' => $q->source,
+                        'bloom' => $q->bloom, 'bank_id' => $q->bank_id,
                     ])->values(),
                 ],
             ]
@@ -299,22 +302,7 @@ class SmartExamController extends Controller
     public function aiGenerate(Request $request, SmartExamAiService $ai): JsonResponse
     {
         abort_unless(SmartLab::flag('smart_ai_enabled'), 403);
-        $data = $request->validate([
-            'subject' => ['nullable', 'string', 'max:80'],
-            'topic' => ['nullable', 'string', 'max:120'],
-            'chapter' => ['nullable', 'string', 'max:120'],
-            'book' => ['nullable', 'string', 'max:120'],
-            'goal' => ['nullable', 'string', 'max:300'],
-            'kind' => ['nullable', 'string', 'max:40'],
-            'grade' => ['nullable', 'string', 'max:40'],
-            'count' => ['required', 'integer', 'min:1', 'max:20'],
-            'type' => ['nullable', 'in:mc,tf,desc,blank'],
-            'difficulty' => ['nullable', 'in:easy,medium,hard'],
-            'flavor' => ['nullable', 'string', 'max:60'],
-            'sample' => ['nullable', 'boolean'],
-        ]);
-        $result = $ai->generate([...$data, 'school_id' => $request->user()->school_id, 'teacher_id' => $request->user()->id]);
-        return response()->json($result);
+        return $this->aiRespond($request, $ai, 'exam', ['mc', 'tf', 'blank', 'desc'], 20);
     }
 
     // ── بانک سؤال ──
@@ -322,69 +310,45 @@ class SmartExamController extends Controller
     public function bankPick(Request $request): \Illuminate\Http\JsonResponse
     {
         $teacher = $request->user();
-        $q = \App\Support\BankAccess::pickerQuery($teacher, $request->subject, $request->lesson_no, $request->search)
-            ->latest()->limit(150)->get()
-            ->map(fn ($b) => [
-                'id' => $b->id, 'type' => $b->type, 'prompt' => $b->prompt, 'choices' => $b->choices ?? [],
-                'answer' => $b->answer, 'explanation' => $b->explanation,
-                'subject' => $b->subject ?: $b->book, 'lesson_no' => $b->lesson_no, 'difficulty' => $b->difficulty,
-            ]);
+        $filters = $request->only('grade', 'subject', 'chapter_id', 'chapter', 'uncategorized', 'lesson_no', 'topic', 'difficulty', 'source', 'search', 'exclude');
+        $filters['types'] = (array) ($request->types ?: ['mc', 'tf', 'blank', 'desc']);
+        $rows = \App\Support\BankAccess::search($teacher, $filters)->with('teacher:id,name')
+            ->orderByDesc('used_count')->latest('id')->limit(200)->get();
         return response()->json([
-            'questions' => $q,
+            'questions' => $rows->map(fn ($b) => \App\Support\BankAccess::row($b, $teacher))->values(),
+            'tree' => \App\Support\BankAccess::facetTree($teacher, $filters['types']),
             'facets' => \App\Support\BankAccess::pickerFacets($teacher),
         ]);
     }
 
-    public function bank(Request $request): Response
+    /** صفحه‌ی بانک به «بانکِ سؤالاتِ من» منتقل شد (همیشه در دسترس، با دسته‌بندیِ فصل). */
+    public function bank(Request $request): RedirectResponse
     {
-        $teacher = $request->user();
-        $q = \App\Support\BankAccess::visibleQuery($teacher)
-            ->with('teacher:id,name')
-            ->when($request->subject, fn ($x) => $x->where('subject', $request->subject))
-            ->when($request->grade, fn ($x) => $x->where('grade', $request->grade))
-            ->when($request->difficulty, fn ($x) => $x->where('difficulty', $request->difficulty))
-            ->when($request->type, fn ($x) => $x->where('type', $request->type))
-            ->when($request->search, fn ($x) => $x->where('prompt', 'like', '%' . $request->search . '%'))
-            ->latest()->limit(300)->get();
-
-        return Inertia::render('Teacher/SmartQuestionBank', [
-            'flags' => SmartLab::config(),
-            'questions' => $q->map(fn ($b) => [
-                'id' => $b->id, 'type' => $b->type, 'prompt' => $b->prompt, 'choices' => $b->choices,
-                'subject' => $b->subject, 'grade' => $b->grade, 'topic' => $b->topic,
-                'difficulty' => $b->difficulty, 'source' => $b->source, 'used' => $b->used_count,
-                'author' => $b->teacher?->name,
-                'mine' => $b->teacher_id === $teacher->id,
-            ]),
-            'filters' => $request->only('subject', 'difficulty', 'type', 'search', 'grade'),
-            'grades' => \App\Support\BankAccess::teacherGrades($teacher),
-        ]);
+        return redirect()->route('teacher.mybank');
     }
 
     public function bankStore(Request $request): RedirectResponse
     {
         $teacher = $request->user();
         $data = $request->validate([
-            'questions' => ['required', 'array', 'min:1'],
+            'questions' => ['required', 'array', 'min:1', 'max:60'],
             'questions.*.type' => ['nullable', 'in:mc,tf,desc,blank'],
-            'questions.*.prompt' => ['required', 'string'],
+            'questions.*.prompt' => ['required', 'string', 'max:1000'],
             'questions.*.choices' => ['nullable', 'array'],
-            'subject' => ['nullable', 'string', 'max:80'],
+            'classroom_id' => ['nullable', 'integer'],
             'grade' => ['nullable', 'string', 'max:40'],
-            'topic' => ['nullable', 'string', 'max:120'],
-            'scope' => ['nullable', 'in:teacher,school'],
+            'subject' => ['nullable', 'string', 'max:80'],
+            'chapter_id' => ['nullable', 'integer'],
+            'chapter' => ['nullable', 'string', 'max:160'],
+            'topic' => ['nullable', 'string', 'max:160'],
+            'goal' => ['nullable', 'string', 'max:300'],
         ]);
+        $ctx = \App\Support\Curriculum::resolve($data, $teacher);
+        $n = 0;
         foreach ($data['questions'] as $q) {
-            SmartQuestionBank::create([
-                'school_id' => $teacher->school_id, 'teacher_id' => $teacher->id,
-                'scope' => $data['scope'] ?? 'teacher',
-                'type' => $q['type'] ?? 'mc', 'prompt' => $q['prompt'], 'choices' => $q['choices'] ?? [],
-                'answer' => $q['answer'] ?? null, 'explanation' => $q['explanation'] ?? null,
-                'subject' => $data['subject'] ?? null, 'grade' => $data['grade'] ?? null, 'topic' => $data['topic'] ?? null,
-                'difficulty' => $q['difficulty'] ?? 'medium', 'source' => $q['source'] ?? 'manual',
-            ]);
+            $n += \App\Support\BankAccess::autosave($teacher, $q, $ctx + ['source' => $q['source'] ?? 'manual']) ? 1 : 0;
         }
-        return back()->with('flash', count($data['questions']) . ' سؤال به بانک اضافه شد ✅');
+        return back()->with('flash', \App\Support\Jalali::fa((string) $n) . ' سؤال در بانک ثبت شد ✅');
     }
 
     public function bankDestroy(Request $request, SmartQuestionBank $question): RedirectResponse
@@ -451,11 +415,13 @@ class SmartExamController extends Controller
 
     private function attributes($teacher, array $d): array
     {
+        $ctx = \App\Support\Curriculum::resolve($d, $teacher);
         return [
             'school_id' => $teacher->school_id, 'teacher_id' => $teacher->id,
             'title' => $d['title'], 'description' => $d['description'] ?? null,
-            'grade' => $d['grade'] ?? null, 'subject' => $d['subject'] ?? null, 'book' => $d['book'] ?? null,
-            'chapter' => $d['chapter'] ?? null, 'topic' => $d['topic'] ?? null, 'goal' => $d['goal'] ?? null,
+            'level' => $ctx['level'], 'grade' => $ctx['grade'], 'subject' => $ctx['subject'] ?: null,
+            'book' => $d['book'] ?? null, 'chapter_id' => $ctx['chapter_id'], 'chapter' => $ctx['chapter'],
+            'topic' => $ctx['topic'], 'goal' => $ctx['goal'],
             'kind' => $d['kind'] ?? 'practice', 'status' => $d['status'] ?? 'draft',
             'adaptive' => (bool) ($d['adaptive'] ?? false), 'rules' => $d['rules'] ?? [],
             'opens_at' => $d['opens_at'] ?? null, 'closes_at' => $d['closes_at'] ?? null,
@@ -464,20 +430,27 @@ class SmartExamController extends Controller
 
     private function syncQuestions(SmartExam $exam, array $questions): void
     {
+        // «تعدادِ استفاده» فقط برای سؤالی بالا می‌رود که تازه به این آزمون اضافه شده، نه در هر ذخیره
+        $linked = $exam->questions()->pluck('bank_id')->filter()->all();
         $exam->questions()->delete();
-        $meta = ['subject' => $exam->subject, 'grade' => $exam->grade, 'book' => $exam->book, 'chapter' => $exam->chapter, 'topic' => $exam->topic, 'source' => 'manual'];
+        $meta = [
+            'level' => $exam->level, 'grade' => $exam->grade, 'subject' => $exam->subject, 'book' => $exam->book,
+            'chapter_id' => $exam->chapter_id, 'chapter' => $exam->chapter, 'topic' => $exam->topic, 'goal' => $exam->goal,
+            'source' => 'manual',
+        ];
         foreach (array_values($questions) as $i => $q) {
+            // ثبت/پیوند در بانک سؤالات با دسته‌بندیِ کامل (پایه، درس، فصل، مبحث)
+            $bankId = $exam->teacher ? \App\Support\BankAccess::autosave($exam->teacher, $q,
+                $meta + ['count_use' => ! in_array($q['bank_id'] ?? null, $linked, false)]) : null;
             SmartExamQuestion::create([
-                'smart_exam_id' => $exam->id, 'type' => $q['type'] ?? 'mc', 'prompt' => $q['prompt'],
-                'choices' => $q['choices'] ?? [], 'answer' => $q['answer'] ?? null,
-                'explanation' => $q['explanation'] ?? null, 'difficulty' => $q['difficulty'] ?? 'medium',
-                'points' => $q['points'] ?? 1, 'topic' => $q['topic'] ?? ($exam->topic ?? null),
+                'smart_exam_id' => $exam->id, 'bank_id' => $bankId, 'type' => $q['type'] ?? 'mc', 'prompt' => $q['prompt'],
+                'choices' => \App\Support\BankAccess::cleanChoices($q['choices'] ?? []), 'answer' => $q['answer'] ?? null,
+                'explanation' => $q['explanation'] ?? null,
+                'difficulty' => in_array($q['difficulty'] ?? null, ['easy', 'medium', 'hard'], true) ? $q['difficulty'] : 'medium',
+                'bloom' => $q['bloom'] ?? null,
+                'points' => $q['points'] ?? 1, 'topic' => ($q['topic'] ?? null) ?: $exam->topic,
                 'goal' => $q['goal'] ?? null, 'source' => $q['source'] ?? 'manual', 'sort' => $i,
             ]);
-            // ثبتِ خودکار در بانک سؤالات (با نامِ درس و معلم)
-            if ($exam->teacher) {
-                \App\Support\BankAccess::autosave($exam->teacher, $q, $meta);
-            }
         }
     }
 
@@ -513,10 +486,13 @@ class SmartExamController extends Controller
         return $request->validate([
             'title' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:600'],
+            'classroom_id' => ['nullable', 'integer'],
+            'level' => ['nullable', 'string', 'max:40'],
             'grade' => ['nullable', 'string', 'max:40'],
             'subject' => ['nullable', 'string', 'max:80'],
             'book' => ['nullable', 'string', 'max:120'],
-            'chapter' => ['nullable', 'string', 'max:120'],
+            'chapter_id' => ['nullable', 'integer'],
+            'chapter' => ['nullable', 'string', 'max:160'],
             'topic' => ['nullable', 'string', 'max:120'],
             'goal' => ['nullable', 'string', 'max:300'],
             'kind' => ['nullable', 'in:diagnostic,practice,class,formal,remedial,game'],
@@ -536,6 +512,10 @@ class SmartExamController extends Controller
             'questions.*.prompt' => ['required', 'string', 'max:600'],
             'questions.*.choices' => ['nullable', 'array'],
             'questions.*.points' => ['nullable', 'integer', 'min:1', 'max:20'],
+            'questions.*.difficulty' => ['nullable', 'in:easy,medium,hard'],
+            'questions.*.bloom' => ['nullable', 'in:remember,understand,apply,analyze'],
+            'questions.*.bank_id' => ['nullable', 'integer'],
+            'questions.*.source' => ['nullable', 'string', 'max:20'],
         ]);
     }
 }
