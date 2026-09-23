@@ -444,7 +444,13 @@ class EduGameController extends Controller
             'questions.*.prompt' => ['required', 'string', 'max:400'],
             'questions.*.choices' => ['nullable', 'array'],
             'questions.*.points' => ['nullable', 'integer', 'min:1', 'max:100'],
+            // هر زیرکلید قاعده می‌خواهد، وگرنه دور ریخته می‌شود (تصویر و توضیحِ سؤال گم می‌شد)
             'questions.*.hint1' => ['nullable', 'string', 'max:255'],
+            'questions.*.hint2' => ['nullable', 'string', 'max:255'],
+            'questions.*.explanation' => ['nullable', 'string', 'max:1500'],
+            'questions.*.media_url' => ['nullable', 'string', 'max:500'],
+            'questions.*.answer' => ['nullable'],
+            'questions.*.topic' => ['nullable', 'string', 'max:160'],
             'questions.*.difficulty' => ['nullable', 'in:easy,medium,hard'],
             'questions.*.bloom' => ['nullable', 'in:remember,understand,apply,analyze'],
             'questions.*.bank_id' => ['nullable', 'integer'],

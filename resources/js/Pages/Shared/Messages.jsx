@@ -46,9 +46,9 @@ function Mailbox() {
     };
 
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px,270px) 1fr', gap: 14, alignItems: 'start' }} className="themes-grid">
-            {/* فهرست مخاطبان */}
-            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: 12, color: C.text }}>
+        <div className={`msg-grid ${activeId ? 'has-active' : ''}`}>
+            {/* فهرست مخاطبان — در موبایل وقتی گفت‌وگویی باز است پنهان می‌شود */}
+            <div className="msg-contacts" style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: 12, color: C.text }}>
                 <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 10 }}>💬 مخاطبان</div>
                 {contacts.length === 0 && <div style={{ fontSize: 12.5, color: C.sub }}>مخاطبی برای گفت‌وگو نیست.</div>}
                 <div style={{ display: 'grid', gap: 6 }}>
@@ -69,16 +69,20 @@ function Mailbox() {
             </div>
 
             {/* گفت‌وگو */}
-            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: 14, color: C.text, display: 'flex', flexDirection: 'column', minHeight: 420 }}>
+            <div className="msg-thread" style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: 14, color: C.text, display: 'flex', flexDirection: 'column', minHeight: 420 }}>
                 {!activeId ? (
                     <div style={{ margin: 'auto', textAlign: 'center', color: C.sub, padding: 30 }}>
                         <div style={{ fontSize: 40 }}>💬</div>
-                        <p>یک مخاطب را از سمت راست انتخاب کن تا گفت‌وگو را ببینی یا پیام بفرستی.</p>
+                        <p>یک مخاطب را از فهرستِ مخاطبان انتخاب کن تا گفت‌وگو را ببینی یا پیام بفرستی.</p>
                     </div>
                 ) : (
                     <>
-                        <div style={{ fontWeight: 900, fontSize: 15, paddingBottom: 10, borderBottom: `1px solid ${C.border}`, marginBottom: 10 }}>{activeName}</div>
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', maxHeight: '52vh', paddingInlineEnd: 4 }}>
+                        <div style={{ fontWeight: 900, fontSize: 15, paddingBottom: 10, borderBottom: `1px solid ${C.border}`, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <button type="button" className="msg-back" onClick={() => router.get(route('messages.index'))}
+                                style={{ background: 'none', border: `1px solid ${C.border}`, color: C.text, borderRadius: 10, padding: '5px 10px', fontFamily: 'inherit', fontWeight: 700, cursor: 'pointer' }}>→ مخاطبان</button>
+                            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeName}</span>
+                        </div>
+                        <div className="msg-scroll" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', maxHeight: '52vh', paddingInlineEnd: 4 }}>
                             {thread.length === 0 && <div style={{ margin: 'auto', color: C.sub, fontSize: 13 }}>هنوز پیامی نیست. اولین پیام را بفرست 👋</div>}
                             {thread.map((m) => (
                                 <div key={m.id} style={{ maxWidth: '82%', alignSelf: m.mine ? 'flex-end' : 'flex-start' }}>
@@ -87,7 +91,7 @@ function Mailbox() {
                                         {editId === m.id ? (
                                             <div style={{ display: 'flex', gap: 6, flexDirection: 'column' }}>
                                                 <textarea value={editText} onChange={(e) => setEditText(e.target.value)} rows={2}
-                                                    style={{ width: 220, maxWidth: '60vw', borderRadius: 8, border: 0, padding: 6, fontFamily: 'inherit', color: '#1b2742' }} />
+                                                    style={{ width: 220, maxWidth: '100%', borderRadius: 8, border: 0, padding: 6, fontFamily: 'inherit', color: '#1b2742' }} />
                                                 <div style={{ display: 'flex', gap: 6 }}>
                                                     <button onClick={() => saveEdit(m.id)} style={btn}>ذخیره</button>
                                                     <button onClick={() => setEditId(null)} style={{ ...btn, background: 'rgba(0,0,0,.25)' }}>لغو</button>
@@ -108,8 +112,8 @@ function Mailbox() {
                             ))}
                         </div>
                         <form onSubmit={send} style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                            <input value={form.data.body} onChange={(e) => form.setData('body', e.target.value)} placeholder="پیامت را بنویس…"
-                                style={{ flex: 1, borderRadius: 12, border: `1px solid ${C.border}`, background: C.inputBg, color: C.text, padding: '11px 14px', fontFamily: 'inherit' }} />
+                            <input className="msg-input" value={form.data.body} onChange={(e) => form.setData('body', e.target.value)} placeholder="پیامت را بنویس…"
+                                style={{ flex: 1, minWidth: 0, borderRadius: 12, border: `1px solid ${C.border}`, background: C.inputBg, color: C.text, padding: '11px 14px', fontFamily: 'inherit' }} />
                             <button type="submit" disabled={form.processing || !form.data.body.trim()} style={{ ...btn, padding: '0 22px', fontSize: 14 }}>ارسال</button>
                         </form>
                     </>

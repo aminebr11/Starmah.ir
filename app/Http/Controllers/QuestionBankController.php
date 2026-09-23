@@ -107,6 +107,13 @@ class QuestionBankController extends Controller
             'questions.*.prompt' => ['required', 'string'],
             'questions.*.choices' => ['nullable', 'array'],
             'questions.*.topic' => ['nullable', 'string', 'max:120'],
+            // زیرکلیدهای بدونِ قاعده دور ریخته می‌شدند: پاسخ، توضیح، دشواری و منبعِ «هوش مصنوعی» گم می‌شد
+            'questions.*.answer' => ['nullable'],
+            'questions.*.explanation' => ['nullable', 'string', 'max:1500'],
+            'questions.*.difficulty' => ['nullable', 'in:easy,medium,hard'],
+            'questions.*.source' => ['nullable', 'string', 'max:20'],
+            'questions.*.hint' => ['nullable', 'string', 'max:300'],
+            'questions.*.bloom' => ['nullable', 'in:remember,understand,apply,analyze'],
             'questions.*.image' => ['nullable', 'file', 'max:4096'],
         ]);
 
@@ -128,6 +135,8 @@ class QuestionBankController extends Controller
                 'grade' => $data['grade'] ?? null, 'topic' => $q['topic'] ?? ($data['topic'] ?? null),
                 'media_path' => $mediaPath,
                 'difficulty' => $q['difficulty'] ?? 'medium', 'source' => $q['source'] ?? 'manual',
+                'hint' => $q['hint'] ?? null, 'bloom' => $q['bloom'] ?? null,
+                'fingerprint' => \App\Support\Curriculum::fingerprint($q['prompt']),
             ]);
         }
         return back()->with('flash', count($data['questions']) . ' سؤال به بانک اضافه شد ✅');

@@ -1,4 +1,5 @@
 import { usePage, useForm, router } from '@inertiajs/react';
+import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import { useState, useEffect, useRef, Fragment } from 'react';
 import DashLayout, { schoolMenu } from '@/Layouts/DashLayout';
 import PersonCell from '@/Components/PersonCell';
@@ -347,7 +348,7 @@ function StudentRecord({ s, themes = [], grades = [], onClose }) {
                                     <option value="">—</option><option value="پسر">پسر</option><option value="دختر">دختر</option>
                                 </select>
                             </F>
-                            <F label="تاریخِ تولد (میلادی)" err={form.errors.birth_date}><input className="input" type="date" dir="ltr" value={form.data.birth_date} onChange={(e) => form.setData('birth_date', e.target.value)} /></F>
+                            <F label="تاریخِ تولد" err={form.errors.birth_date}><JalaliDatePicker value={form.data.birth_date || ''} onChange={(v) => form.setData('birth_date', v)} placeholder="۱۳۹۰/۰۱/۰۱" /></F>
                             <F label="پایه" err={form.errors.grade}>
                                 <select className="input" value={form.data.grade} onChange={(e) => form.setData('grade', e.target.value)}>
                                     <option value="">—</option>{grades.map((g) => <option key={g} value={g}>{g}</option>)}

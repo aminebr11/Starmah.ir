@@ -1,50 +1,22 @@
-import PrimaryButton from '@/Components/PrimaryButton';
-import GuestLayout from '@/Layouts/GuestLayout';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Link, useForm } from '@inertiajs/react';
+import AuthCard from '@/Components/AuthCard';
 
+/** تأییدِ ایمیل. */
 export default function VerifyEmail({ status }) {
     const { post, processing } = useForm({});
-
-    const submit = (e) => {
-        e.preventDefault();
-
-        post(route('verification.send'));
-    };
+    const submit = (e) => { e.preventDefault(); post(route('verification.send')); };
 
     return (
-        <GuestLayout>
-            <Head title="Email Verification" />
-
-            <div className="mb-4 text-sm text-gray-600">
-                Thanks for signing up! Before getting started, could you verify
-                your email address by clicking on the link we just emailed to
-                you? If you didn't receive the email, we will gladly send you
-                another.
-            </div>
-
+        <AuthCard icon="📧" title="ایمیلت را تأیید کن" subtitle="لینکِ تأیید را به ایمیلت فرستادیم. اگر نرسیده، پوشه‌ی هرزنامه را هم ببین یا دوباره بفرست."
+            footer={<Link href={route('logout')} method="post" as="button" className="link-gold" style={{ fontWeight: 700, background: 'none', border: 0, cursor: 'pointer', fontFamily: 'inherit' }}>خروج از حساب</Link>}>
             {status === 'verification-link-sent' && (
-                <div className="mb-4 text-sm font-medium text-green-600">
-                    A new verification link has been sent to the email address
-                    you provided during registration.
-                </div>
+                <div className="auth-ok">✅ لینکِ تازه به ایمیلت فرستاده شد.</div>
             )}
-
             <form onSubmit={submit}>
-                <div className="mt-4 flex items-center justify-between">
-                    <PrimaryButton disabled={processing}>
-                        Resend Verification Email
-                    </PrimaryButton>
-
-                    <Link
-                        href={route('logout')}
-                        method="post"
-                        as="button"
-                        className="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                    >
-                        Log Out
-                    </Link>
-                </div>
+                <button type="submit" disabled={processing} className="btn" style={{ width: '100%' }}>
+                    {processing ? 'در حالِ ارسال…' : '📩 ارسالِ دوباره‌ی لینک'}
+                </button>
             </form>
-        </GuestLayout>
+        </AuthCard>
     );
 }

@@ -1,4 +1,5 @@
 import { usePage, useForm, router } from '@inertiajs/react';
+import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
@@ -91,7 +92,7 @@ export default function Games() {
                             {subjects.map((s, i) => { const nm = typeof s === 'string' ? s : s.name; return <option key={i} value={nm}>{typeof s === 'string' ? s : `${s.icon || ''} ${s.name}`}</option>; })}
                         </select></Field>
                         <Field label="امتیاز (XP) کل بازی" err={form.errors.points}><input type="number" min={1} max={500} className="input" value={form.data.points} onChange={(e) => form.setData('points', e.target.value)} dir="ltr" /></Field>
-                        <Field label="زمان انتشار (اختیاری)"><input type="datetime-local" className="input" value={form.data.scheduled_at} onChange={(e) => form.setData('scheduled_at', e.target.value)} dir="ltr" /></Field>
+                        <Field label="زمان انتشار (اختیاری)"><JalaliDatePicker withTime value={form.data.scheduled_at || ''} onChange={(v) => form.setData('scheduled_at', v)} placeholder="بلافاصله" /></Field>
                     </div>
 
                     <div style={{ marginTop: 16 }}>

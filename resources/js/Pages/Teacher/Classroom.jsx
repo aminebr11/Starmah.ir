@@ -1,4 +1,5 @@
 import { usePage, Link, useForm, router } from '@inertiajs/react';
+import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import PersonCell from '@/Components/PersonCell';
@@ -319,7 +320,7 @@ function NewStudent({ classroom, themes = [], grades = [], count = 0, onClose })
         first_name: '', last_name: '', phone: '', password: '',
         gender: '', national_id: '', birth_date: '', grade: classroom?.grade || '', theme_id: '',
         father_name: '', mother_name: '', parent_relation: '', parent_phone: '', address: '', parent_pin: '',
-        avatar: null,
+        avatar: null, send_welcome: true,
     });
 
     const full = classroom?.capacity != null && count >= classroom.capacity;
@@ -410,8 +411,8 @@ function NewStudent({ classroom, themes = [], grades = [], count = 0, onClose })
                                 <F label="کدِ ملی" err={form.errors.national_id}>
                                     <input className="input" dir="ltr" maxLength={10} value={form.data.national_id} onChange={(e) => form.setData('national_id', e.target.value)} />
                                 </F>
-                                <F label="تاریخِ تولد (میلادی)" err={form.errors.birth_date}>
-                                    <input className="input" type="date" dir="ltr" value={form.data.birth_date} onChange={(e) => form.setData('birth_date', e.target.value)} />
+                                <F label="تاریخِ تولد" err={form.errors.birth_date}>
+                                    <JalaliDatePicker value={form.data.birth_date || ''} onChange={(v) => form.setData('birth_date', v)} placeholder="۱۳۹۰/۰۱/۰۱" />
                                 </F>
                                 <F label="پایه">
                                     <select className="input" value={form.data.grade} onChange={(e) => form.setData('grade', e.target.value)}>
@@ -449,6 +450,11 @@ function NewStudent({ classroom, themes = [], grades = [], count = 0, onClose })
                     </div>
                 )}
 
+                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 12, fontSize: 13, lineHeight: 1.9, color: 'var(--muted)' }}>
+                    <input type="checkbox" checked={form.data.send_welcome} onChange={(e) => form.setData('send_welcome', e.target.checked)} style={{ marginTop: 5 }} />
+                    <span>📩 <b style={{ color: 'var(--ink)' }}>پیامکِ خوش‌آمد</b> به دانش‌آموز و ولی فرستاده شود — با نام کاربری، رمزِ موقت و رمزِ بخشِ والدین
+                        (اگر سامانه‌ی پیامکِ مدرسه روشن باشد).</span>
+                </label>
                 <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                     <button type="submit" disabled={form.processing || full} className="btn">
                         {form.processing ? 'در حال ثبت…' : '➕ ثبتِ دانش‌آموز'}

@@ -1543,3 +1543,64 @@ a, button, [role="button"], summary { -webkit-tap-highlight-color: transparent; 
   .qk-filters .qk-input:first-child{grid-column:1/-1}
   .qk-actions .qk-btn{flex:1}
 }
+
+/* ═══ قابِ صفحه‌های کوچکِ احرازِ هویت ═══ */
+.auth-solo{min-height:100vh;min-height:100dvh;display:grid;place-items:center;
+  padding:calc(20px + var(--sat,0px)) 16px calc(20px + var(--sab,0px));
+  background:radial-gradient(circle at 80% 10%,#16264f,#0a1733)}
+.auth-solo-card{width:100%;max-width:430px;background:#fff;border-radius:24px;padding:26px 22px;
+  box-shadow:0 30px 70px -20px rgba(0,0,0,.55)}
+.auth-solo-brand{display:flex;align-items:center;justify-content:center;gap:8px;font-weight:800;color:var(--navy-800);font-size:16px;margin-bottom:14px}
+.auth-solo-brand img{width:34px;height:34px;border-radius:9px}
+.auth-solo-ic{width:70px;height:70px;margin:0 auto 12px;border-radius:50%;display:grid;place-items:center;font-size:32px;
+  background:linear-gradient(135deg,#fff3d6,#ffe0a0);box-shadow:0 12px 30px -12px rgba(245,181,63,.7)}
+.auth-solo-foot{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);text-align:center;font-size:14px;color:var(--muted)}
+.auth-ok{background:#e3f7ec;color:#176c45;padding:12px;border-radius:12px;margin-bottom:14px;font-size:13px;font-weight:700;text-align:center}
+.pass-wrap{position:relative}
+.pass-wrap .input{padding-left:44px}
+.pass-eye{position:absolute;top:50%;left:8px;transform:translateY(-50%);background:none;border:0;cursor:pointer;font-size:17px;padding:6px;line-height:1}
+
+/* ═══════════ موبایل — اصلاحاتِ سراسری ═══════════ */
+@media (max-width:900px){
+  /* iOS هر فیلدِ با فونتِ کمتر از ۱۶ پیکسل را هنگامِ لمس بزرگ‌نمایی می‌کند و صفحه از
+     عرضِ گوشی بیرون می‌زند (مثلاً صفحه‌های ورود و رمز). ۱۶ پیکسل این بزرگ‌نمایی را حذف می‌کند. */
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]),
+  select, textarea{font-size:16px !important}
+
+  /* جدول‌ها: به‌جای فشرده‌شدن و شکستنِ واژه به واژه، داخلِ کادرِ خودشان افقی اسکرول می‌خورند */
+  .tbl{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%;
+    background:linear-gradient(90deg,#fff 30%,rgba(255,255,255,0)) left center/40px 100% no-repeat local,
+      radial-gradient(farthest-side at 0 50%,rgba(15,23,42,.14),rgba(15,23,42,0)) left center/12px 100% no-repeat scroll}
+  .tbl th,.tbl td{white-space:nowrap;padding:10px 12px}
+  .tbl td.wrap{white-space:normal;min-width:180px}
+}
+/* سربرگِ سایت در گوشی‌های باریک: نامِ برند یک‌خطی بماند */
+.nav-logo>span:last-child{white-space:nowrap}
+@media (max-width:400px){
+  .nav-inner{gap:8px}
+  .nav-logo{gap:8px;font-size:16px}
+  .nav-cta{gap:5px}
+  .nav-cta .btn-sm{padding:9px 11px;font-size:13px}
+}
+/* صندوقِ پیام: دسکتاپ دوستونه؛ موبایل «فهرست ← گفت‌وگو» */
+.msg-grid{display:grid;grid-template-columns:minmax(200px,270px) minmax(0,1fr);gap:14px;align-items:start}
+.msg-back{display:none}
+@media (max-width:760px){
+  .msg-grid{grid-template-columns:1fr}
+  .msg-grid:not(.has-active) .msg-thread{display:none}
+  .msg-grid.has-active .msg-contacts{display:none}
+  .msg-back{display:inline-block}
+  .msg-thread{min-height:0 !important}
+  .msg-scroll{max-height:calc(100dvh - 330px) !important;min-height:240px}
+}
+/* نوارِ بالای داشبوردِ دانش‌آموز در موبایل: یک ردیف — منو، عنوان، ابزارها */
+@media (max-width:900px){
+  .dash-main.kids .dash-topbar{flex-wrap:nowrap;gap:8px;margin-bottom:14px}
+  .dash-main.kids .dash-topbar>div:first-child{min-width:0;flex:1 1 auto;gap:8px !important}
+  .dash-main.kids .dash-topbar h1{font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;margin:0}
+  .dash-main.kids .dash-topbar>div:last-child{flex:none;gap:6px !important}
+  .dash-main.kids .dash-topbar>div:last-child>button{padding:0 11px !important}
+  .dash-main.kids .dash-topbar>div:last-child .btn{padding:8px 11px;font-size:13px}
+}
+/* ستاره‌های تزئینیِ صفحه‌های معرفی در گوشی روی تیتر می‌افتادند */
+@media (max-width:480px){ .sm-spark{display:none} }

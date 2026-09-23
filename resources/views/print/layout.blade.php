@@ -38,6 +38,12 @@
         .toolbar{ position:sticky; top:0; background:var(--navy); color:#fff; padding:10px 16px; display:flex; gap:10px; align-items:center; z-index:5; }
         .toolbar button{ font-family:inherit; font-weight:800; font-size:13px; border:0; border-radius:10px; padding:8px 18px; cursor:pointer; background:#f5b53f; color:#221503; }
         .toolbar a{ color:#c4d2f0; font-size:12px; text-decoration:none; }
+        /* نمایش در گوشی: برگه تمام‌عرض و جدول‌ها داخلِ خودشان اسکرول می‌خورند (چاپ دست‌نخورده است) */
+        @media screen and (max-width:760px){
+            .sheet{ margin:8px; padding:14px 10px; min-height:0; max-width:none; }
+            table{ display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+            th, td{ white-space:nowrap; }
+        }
         @media print{
             body{ background:#fff; }
             .sheet{ margin:0; box-shadow:none; padding:8mm 10mm; min-height:auto; max-width:none; }

@@ -174,6 +174,8 @@ class ManagementController extends Controller
             'grade'       => $data['grade'] ?: null,
             'theme_id'    => $data['theme_id'] ?: null,
             'settings'    => $settings,
+            // هم‌گام با فرم — پیامک‌های خودکار شماره‌ی ولی را از این ستون می‌خوانند
+            'parent_phone' => $guardian['phone'] ?? null,
         ]);
         if (! empty($data['password'])) {
             $user->password = Hash::make($data['password']);

@@ -17,8 +17,10 @@ export default function WorksheetCreate() {
     const [mode, setMode] = useState('ai');
     const fileRef = useRef(null);
     const [file, setFile] = useState(null);
+    // پیش‌فرض: پایه و مقطعِ کلاسِ خودِ معلم
+    const firstClass = classrooms.find((c) => c.grade) || {};
     const [spec, setSpec] = useState({
-        title: '', level: '', grade: '', subject: '', lesson_no: '', topic: '', goal: '',
+        title: '', level: firstClass.level || '', grade: firstClass.grade || '', subject: '', lesson_no: '', chapter_id: '', topic: '', goal: '',
         classroom_id: '', publish: false,
         // تصویر: پیش‌فرض روشن است — اگر کلیدِ AI باشد با AI، وگرنه با موتورِ محلی
         image_mode: image.enabled ? (image.ai ? 'ai' : 'local') : 'none',
@@ -33,6 +35,15 @@ export default function WorksheetCreate() {
     const grades = gradesOf(spec.level);
     const subjects = subjectsOf(spec.level, spec.grade);
 
+    // فصل‌های درسِ انتخاب‌شده — هم برای دسته‌بندی در بانک، هم برای دقتِ هوش مصنوعی
+    const [chapters, setChapters] = useState([]);
+    useEffect(() => {
+        if (!spec.grade || !spec.subject) { setChapters([]); return; }
+        axios.get(route('curriculum.chapters'), { params: { grade: spec.grade, subject: spec.subject } })
+            .then(({ data }) => setChapters(data.chapters || [])).catch(() => setChapters([]));
+    }, [spec.grade, spec.subject]);
+    const chapter = chapters.find((c) => String(c.id) === String(spec.chapter_id));
+
     const [questions, setQuestions] = useState([]);
     const [busy, setBusy] = useState(false);
     const [msg, setMsg] = useState(null);
@@ -42,18 +53,21 @@ export default function WorksheetCreate() {
         setBusy(true); setMsg(null);
         try {
             const { data } = await axios.post(route('teacher.worksheets.ai'), {
-                subject: spec.subject, grade: spec.grade, topic: spec.topic || spec.subject,
-                goal: spec.goal, theme: spec.theme, count: spec.count,
+                level: spec.level, subject: spec.subject, grade: spec.grade, chapter_id: spec.chapter_id || undefined,
+                topic: spec.topic, goal: spec.goal, theme: spec.theme, count: spec.count,
                 difficulty: spec.difficulty, type: spec.type, sample,
+                avoid: questions.map((q) => q.prompt).filter(Boolean),
             });
             if (data.ok) {
-                setQuestions(data.questions.map((q) => ({ ...q })));
+                setQuestions(data.questions.map((q) => ({ ...q, source: data.mode === 'sample' ? 'sample' : 'ai' })));
                 setMsg(data.message ? { t: 'info', m: data.message } : { t: 'ok', m: `${fa(data.questions.length)} سؤال پیشنهاد شد ✅` });
             } else {
                 setMsg({ t: 'err', m: data.message || 'تولید نشد.' });
             }
         } catch (e) {
-            setMsg({ t: 'err', m: 'خطا در ارتباط با سرور.' });
+            const err = e.response?.data;
+            const first = err?.errors ? Object.values(err.errors)[0]?.[0] : null;
+            setMsg({ t: 'err', m: first || err?.message || 'خطا در ارتباط با سرور.' });
         } finally { setBusy(false); }
     };
 
@@ -80,6 +94,7 @@ export default function WorksheetCreate() {
         setSaving(true);
         router.post(route('teacher.worksheets.store'), {
             title: spec.title, mode, level: spec.level, grade: spec.grade, subject: spec.subject, lesson_no: spec.lesson_no,
+            chapter_id: spec.chapter_id || null, topic: spec.topic, goal: spec.goal,
             classroom_id: spec.classroom_id || null, publish: spec.publish,
             image_mode: mode === 'upload' ? 'none' : spec.image_mode,
             save_to_bank: mode !== 'upload' && spec.save_to_bank,
@@ -116,9 +131,9 @@ export default function WorksheetCreate() {
                         <input className="input" value={spec.title} onChange={(e) => set('title', e.target.value)} placeholder="مثلاً: کاربرگ ریاضی درس ۳" />
                     </Field>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                        <Field label="مقطع"><select className="input" value={spec.level} onChange={(e) => { set('level', e.target.value); set('grade', ''); set('subject', ''); }}><option value="">— انتخاب —</option>{curriculum.map((l) => <option key={l.level} value={l.level}>{l.level}</option>)}</select></Field>
-                        <Field label="کلاس"><select className="input" value={spec.grade} onChange={(e) => { set('grade', e.target.value); set('subject', ''); }} disabled={!spec.level}><option value="">— انتخاب —</option>{grades.map((g) => <option key={g} value={g}>{g}</option>)}</select></Field>
-                        <Field label="درس"><select className="input" value={spec.subject} onChange={(e) => set('subject', e.target.value)} disabled={!spec.grade}><option value="">— انتخاب —</option>{subjects.map((s) => <option key={s} value={s}>{s}</option>)}</select></Field>
+                        <Field label="مقطع"><select className="input" value={spec.level} onChange={(e) => { set('level', e.target.value); set('grade', ''); set('subject', ''); set('chapter_id', ''); }}><option value="">— انتخاب —</option>{curriculum.map((l) => <option key={l.level} value={l.level}>{l.level}</option>)}</select></Field>
+                        <Field label="کلاس"><select className="input" value={spec.grade} onChange={(e) => { set('grade', e.target.value); set('subject', ''); set('chapter_id', ''); }} disabled={!spec.level}><option value="">— انتخاب —</option>{grades.map((g) => <option key={g} value={g}>{g}</option>)}</select></Field>
+                        <Field label="درس"><select className="input" value={spec.subject} onChange={(e) => { set('subject', e.target.value); set('chapter_id', ''); }} disabled={!spec.grade}><option value="">— انتخاب —</option>{subjects.map((s) => <option key={s} value={s}>{s}</option>)}</select></Field>
                         <Field label="شماره درس"><input className="input" value={spec.lesson_no} onChange={(e) => set('lesson_no', e.target.value)} placeholder="مثلاً: ۳" dir="ltr" /></Field>
                     </div>
                     <Field label="فایلِ کاربرگ (PDF/تصویر/Word — حداکثر ۲۰ مگابایت)">
@@ -148,23 +163,34 @@ export default function WorksheetCreate() {
                     </Field>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                         <Field label="مقطع">
-                            <select className="input" value={spec.level} onChange={(e) => { set('level', e.target.value); set('grade', ''); set('subject', ''); }}>
+                            <select className="input" value={spec.level} onChange={(e) => { set('level', e.target.value); set('grade', ''); set('subject', ''); set('chapter_id', ''); }}>
                                 <option value="">— انتخاب —</option>{curriculum.map((l) => <option key={l.level} value={l.level}>{l.level}</option>)}
                             </select>
                         </Field>
                         <Field label="کلاس">
-                            <select className="input" value={spec.grade} onChange={(e) => { set('grade', e.target.value); set('subject', ''); }} disabled={!spec.level}>
+                            <select className="input" value={spec.grade} onChange={(e) => { set('grade', e.target.value); set('subject', ''); set('chapter_id', ''); }} disabled={!spec.level}>
                                 <option value="">— انتخاب —</option>{grades.map((g) => <option key={g} value={g}>{g}</option>)}
                             </select>
                         </Field>
                         <Field label="درس">
-                            <select className="input" value={spec.subject} onChange={(e) => set('subject', e.target.value)} disabled={!spec.grade}>
+                            <select className="input" value={spec.subject} onChange={(e) => { set('subject', e.target.value); set('chapter_id', ''); }} disabled={!spec.grade}>
                                 <option value="">— انتخاب —</option>{subjects.map((s) => <option key={s} value={s}>{s}</option>)}
                             </select>
                         </Field>
                         <Field label="شماره درس"><input className="input" value={spec.lesson_no} onChange={(e) => set('lesson_no', e.target.value)} placeholder="مثلاً: ۳" dir="ltr" /></Field>
                     </div>
-                    <Field label="موضوع"><input className="input" value={spec.topic} onChange={(e) => set('topic', e.target.value)} placeholder="ضرب اعداد دو رقمی" /></Field>
+                    <Field label="فصل">
+                        <select className="input" value={spec.chapter_id} onChange={(e) => set('chapter_id', e.target.value)} disabled={!spec.subject}>
+                            <option value="">{!spec.subject ? 'اول درس را انتخاب کنید' : chapters.length ? '— همه‌ی فصل‌ها —' : 'برای این درس فصلی ثبت نشده'}</option>
+                            {chapters.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+                        </select>
+                        {chapter?.lessons?.length > 0 && (
+                            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>درس‌های فصل: {chapter.lessons.map((l) => (
+                                <button type="button" key={l} onClick={() => set('topic', l)} className="tag tag-info" style={{ border: 0, cursor: 'pointer', margin: 2, fontFamily: 'inherit' }}>{l}</button>
+                            ))}</div>
+                        )}
+                    </Field>
+                    <Field label="موضوع"><input className="input" value={spec.topic} maxLength={160} onChange={(e) => set('topic', e.target.value)} placeholder="ضرب اعداد دو رقمی" /></Field>
                     <Field label="هدف آموزشی (اختیاری)"><input className="input" value={spec.goal} onChange={(e) => set('goal', e.target.value)} placeholder="تسلط بر جدول ضرب" /></Field>
 
                     <Field label="تمِ تصویری کاربرگ">
@@ -209,7 +235,7 @@ export default function WorksheetCreate() {
                 {/* گام ۲: سؤال‌ها + پیش‌نمایش */}
                 <div className="panel">
                     <h3>② سؤال‌ها ({fa(questions.length)}) — قابل ویرایش</h3>
-                    {questions.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز سؤالی تولید نشده. از سمت راست «پیشنهاد سؤال» را بزن.</p>}
+                    {questions.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز سؤالی تولید نشده. در بخشِ «① مشخصات» دکمه‌ی «پیشنهاد سؤال» را بزن.</p>}
                     <QuestionEditor questions={questions} onChange={setQuestions} />
 
                     {questions.length > 0 && (

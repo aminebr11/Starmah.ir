@@ -335,6 +335,10 @@ class SmartExamController extends Controller
             'questions.*.type' => ['nullable', 'in:mc,tf,desc,blank'],
             'questions.*.prompt' => ['required', 'string', 'max:1000'],
             'questions.*.choices' => ['nullable', 'array'],
+            'questions.*.answer' => ['nullable'],
+            'questions.*.explanation' => ['nullable', 'string', 'max:1500'],
+            'questions.*.difficulty' => ['nullable', 'in:easy,medium,hard'],
+            'questions.*.source' => ['nullable', 'string', 'max:20'],
             'classroom_id' => ['nullable', 'integer'],
             'grade' => ['nullable', 'string', 'max:40'],
             'subject' => ['nullable', 'string', 'max:80'],
@@ -512,6 +516,12 @@ class SmartExamController extends Controller
             'questions.*.prompt' => ['required', 'string', 'max:600'],
             'questions.*.choices' => ['nullable', 'array'],
             'questions.*.points' => ['nullable', 'integer', 'min:1', 'max:20'],
+            // هر زیرکلیدِ سؤال باید قاعده داشته باشد، وگرنه validate() آن را دور می‌ریزد —
+            // تا پیش از این «توضیح»، «پاسخِ جای خالی/تشریحی» و «مبحث» هنگامِ ذخیره گم می‌شدند.
+            'questions.*.answer' => ['nullable'],
+            'questions.*.explanation' => ['nullable', 'string', 'max:1500'],
+            'questions.*.topic' => ['nullable', 'string', 'max:160'],
+            'questions.*.goal' => ['nullable', 'string', 'max:300'],
             'questions.*.difficulty' => ['nullable', 'in:easy,medium,hard'],
             'questions.*.bloom' => ['nullable', 'in:remember,understand,apply,analyze'],
             'questions.*.bank_id' => ['nullable', 'integer'],

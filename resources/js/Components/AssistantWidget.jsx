@@ -15,6 +15,7 @@ const CHIPS = {
     student: ['📊 گزارش تحلیلی بده', '🏅 رتبه‌ام چنده؟', '📉 کدوم درسم ضعیفه؟', '🎯 امروز چه کار کنم؟', '⚡ چقدر امتیاز دارم؟', '📔 نمره‌هام چیه؟'],
     teacher: ['📊 وضعیتِ کلاس‌هام چطوره؟', '📉 ضعیف‌ترین درس‌ها', '🎯 چطور مأموریت بسازم؟', '🎨 کاربرگ چطور بسازم؟'],
     school_admin: ['📊 گزارشِ مدرسه', '👩‍🏫 مدیریتِ معلم‌ها', '📢 اطلاعیه چطور بگذارم؟'],
+    parent: ['📊 وضعیتِ فرزندم چطوره؟', '📉 کدوم درسش ضعیفه؟', '🏠 در خانه چه کمکی کنم؟', '✉️ چطور با معلم حرف بزنم؟'],
     default: ['راهنمای سایت', 'چطور امتیاز بگیرم؟'],
 };
 
@@ -22,6 +23,7 @@ const GREETING = {
     student: 'سلام 👋 من دستیارِ ستاره‌ماه‌ام — مثلِ یک معلمِ راهنما کنارِ تو.\nاز من بپرس رتبه‌ات چند است، کدام درست ضعیف است، یا امروز چه کار کنی.',
     teacher: 'سلام 👋 من دستیارِ آموزشیِ شما هستم.\nمی‌توانم وضعیتِ کلاس‌هایتان را تحلیل کنم، ضعیف‌ترین درس‌ها را بگویم و برای همان‌ها مأموریت و محتوا پیشنهاد بدهم.',
     school_admin: 'سلام 👋 من تحلیلگرِ مدرسه‌ی شما هستم.\nنمای کلیِ مدرسه، درس‌های ضعیف و اقدام‌های مدیریتیِ پیشنهادی را می‌گویم.',
+    parent: 'سلام 👋 من دستیارِ ستاره‌ماه هستم.\nوضعیتِ درسیِ فرزندتان، درس‌های نیازمندِ تمرین و راه‌های کمک در خانه را از داده‌ی واقعیِ او می‌گویم.',
     default: 'سلام 👋 من دستیارِ هوشمندِ ستاره‌ماه‌ام. هر سؤالی درباره‌ی سایت یا وضعیتِ خودت داری بپرس.',
 };
 
@@ -40,7 +42,7 @@ function Rich({ text }) {
 export default function AssistantWidget() {
     const { auth, assistantOn = true } = usePage().props;
     const roles = auth?.roles ?? [];
-    const role = ['student', 'teacher', 'school_admin'].find((r) => roles.includes(r)) ?? 'default';
+    const role = ['student', 'teacher', 'school_admin', 'parent'].find((r) => roles.includes(r)) ?? 'default';
     const chips = CHIPS[role] ?? CHIPS.default;
     const hello = GREETING[role] ?? GREETING.default;
 
@@ -75,7 +77,9 @@ export default function AssistantWidget() {
     const send = async (text) => {
         const message = (text ?? input).replace(/^[^\p{L}\p{N}]+/u, '').trim();
         if (!message || busy) return;
-        const history = msgs.slice(-8);
+        // خوش‌آمد و پیام‌های خطای خودِ ویجت جزوِ گفت‌وگو نیستند و به سرور نمی‌روند
+        const history = msgs.filter((m, i) => !m.local && !(i === 0 && m.role === 'assistant'))
+            .slice(-8).map(({ role: r, content }) => ({ role: r, content: String(content ?? '') }));
         setMsgs((m) => [...m, { role: 'user', content: message }]);
         setInput('');
         setBusy(true);
@@ -95,7 +99,7 @@ export default function AssistantWidget() {
                 || (s >= 500 ? `خطای سرور (کد ${s}). اگر تکرار شد به مدیرِ مدرسه اطلاع بده.` : null)
                 || (err?.message === 'Network Error' ? 'اینترنتت قطع است یا سرور در دسترس نیست.' : null)
                 || 'الان نتوانستم پاسخ بدهم. چند لحظه بعد دوباره امتحان کن.';
-            setMsgs((m) => [...m, { role: 'assistant', content: msg }]);
+            setMsgs((m) => [...m, { role: 'assistant', content: msg, local: true }]);
         } finally { setBusy(false); }
     };
 
