@@ -84,7 +84,7 @@ export default function AttendanceReport() {
             <div className={`rep-print-${printMode}`}>
             {/* ===== سربرگ چاپ (فقط هنگام چاپ دیده می‌شود) ===== */}
             <div className="report-print-head">
-                <img src="/brand/logo-emblem.png" alt="" />
+                <img src="/brand/logo-mark-240.webp" alt="" />
                 <div style={{ flex: 1, textAlign: 'center' }}>
                     <div className="rph-title">گزارش حضور و غیاب</div>
                     <div className="rph-school">{meta.school || 'مدرسه'}</div>

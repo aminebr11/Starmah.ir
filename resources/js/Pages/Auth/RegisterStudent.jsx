@@ -39,7 +39,7 @@ export default function RegisterStudent() {
                 <span className="floatemoji" style={{ bottom: 70, insetInlineEnd: 72, fontSize: 26, animationDelay: '-2s' }}>🚀</span>
                 <span className="floatemoji" style={{ top: '44%', insetInlineEnd: 40, fontSize: 22, animationDelay: '-4s' }}>🌙</span>
                 <div className="brandrow">
-                    <img src="/brand/logo-emblem.png" alt="ستاره ماه" />
+                    <img src="/brand/logo-mark-240.webp" alt="ستاره ماه" />
                     <span style={{ fontWeight: 800, fontSize: 22 }}>ستاره ماه</span>
                 </div>
                 <h2>به دنیای یادگیریِ بازی‌گونه<br />خوش اومدی! 🌟</h2>
@@ -56,7 +56,7 @@ export default function RegisterStudent() {
             {/* فرمِ ثبت‌نام */}
             <div className="auth-form">
                 <div className="auth-form-inner auth-form--wide">
-                    <Link href="/" className="logo-sm"><img src="/brand/logo-emblem.png" alt="" /> ستاره ماه</Link>
+                    <Link href="/" className="logo-sm"><img src="/brand/logo-mark-240.webp" alt="" /> ستاره ماه</Link>
                     <h1 className="auth-h">ثبت‌نامِ دانش‌آموز</h1>
                     <p className="auth-sub">مشخصاتت را کامل وارد کن تا حسابت ساخته شود</p>
 

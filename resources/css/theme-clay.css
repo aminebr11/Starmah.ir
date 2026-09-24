@@ -7,6 +7,16 @@
    با یک کلید جابه‌جا می‌شود. برای مهاجرتِ کامل فقط پیش‌فرض عوض می‌شود.
    ═════════════════════════════════════════════════════════════════════ */
 
+/* پیامِ کوتاهِ سراسری */
+.sm-toasts{position:fixed;left:12px;right:12px;bottom:calc(92px + var(--safe-bottom,0px));z-index:200;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
+.sm-toast{pointer-events:auto;display:flex;align-items:center;gap:10px;max-width:520px;width:100%;padding:12px 14px;border-radius:16px;color:#fff;
+  font:700 14px/1.8 'Vazirmatn',sans-serif;background:#1b2742;box-shadow:0 14px 30px -12px rgba(0,0,0,.55);animation:sm-toast-in .3s cubic-bezier(.34,1.56,.64,1)}
+.sm-toast.error{background:#c2415b}.sm-toast.info{background:#2e56b8}
+.sm-toast span{flex:1}
+.sm-toast button{border:0;background:rgba(255,255,255,.2);color:#fff;width:28px;height:28px;border-radius:9px;cursor:pointer;flex:none}
+@keyframes sm-toast-in{from{transform:translateY(20px);opacity:0}}
+@media (min-width:901px){.sm-toasts{bottom:24px}}
+
 /* کلیدِ جابه‌جاییِ طرح — در هر دو طرح دیده می‌شود */
 .ui-switch{display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 13px;border-radius:13px;cursor:pointer;
   font:700 13px 'Vazirmatn',system-ui,sans-serif;border:1px solid var(--line,#e7ecf5);background:#fff;color:var(--navy-800,#0e1c3d);
@@ -15,6 +25,20 @@
 .ui-switch-dot{font-size:16px;line-height:1}
 .nav-cosmic .ui-switch,.kids-dash .ui-switch,.footer .ui-switch{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.22);color:#fff}
 @media (max-width:900px){.nav .nav-ui{display:none}}
+.nav-menu-extra{display:none}
+@media (max-width:640px){
+  .nav-cta-extra{display:none!important}
+  .nav-menu.open .nav-menu-extra{display:block;width:100%;text-align:start;border:0;background:none;font:600 14px 'Vazirmatn',sans-serif;padding:9px 13px;border-radius:12px;color:inherit;cursor:pointer}
+  .nav-menu.open .nav-menu-out{color:#d6405f}
+}
+
+:root{--safe-top:var(--sat,0px);--safe-bottom:var(--sab,0px)}
+/* اپِ نصب‌شده روی iOS گاهی حاشیه‌ی امن را صفر گزارش می‌کند و نوارِ وضعیتِ
+   شیشه‌ای روی منوها می‌افتاد (لمسِ «داشبورد»، «خروج» و … کار نمی‌کرد).
+   یک کفِ حداقلی می‌گذاریم؛ روی دستگاهی که درست گزارش می‌دهد اثری ندارد. */
+@media all and (display-mode: standalone) and (pointer: coarse){
+  :root{--safe-top:max(var(--sat,0px),24px);--safe-bottom:max(var(--sab,0px),16px)}
+}
 
 :root[data-ui="clay"]{
   --clay-bg:#eaf0ff; --clay-card:#fff; --clay-ink:#1b2742; --clay-muted:#5f6b8a;
@@ -93,7 +117,7 @@
 
 /* ═════ چیدمانِ پیشخوان (مدیر، معلم، والد، ادمین) ═════ */
 .cd{min-height:100vh;padding-bottom:30px}
-.cd-bar{position:sticky;top:calc(10px + var(--sat,0px));z-index:60;max-width:1320px;margin:14px auto 0;width:calc(100% - 32px);
+.cd-bar{position:sticky;top:calc(10px + var(--safe-top));z-index:60;max-width:1320px;margin:14px auto 0;width:calc(100% - 32px);
   display:flex;align-items:center;gap:12px;padding:9px 10px;background:#fff;border-radius:24px;box-shadow:var(--clay-shadow)}
 .cd-brand{display:flex;align-items:center;gap:9px;flex:none;color:var(--clay-ink);text-decoration:none}
 .cd-brand img{width:44px;height:44px;border-radius:15px;box-shadow:0 5px 0 #cfd9ef}
@@ -111,7 +135,9 @@
 .cd-me{display:flex;align-items:center;gap:8px;height:44px;padding:0 10px 0 6px;border-radius:15px;background:#f1f4fb;box-shadow:inset 0 -4px 0 #dfe6f5;
   color:var(--clay-ink);font-weight:800;font-size:13px;text-decoration:none;max-width:190px}
 .cd-me-nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cd-out{width:44px;height:44px;border:0;border-radius:15px;display:grid;place-items:center;cursor:pointer;color:var(--clay-pink-d);background:#fff0f5;box-shadow:inset 0 -4px 0 #ffd6e4}
+.cd-out{height:44px;min-width:44px;padding:0 12px;border:0;border-radius:15px;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;
+  font:800 13px 'Vazirmatn',sans-serif;color:var(--clay-pink-d);background:#fff0f5;box-shadow:inset 0 -4px 0 #ffd6e4;flex:none}
+.cd-out:active{transform:translateY(2px)}
 .cd-subs{max-width:1320px;margin:14px auto 0;width:calc(100% - 32px);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .cd-subs a{display:flex;align-items:center;gap:6px;padding:8px 13px;border-radius:14px;background:#fff;font-weight:700;font-size:13px;color:var(--clay-muted);
   text-decoration:none;box-shadow:0 4px 0 #d6def0;transition:transform .12s,box-shadow .12s;position:relative}
@@ -129,7 +155,7 @@
 
 /* ورقه‌ی «همه‌ی بخش‌ها» */
 .cd-sheet-bg{position:fixed;inset:0;z-index:130;background:rgba(27,39,66,.35);backdrop-filter:blur(3px);align-items:flex-end}
-.cd-sheet{width:100%;max-height:86vh;overflow-y:auto;background:var(--clay-bg);border-radius:28px 28px 0 0;padding:16px 16px calc(20px + var(--sab,0px));
+.cd-sheet{width:100%;max-height:86vh;overflow-y:auto;overscroll-behavior:contain;background:var(--clay-bg);border-radius:28px 28px 0 0;padding:16px 16px calc(20px + var(--safe-bottom));
   animation:cd-up .32s var(--clay-spring)}
 @keyframes cd-up{from{transform:translateY(40%);opacity:0}}
 .cd-sheet-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
@@ -148,9 +174,23 @@
 .cd-sheet-foot{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
 .cd-sheet-foot>*{flex:1 1 auto;justify-content:center}
 
-@media (max-width:1100px){.cd-me-nm{display:none}.cd-me{padding:0 5px}}
+@media (max-width:1100px){.cd-me-nm,.cd-out-t{display:none}.cd-me{padding:0 5px}.cd-out{padding:0}}
+
+/* دانش‌آموز: قابِ خمیری روی رنگِ دنیای خودش */
+.cd-kids{background:linear-gradient(180deg,var(--bg1,#1b2a5c),var(--bg2,#0c1430));background-attachment:fixed}
+.cd-main.kids{color:#fff}
+.cd-main.kids .cd-head h1{color:#fff;text-shadow:0 3px 12px rgba(0,0,0,.35)}
+.cd-kids .cd-subs a:not(.on){background:rgba(255,255,255,.94)}
+.cd-kids .cd-tabs a.on{background:linear-gradient(180deg,var(--p1,#ffc24b),var(--p2,#d9920f));color:#fff;box-shadow:0 5px 0 rgba(0,0,0,.25)}
+.cd-kids .cd-subs a.on{background:linear-gradient(180deg,var(--p1),var(--p2));box-shadow:0 4px 0 rgba(0,0,0,.25)}
+.cd-kids .cd-sheet-grid a.on{background:linear-gradient(180deg,var(--p1),var(--p2));color:#fff;box-shadow:0 5px 0 rgba(0,0,0,.25)}
+.cd-kids .cd-sheet-grid a.on .ico{color:#fff}
+.cd-kids .cd-bnav a.on{color:var(--p2,#3a67c8)}
 @media (max-width:900px){
-  .cd-bar{top:0;margin:0;width:100%;border-radius:0 0 22px 22px;padding:calc(8px + var(--sat,0px)) 12px 8px}
+  .cd-bar{top:0;margin:0;width:100%;border-radius:0 0 22px 22px;padding:calc(8px + var(--safe-top)) 12px 8px;gap:8px}
+  .cd-tools{gap:6px}
+  .cd-me,.cd-out{height:40px;min-width:40px}
+  .cd-brand img{width:40px;height:40px}
   .cd-tabs,.cd-hide-m,.cd-role{display:none}
   .cd-brand{margin-inline-end:auto}
   .cd-brand-t{font-size:20px}
@@ -162,7 +202,7 @@
   .cd-head h1{font-size:23px}
   .cd-actions{margin-inline-start:0;width:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:6px}
   .cd-actions>*{flex:none}
-  .cd-bnav{display:flex;position:fixed;left:12px;right:12px;bottom:calc(10px + var(--sab,0px));z-index:95;height:68px;border-radius:24px;background:#fff;
+  .cd-bnav{display:flex;position:fixed;left:12px;right:12px;bottom:calc(10px + var(--safe-bottom));z-index:95;height:68px;border-radius:24px;background:#fff;
     box-shadow:0 7px 0 #cfd8ee,0 20px 40px -16px rgba(40,60,120,.5);justify-content:space-around;align-items:center;padding:0 4px}
   .cd-bnav a{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10.5px;font-weight:800;color:var(--clay-muted);text-decoration:none;min-width:0}
   .cd-bnav a.on{color:var(--clay-sky-d)}
@@ -171,8 +211,9 @@
     display:grid;place-items:center;box-shadow:0 6px 0 var(--clay-gold-d),0 14px 20px -8px var(--clay-gold-d);transition:transform .12s}
   .cd-bnav-all:active{transform:translateY(4px)}
   .cd-sheet-bg{display:flex}
-  :root[data-ui="clay"] .cd .assistant-fab{bottom:calc(90px + var(--sab,0px))!important}
-  :root[data-ui="clay"] .cd .assistant-panel{bottom:calc(8px + var(--sab,0px))!important}
+  :root[data-ui="clay"] .cd .assistant-fab{bottom:calc(90px + var(--safe-bottom))!important}
+  :root[data-ui="clay"] .cd .assistant-panel{bottom:calc(8px + var(--safe-bottom))!important;top:calc(8px + var(--safe-top))!important}
+  .cd-main{padding-bottom:calc(104px + var(--safe-bottom))}
 }
 @media (min-width:901px){.cd-sheet-bg{display:flex;align-items:center;justify-content:center}.cd-sheet{max-width:640px;border-radius:28px;max-height:80vh}}
 
@@ -201,7 +242,8 @@
 :root[data-ui="clay"] .tools-grid{gap:12px!important}
 
 /* ═════ سایتِ عمومی (نوار، پانویس، صفحه‌ی اصلی) ═════ */
-:root[data-ui="clay"] .nav{position:sticky;top:0;background:transparent;border:0;backdrop-filter:none;padding-top:12px}
+:root[data-ui="clay"] .nav{position:sticky;top:0;background:transparent;border:0;backdrop-filter:none;box-shadow:none;padding-top:calc(12px + var(--safe-top));pointer-events:none}
+:root[data-ui="clay"] .nav .nav-inner,:root[data-ui="clay"] .nav .nav-menu{pointer-events:auto}
 :root[data-ui="clay"] .nav .nav-inner{background:#fff;border-radius:24px;padding:0 12px;height:68px;box-shadow:var(--clay-shadow)}
 :root[data-ui="clay"] .nav-logo{font-family:var(--clay-head);font-size:23px;color:var(--clay-ink)}
 :root[data-ui="clay"] .nav-logo .emblem::before,:root[data-ui="clay"] .nav-logo .emblem::after{display:none}
@@ -213,7 +255,7 @@
 :root[data-ui="clay"] .hamburger{border:0;border-radius:14px;background:#f1f4fb;box-shadow:inset 0 -4px 0 #dfe6f5}
 :root[data-ui="clay"] .footer{background:#1b2742;border-radius:32px 32px 0 0}
 @media (max-width:900px){
-  :root[data-ui="clay"] .nav{padding:8px 10px 0}
+  :root[data-ui="clay"] .nav{padding:calc(8px + var(--safe-top)) 10px 0}
   :root[data-ui="clay"] .nav .nav-inner{height:62px}
   :root[data-ui="clay"] .nav-menu{background:#fff;padding:10px;border-radius:22px;box-shadow:var(--clay-shadow)}
   :root[data-ui="clay"] .nav-menu a{padding:12px 14px}
@@ -240,7 +282,7 @@
   box-shadow:0 6px 0 #d6def0,0 16px 24px -12px rgba(40,60,120,.4);animation:clay-bob 5s var(--clay-spring) infinite;white-space:nowrap}
 .cw-sticker i,.cw-feat i{display:grid;place-items:center;color:#fff}
 .cw-sticker i{width:30px;height:30px;border-radius:10px}
-.cw-sticker.s1{top:10%;right:-2%}.cw-sticker.s2{bottom:10%;left:-2%;animation-delay:-2s}
+.cw-sticker.s1{top:8%;right:-2%}.cw-sticker.s2{bottom:2%;left:-4%;animation-delay:-2s}
 .cw-subjects{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;padding-block:10px}
 .cw-subjects span{padding:8px 14px;border-radius:14px;background:#fff;box-shadow:0 4px 0 #d6def0;font-weight:700;font-size:13.5px}
 .cw-sec{padding-block:34px}
@@ -307,6 +349,14 @@
 
 /* ═════ ورود و ثبت‌نام ═════ */
 :root[data-ui="clay"] :is(.auth-solo,.auth-wrap){background:var(--clay-bg)}
+/* صفحه‌ی خطا */
+.err-page{min-height:100vh;display:grid;place-items:center;padding:calc(24px + var(--safe-top)) 16px calc(24px + var(--safe-bottom));background:var(--clay-bg,#eaf0ff)}
+.err-card{width:100%;max-width:440px;text-align:center;background:#fff;border-radius:28px;padding:28px 22px;box-shadow:0 18px 36px -18px rgba(40,60,120,.35)}
+.err-card img{width:110px;height:110px;border-radius:50%}
+.err-code{font:800 54px/1.1 'Baloo Bhaijaan 2','Vazirmatn',sans-serif;color:#3a67c8;margin-top:6px}
+.err-card h1{font-size:22px;margin:4px 0 6px;color:#1b2742}
+.err-card p{color:#5f6b8a;margin:0 0 18px;line-height:2}
+.err-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
 :root[data-ui="clay"] .auth-side{background:linear-gradient(160deg,#8fb4ff,#5b8def 60%,#4a74d6)!important}
 :root[data-ui="clay"] .auth-side h2{font-family:var(--clay-head)}
 :root[data-ui="clay"] .auth-side .chips span{background:rgba(255,255,255,.22);border:0;border-radius:14px;box-shadow:0 4px 0 rgba(20,40,120,.25)}

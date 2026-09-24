@@ -173,7 +173,7 @@ class PlatformController extends Controller
                 'gemini_set'        => (bool) \App\Models\Setting::get('gemini_key'),
                 'gemini_hint'       => $mask(\App\Models\Setting::get('gemini_key')),
                 'gemini_image_model'=> \App\Models\Setting::get('gemini_image_model', 'gemini-2.5-flash-image'),
-                'ui_default'        => \App\Models\Setting::get('ui_default', 'classic'),
+                'ui_default'        => \App\Models\Setting::get('ui_default', 'clay'),
             ],
             // موتوری که واقعاً اجرا می‌شود، تا ادمین حدس نزند
             'imageStatus' => app(\App\Services\WorksheetImageService::class)->status(),

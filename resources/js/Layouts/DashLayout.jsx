@@ -28,7 +28,7 @@ export default function DashLayout({ title, roleLabel, menu = [], active = '', c
 
             <aside className={`dash-side ${open ? 'open' : ''}`}>
                 <Link href="/" className="dash-brand">
-                    <img src="/brand/logo-emblem.png" alt="" />
+                    <img src="/brand/logo-mark-240.webp" alt="" />
                     <div>ستاره ماه<div className="dash-role">{roleLabel}</div></div>
                 </Link>
                 {school && (
@@ -108,22 +108,29 @@ function groupMenu(menu) {
 
 // مقصدهای نوارِ پایینِ موبایل، به ترتیبِ اولویت (هر نقش هرکدام را داشت)
 const BOTTOM_PRIORITY = ['home', 'class', 'students', 'teachers', 'schools', 'studio', 'missions', 'messages', 'notices', 'reports'];
-const BOTTOM_LABEL = { home: 'خانه', class: 'کلاس', students: 'دانش‌آموزان', teachers: 'معلم‌ها', schools: 'مدارس', studio: 'بازی‌ها', missions: 'مأموریت', messages: 'پیام‌ها', notices: 'اعلان‌ها', reports: 'گزارش' };
+const BOTTOM_LABEL = { gameworld: 'بازی‌ها', smart: 'آزمون', board: 'رقابت', practice: 'مأموریت', home: 'خانه', class: 'کلاس', students: 'دانش‌آموزان', teachers: 'معلم‌ها', schools: 'مدارس', studio: 'بازی‌ها', missions: 'مأموریت', messages: 'پیام‌ها', notices: 'اعلان‌ها', reports: 'گزارش' };
 
 /**
  * چیدمانِ «خمیرماه»: به‌جای ستونِ کناری، گروه‌های منو تب‌های بزرگِ بالا
  * هستند و صفحه‌های همان گروه برچسب‌های ردیفِ دوم. روی موبایل نوارِ پایینِ
  * خمیری با دکمه‌ی «همه» که کلِ منو را در یک ورقه باز می‌کند.
+ *
+ * برای دانش‌آموز هم همین چیدمان به کار می‌رود (kids)، با رنگِ دنیا و تیمِ
+ * خودش در زمینه‌ی صفحه. دکمه‌ی خروج روی هر اندازه‌ای همیشه دیده می‌شود.
  */
-function ClayDash({ title, roleLabel, menu, active, children, actions }) {
+export function ClayDash({
+    title, roleLabel, menu, active, children, actions,
+    kids = false, kidsStyle = null, bottomKeys = null, badges = {}, ribbon = null, locked = false,
+}) {
     const { auth, unreadNotices = 0, avatarUrl = null, school = null } = usePage().props;
     const [sheet, setSheet] = useState(false);
     const groups = groupMenu(menu);
     const current = groups.find((g) => g.items.some((m) => m.key === active)) || groups[0];
     const icon = (m) => MENU_ICON[m.key] || 'star';
-    const badge = (m) => (m.key === 'notices' && unreadNotices > 0 ? <span className="cd-badge">{unreadNotices}</span> : null);
+    const count = (m) => (m.key === 'notices' ? unreadNotices : (badges[m.key] || 0));
+    const badge = (m) => (count(m) > 0 ? <span className="cd-badge">{count(m)}</span> : null);
     const flat = groups.flatMap((g) => g.items);
-    const bottom = BOTTOM_PRIORITY.map((k) => flat.find((m) => m.key === k)).filter(Boolean).slice(0, 4);
+    const bottom = (bottomKeys || BOTTOM_PRIORITY).map((k) => flat.find((m) => m.key === k)).filter(Boolean).slice(0, 4);
     const logout = () => router.post(route('logout'));
     const subsRef = useRef(null);
     // روی موبایل ردیفِ برچسب‌ها افقی اسکرول می‌شود؛ برچسبِ صفحه‌ی فعلی دیده شود
@@ -133,20 +140,31 @@ function ClayDash({ title, roleLabel, menu, active, children, actions }) {
             on.scrollIntoView({ inline: 'center', block: 'nearest' });
         }
     }, [active]);
+    // ورقه‌ی باز با دکمه‌ی Esc بسته شود و صفحه‌ی پشتش اسکرول نخورد
+    useEffect(() => {
+        if (!sheet) return undefined;
+        const onKey = (e) => { if (e.key === 'Escape') setSheet(false); };
+        window.addEventListener('keydown', onKey);
+        document.body.style.overflow = 'hidden';
+        return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
+    }, [sheet]);
+    const label = (m) => BOTTOM_LABEL[m.key] || m.label;
+    const navOff = locked ? { style: { pointerEvents: 'none', opacity: 0.55 } } : {};
 
     return (
-        <div dir="rtl" className="cd">
+        <div dir="rtl" className={`cd ${kids ? 'cd-kids' : ''}`} style={kidsStyle || undefined}>
             <Head title={title ? `${title} — ستاره ماه` : 'ستاره ماه'} />
+            {ribbon}
 
             <header className="cd-bar">
                 <Link href="/" className="cd-brand">
-                    <img src="/brand/emblem-120.webp" alt="" width="120" height="120" />
+                    <img src="/brand/logo-mark-120.webp" alt="" width="120" height="120" />
                     <span className="cd-brand-t">ستاره <em>ماه</em></span>
-                    <span className="cd-role">{roleLabel}</span>
+                    {roleLabel && <span className="cd-role">{roleLabel}</span>}
                 </Link>
-                <nav className="cd-tabs" aria-label="بخش‌ها">
+                <nav className="cd-tabs" aria-label="بخش‌ها" {...navOff}>
                     {groups.map((g) => (
-                        <Link key={g.label} href={g.items[0].href} className={g === current ? 'on' : ''}>
+                        <Link key={g.label || g.items[0].key} href={g.items[0].href} className={g === current ? 'on' : ''}>
                             <Icon name={icon(g.items[0])} />{g.label || g.items[0].label}
                         </Link>
                     ))}
@@ -158,22 +176,24 @@ function ClayDash({ title, roleLabel, menu, active, children, actions }) {
                         <Avatar src={avatarUrl} name={auth?.user?.name} size={34} />
                         <span className="cd-me-nm">{auth?.user?.name}</span>
                     </Link>
-                    <button type="button" onClick={logout} className="cd-out cd-hide-m" title="خروج از حساب"><Icon name="logout" /></button>
+                    <button type="button" onClick={logout} className="cd-out" title="خروج از حساب" aria-label="خروج از حساب">
+                        <Icon name="logout" /><span className="cd-out-t">خروج</span>
+                    </button>
                 </div>
             </header>
 
             {current && current.items.length > 1 && (
-                <nav className="cd-subs" ref={subsRef} aria-label={current.label}>
+                <nav className="cd-subs" ref={subsRef} aria-label={current.label} {...navOff}>
                     {current.items.map((m) => (
                         <Link key={m.key} href={m.href} className={active === m.key ? 'on' : ''}>
                             <Icon name={icon(m)} size={17} />{m.label}{badge(m)}
                         </Link>
                     ))}
-                    {school && <span className="cd-school">{school.logo_url ? <img src={school.logo_url} alt="" /> : '🏫'} {school.name}</span>}
+                    {school && !kids && <span className="cd-school">{school.logo_url ? <img src={school.logo_url} alt="" /> : '🏫'} {school.name}</span>}
                 </nav>
             )}
 
-            <main className="cd-main">
+            <main className={`cd-main ${kids ? 'kids' : ''}`}>
                 <div className="cd-head">
                     <h1>{title}</h1>
                     {actions && <div className="cd-actions">{actions}</div>}
@@ -181,26 +201,26 @@ function ClayDash({ title, roleLabel, menu, active, children, actions }) {
                 {children}
             </main>
 
-            <nav className="cd-bnav" aria-label="ناوبری">
+            <nav className="cd-bnav" aria-label="ناوبری" {...navOff}>
                 {bottom.slice(0, 2).map((m) => (
-                    <Link key={m.key} href={m.href} className={active === m.key ? 'on' : ''}><Icon name={icon(m)} size={22} />{BOTTOM_LABEL[m.key] || m.label}{badge(m)}</Link>
+                    <Link key={m.key} href={m.href} className={active === m.key ? 'on' : ''}><Icon name={icon(m)} size={22} />{label(m)}{badge(m)}</Link>
                 ))}
                 <button type="button" className="cd-bnav-all" onClick={() => setSheet(true)} aria-label="همه‌ی بخش‌ها"><Icon name="grid" size={26} /></button>
                 {bottom.slice(2, 4).map((m) => (
-                    <Link key={m.key} href={m.href} className={active === m.key ? 'on' : ''}><Icon name={icon(m)} size={22} />{BOTTOM_LABEL[m.key] || m.label}{badge(m)}</Link>
+                    <Link key={m.key} href={m.href} className={active === m.key ? 'on' : ''}><Icon name={icon(m)} size={22} />{label(m)}{badge(m)}</Link>
                 ))}
             </nav>
 
             {sheet && (
                 <div className="cd-sheet-bg" onClick={() => setSheet(false)}>
-                    <div className="cd-sheet" role="dialog" aria-label="همه‌ی بخش‌ها" onClick={(e) => e.stopPropagation()}>
+                    <div className="cd-sheet" role="dialog" aria-modal="true" aria-label="همه‌ی بخش‌ها" onClick={(e) => e.stopPropagation()}>
                         <div className="cd-sheet-h">
                             <b>همه‌ی بخش‌ها</b>
                             <button type="button" onClick={() => setSheet(false)} aria-label="بستن"><Icon name="x" /></button>
                         </div>
                         {school && <div className="cd-school m">{school.logo_url ? <img src={school.logo_url} alt="" /> : '🏫'} {school.name}</div>}
                         {groups.map((g) => (
-                            <div key={g.label} className="cd-sheet-g">
+                            <div key={g.label || g.items[0].key} className="cd-sheet-g">
                                 {g.label && <div className="cd-sheet-gl">{g.label}</div>}
                                 <div className="cd-sheet-grid">
                                     {g.items.map((m) => (
@@ -214,7 +234,7 @@ function ClayDash({ title, roleLabel, menu, active, children, actions }) {
                         <div className="cd-sheet-foot">
                             <Link href={route('profile.edit')} className="btn btn-ghost btn-sm"><Icon name="user" size={17} /> پروفایل من</Link>
                             <UiSwitch />
-                            <button type="button" onClick={logout} className="btn btn-danger btn-sm"><Icon name="logout" size={17} /> خروج</button>
+                            <button type="button" onClick={logout} className="btn btn-danger btn-sm"><Icon name="logout" size={17} /> خروج از حساب</button>
                         </div>
                     </div>
                 </div>

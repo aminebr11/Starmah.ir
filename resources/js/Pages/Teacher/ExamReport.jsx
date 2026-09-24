@@ -17,7 +17,7 @@ export default function ExamReport() {
             actions={<><Link href={route('teacher.exams')} className="btn btn-ghost btn-sm no-print">← بازگشت</Link><button onClick={() => window.print()} className="btn btn-sm no-print">🖨️ چاپ</button></>}>
 
             <div className="report-print-head">
-                <img src="/brand/logo-emblem.png" alt="" />
+                <img src="/brand/logo-mark-240.webp" alt="" />
                 <div style={{ flex: 1, textAlign: 'center' }}>
                     <div className="rph-title">کارنامه‌ی آزمون</div>
                     <div className="rph-school">{exam?.title}</div>

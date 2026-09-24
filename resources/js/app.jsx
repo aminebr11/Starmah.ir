@@ -6,6 +6,7 @@ import '../css/theme-clay.css';
 import './bootstrap';
 import { initPwa } from './lib/pwa';
 import { initUi } from './lib/ui';
+import { initToasts } from './lib/toast';
 
 initUi();
 
@@ -34,3 +35,4 @@ createInertiaApp({
 
 // نصب‌پذیریِ اپ + به‌روزرسانیِ خودکار با هر انتشارِ تازه
 initPwa();
+initToasts();

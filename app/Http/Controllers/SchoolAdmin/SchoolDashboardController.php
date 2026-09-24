@@ -270,7 +270,12 @@ class SchoolDashboardController extends Controller
             $text = $ai->generate('یک اطلاعیه‌ی مدرسه‌ی کوتاه و رسمی درباره‌ی این موضوع بنویس: ' . $data['topic'], $data['topic']);
             return back()->with('flash', ['type' => 'ai', 'message' => $text]);
         } catch (\Throwable $e) {
-            return back()->with('flash', ['type' => 'error', 'message' => $e->getMessage()]);
+            \Illuminate\Support\Facades\Log::warning('ai announcement failed: ' . $e->getMessage());
+            // متنِ خامِ خطا (مثلاً cURL error 28) به کاربر نشان داده نشود
+            $msg = preg_match('/[\x{0600}-\x{06FF}]/u', $e->getMessage())
+                ? $e->getMessage()
+                : 'اتصال به هوش مصنوعی برقرار نشد. چند لحظه بعد دوباره امتحان کنید.';
+            return back()->with('flash', ['type' => 'error', 'message' => $msg]);
         }
     }
 

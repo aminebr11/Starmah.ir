@@ -5,6 +5,7 @@ import AssistantWidget from '@/Components/AssistantWidget';
 import BellMenu from '@/Components/BellMenu';
 import Avatar from '@/Components/Avatar';
 import UiSwitch from '@/Components/UiSwitch';
+import { ClayDash } from '@/Layouts/DashLayout';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -33,7 +34,7 @@ function PreviewRibbon({ preview }) {
  * لوگوی سایت بالا قرار دارد. ریسپانسیو.
  */
 export default function ThemedDash({ title, active = '', children, actions = null }) {
-    const { auth, theme, unreadNotices = 0, smartLab = false, avatarUrl = null, familyNew = 0, preview = null } = usePage().props;
+    const { auth, theme, unreadNotices = 0, smartLab = false, avatarUrl = null, familyNew = 0, preview = null, ui = 'classic' } = usePage().props;
     const skin = theme?.skin ?? {};
     const vars = useMemo(() => cssVars(skin), [theme?.id]);
     const [open, setOpen] = useState(false);
@@ -72,6 +73,19 @@ export default function ThemedDash({ title, active = '', children, actions = nul
         { key: 'notices', label: 'اعلان‌ها', icon: '📢', href: '/notices' },
     ];
 
+    // طرحِ «خمیرماه»: همان چیدمانِ بقیه‌ی نقش‌ها (تب‌ها + نوارِ پایین + ورقه‌ی
+    // «همه»)، با رنگِ دنیا و تیمِ خودِ دانش‌آموز در زمینه.
+    if (ui === 'clay') {
+        return (
+            <ClayDash title={title} roleLabel={theme ? `${theme.emoji ?? ''} ${theme.name ?? ''}`.trim() : 'دانش‌آموز'}
+                menu={menu.filter((m) => m.divider !== null && m.key !== 'profile')} active={active} actions={actions}
+                kids kidsStyle={{ ...vars }} bottomKeys={bottomNav.map((m) => m.key)} badges={{ family: familyNew }}
+                ribbon={preview ? <PreviewRibbon preview={preview} /> : null} locked={!!preview}>
+                {children}
+            </ClayDash>
+        );
+    }
+
     return (
         <div dir="rtl" className="dash kids-dash" style={{ ...vars, background: 'linear-gradient(180deg,var(--bg1),var(--bg2))', paddingTop: preview ? 46 : 0 }}>
             <Head title={title ? `${title} — ستاره ماه` : 'ستاره ماه'} />
@@ -83,7 +97,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
             <aside className={`dash-side ${open ? 'open' : ''}`}
                 style={{ background: 'rgba(0,0,0,.25)', ...(preview ? { pointerEvents: 'none', opacity: .55 } : {}) }}>
                 <Link href="/" className="dash-brand" style={{ color: '#fff' }}>
-                    <img src="/brand/logo-emblem.png" alt="" />
+                    <img src="/brand/logo-mark-240.webp" alt="" />
                     <div>ستاره ماه<div className="dash-role" style={{ background: 'rgba(255,255,255,.14)', borderColor: 'rgba(255,255,255,.25)', color: 'var(--acc)' }}>{theme?.emoji} {theme?.name}</div></div>
                 </Link>
                 <nav className="dash-nav">

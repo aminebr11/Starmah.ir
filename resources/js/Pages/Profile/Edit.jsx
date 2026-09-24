@@ -45,7 +45,7 @@ export default function Edit() {
         <div dir="rtl" style={{ minHeight: '100vh', background: 'var(--cream)' }}>
             <Head title="پروفایل من" />
             <header className="nav"><div className="container nav-inner">
-                <Link href="/dashboard" className="nav-logo"><img src="/brand/logo-emblem.png" alt="" /><span>ستاره<span style={{ color: 'var(--gold-2)' }}> ماه</span></span></Link>
+                <Link href="/dashboard" className="nav-logo"><img src="/brand/logo-mark-240.webp" alt="" /><span>ستاره<span style={{ color: 'var(--gold-2)' }}> ماه</span></span></Link>
                 <div style={{ display: 'flex', gap: 8 }}>
                     <Link href="/dashboard" className="btn btn-ghost btn-sm">← داشبورد</Link>
                     <button onClick={() => router.post(route('logout'))} className="btn btn-ghost btn-sm">خروج</button>

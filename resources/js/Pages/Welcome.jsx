@@ -122,6 +122,9 @@ const CLAY_FEATURES = [
 function WelcomeClay() {
     const { auth, weeklyTop = [], stats = {} } = usePage().props;
     const user = auth?.user;
+    // صفحه‌های امکانات مالِ دانش‌آموزند؛ بقیه به داشبوردِ خودشان و مهمان به ثبت‌نام می‌رود
+    const isStudent = (auth?.roles ?? []).includes('student');
+    const featHref = (h) => (isStudent ? h : user ? '/dashboard' : '/register');
     useReveal();
 
     return (
@@ -149,7 +152,7 @@ function WelcomeClay() {
                     </div>
                     <div className="cw-stage" aria-hidden="true">
                         <span className="cw-blob b1" /><span className="cw-blob b2" /><span className="cw-blob b3" />
-                        <img src="/brand/hero-emblem-880.webp" srcSet="/brand/hero-emblem-560.webp 560w, /brand/hero-emblem-880.webp 880w"
+                        <img src="/brand/logo-main-640.webp" srcSet="/brand/logo-main-320.webp 320w, /brand/logo-main-640.webp 640w"
                             sizes="(max-width: 900px) 70vw, 440px" width="880" height="880" fetchPriority="high" decoding="async" alt="" />
                         <span className="cw-sticker s1"><i className="mint"><Icon name="trophy" size={17} /></i> سطحِ بعدی نزدیک است!</span>
                         <span className="cw-sticker s2"><i className="pink"><Icon name="star" size={17} /></i> +۲۰ ستاره</span>
@@ -172,7 +175,7 @@ function WelcomeClay() {
                     <div className="cw-head sm-reveal"><h2>هر چیزی که کلاس نیاز دارد</h2><p>همه‌ی ابزارهای آموزش، بازی و ارتباط در یک‌جا</p></div>
                     <div className="cw-feats sm-reveal">
                         {CLAY_FEATURES.map((f) => (
-                            <Link key={f.t} href={f.href} className="cw-feat">
+                            <Link key={f.t} href={featHref(f.href)} className="cw-feat">
                                 <i className={f.c}><Icon name={f.ic} size={26} /></i>
                                 <h3>{f.t}</h3><p>{f.d}</p>
                             </Link>
@@ -214,7 +217,7 @@ function WelcomeClay() {
 
                 <section className="cw-sec cw-wrap">
                     <div className="cw-band sm-reveal">
-                        <img src="/brand/emblem-120.webp" alt="" width="120" height="120" />
+                        <img src="/brand/logo-mark-120.webp" alt="" width="120" height="120" />
                         <div><h2>آماده‌ای ستاره‌ی کلاس شوی؟</h2><p>همین حالا شروع کن و دنیای یادگیریِ خودت را بساز.</p></div>
                         <Link href={user ? '/dashboard' : '/register'} className="btn btn-lg">{user ? 'ادامه بده' : 'شروع کن'} <Icon name="arrow" /></Link>
                     </div>
@@ -227,6 +230,8 @@ function WelcomeClay() {
 function WelcomeClassic() {
     const { auth, weeklyTop = [], stats = {} } = usePage().props;
     const user = auth?.user;
+    const isStudent = (auth?.roles ?? []).includes('student');
+    const featHref = (h) => (isStudent ? h : user ? '/dashboard' : '/register');
     useReveal();
     const stageRef = useTilt();
 
@@ -352,7 +357,7 @@ function WelcomeClassic() {
                         </div>
                         <div className="sm-bento sm-reveal">
                             {BENTO.map((b) => (
-                                <Link key={b.t} href={b.href} className={`sm-b sm-tilt ${b.wide ? 'wide' : ''}`} {...tiltHandlers(8)}>
+                                <Link key={b.t} href={featHref(b.href)} className={`sm-b sm-tilt ${b.wide ? 'wide' : ''}`} {...tiltHandlers(8)}>
                                     <div className={`ic ${b.cls}`}>{b.ic}</div>
                                     <h3>{b.t}</h3><p>{b.d}</p>
                                 </Link>

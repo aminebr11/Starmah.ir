@@ -60,7 +60,7 @@ export default function MonthlySheet() {
                 <div className="panel printable msheet-wrap">
                     {/* سربرگ */}
                     <div className="msheet-head">
-                        <img src="/brand/logo-emblem.png" alt="" />
+                        <img src="/brand/logo-mark-240.webp" alt="" />
                         <div style={{ flex: 1, textAlign: 'center' }}>
                             <div className="msheet-title">فرم حضور و غیاب ماهانه</div>
                             <div className="msheet-sub">{meta.school || ''} — کلاس {classroom.name}{classroom.grade ? ` (پایه ${classroom.grade})` : ''}</div>

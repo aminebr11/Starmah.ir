@@ -73,7 +73,7 @@
                 <h1>{{ $title }}</h1>
                 <div class="sub">{{ $school_name ?? 'ستاره ماه' }}@if(!empty($school_city)) · {{ $school_city }}@endif</div>
             </div>
-            <div class="brand"><img src="/brand/logo-emblem.png" alt="">ستاره ماه</div>
+            <div class="brand"><img src="/brand/logo-mark-240.webp" alt="">ستاره ماه</div>
         </div>
         <div class="meta"><span>تاریخِ صدور: {{ $today }}</span><span>starmah.ir</span></div>
         @yield('content')

@@ -20,7 +20,7 @@ export default function Login({ status }) {
                 <span className="floatemoji" style={{ bottom: 60, insetInlineEnd: 70, fontSize: 26, animationDelay: '-2s' }}>🚀</span>
                 <span className="floatemoji" style={{ top: '40%', insetInlineEnd: 40, fontSize: 22, animationDelay: '-4s' }}>🌙</span>
                 <div className="brandrow">
-                    <img src="/brand/logo-emblem.png" alt="ستاره ماه" />
+                    <img src="/brand/logo-mark-240.webp" alt="ستاره ماه" />
                     <span style={{ fontWeight: 800, fontSize: 22 }}>ستاره ماه</span>
                 </div>
                 <h2>به دنیای یادگیریِ خودت<br />خوش برگشتی! 🌟</h2>
@@ -31,7 +31,7 @@ export default function Login({ status }) {
             {/* فرم ورود */}
             <div className="auth-form">
                 <div className="auth-form-inner">
-                    <Link href="/" className="logo-sm"><img src="/brand/logo-emblem.png" alt="" /> ستاره ماه</Link>
+                    <Link href="/" className="logo-sm"><img src="/brand/logo-mark-240.webp" alt="" /> ستاره ماه</Link>
                     <h1 className="auth-h">ورود به حساب</h1>
                     <p className="auth-sub">با شماره موبایل یا ایمیل وارد شو</p>
 

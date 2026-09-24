@@ -31,11 +31,11 @@ class Ui
             return $c;
         }
         try {
-            $d = (string) Setting::get('ui_default', 'classic');
+            $d = (string) Setting::get('ui_default', 'clay');
         } catch (\Throwable $e) {
-            $d = 'classic';
+            $d = 'clay';
         }
 
-        return in_array($d, self::SKINS, true) ? $d : 'classic';
+        return in_array($d, self::SKINS, true) ? $d : 'clay';
     }
 }

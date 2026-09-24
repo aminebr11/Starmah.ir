@@ -158,7 +158,7 @@ export default function Students() {
             {printClass && (
                 <div className="roster-print">
                     <div className="roster-head">
-                        <img src="/brand/logo-emblem.png" alt="" />
+                        <img src="/brand/logo-mark-240.webp" alt="" />
                         <div style={{ flex: 1, textAlign: 'center' }}>
                             <div className="rh-title">لیست دانش‌آموزان کلاس</div>
                             <div className="rh-sub">{school?.name} — {printClass.name}{printClass.grade ? ` (پایه ${printClass.grade})` : ''}</div>

@@ -9,7 +9,7 @@ export default function AuthCard({ title, subtitle, icon = '🔐', children, foo
         <div dir="rtl" className="auth-solo">
             <Head title={headTitle || title} />
             <div className="auth-solo-card">
-                <Link href="/" className="auth-solo-brand"><img src="/brand/logo-emblem.png" alt="" /> ستاره ماه</Link>
+                <Link href="/" className="auth-solo-brand"><img src="/brand/logo-mark-240.webp" alt="" /> ستاره ماه</Link>
                 <div className="auth-solo-ic">{icon}</div>
                 <h1 className="auth-h" style={{ margin: '0 0 6px', textAlign: 'center' }}>{title}</h1>
                 {subtitle && <p className="auth-sub" style={{ margin: '0 0 20px', textAlign: 'center' }}>{subtitle}</p>}
