@@ -98,6 +98,7 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::get('/settings', [PlatformController::class, 'settings'])->name('settings');
     Route::post('/settings', [PlatformController::class, 'storeSettings'])->name('settings.store');
     Route::post('/settings/test-image', [PlatformController::class, 'testImage'])->name('settings.test-image');
+    Route::post('/settings/ui-default', [PlatformController::class, 'storeUiDefault'])->name('settings.ui-default');
 });
 
 /* ---------------- مدیر مدرسه ---------------- */

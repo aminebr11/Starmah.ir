@@ -1,5 +1,6 @@
 import { Head, Link, usePage, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
+import UiSwitch from '@/Components/UiSwitch';
 
 /** ناوبری عمومی محصول (صفحه‌ی فرود). لینک‌ها به بخش‌های همان صفحه + ورود/ثبت‌نام. */
 export const NAV = [
@@ -70,6 +71,7 @@ export default function WebLayout({ title, active = '', variant = '', children }
                                 </Link>
                             </>
                         )}
+                        <UiSwitch compact className="nav-ui" />
                         <button className="hamburger" onClick={() => setOpen(!open)} aria-label="منو">☰</button>
                     </div>
                 </div>
@@ -91,7 +93,10 @@ export default function WebLayout({ title, active = '', variant = '', children }
                             {NAV.map((m) => <Link key={m.key} href={m.href}>{m.label}</Link>)}
                             <Link href={route('login')}>ورود</Link>
                         </div>
-                        <a href="https://instagram.com/starmah.ir" target="_blank" rel="noreferrer" className="btn btn-sm">📸 starmah.ir</a>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                            <UiSwitch />
+                            <a href="https://instagram.com/starmah.ir" target="_blank" rel="noreferrer" className="btn btn-sm">📸 starmah.ir</a>
+                        </div>
                     </div>
                     <div className="footer-bottom">© ستاره ماه — طراحی و توسعه توسط گروه طراحی ستاره ماه</div>
                 </div>

@@ -1,4 +1,4 @@
-import { usePage, useForm } from '@inertiajs/react';
+import { usePage, useForm, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
@@ -51,6 +51,21 @@ export default function Settings() {
     return (
         <DashLayout title="تنظیمات پلتفرم" roleLabel="ادمین کل" menu={adminMenu} active="settings">
             {banner && <div className="panel" style={{ borderColor: 'var(--gold)', background: '#fff8e8' }}><b>{banner}</b></div>}
+
+            <div className="panel">
+                <h3>🎨 طرحِ ظاهریِ سایت</h3>
+                <p style={{ color: 'var(--muted)', marginTop: 0, fontSize: 13.5 }}>
+                    طرحی که همه‌ی کاربران به‌طورِ پیش‌فرض می‌بینند. هر کاربر با دکمه‌ی 🎨 / 🌙 کنارِ زنگوله می‌تواند برای خودش طرحِ دیگر را انتخاب کند.
+                </p>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    {[['classic', '🌙 طرحِ فعلی (شب)'], ['clay', '🎨 خمیرماه (روشن و خمیری)']].map(([k, label]) => (
+                        <button key={k} type="button" onClick={() => router.post(route('admin.settings.ui-default'), { ui_default: k }, { preserveScroll: true })}
+                            className={`btn btn-sm ${settings.ui_default === k ? '' : 'btn-ghost'}`}>
+                            {settings.ui_default === k ? '✓ ' : ''}{label}
+                        </button>
+                    ))}
+                </div>
+            </div>
 
             <form onSubmit={submit} className="panel" style={{ maxWidth: 680 }}>
                 <h3>🤖 هوش مصنوعی (Claude و ChatGPT)</h3>

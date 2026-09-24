@@ -2,6 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import WebLayout from '@/Layouts/WebLayout';
 import CosmicScene from '@/Components/CosmicScene';
+import Icon from '@/Components/Icon';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -104,6 +105,126 @@ const BENTO = [
 ];
 
 export default function Welcome() {
+    const { ui = 'classic' } = usePage().props;
+    return ui === 'clay' ? <WelcomeClay /> : <WelcomeClassic />;
+}
+
+const CLAY_FEATURES = [
+    { ic: 'game', c: 'gold', t: 'آزمون و بازی', d: 'یادگیری با بازی‌های جذاب و هیجان‌انگیز', href: '/games' },
+    { ic: 'trophy', c: 'pink', t: 'امتیاز و ستاره', d: 'رقابت و پیشرفتِ روزانه', href: '/leaderboard' },
+    { ic: 'target', c: 'sky', t: 'مأموریتِ روزانه', d: 'هر روز یک چالشِ تازه', href: '/missions' },
+    { ic: 'spark', c: 'lilac', t: 'آزمونِ هوشمند', d: 'سؤال بر اساسِ کلاس و فصل، با هوش مصنوعی', href: '/student/smart-exams' },
+    { ic: 'book', c: 'mint', t: 'مطالبِ درسی', d: 'جزوه، پادکست و گالریِ کلاس', href: '/class-content' },
+    { ic: 'heart', c: 'orange', t: 'ارتباط با والدین', d: 'گفت‌وگوی دوسویه‌ی خانه و مدرسه', href: '/messages' },
+];
+
+/** صفحه‌ی اصلی در طرحِ «خمیرماه». همان محتوا و همان داده‌ی واقعی. */
+function WelcomeClay() {
+    const { auth, weeklyTop = [], stats = {} } = usePage().props;
+    const user = auth?.user;
+    useReveal();
+
+    return (
+        <WebLayout active="home">
+            <div className="cw">
+                <header className="cw-hero cw-wrap">
+                    <div className="cw-hero-txt">
+                        <span className="cw-tag"><Icon name="spark" size={17} /> پلتفرمِ آموزشِ هوشمندِ مدارس · با هوش مصنوعی</span>
+                        <h1>درس خواندن این‌بار <span className="cw-hl">بازی است!</span></h1>
+                        <p>
+                            هر دانش‌آموز بر اساسِ علاقه‌اش (فوتبال، ماشین و…) دنیای خودش را می‌سازد؛ مأموریت می‌گیرد، بازی می‌کند،
+                            آزمونِ هوشمند می‌دهد و مثلِ یک ستاره رشد می‌کند. معلم هم با هوش مصنوعی در چند دقیقه سؤال و بازی می‌سازد.
+                        </p>
+                        <div className="cw-cta">
+                            {user ? (
+                                <Link href="/dashboard" className="btn btn-lg"><Icon name="home" /> ورود به داشبورد من</Link>
+                            ) : (
+                                <>
+                                    <Link href="/register/student" prefetch="mount" cacheFor="5m" className="btn btn-lg"><Icon name="rocket" /> ثبت‌نام دانش‌آموز</Link>
+                                    <Link href="/register/school" prefetch="mount" cacheFor="5m" className="btn btn-lg btn-sky"><Icon name="school" /> ثبت‌نام مدرسه</Link>
+                                </>
+                            )}
+                        </div>
+                        {!user && <Link href={route('login')} prefetch="mount" cacheFor="5m" className="cw-login">قبلاً ثبت‌نام کرده‌ای؟ ورود ←</Link>}
+                    </div>
+                    <div className="cw-stage" aria-hidden="true">
+                        <span className="cw-blob b1" /><span className="cw-blob b2" /><span className="cw-blob b3" />
+                        <img src="/brand/hero-emblem-880.webp" srcSet="/brand/hero-emblem-560.webp 560w, /brand/hero-emblem-880.webp 880w"
+                            sizes="(max-width: 900px) 70vw, 440px" width="880" height="880" fetchPriority="high" decoding="async" alt="" />
+                        <span className="cw-sticker s1"><i className="mint"><Icon name="trophy" size={17} /></i> سطحِ بعدی نزدیک است!</span>
+                        <span className="cw-sticker s2"><i className="pink"><Icon name="star" size={17} /></i> +۲۰ ستاره</span>
+                    </div>
+                </header>
+
+                <div className="cw-wrap cw-subjects">
+                    {SUBJECTS.map((s) => <span key={s}>{s}</span>)}
+                </div>
+
+                <section className="cw-sec cw-wrap" id="worlds">
+                    <div className="cw-head sm-reveal"><h2>دنیای خودت را انتخاب کن</h2><p>درس‌ها، جایزه‌ها و حتی ظاهرِ برنامه بر اساسِ علاقه‌ی دانش‌آموز شکل می‌گیرد</p></div>
+                    <div className="cw-worlds sm-reveal">
+                        <div className="cw-world mint"><Icon name="ball" size={40} /><h3>دنیای فوتبال</h3><p>درس‌ها در قالبِ لیگ، گل و قهرمانی</p><div className="cw-tags"><span>گل</span><span>لیگِ برتر</span><span>قهرمانی</span></div></div>
+                        <div className="cw-world pink"><Icon name="car" size={40} /><h3>دنیای ماشین و مسابقه</h3><p>یادگیری در قالبِ گرنپری و نیترو</p><div className="cw-tags"><span>نیترو</span><span>گرنپری</span><span>سکوی قهرمانی</span></div></div>
+                    </div>
+                </section>
+
+                <section className="cw-sec cw-wrap" id="features">
+                    <div className="cw-head sm-reveal"><h2>هر چیزی که کلاس نیاز دارد</h2><p>همه‌ی ابزارهای آموزش، بازی و ارتباط در یک‌جا</p></div>
+                    <div className="cw-feats sm-reveal">
+                        {CLAY_FEATURES.map((f) => (
+                            <Link key={f.t} href={f.href} className="cw-feat">
+                                <i className={f.c}><Icon name={f.ic} size={26} /></i>
+                                <h3>{f.t}</h3><p>{f.d}</p>
+                            </Link>
+                        ))}
+                    </div>
+                </section>
+
+                <section className="cw-sec cw-wrap">
+                    <div className="cw-stats sm-reveal">
+                        <div><Counter to={stats.students ?? 0} /><span>دانش‌آموزِ فعال</span></div>
+                        <div><Counter to={stats.activities ?? 0} /><span>تمرین و آزمون</span></div>
+                        <div><Counter to={stats.classrooms ?? 0} /><span>کلاس</span></div>
+                        <div><Counter to={2} /><span>دنیای علاقه</span></div>
+                    </div>
+                </section>
+
+                <section className="cw-sec cw-wrap cw-two" id="stars">
+                    <div className="sm-reveal">
+                        <div className="cw-head start"><h2>ستاره‌های این هفته</h2><p>دانش‌آموزانی که بیشترین تلاش را داشتند</p></div>
+                        <div className="cw-lb">
+                            {weeklyTop.length ? weeklyTop.map((s) => (
+                                <div key={s.rank} className="cw-lb-row">
+                                    <span className={`cw-rank r${Math.min(s.rank, 4)}`}>{fa(s.rank)}</span>
+                                    <b>{s.name}</b>
+                                    <em>⭐ {fa(s.xp)}</em>
+                                </div>
+                            )) : <div className="cw-lb-row"><b>هنوز امتیازی ثبت نشده</b></div>}
+                        </div>
+                    </div>
+                    <div className="sm-reveal" id="how">
+                        <div className="cw-head start"><h2>راه‌اندازی در سه قدم</h2><p>از ثبت‌نامِ مدرسه تا ورودِ دانش‌آموز به دنیای دلخواهش</p></div>
+                        <ol className="cw-steps">
+                            <li><b>ثبت‌نامِ مدرسه</b><span>مدیر درخواست می‌دهد و پس از تأیید، حسابِ مدرسه ساخته می‌شود</span></li>
+                            <li><b>ساختِ معلم‌ها و کلاس‌ها</b><span>برای هر کلاس یک معلم و کدِ کلاس ایجاد می‌شود</span></li>
+                            <li><b>ورودِ دانش‌آموز</b><span>مدرسه، معلم و دنیای دلخواهش را انتخاب می‌کند و شروع می‌کند</span></li>
+                        </ol>
+                    </div>
+                </section>
+
+                <section className="cw-sec cw-wrap">
+                    <div className="cw-band sm-reveal">
+                        <img src="/brand/emblem-120.webp" alt="" width="120" height="120" />
+                        <div><h2>آماده‌ای ستاره‌ی کلاس شوی؟</h2><p>همین حالا شروع کن و دنیای یادگیریِ خودت را بساز.</p></div>
+                        <Link href={user ? '/dashboard' : '/register'} className="btn btn-lg">{user ? 'ادامه بده' : 'شروع کن'} <Icon name="arrow" /></Link>
+                    </div>
+                </section>
+            </div>
+        </WebLayout>
+    );
+}
+
+function WelcomeClassic() {
     const { auth, weeklyTop = [], stats = {} } = usePage().props;
     const user = auth?.user;
     useReveal();

@@ -173,10 +173,25 @@ class PlatformController extends Controller
                 'gemini_set'        => (bool) \App\Models\Setting::get('gemini_key'),
                 'gemini_hint'       => $mask(\App\Models\Setting::get('gemini_key')),
                 'gemini_image_model'=> \App\Models\Setting::get('gemini_image_model', 'gemini-2.5-flash-image'),
+                'ui_default'        => \App\Models\Setting::get('ui_default', 'classic'),
             ],
             // موتوری که واقعاً اجرا می‌شود، تا ادمین حدس نزند
             'imageStatus' => app(\App\Services\WorksheetImageService::class)->status(),
         ]);
+    }
+
+    /**
+     * طرحِ ظاهریِ پیش‌فرضِ کلِ سایت. کاربری که خودش طرحی را انتخاب کرده
+     * (کوکیِ sm_ui) همان را می‌بیند؛ بقیه این پیش‌فرض را.
+     */
+    public function storeUiDefault(Request $request): RedirectResponse
+    {
+        $data = $request->validate(['ui_default' => ['required', 'in:' . implode(',', \App\Support\Ui::SKINS)]]);
+        \App\Models\Setting::put('ui_default', $data['ui_default']);
+
+        return back()->with('flash', $data['ui_default'] === 'clay'
+            ? 'طرحِ «خمیرماه» پیش‌فرضِ کلِ سایت شد.'
+            : 'طرحِ قبلی پیش‌فرضِ کلِ سایت شد.');
     }
 
     /** آزمایشِ زنده‌ی تصویرسازِ کاربرگ — یک تصویرِ آزمایشی می‌سازد و پاک می‌کند. */

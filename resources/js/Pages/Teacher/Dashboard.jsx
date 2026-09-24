@@ -1,10 +1,19 @@
 import { usePage, Link, router } from '@inertiajs/react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
+import Icon from '@/Components/Icon';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const ALARM_C = [['#3d7bf0', '#2555c0'], ['#a24cf0', '#6f2fb0'], ['#2bb673', '#1a8a52'], ['#e8862e', '#c06712'], ['#e8505b', '#b0333f']];
 
 export default function Dashboard() {
-    const { auth, classrooms = [], totals = {}, announcements = [], alarms = [], smartLab = false, unreadNotices = 0 } = usePage().props;
+    const { auth, classrooms = [], totals = {}, announcements = [], alarms = [], smartLab = false, unreadNotices = 0, ui = 'classic' } = usePage().props;
+    const clay = ui === 'clay';
+    // «امروز چه بسازیم؟» — چهار کارِ اصلیِ معلم، فقط در طرحِ خمیرماه
+    const makers = [
+        { href: route('teacher.studio'), ic: 'game', t: 'بازیِ آموزشی', c: 'gold' },
+        { href: '/teacher/missions', ic: 'target', t: 'مأموریتِ روزانه', c: 'sky' },
+        ...(smartLab ? [{ href: '/teacher/smart-exams', ic: 'spark', t: 'آزمونِ هوشمند', c: 'pink' }] : []),
+        { href: '/teacher/worksheets/create', ic: 'file', t: 'کاربرگ', c: 'mint' },
+    ];
     const name = auth?.user?.name || 'معلم عزیز';
     const dismiss = (id) => router.post(route('teacher.dismiss-alarm'), { id }, { preserveScroll: true });
 
@@ -34,8 +43,23 @@ export default function Dashboard() {
                 <Link href={route('teacher.materials')} className="btn btn-ghost btn-sm">➕ مطالب و محتوی</Link>
             </>}>
 
+            {clay && (
+                <div className="clay-hello">
+                    <img src="/brand/hero-emblem-560.webp" alt="" width="560" height="560" />
+                    <div>
+                        <h2>سلام {name}!</h2>
+                        <p>به پیشخوانِ کلاس خوش آمدی. امروز چه چیزی برای بچه‌ها بسازیم؟</p>
+                        <div className="clay-make">
+                            {makers.map((m) => (
+                                <Link key={m.t} href={m.href} className={`clay-maker ${m.c}`}><Icon name={m.ic} size={30} /><span>{m.t}</span></Link>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* خوش‌آمد */}
-            <div className="panel" style={{ background: 'linear-gradient(135deg,#16264f,#0a1836)', border: 0, color: '#fff' }}>
+            {!clay && <div className="panel" style={{ background: 'linear-gradient(135deg,#16264f,#0a1836)', border: 0, color: '#fff' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
                     <div style={{ fontSize: 40, flex: 'none' }}>👋</div>
                     <div style={{ flex: '1 1 190px', minWidth: 0 }}>
@@ -43,7 +67,7 @@ export default function Dashboard() {
                         <div style={{ color: '#c4d2f0', fontSize: 14 }}>به پیشخوان کلاس خوش آمدی — همه‌ی ابزارهای تدریس این‌جاست.</div>
                     </div>
                 </div>
-            </div>
+            </div>}
 
             {/* آلارمِ پیام‌های ۲۴ ساعت اخیر — با دیدن/حذف از پیشخوان می‌رود */}
             {alarms.length > 0 && (

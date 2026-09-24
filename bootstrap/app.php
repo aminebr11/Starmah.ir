@@ -18,6 +18,9 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
 
+        // انتخابِ طرحِ ظاهری را خودِ مرورگر هم می‌نویسد، پس رمزنگاری نمی‌شود
+        $middleware->encryptCookies(except: ['sm_ui']);
+
         // نقش‌ها (Spatie Permission)
         $middleware->alias([
             'role'       => \Spatie\Permission\Middleware\RoleMiddleware::class,

@@ -2,8 +2,12 @@ import '../css/app.css';
 import '../css/site.css';
 import '../css/home3d.css';
 import '../css/smart-exams.css';
+import '../css/theme-clay.css';
 import './bootstrap';
 import { initPwa } from './lib/pwa';
+import { initUi } from './lib/ui';
+
+initUi();
 
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';

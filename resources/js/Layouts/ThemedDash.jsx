@@ -4,6 +4,7 @@ import { cssVars } from '@/theme';
 import AssistantWidget from '@/Components/AssistantWidget';
 import BellMenu from '@/Components/BellMenu';
 import Avatar from '@/Components/Avatar';
+import UiSwitch from '@/Components/UiSwitch';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -116,6 +117,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         {actions}
+                        <UiSwitch compact />
                         {/* زنگوله‌ی اعلان یکپارچه — مؤلفه‌ی مشترکِ همه‌ی نقش‌ها */}
                         <BellMenu tone="dark" />
                         <Link href="/profile" className="td-profile-link" style={{ color: 'rgba(255,255,255,.85)', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
