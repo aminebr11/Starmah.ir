@@ -69,29 +69,15 @@ class AnalyticsService
     }
 
     /* ---------------- مدرسه (گزارش مدیر + تحلیل هر معلم) ---------------- */
-    public function schoolReport(School $school): array
+    /**
+     * تحلیلِ هر معلم حالا از کارهای واقعی ساخته می‌شود: همه‌ی کلاس‌هایش (نه فقط اولی)،
+     * محتوا/بازی/آزمون/مأموریت/کاربرگ، نمره و حضور و غیاب، پیام، حضورِ خودش در سایت
+     * و مشارکت و انجامِ وظایفِ شاگردانش. نسخه‌ی قبلی فقط جدولِ activity_awards را
+     * می‌شمرد که عملاً همیشه خالی بود و برای همه صفر نشان می‌داد.
+     */
+    public function schoolReport(School $school, int $days = 30): array
     {
-        $teachers = User::role(Roles::TEACHER)->where('school_id', $school->id)->get();
-
-        $perTeacher = $teachers->map(function ($t) {
-            $class = Classroom::where('teacher_id', $t->id)->first();
-            $studentIds = $class ? $class->students()->pluck('users.id') : collect();
-            $points = ActivityAward::whereIn('student_id', $studentIds)->sum('points');
-            $activities = ClassActivity::where('teacher_id', $t->id)->count();
-            $activeWeek = ActivityAward::whereIn('student_id', $studentIds)
-                ->where('created_at', '>=', now()->subDays(7))->distinct('student_id')->count('student_id');
-            $count = $studentIds->count();
-
-            return [
-                'id' => $t->id, 'name' => $t->name,
-                'class' => $class?->name, 'students' => $count,
-                'activities' => $activities,
-                'points' => (int) $points,
-                'engagement' => $count ? (int) round($activeWeek / $count * 100) : 0,
-                // امتیاز عملکرد ساده: ترکیب فعالیت + درگیری
-                'score' => min(100, $activities * 5 + ($count ? (int) round($activeWeek / $count * 60) : 0)),
-            ];
-        })->sortByDesc('score')->values();
+        $teachers = app(VisitAnalytics::class)->teacherRows($school, $days);
 
         return [
             'totals' => [
@@ -101,7 +87,7 @@ class AnalyticsService
                 'points'   => (int) DB::table('xp_ledger')->join('users', 'users.id', '=', 'xp_ledger.student_id')
                     ->where('users.school_id', $school->id)->sum('amount'),
             ],
-            'per_teacher' => $perTeacher,
+            'per_teacher' => $teachers,
         ];
     }
 

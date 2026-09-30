@@ -261,6 +261,7 @@ export const adminMenu = [
 
     { divider: 'گزارش و تنظیمات' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/admin/reports' },
+    { key: 'visits', label: 'گزارشِ بازدیدها', icon: '👁️', href: '/admin/visits' },
     { key: 'users', label: 'کاربران و شماره‌ها', icon: '👥', href: '/admin/users' },
     { key: 'sms', label: 'سامانه‌ی پیامک', icon: '📩', href: '/admin/sms' },
     { key: 'integrations', label: 'درگاه‌ها (پیامک/پرداخت)', icon: '🔌', href: '/admin/integrations' },
@@ -286,6 +287,7 @@ export const schoolMenu = [
     { key: 'messages', label: 'ارتباط با والدین/معلم', icon: '💬', href: '/messages' },
     { key: 'sms', label: 'سامانه‌ی پیامک', icon: '📩', href: '/school/sms' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/school/reports' },
+    { key: 'visits', label: 'بازدید و مشارکت', icon: '👁️', href: '/school/visits' },
 ];
 
 export const parentMenu = [
@@ -319,6 +321,7 @@ export const teacherMenu = [
     { divider: 'تنظیمات و گزارش' },
     { key: 'levels', label: 'تنظیم مرحله‌ها', icon: '🎚️', href: '/teacher/levels' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/teacher/reports' },
+    { key: 'visits', label: 'بازدید و مشارکت', icon: '👁️', href: '/teacher/visits' },
 
     { divider: 'ارتباط' },
     { key: 'birthdays', label: 'تولدِ دانش‌آموزان', icon: '🎂', href: '/teacher/birthdays' },

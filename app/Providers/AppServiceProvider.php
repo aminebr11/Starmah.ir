@@ -20,6 +20,17 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // آخرین ورود و شمارِ ورودها — برای گزارشِ بازدید
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Auth\Events\Login::class, function ($e) {
+            try {
+                \Illuminate\Support\Facades\DB::table('users')->where('id', $e->user->getAuthIdentifier())->update([
+                    'last_login_at' => now(), 'last_seen_at' => now(), 'login_count' => \Illuminate\Support\Facades\DB::raw('login_count + 1'),
+                ]);
+            } catch (\Throwable $x) {
+                report($x); // ورود هرگز نباید به‌خاطرِ آمار شکست بخورد
+            }
+        });
+
         // Vite::prefetch عمداً خاموش است.
         //
         // به‌صورتِ پیش‌فرض برای **همه‌ی** فایل‌های build (اینجا ۱۱۶ تکه،

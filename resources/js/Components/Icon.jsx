@@ -15,6 +15,7 @@ const P = {
     bell: 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0',
     msg: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',
     chart: 'M3 3v18h18M7 16v-5M12 16V8M17 16V9',
+    eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
     star: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z',
     trophy: 'M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0 0 12 0z',
     plus: 'M12 5v14M5 12h14',
@@ -55,7 +56,7 @@ export default function Icon({ name, size = 20, className = '', style }) {
 export const MENU_ICON = {
     home: 'home', class: 'users', students: 'users', teachers: 'school', attendance: 'check', schedule: 'calendar',
     gradebook: 'book', studio: 'game', missions: 'target', mybank: 'db', bank: 'db', materials: 'book', smart: 'spark',
-    points: 'zap', activities: 'star', groups: 'trophy', discipline: 'star', levels: 'settings', reports: 'chart',
+    points: 'zap', activities: 'star', groups: 'trophy', discipline: 'star', levels: 'settings', reports: 'chart', visits: 'eye',
     examreports: 'chart', familynotes: 'lock', messages: 'msg', sms: 'send', notices: 'bell', announcements: 'megaphone',
     schools: 'school', plans: 'file', curriculum: 'book', themes: 'palette', 'game-templates': 'game', 'smart-lab': 'spark',
     integrations: 'settings', settings: 'settings', profile: 'user', users: 'users', birthdays: 'gift',

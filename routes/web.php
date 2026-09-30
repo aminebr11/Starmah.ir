@@ -29,6 +29,12 @@ Route::get('/about', fn () => Inertia::render('About'))->name('about');
 Route::get('/install', fn () => Inertia::render('Install'))->name('install');
 
 // نقطه‌ی ورود مشترک — بر اساس نقش هدایت می‌شود
+// ضربانِ حضور: آنلاین‌بودن و زمانِ فعالِ کاربرانِ واردشده
+Route::post('/presence', function (\Illuminate\Http\Request $r) {
+    \App\Support\VisitTracker::hit($r, false);
+    return response()->noContent();
+})->middleware(['auth', 'throttle:10,1'])->name('presence');
+
 Route::get('/dashboard', HomeController::class)->middleware('auth')->name('dashboard');
 
 // صفحه‌ی قیمت (عمومی) + بازگشت از درگاهِ پرداخت
@@ -99,6 +105,7 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::get('/smart-lab', [\App\Http\Controllers\Admin\SmartLabController::class, 'index'])->name('smart-lab');
     Route::post('/smart-lab', [\App\Http\Controllers\Admin\SmartLabController::class, 'update'])->name('smart-lab.update');
     Route::get('/reports', [PlatformController::class, 'reports'])->name('reports');
+    Route::get('/visits', [\App\Http\Controllers\Admin\VisitReportController::class, 'index'])->name('visits');
     Route::get('/settings', [PlatformController::class, 'settings'])->name('settings');
     Route::post('/settings', [PlatformController::class, 'storeSettings'])->name('settings.store');
     Route::post('/settings/test-image', [PlatformController::class, 'testImage'])->name('settings.test-image');
@@ -122,6 +129,7 @@ Route::middleware(['auth', 'role:school_admin'])->prefix('school')->name('school
     Route::delete('/schedule/{scheduleEntry}', [\App\Http\Controllers\ScheduleController::class, 'destroy'])->name('schedule.destroy');
     Route::get('/schedule-overview', [\App\Http\Controllers\ScheduleController::class, 'schoolView'])->name('schedule.overview');
     Route::get('/reports', [SchoolDashboardController::class, 'reports'])->name('reports');
+    Route::get('/visits', [\App\Http\Controllers\SchoolAdmin\VisitReportController::class, 'index'])->name('visits');
     // ثبت حضور و غیاب توسط مدیر مدرسه (همه‌ی کلاس‌ها)
     Route::get('/attendance', [\App\Http\Controllers\AttendanceController::class, 'record'])->name('attendance');
     Route::post('/attendance', [\App\Http\Controllers\AttendanceController::class, 'store'])->name('attendance.store');
@@ -281,6 +289,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/missions/ai-questions', [\App\Http\Controllers\Teacher\MissionController::class, 'aiQuestions'])->name('missions.ai');
     Route::delete('/missions/{mission}', [\App\Http\Controllers\Teacher\MissionController::class, 'destroy'])->whereNumber('mission')->name('missions.destroy');
     Route::get('/reports', [TeacherDashboardController::class, 'reports'])->name('reports');
+    Route::get('/visits', [\App\Http\Controllers\Teacher\VisitReportController::class, 'index'])->name('visits');
     Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'manage'])->name('schedule');
     Route::post('/schedule', [\App\Http\Controllers\ScheduleController::class, 'store'])->name('schedule.store');
     Route::delete('/schedule/{scheduleEntry}', [\App\Http\Controllers\ScheduleController::class, 'destroy'])->name('schedule.destroy');

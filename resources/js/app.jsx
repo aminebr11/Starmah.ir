@@ -3,11 +3,13 @@ import '../css/site.css';
 import '../css/home3d.css';
 import '../css/smart-exams.css';
 import '../css/theme-clay.css';
+import '../css/visits.css';
 import './bootstrap';
 import { initPwa } from './lib/pwa';
 import { initUi, syncUi } from './lib/ui';
 import { router } from '@inertiajs/react';
 import { initToasts } from './lib/toast';
+import { initPresence } from './lib/presence';
 
 initUi();
 router.on('navigate', (e) => syncUi(e.detail?.page?.props?.ui));
@@ -27,6 +29,7 @@ createInertiaApp({
         ),
     setup({ el, App, props }) {
         const root = createRoot(el);
+        initPresence(props.initialPage);
 
         root.render(<App {...props} />);
     },

@@ -258,8 +258,11 @@ class SchoolDashboardController extends Controller
             ? User::role(Roles::STUDENT)->where('school_id', $school->id)->pluck('id')
             : collect();
 
+        $days = \App\Services\VisitAnalytics::period($request->query('days', 30));
+
         return Inertia::render('SchoolAdmin/Reports', [
-            'report' => $school ? $analytics->schoolReport($school) : null,
+            'days'   => $days, 'periods' => \App\Services\VisitAnalytics::PERIODS,
+            'report' => $school ? $analytics->schoolReport($school, $days) : null,
             'trend'  => $studentIds->isNotEmpty() ? $analytics->dailyXpSeries($studentIds, 28) : [],
         ]);
     }
