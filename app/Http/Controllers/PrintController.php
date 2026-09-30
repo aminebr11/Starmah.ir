@@ -17,6 +17,12 @@ use Illuminate\View\View;
  */
 class PrintController extends Controller
 {
+    /** همان هدرِ مشترک برای برگه‌های چاپیِ بخش‌های دیگر (گزارشِ بازی و آزمون). */
+    public static function header(?int $schoolId, Request $request): array
+    {
+        return (new self)->head($schoolId, $request);
+    }
+
     /** هدرِ مشترک: مدرسه + تاریخ + لینکِ بازگشت + جهتِ صفحه. */
     private function head(?int $schoolId, Request $request = null): array
     {

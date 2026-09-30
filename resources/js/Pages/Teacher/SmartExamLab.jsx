@@ -11,11 +11,9 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
 const blankQ = () => ({ type: 'mc', prompt: '', points: 1, difficulty: 'medium', explanation: '', source: 'manual', choices: [{ value: '', correct: true }, { value: '', correct: false }] });
 const KINDS = [['diagnostic', 'تشخیصی'], ['practice', 'تمرینی'], ['class', 'کلاسی'], ['formal', 'رسمی'], ['remedial', 'جبرانی'], ['game', 'بازی‌محور']];
 const DEFAULT_RULES = { duration: 20, attempts: 1, pass: 50, show_answer: true, show_result: true, shuffle: false, shuffle_choices: false, one_per_page: true };
-const ST_COLOR = { draft: '#8896ad', review: '#0ea5b7', scheduled: '#e8862e', published: '#2bb673', closed: '#e8505b', archived: '#8896ad' };
-const ST_LABEL = { draft: 'پیش‌نویس', review: 'آماده بررسی', scheduled: 'زمان‌بندی', published: 'منتشر', closed: 'بسته', archived: 'آرشیو' };
 
 export default function SmartExamLab() {
-    const { exams = [], buckets = {}, bankCount = 0, aiCount = 0, classroomsFull = [], classes = [], groups = [], themes = [], aiEnabled, adaptiveEnabled, editing, flash } = usePage().props;
+    const { classroomsFull = [], classes = [], groups = [], themes = [], aiEnabled, adaptiveEnabled, editing, flash } = usePage().props;
     const [banner, setBanner] = useState(null);
     const [step, setStep] = useState(1);
     const [editId, setEditId] = useState(editing?.id ?? null);
@@ -75,21 +73,15 @@ export default function SmartExamLab() {
             <div className="smart-scope">
                 {banner && <div className="smart-panel" style={{ borderColor: 'var(--sm-acc)', background: '#f5f2ff' }}><b>{banner}</b></div>}
 
-                {/* KPI ها */}
-                {!editId && (
-                    <div className="smart-kpis" style={{ marginBottom: 16 }}>
-                        <div className="smart-kpi" style={{ background: 'linear-gradient(135deg,#2bb673,#1a8a52)' }}><b>{fa(buckets.published || 0)}</b><span>منتشرشده</span></div>
-                        <div className="smart-kpi" style={{ background: 'linear-gradient(135deg,#8896ad,#5b6577)' }}><b>{fa(buckets.draft || 0)}</b><span>پیش‌نویس</span></div>
-                        <div className="smart-kpi" style={{ background: 'linear-gradient(135deg,#0ea5b7,#0a7d8a)' }}><b>{fa(bankCount)}</b><span>بانک سؤال</span></div>
-                        <div className="smart-kpi" style={{ background: 'linear-gradient(135deg,#6d28d9,#4c1d95)' }}><b>{fa(aiCount)}</b><span>سؤال AI</span></div>
-                    </div>
-                )}
-
+                <div className="ch-builder-bar">
+                    <b>{editId ? '✏️ ویرایشِ آزمون' : '✨ ساختِ آزمونِ جدید'}</b>
+                    <Link href={route('teacher.smart.lab')} className="btn btn-ghost btn-sm">← بازگشت به آزمون‌های من</Link>
+                </div>
                 <div className="smart-panel">
                     <div className="smart-h">
                         🧪 {editId ? 'ویرایش آزمون هوشمند' : 'ساخت آزمون هوشمند'}
                         {editId && <button onClick={() => save(form.data.status || 'draft')} disabled={form.processing} className="smart-btn sm" style={{ marginInlineStart: 'auto' }}>💾 ذخیره‌ی تغییرات</button>}
-                        {editId && <button onClick={() => router.visit(route('teacher.smart.lab'))} className="smart-btn ghost sm">+ آزمون جدید</button>}
+                        {editId && <button onClick={() => router.visit(route('teacher.smart.create'))} className="smart-btn ghost sm">+ آزمون جدید</button>}
                     </div>
 
                     <div className="smart-steps">
@@ -245,33 +237,6 @@ export default function SmartExamLab() {
                     </div>
                 </div>
 
-                {/* فهرست آزمون‌ها */}
-                <div className="smart-panel">
-                    <div className="smart-h">🧪 آزمون‌های هوشمند من ({fa(exams.length)})</div>
-                    {exams.length === 0 && <p className="smart-muted">هنوز آزمونی نساخته‌ای.</p>}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(250px,1fr))', gap: 12, marginTop: 8 }}>
-                        {exams.map((e) => (
-                            <div key={e.id} className="smart-examcard" style={{ borderTop: `4px solid ${ST_COLOR[e.status]}` }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <b style={{ flex: 1 }}>{e.title}</b>
-                                    <span className="st" style={{ background: ST_COLOR[e.status] }}>{ST_LABEL[e.status]}</span>
-                                </div>
-                                <div className="smart-muted" style={{ fontSize: 12, marginTop: 6 }}>{e.subject || ''}{e.topic ? ` · ${e.topic}` : ''} · {fa(e.questions)} سؤال · {fa(e.attempts)} تلاش{e.version > 1 ? ` · نسخه ${fa(e.version)}` : ''}</div>
-                                {e.scheduled && <div style={{ fontSize: 11.5, color: '#7c5cf0', fontWeight: 700, marginTop: 4 }}>🗓️ زمان‌بندی‌شده — انتشار خودکار: {e.jopens}</div>}
-                                {!e.scheduled && e.status === 'published' && <div style={{ fontSize: 11.5, color: '#2bb673', fontWeight: 700, marginTop: 4 }}>✅ هم‌اکنون در دسترسِ دانش‌آموزان{e.jcloses ? ` — تا ${e.jcloses}` : ''}</div>}
-                                <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-                                    <Link href={route('teacher.smart.edit', e.id)} className="smart-btn ghost sm">✏️ ویرایش</Link>
-                                    <a href={route('teacher.smart.preview', e.id)} className="smart-btn ghost sm" title="آنچه دانش‌آموز می‌بیند">👁️ پیش‌نمایش</a>
-                                    <Link href={route('teacher.smart.report', e.id)} className="smart-btn ghost sm">📊 گزارش</Link>
-                                    {e.status !== 'published'
-                                        ? <button onClick={() => router.post(route('teacher.smart.status', e.id), { status: 'published' }, { preserveScroll: true })} className="smart-btn ghost sm">🚀 انتشار</button>
-                                        : <button onClick={() => router.post(route('teacher.smart.status', e.id), { status: 'closed' }, { preserveScroll: true })} className="smart-btn ghost sm">⏹️ بستن</button>}
-                                    <button onClick={() => confirm(`آزمون «${e.title}» حذف شود؟`) && confirm('برای اطمینان دوباره تأیید کنید — آزمون‌های قدیمی آسیب نمی‌بینند.') && router.delete(route('teacher.smart.destroy', e.id), { preserveScroll: true })} className="smart-btn ghost sm" style={{ color: '#e8505b' }}>🗑️</button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
             </div>
         </DashLayout>
     );

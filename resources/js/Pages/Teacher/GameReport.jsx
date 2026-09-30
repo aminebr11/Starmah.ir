@@ -14,7 +14,7 @@ export default function GameReport() {
                     <h3 style={{ margin: 0 }}>📊 گزارش بازی «{game.title}»</h3>
                     <span className="tag tag-info">{game.template}</span>
                     <Link href={route('teacher.studio')} className="btn btn-ghost btn-sm" style={{ marginInlineStart: 'auto' }}>← بازگشت</Link>
-                    <button onClick={() => window.print()} className="btn btn-sm">🖨️ چاپ/PDF</button>
+                    <a href={route('teacher.studio.report.print', game.id)} className="btn btn-sm">🖨️ چاپ/PDF</a>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 10, marginTop: 14 }}>
                     <Kpi v={fa(summary.started)} l="شروع کرده" c="#3d7bf0" />

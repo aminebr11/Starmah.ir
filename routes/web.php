@@ -323,6 +323,8 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     // آزمایشگاه هوشمند آزمون (آزمایشی — پشتِ Feature Flag)
     Route::middleware('smartlab')->prefix('smart-exams')->name('smart.')->group(function () {
         Route::get('/', [\App\Http\Controllers\Teacher\SmartExamController::class, 'lab'])->name('lab');
+        Route::get('/new', [\App\Http\Controllers\Teacher\SmartExamController::class, 'create'])->name('create');
+        Route::get('/{smartExam}/report/print', [\App\Http\Controllers\Teacher\SmartExamController::class, 'reportPrint'])->name('report.print');
         Route::get('/{smartExam}/edit', [\App\Http\Controllers\Teacher\SmartExamController::class, 'edit'])->name('edit');
         Route::get('/{smartExam}/preview', [\App\Http\Controllers\Teacher\SmartExamController::class, 'preview'])->name('preview');
         Route::post('/', [\App\Http\Controllers\Teacher\SmartExamController::class, 'store'])->name('store');
@@ -346,6 +348,8 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::delete('/my-bank/{question}', [\App\Http\Controllers\Teacher\MyBankController::class, 'destroy'])->name('mybank.destroy');
     // استودیوی ساخت بازی (دنیای بازی‌های آموزشی)
     Route::get('/studio', [\App\Http\Controllers\Teacher\EduGameController::class, 'index'])->name('studio');
+    Route::get('/studio/new', [\App\Http\Controllers\Teacher\EduGameController::class, 'create'])->name('studio.create');
+    Route::get('/studio/{eduGame}/report/print', [\App\Http\Controllers\Teacher\EduGameController::class, 'reportPrint'])->name('studio.report.print');
     Route::post('/studio/ai', [\App\Http\Controllers\Teacher\EduGameController::class, 'aiGenerate'])->name('studio.ai');
     Route::get('/studio/bank', [\App\Http\Controllers\Teacher\EduGameController::class, 'bankQuestions'])->name('studio.bank');
     Route::get('/studio/{eduGame}/edit', [\App\Http\Controllers\Teacher\EduGameController::class, 'show'])->name('studio.edit');

@@ -4,6 +4,7 @@ import '../css/home3d.css';
 import '../css/smart-exams.css';
 import '../css/theme-clay.css';
 import '../css/visits.css';
+import '../css/hub.css';
 import './bootstrap';
 import { initPwa } from './lib/pwa';
 import { initUi, syncUi } from './lib/ui';
@@ -12,6 +13,10 @@ import { initToasts } from './lib/toast';
 import { initPresence } from './lib/presence';
 
 initUi();
+// داخلِ اپِ اندروید window.print کاری نمی‌کند؛ همه‌ی دکمه‌های چاپ از پلِ اپ استفاده کنند
+if (typeof window !== 'undefined' && window.StarmahApp?.print) {
+    window.print = () => window.StarmahApp.print(document.title);
+}
 router.on('navigate', (e) => syncUi(e.detail?.page?.props?.ui));
 
 import { createInertiaApp } from '@inertiajs/react';

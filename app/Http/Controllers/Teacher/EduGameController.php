@@ -20,7 +20,21 @@ use Inertia\Response;
 class EduGameController extends Controller
 {
     use \App\Http\Controllers\Concerns\BuildsAiQuestions;
+    /** صفحه‌ی اصلیِ استودیو: بازی‌ها دسته‌بندی‌شده (منتشر، در انتظار، آرشیو) و به تفکیکِ درس. */
     public function index(Request $request): Response
+    {
+        $teacher = $request->user();
+        $games = EduGame::where('teacher_id', $teacher->id)->with('template:key,name,icon', 'theme:id,name,emoji')
+            ->withCount(['questions', 'attempts'])->latest()->get()->map(fn ($g) => $this->card($g));
+
+        return Inertia::render('Teacher/GameHub', [
+            'items' => $games->values(),
+            'hasClass' => Classroom::where('teacher_id', $teacher->id)->exists(),
+        ]);
+    }
+
+    /** صفحه‌ی جداگانه‌ی ساختِ بازیِ تازه (در منو نیست؛ از دکمه‌ی «ساختِ بازیِ جدید» باز می‌شود). */
+    public function create(Request $request): Response
     {
         return Inertia::render('Teacher/GameStudio', $this->payload($request));
     }
@@ -53,13 +67,7 @@ class EduGameController extends Controller
         $teacher = $request->user();
         $classroom = Classroom::where('teacher_id', $teacher->id)->first();
 
-        $games = EduGame::where('teacher_id', $teacher->id)
-            ->withCount(['questions', 'attempts'])
-            ->latest()->get()
-            ->map(fn ($g) => $this->card($g));
-
         return array_merge([
-            'games'     => $games->values(),
             'templates' => GameTemplate::where('is_active', true)->orderBy('sort')->get(['key', 'name', 'icon', 'description', 'config']),
             'themes'    => Theme::where('is_active', true)->where('key', '!=', 'brand')->orderBy('sort')
                 ->get(['id', 'name', 'emoji'])->map(fn ($t) => ['id' => $t->id, 'name' => $t->name, 'emoji' => $t->emoji]),
@@ -101,7 +109,22 @@ class EduGameController extends Controller
             'publish_at' => $g->publish_at?->toDateTimeString(),
             'jpublish' => $g->publish_at ? Jalali::format($g->publish_at, true) : null,
             'date' => Jalali::format($g->created_at),
+            'jclose' => $g->close_at ? Jalali::format($g->close_at, true) : null,
+            'bucket' => $this->bucket($g),
         ];
+    }
+
+    /** دسته‌ی نمایش: منتشرشده (در دسترس)، در انتظارِ انتشار، آرشیو (بایگانی یا پایان‌یافته). */
+    private function bucket(EduGame $g): string
+    {
+        if (in_array($g->status, ['archived', 'disabled'], true)) return 'archived';
+        if ($g->status === 'published') {
+            if ($g->close_at && now()->greaterThan($g->close_at)) return 'archived';
+            if ($g->publish_at && now()->lessThan($g->publish_at)) return 'pending';
+            return 'published';
+        }
+
+        return 'pending';
     }
 
     /** بارگذاری کاملِ یک بازی برای ویرایش. */
@@ -296,10 +319,9 @@ class EduGameController extends Controller
         return back()->with('flash', 'بازی حذف شد');
     }
 
-    /** گزارش تحلیلیِ یک بازی. */
-    public function report(Request $request, EduGame $eduGame): Response
+    /** داده‌ی گزارشِ یک بازی — مشترکِ صفحه‌ی گزارش و برگه‌ی چاپی. */
+    public function reportData(EduGame $eduGame): array
     {
-        abort_unless($eduGame->teacher_id === $request->user()->id, 403);
         $eduGame->load('questions');
         $attempts = $eduGame->attempts()->with('student:id,name')->get();
         $completed = $attempts->where('status', 'completed');
@@ -327,7 +349,7 @@ class EduGameController extends Controller
             'wrong' => $cnt,
         ])->values();
 
-        return Inertia::render('Teacher/GameReport', [
+        return [
             'game' => ['id' => $eduGame->id, 'title' => $eduGame->title, 'template' => optional($eduGame->template)->name],
             'summary' => [
                 'started' => $attempts->count(),
@@ -338,6 +360,34 @@ class EduGameController extends Controller
             ],
             'rows' => $rows,
             'hardQuestions' => $hardQuestions,
+        ];
+    }
+
+    /** گزارش تحلیلیِ یک بازی. */
+    public function report(Request $request, EduGame $eduGame): Response
+    {
+        abort_unless($eduGame->teacher_id === $request->user()->id, 403);
+
+        return Inertia::render('Teacher/GameReport', $this->reportData($eduGame));
+    }
+
+    /**
+     * برگه‌ی چاپیِ نتایجِ بازی (A4). چاپِ خودِ صفحه‌ی داشبورد منو و دکمه‌ها را هم
+     * چاپ می‌کرد و داخلِ اپِ اندروید اصلاً کاری نمی‌کرد؛ این برگه تمیز و مستقل است.
+     */
+    public function reportPrint(Request $request, EduGame $eduGame): \Illuminate\Contracts\View\View
+    {
+        abort_unless($eduGame->teacher_id === $request->user()->id, 403);
+        $eduGame->loadMissing('template', 'theme');
+
+        return view('print.game-report', \App\Http\Controllers\PrintController::header($eduGame->school_id, $request) + $this->reportData($eduGame) + [
+            'title' => 'گزارشِ نتایجِ بازی: ' . $eduGame->title,
+            'meta' => array_filter([
+                'قالب' => optional($eduGame->template)->name, 'درس' => $eduGame->subject, 'پایه' => $eduGame->grade,
+                'تعداد سؤال' => $eduGame->questions->count(), 'معلم' => $request->user()->name,
+                'تاریخِ ساخت' => Jalali::format($eduGame->created_at),
+            ], fn ($v) => $v !== null && $v !== ''),
+            'back' => route('teacher.studio.report', $eduGame->id),
         ]);
     }
 

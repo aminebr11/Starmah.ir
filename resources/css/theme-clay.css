@@ -556,3 +556,12 @@
 .bd-today-card b{font-size:15px}
 .bd-today-card .bd-cake{font-size:34px}
 .bd-today-card .btn{margin-inline-start:auto}
+
+/* چاپ در طرحِ خمیری: فقط محتوای صفحه، بدونِ منو، دکمه‌ها و پس‌زمینه */
+@media print{
+  :root[data-ui="clay"] :is(.cd-bar,.cd-tabs,.cd-subs,.cd-bnav,.cd-sheet,.cd-sheet-bg,.cd-actions,.cd-tools,.cd-school,.assistant-fab,.assistant-panel,.toast-wrap,.no-print,.ch-create,.ch-card-actions){display:none!important}
+  :root[data-ui="clay"] body,:root[data-ui="clay"] .cd-main{background:#fff!important}
+  :root[data-ui="clay"] .cd-main{padding:0!important;margin:0!important}
+  :root[data-ui="clay"] :is(.panel,.card,.dcard,.smart-panel){box-shadow:none!important;border:1px solid #dfe4ee!important;break-inside:avoid}
+  :root[data-ui="clay"] .btn{display:none!important}
+}

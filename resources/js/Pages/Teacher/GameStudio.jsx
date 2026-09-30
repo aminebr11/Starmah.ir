@@ -12,7 +12,7 @@ const blankQ = () => ({ type: 'mc', prompt: '', points: 10, hint1: '', explanati
 const DEFAULT_RULES = { lives: 3, retry: true, show_answer: true, shuffle: false, pass: 50, group_race: false };
 
 export default function GameStudio() {
-    const { games = [], templates = [], themes = [], classes = [], grade, groups = [], hasClass, editing, flash } = usePage().props;
+    const { templates = [], themes = [], classes = [], grade, groups = [], hasClass, editing, flash } = usePage().props;
     const [banner, setBanner] = useState(null);
     const [step, setStep] = useState(1);
     const [editId, setEditId] = useState(editing?.id ?? null);
@@ -75,7 +75,7 @@ export default function GameStudio() {
         if (editId) router.put(route('teacher.studio.update', editId), payload, opts);
         else router.post(route('teacher.studio.store'), payload, opts);
     };
-    const startNew = () => { router.visit(route('teacher.studio')); };
+    const startNew = () => { router.visit(route('teacher.studio.create')); };
 
     const STEPS = ['اطلاعات پایه', 'قالب و تم', 'سؤال‌ها', 'قوانین', 'پیش‌نمایش'];
     const tmpl = templates.find((t) => t.key === form.data.template_key);
@@ -89,6 +89,11 @@ export default function GameStudio() {
     return (
         <DashLayout title="استودیوی ساخت بازی" roleLabel="معلم" menu={teacherMenu} active="studio">
             {banner && <div className="panel" style={{ borderColor: 'var(--gold)', background: '#fff8e8' }}><b>{banner}</b></div>}
+
+            <div className="ch-builder-bar">
+                <b>{editId ? '✏️ ویرایشِ بازی' : '✨ ساختِ بازیِ جدید'}</b>
+                <Link href={route('teacher.studio')} className="btn btn-ghost btn-sm">← بازگشت به بازی‌های من</Link>
+            </div>
 
             <div className="panel">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -280,40 +285,10 @@ export default function GameStudio() {
                 </div>
             </div>
 
-            {/* فهرست بازی‌ها */}
-            <div className="panel">
-                <h3>🗄️ بازی‌های من ({fa(games.length)})</h3>
-                {games.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز بازی‌ای نساخته‌ای.</p>}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(250px,1fr))', gap: 12, marginTop: 8 }}>
-                    {games.map((g) => (
-                        <div key={g.id} style={{ border: '1px solid var(--line)', borderRadius: 14, padding: 13, borderTop: `4px solid ${STATUS_COLOR[g.status]}` }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span style={{ fontSize: 22 }}>{g.icon}</span>
-                                <b style={{ flex: 1 }}>{g.title}</b>
-                                <span className="tag" style={{ fontSize: 11, background: `${STATUS_COLOR[g.status]}22`, color: STATUS_COLOR[g.status] }}>{STATUS_LABEL[g.status]}</span>
-                            </div>
-                            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
-                                {g.template} · {g.theme_emoji || ''} {g.theme || ''} · {fa(g.questions)} سؤال · {fa(g.plays)} بازی‌شده
-                            </div>
-                            <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-                                <Link href={route('teacher.studio.edit', g.id)} className="btn btn-ghost btn-sm">✏️ ویرایش</Link>
-                                <a href={route('teacher.studio.preview', g.id)} className="btn btn-ghost btn-sm" title="آنچه دانش‌آموز می‌بیند">👁️ پیش‌نمایش</a>
-                                <Link href={route('teacher.studio.report', g.id)} className="btn btn-ghost btn-sm">📊 گزارش</Link>
-                                {g.status !== 'published'
-                                    ? <button onClick={() => router.post(route('teacher.studio.status', g.id), { status: 'published' }, { preserveScroll: true })} className="btn btn-ghost btn-sm">🚀 انتشار</button>
-                                    : <button onClick={() => router.post(route('teacher.studio.status', g.id), { status: 'archived' }, { preserveScroll: true })} className="btn btn-ghost btn-sm">📁 آرشیو</button>}
-                                <button onClick={() => confirm(`بازی «${g.title}» حذف شود؟ این کار قابل بازگشت نیست.`) && confirm('برای اطمینان، دوباره تأیید کنید.') && router.delete(route('teacher.studio.destroy', g.id), { preserveScroll: true })} className="btn btn-ghost btn-sm" style={{ color: '#e8505b' }}>🗑️</button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
         </DashLayout>
     );
 }
 
-const STATUS_LABEL = { draft: 'پیش‌نویس', published: 'منتشر', archived: 'آرشیو', disabled: 'غیرفعال' };
-const STATUS_COLOR = { draft: '#8896ad', published: '#2bb673', archived: '#e8862e', disabled: '#e8505b' };
 
 function Field({ label, err, children }) {
     return <div className="field" style={{ margin: 0 }}><label>{label}</label>{children}{err && <div style={{ color: '#e8505b', fontSize: 12, marginTop: 4 }}>{err}</div>}</div>;

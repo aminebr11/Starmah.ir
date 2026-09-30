@@ -16,7 +16,7 @@ export default function SmartExamReport() {
                     <div className="smart-h">📊 گزارش هوشمند «{exam.title}» <span className="smart-badge">{exam.subject || ''}</span>
                         <span style={{ marginInlineStart: 'auto', display: 'flex', gap: 6 }}>
                             {gamesEnabled && <button onClick={() => router.post(route('teacher.smart.buildgame', exam.id), {}, { preserveScroll: true })} className="smart-btn sm">🎮 ساخت بازی جبرانی</button>}
-                            <button onClick={() => window.print()} className="smart-btn ghost sm">🖨️ چاپ/PDF</button>
+                            <a href={route('teacher.smart.report.print', exam.id)} className="smart-btn ghost sm">🖨️ چاپ/PDF</a>
                             <Link href={route('teacher.smart.lab')} className="smart-btn ghost sm">← بازگشت</Link>
                         </span>
                     </div>

@@ -26,6 +26,7 @@ use Inertia\Response;
 class SmartExamController extends Controller
 {
     use \App\Http\Controllers\Concerns\BuildsAiQuestions;
+    /** صفحه‌ی اصلیِ آزمون‌ها: دسته‌بندی‌شده (منتشر، در انتظار، آرشیو) و به تفکیکِ درس. */
     public function lab(Request $request): Response
     {
         $teacher = $request->user();
@@ -33,24 +34,22 @@ class SmartExamController extends Controller
             ->withCount(['questions', 'attempts'])->latest()->get()
             ->map(fn ($e) => $this->card($e));
 
-        $classrooms = Classroom::where('teacher_id', $teacher->id)->get(['id', 'name', 'grade']);
+        return Inertia::render('Teacher/SmartExamHub', [
+            'items' => $exams->values(),
+            'bankCount' => SmartQuestionBank::where('teacher_id', $teacher->id)->count(),
+            'aiCount' => (int) \App\Models\SmartExamAiRequest::where('teacher_id', $teacher->id)->sum('produced'),
+        ]);
+    }
 
-        return Inertia::render('Teacher/SmartExamLab', array_merge(
-            $this->formData($teacher),
-            [
-                'flags' => SmartLab::config(),
-                'exams' => $exams->values(),
-                'buckets' => [
-                    'draft' => $exams->where('status', 'draft')->count(),
-                    'published' => $exams->where('status', 'published')->count(),
-                    'scheduled' => $exams->where('status', 'scheduled')->count(),
-                    'closed' => $exams->whereIn('status', ['closed', 'archived'])->count(),
-                ],
-                'bankCount' => SmartQuestionBank::where('teacher_id', $teacher->id)->count(),
-                'aiCount' => \App\Models\SmartExamAiRequest::where('teacher_id', $teacher->id)->sum('produced'),
-                'classrooms' => $classrooms,
-            ]
-        ));
+    /** صفحه‌ی جداگانه‌ی ساختِ آزمونِ تازه (در منو نیست؛ از دکمه‌ی «ساختِ آزمونِ جدید» باز می‌شود). */
+    public function create(Request $request): Response
+    {
+        $teacher = $request->user();
+
+        return Inertia::render('Teacher/SmartExamLab', array_merge($this->formData($teacher), [
+            'flags' => SmartLab::config(),
+            'classrooms' => Classroom::where('teacher_id', $teacher->id)->get(['id', 'name', 'grade']),
+        ]));
     }
 
     private function formData($teacher): array
@@ -91,7 +90,21 @@ class SmartExamController extends Controller
             'jopens' => $e->opens_at ? Jalali::format($e->opens_at, true) : null,
             'jcloses' => $e->closes_at ? Jalali::format($e->closes_at, true) : null,
             'date' => Jalali::format($e->created_at), 'version' => $e->version,
+            'bucket' => $this->bucket($e),
         ];
+    }
+
+    /** دسته‌ی نمایش: منتشرشده (در دسترس)، در انتظارِ انتشار، آرشیو (بسته، بایگانی یا پایان‌یافته). */
+    private function bucket(SmartExam $e): string
+    {
+        if (in_array($e->status, ['closed', 'archived'], true)) return 'archived';
+        if ($e->status === 'published') {
+            if ($e->closes_at && now()->greaterThan($e->closes_at)) return 'archived';
+            if ($e->opens_at && now()->lessThan($e->opens_at)) return 'pending';
+            return 'published';
+        }
+
+        return 'pending';
     }
 
     public function edit(Request $request, SmartExam $smartExam): Response
@@ -102,8 +115,6 @@ class SmartExamController extends Controller
             $this->formData($request->user()),
             [
                 'flags' => SmartLab::config(),
-                'exams' => SmartExam::where('teacher_id', $request->user()->id)->withCount(['questions', 'attempts'])->latest()->get()->map(fn ($e) => $this->card($e)),
-                'buckets' => [], 'bankCount' => 0, 'aiCount' => 0,
                 'classrooms' => Classroom::where('teacher_id', $request->user()->id)->get(['id', 'name', 'grade']),
                 'editing' => [
                     'id' => $smartExam->id,
@@ -371,6 +382,23 @@ class SmartExamController extends Controller
             ...$analytics->examReport($smartExam),
             'printedAt' => Jalali::format(now(), true),
             'gamesEnabled' => SmartLab::flag('smart_games_enabled'),
+        ]);
+    }
+
+    /** برگه‌ی چاپیِ نتایجِ آزمون (A4) — تمیز، بدونِ منو و دکمه، در اپ هم چاپ می‌شود. */
+    public function reportPrint(Request $request, SmartExam $smartExam, SmartExamAnalyticsService $analytics): \Illuminate\Contracts\View\View
+    {
+        abort_unless($smartExam->teacher_id === $request->user()->id, 403);
+        $smartExam->loadCount('questions');
+
+        return view('print.exam-report', \App\Http\Controllers\PrintController::header($smartExam->school_id, $request) + $analytics->examReport($smartExam) + [
+            'title' => 'گزارشِ نتایجِ آزمون: ' . $smartExam->title,
+            'meta' => array_filter([
+                'درس' => $smartExam->subject, 'پایه' => $smartExam->grade, 'مبحث' => $smartExam->topic,
+                'تعداد سؤال' => $smartExam->questions_count, 'معلم' => $request->user()->name,
+                'تاریخِ برگزاری' => $smartExam->opens_at ? Jalali::format($smartExam->opens_at) : Jalali::format($smartExam->created_at),
+            ], fn ($v) => $v !== null && $v !== ''),
+            'back' => route('teacher.smart.report', $smartExam->id),
         ]);
     }
 

@@ -58,12 +58,14 @@
 </head>
 <body>
     <div class="toolbar">
-        <button onclick="window.print()">🖨️ چاپ / ذخیره به PDF</button>
+        <button onclick="doPrint()">🖨️ چاپ / ذخیره به PDF</button>
         <a href="{{ $back ?? url('/') }}">← بازگشت</a>
         <button type="button" onclick="tryClose()" style="background:#33405e;color:#fff">✕ بستن</button>
         <span style="margin-inline-start:auto;font-size:12px;opacity:.8">برای PDF: در پنجره‌ی چاپ، «Save as PDF» را انتخاب کنید</span>
     </div>
     <script>
+        // داخلِ اپِ اندروید window.print کاری نمی‌کند؛ اپ پلِ StarmahApp.print را دارد
+        function doPrint(){ if (window.StarmahApp && window.StarmahApp.print) { window.StarmahApp.print(document.title); } else { window.print(); } }
         function tryClose(){ window.close(); setTimeout(function(){ if(!window.closed){ window.location.href = @json($back ?? url('/')); } }, 120); }
     </script>
     <div class="sheet">
