@@ -486,3 +486,73 @@
   .cw-bg i,.cw-orbit,.cw-orbit b,.cw-orbit b::after,.cw-world-char,.cw-world-hero,.cw-feat i,.cw-subjects span,.cw-appband img{animation:none!important}
   .cw-stage,.cw-stage .cw-logo,.cw-blob,.cw-bg i{translate:none!important;rotate:none!important}
 }
+
+/* ═════ ستاره‌های هفته: سکوی قهرمانی ═════ */
+.cw-podium{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:end;max-width:900px;margin:0 auto 18px}
+.cw-pod{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;padding:18px 12px 0;border-radius:26px 26px 18px 18px;background:#fff;
+  box-shadow:0 18px 36px -18px rgba(40,60,120,.35);animation:cw-rise .7s var(--clay-spring) both}
+.cw-pod.r1{--c:var(--clay-gold);--d:var(--clay-gold-d);padding-top:30px;animation-delay:.1s}
+.cw-pod.r2{--c:#b9c6e0;--d:#8b99b8;animation-delay:.25s}
+.cw-pod.r3{--c:#f0b78a;--d:#c97c45;animation-delay:.4s}
+@keyframes cw-rise{from{transform:translateY(40px);opacity:0}}
+.cw-crown{position:absolute;top:-22px;font-size:34px;animation:cw-float 2.6s ease-in-out infinite;filter:drop-shadow(0 6px 8px rgba(0,0,0,.25))}
+.cw-pod-av{position:relative;width:78px;height:78px;border-radius:50%;padding:4px;background:linear-gradient(145deg,var(--c),var(--d));box-shadow:0 6px 0 var(--d)}
+.cw-pod.r1 .cw-pod-av{width:96px;height:96px;animation:cw-glow 2.4s ease-in-out infinite}
+@keyframes cw-glow{50%{box-shadow:0 6px 0 var(--d),0 0 0 10px rgba(255,194,75,.25)}}
+.cw-pod-av img,.cw-pod-av span{width:100%;height:100%;border-radius:50%;object-fit:cover;display:grid;place-items:center;background:#fff;font:800 30px var(--clay-head);color:var(--clay-sky-d)}
+.cw-pod-av em{position:absolute;bottom:-8px;left:50%;translate:-50% 0;min-width:30px;height:30px;border-radius:12px;background:var(--c);color:var(--clay-ink);
+  font:800 15px/30px var(--clay-head);font-style:normal;box-shadow:0 3px 0 var(--d)}
+.cw-pod-name{margin-top:10px;font-size:15px;line-height:1.6;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cw-pod-meta{color:var(--clay-muted);font-size:12px;line-height:1.7}
+.cw-pod-team{font-size:11.5px;font-weight:800;padding:3px 10px;border-radius:10px;background:#f1f4fb}
+.cw-pod-xp{font:800 20px var(--clay-head);color:var(--clay-gold-d);margin:4px 0 10px}
+.cw-pod-xp small{font:600 11px 'Vazirmatn';color:var(--clay-muted)}
+.cw-pod-base{align-self:stretch;margin:0 -12px;border-radius:0 0 18px 18px;background:linear-gradient(180deg,var(--c),var(--d))}
+.cw-pod.r1 .cw-pod-base{height:54px}.cw-pod.r2 .cw-pod-base{height:34px}.cw-pod.r3 .cw-pod-base{height:22px}
+.cw-lb{max-width:760px;margin:0 auto}
+.cw-lb-av{width:38px;height:38px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:#eef2fb;font-weight:800;color:var(--clay-sky-d);flex:none}
+.cw-lb-av img{width:100%;height:100%;object-fit:cover}
+.cw-lb-t{flex:1;min-width:0;display:flex;flex-direction:column}
+.cw-lb-t small{color:var(--clay-muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cw-steps-row{flex-direction:row!important;max-width:1000px;margin:0 auto!important}
+.cw-steps-row li{flex:1}
+@media (max-width:760px){
+  .cw-podium{gap:8px}
+  .cw-pod{padding:14px 6px 0;border-radius:20px 20px 14px 14px}
+  .cw-pod.r1{padding-top:24px}
+  .cw-pod-av{width:56px;height:56px}.cw-pod.r1 .cw-pod-av{width:70px;height:70px}
+  .cw-pod-av span{font-size:22px}
+  .cw-pod-name{font-size:12.5px;white-space:normal}
+  .cw-pod-meta{font-size:10.5px}
+  .cw-pod-team{font-size:10px;padding:2px 6px}
+  .cw-pod-xp{font-size:16px}
+  .cw-pod-base{margin:0 -6px}
+  .cw-steps-row{flex-direction:column!important}
+}
+@media (prefers-reduced-motion:reduce){.cw-pod,.cw-crown,.cw-pod.r1 .cw-pod-av{animation:none!important}}
+
+/* ═════ تولدِ دانش‌آموزان ═════ */
+.bd-flash{border-color:var(--gold)!important;background:#fff8e8!important}
+.bd-intro{display:flex;gap:14px;align-items:center;background:linear-gradient(135deg,#fff 40%,#ffe3ee)!important}
+.bd-intro p{margin:4px 0 0;color:var(--muted);font-size:13.5px;line-height:1.9}
+.bd-cake{font-size:46px;animation:cw-float 3s ease-in-out infinite}
+.bd-list{display:flex;flex-direction:column;gap:10px}
+.bd-item{border:1px solid var(--line);border-radius:18px;padding:12px}
+.bd-item.today{border-color:#ffb3cd;background:linear-gradient(135deg,#fff,#fff4f8);box-shadow:0 10px 24px -16px #e0487e}
+.bd-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.bd-row>:first-child{flex:1;min-width:180px}
+.bd-when{display:flex;flex-direction:column;text-align:center;min-width:110px}
+.bd-when small{color:var(--muted);font-size:12px}
+.bd-compose{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.bd-tpls{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+.bd-tpl{text-align:start;font:500 13px/1.9 'Vazirmatn',sans-serif;padding:10px 12px;border-radius:14px;border:2px solid var(--line);background:#fff;cursor:pointer;color:var(--ink);transition:transform .15s,border-color .15s}
+.bd-tpl:hover{transform:translateY(-2px)}
+.bd-tpl.on{border-color:#ff7aa8;background:#fff4f8}
+.bd-opts{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px;font-size:13.5px;font-weight:700}
+.bd-sms{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:13.5px;cursor:pointer}
+.bd-sms small{color:var(--muted)}
+.bd-today-card{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px;padding:14px 16px;border-radius:22px;
+  background:linear-gradient(135deg,#ffe3ee,#fff3d6);box-shadow:0 12px 26px -18px #e0487e}
+.bd-today-card b{font-size:15px}
+.bd-today-card .bd-cake{font-size:34px}
+.bd-today-card .btn{margin-inline-start:auto}

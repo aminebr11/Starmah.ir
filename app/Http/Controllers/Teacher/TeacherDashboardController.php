@@ -47,7 +47,16 @@ class TeacherDashboardController extends Controller
                 'sender' => $a->sender?->name, 'date' => Jalali::format($a->created_at, true),
             ]);
 
+        // تولدهای امروز که هنوز تبریک نگرفته‌اند — کارتِ بالای پیشخوان
+        try {
+            $birthdaysToday = collect(app(\App\Services\BirthdayService::class)->forTeacher($teacher))
+                ->where('offset', 0)->where('sent', false)->values();
+        } catch (\Throwable $e) {
+            $birthdaysToday = collect();
+        }
+
         return Inertia::render('Teacher/Dashboard', [
+            'birthdaysToday' => $birthdaysToday,
             'classrooms' => $classrooms,
             'announcements' => $announcements,
             'alarms' => $alarms,

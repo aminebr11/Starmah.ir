@@ -59,7 +59,27 @@ class SmsAdminController extends Controller
             ],
             'log'    => $this->log(),
             'events' => SmsGateway::EVENTS,
+            // پیامکِ اعلان‌ها برای ادمینِ کل
+            'alerts' => [
+                'types'  => \App\Support\AdminAlert::TYPES,
+                'on'     => \App\Support\AdminAlert::settings(),
+                'admins' => \App\Models\User::role(\App\Support\Roles::SUPER_ADMIN)->get(['id', 'name', 'phone'])
+                    ->map(fn ($u) => ['id' => $u->id, 'name' => $u->name, 'phone' => $u->phone])->values(),
+            ],
         ]);
+    }
+
+    /** روشن/خاموش‌کردنِ پیامکِ هر نوع اعلان برای ادمینِ کل. */
+    public function alerts(\Illuminate\Http\Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $data = $request->validate(['on' => ['array'], 'on.*' => ['boolean']]);
+        $on = [];
+        foreach (array_keys(\App\Support\AdminAlert::TYPES) as $k) {
+            $on[$k] = (bool) ($data['on'][$k] ?? false);
+        }
+        \App\Models\Setting::put('admin_sms_alerts', json_encode($on));
+
+        return back()->with('flash', 'تنظیمِ پیامکِ اعلان‌های ادمینِ کل ذخیره شد ✅');
     }
 
     /** آخرین پیامک‌های کلِ سامانه. */

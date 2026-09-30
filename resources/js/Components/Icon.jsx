@@ -31,6 +31,7 @@ const P = {
     wand: 'M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M15 9h.01M17.8 6.2L19 5M3 21l9-9M12.2 6.2L11 5',
     palette: 'M12 22a10 10 0 1 1 10-10c0 2.2-1.8 3-3.5 3H16a2 2 0 0 0-1.4 3.4A2 2 0 0 1 12 22zM7.5 10.5h.01M11 7h.01M15.5 8.5h.01',
     x: 'M18 6L6 18M6 6l12 12',
+    gift: 'M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z',
     headphones: 'M3 18v-6a9 9 0 0 1 18 0v6M21 19a2 2 0 0 1-2 2h-1v-7h3zM3 19a2 2 0 0 0 2 2h1v-7H3z',
     image: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
     heart: 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z',
@@ -57,6 +58,6 @@ export const MENU_ICON = {
     points: 'zap', activities: 'star', groups: 'trophy', discipline: 'star', levels: 'settings', reports: 'chart',
     examreports: 'chart', familynotes: 'lock', messages: 'msg', sms: 'send', notices: 'bell', announcements: 'megaphone',
     schools: 'school', plans: 'file', curriculum: 'book', themes: 'palette', 'game-templates': 'game', 'smart-lab': 'spark',
-    integrations: 'settings', settings: 'settings', profile: 'user',
+    integrations: 'settings', settings: 'settings', profile: 'user', users: 'users', birthdays: 'gift',
     practice: 'target', gameworld: 'game', report: 'chart', team: 'trophy', board: 'trophy', content: 'book', homework: 'file', family: 'lock',
 };

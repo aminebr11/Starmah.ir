@@ -68,6 +68,10 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::post('/sms/gateway', [\App\Http\Controllers\Admin\SmsAdminController::class, 'storeGateway'])->name('sms.gateway');
     Route::post('/sms/test', [\App\Http\Controllers\Admin\SmsAdminController::class, 'test'])->name('sms.test');
     Route::post('/sms/school/{school}', [\App\Http\Controllers\Admin\SmsAdminController::class, 'updateSchool'])->name('sms.school');
+    Route::post('/sms/alerts', [\App\Http\Controllers\Admin\SmsAdminController::class, 'alerts'])->name('sms.alerts');
+    // فهرستِ همه‌ی کاربران — ویرایشِ نام و شماره‌ی موبایلِ هر کس (حتی خودِ ادمین)
+    Route::get('/users', [\App\Http\Controllers\Admin\UserDirectoryController::class, 'index'])->name('users');
+    Route::put('/users/{user}', [\App\Http\Controllers\Admin\UserDirectoryController::class, 'update'])->name('users.update');
     Route::get('/integrations', [PlatformController::class, 'integrations'])->name('integrations');
     Route::put('/integrations', [PlatformController::class, 'storeIntegrations'])->name('integrations.store');
     Route::post('/integrations/test-sms', [PlatformController::class, 'testSms'])->name('integrations.test-sms');
@@ -220,6 +224,8 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::get('/attendance-report', [\App\Http\Controllers\AttendanceReportController::class, 'index'])->name('attendance.report');
     Route::get('/class/{classroom}', [TeacherDashboardController::class, 'show'])->name('classroom');
     Route::get('/students', [TeacherDashboardController::class, 'myClass'])->name('students');
+    Route::get('/birthdays', [\App\Http\Controllers\Teacher\BirthdayController::class, 'index'])->name('birthdays');
+    Route::post('/birthdays/{user}', [\App\Http\Controllers\Teacher\BirthdayController::class, 'send'])->name('birthdays.send');
     Route::post('/students/{user}/team', [TeacherDashboardController::class, 'setTeam'])->name('students.team');
     Route::post('/students', [\App\Http\Controllers\Teacher\StudentController::class, 'store'])->name('students.store');
     Route::get('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'index'])->name('activities');

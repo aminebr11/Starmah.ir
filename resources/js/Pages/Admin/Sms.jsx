@@ -6,7 +6,7 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
 
 /** پنلِ پیامکِ ادمینِ کل: درگاه + دسترسیِ مدرسه‌ها + مصرف + سابقه. */
 export default function Sms() {
-    const { gateway = {}, schools = [], stats = {}, log = [], flash } = usePage().props;
+    const { gateway = {}, schools = [], stats = {}, log = [], alerts = null, flash } = usePage().props;
     const [tab, setTab] = useState('gateway');
 
     const g = useForm({
@@ -27,6 +27,7 @@ export default function Sms() {
     const TABS = [
         { v: 'gateway', t: '🔌 درگاهِ پیامک' },
         { v: 'schools', t: `🏫 دسترسیِ مدرسه‌ها (${fa(schools.length)})` },
+        { v: 'alerts', t: '🔔 پیامکِ اعلان‌های من' },
         { v: 'log', t: `📜 سابقه (${fa(log.length)})` },
     ];
 
@@ -136,6 +137,7 @@ export default function Sms() {
                 </div>
             )}
 
+            {tab === 'alerts' && alerts && <AdminAlerts alerts={alerts} ready={gateway.ready} />}
             {tab === 'log' && <LogTable log={log} showSchool />}
         </DashLayout>
     );
@@ -225,3 +227,38 @@ function Field({ label, err, children }) {
 
 const th = { textAlign: 'start', padding: '9px 10px', fontSize: 12.5, color: 'var(--muted)', fontWeight: 700 };
 const td = { padding: '9px 10px', fontSize: 12.5 };
+
+
+/** پیامکِ هر اعلانی که در زنگوله‌ی ادمینِ کل می‌نشیند — به شماره‌ی خودِ ادمین. */
+function AdminAlerts({ alerts, ready }) {
+    const [on, setOn] = useState(alerts.on || {});
+    const [busy, setBusy] = useState(false);
+    const save = () => { setBusy(true); router.post(route('admin.sms.alerts'), { on }, { preserveScroll: true, onFinish: () => setBusy(false) }); };
+    const noPhone = (alerts.admins || []).filter((a) => !a.phone);
+    return (
+        <div className="panel">
+            <h3>🔔 پیامکِ اعلان‌ها برای ادمینِ کل</h3>
+            <p style={{ color: 'var(--muted)', fontSize: 13.5, marginTop: 0 }}>
+                هر اعلانی که برای شما در زنگوله می‌آید، به‌صورتِ پیامک هم به موبایلِ شما فرستاده می‌شود. هر نوع را می‌توانید جداگانه روشن یا خاموش کنید.
+            </p>
+            {!ready && <div className="tag tag-warn" style={{ marginBottom: 10 }}>درگاهِ پیامک هنوز فعال نیست؛ تا فعال نشود پیامکی فرستاده نمی‌شود.</div>}
+            <div style={{ display: 'grid', gap: 8 }}>
+                {Object.entries(alerts.types).map(([k, t]) => (
+                    <label key={k} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 14, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={!!on[k]} onChange={(e) => setOn({ ...on, [k]: e.target.checked })} style={{ marginTop: 5 }} />
+                        <span><b>{t.label}</b><br /><small style={{ color: 'var(--muted)' }}>{t.hint}</small></span>
+                    </label>
+                ))}
+            </div>
+            <div style={{ marginTop: 14, fontSize: 13.5 }}>
+                <b>گیرنده‌ها:</b>{' '}
+                {(alerts.admins || []).map((a) => <span key={a.id} className="tag" style={{ marginInlineEnd: 6 }}>{a.name} — <span dir="ltr">{a.phone || 'بدونِ شماره'}</span></span>)}
+                {noPhone.length > 0 && <div style={{ color: '#b0333f', marginTop: 6 }}>برای ادمینی که شماره ندارد پیامکی نمی‌رود؛ شماره را از «کاربران و شماره‌ها» اضافه کنید.</div>}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+                <button type="button" className="btn btn-sm" disabled={busy} onClick={save}>{busy ? 'در حال ذخیره…' : '💾 ذخیره'}</button>
+                <a href="/admin/users" className="btn btn-ghost btn-sm">📱 ویرایشِ شماره‌ی من و بقیه</a>
+            </div>
+        </div>
+    );
+}

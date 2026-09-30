@@ -18,6 +18,18 @@ class Message extends Model
 
     protected $casts = ['read_at' => 'datetime', 'edited_at' => 'datetime'];
 
+    protected static function booted(): void
+    {
+        // پیامِ تازه برای ادمینِ کل ← پیامک به موبایلِ خودش
+        static::created(function (Message $m) {
+            $to = $m->recipient;
+            if ($to && $to->hasRole(\App\Support\Roles::SUPER_ADMIN)) {
+                $from = $m->sender?->name ?: 'یک کاربر';
+                \App\Support\AdminAlert::send('message', "💬 پیامِ تازه از {$from}:\n" . mb_substr((string) $m->body, 0, 160));
+            }
+        });
+    }
+
     public function sender(): BelongsTo { return $this->belongsTo(User::class, 'sender_id'); }
     public function recipient(): BelongsTo { return $this->belongsTo(User::class, 'recipient_id'); }
 }

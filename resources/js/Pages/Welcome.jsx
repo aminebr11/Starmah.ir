@@ -166,7 +166,7 @@ function useLiveMotion(ref) {
 
 /** صفحه‌ی اصلی در طرحِ «خمیرماه». همان محتوا و همان داده‌ی واقعی. */
 function WelcomeClay() {
-    const { auth, weeklyTop = [], stats = {}, worlds = [] } = usePage().props;
+    const { auth, weeklyTop = [], stats = {}, worlds = [], starsPeriod = 'week' } = usePage().props;
     const liveRef = useRef(null);
     useLiveMotion(liveRef);
     const user = auth?.user;
@@ -260,27 +260,54 @@ function WelcomeClay() {
                     </div>
                 </section>
 
-                <section className="cw-sec cw-wrap cw-two" id="stars">
-                    <div className="sm-reveal">
-                        <div className="cw-head start"><h2>ستاره‌های این هفته</h2><p>دانش‌آموزانی که بیشترین تلاش را داشتند</p></div>
-                        <div className="cw-lb">
-                            {weeklyTop.length ? weeklyTop.map((s) => (
-                                <div key={s.rank} className="cw-lb-row">
-                                    <span className={`cw-rank r${Math.min(s.rank, 4)}`}>{fa(s.rank)}</span>
-                                    <b>{s.name}</b>
-                                    <em>⭐ {fa(s.xp)}</em>
+                <section className="cw-sec cw-wrap" id="stars">
+                    <div className="cw-head sm-reveal">
+                        <h2>{starsPeriod === 'week' ? 'ستاره‌های این هفته' : starsPeriod === 'month' ? 'ستاره‌های این ماه' : 'ستاره‌های ستاره ماه'}</h2>
+                        <p>{starsPeriod === 'week' ? 'دانش‌آموزانی که در ۷ روزِ گذشته بیشترین امتیاز را گرفتند' : 'این هفته هنوز امتیازی ثبت نشده؛ برترین‌های اخیر را ببین'}</p>
+                    </div>
+                    {weeklyTop.length ? (
+                        <>
+                            <div className="cw-podium sm-reveal">
+                                {[weeklyTop[1], weeklyTop[0], weeklyTop[2]].filter(Boolean).map((s) => (
+                                    <div key={s.rank} className={`cw-pod r${s.rank}`}>
+                                        {s.rank === 1 && <span className="cw-crown" aria-hidden="true">👑</span>}
+                                        <div className="cw-pod-av">
+                                            {s.avatar ? <img src={s.avatar} alt="" /> : <span>{(s.name || '؟').trim().charAt(0)}</span>}
+                                            <em>{fa(s.rank)}</em>
+                                        </div>
+                                        <b className="cw-pod-name">{s.name}</b>
+                                        <small className="cw-pod-meta">{[s.school, s.class].filter(Boolean).join(' · ')}</small>
+                                        {s.team && <span className="cw-pod-team">{s.team}</span>}
+                                        <div className="cw-pod-xp">⭐ {fa(s.xp)} <small>امتیاز</small></div>
+                                        <div className="cw-pod-base" />
+                                    </div>
+                                ))}
+                            </div>
+                            {weeklyTop.length > 3 && (
+                                <div className="cw-lb sm-reveal">
+                                    {weeklyTop.slice(3).map((s) => (
+                                        <div key={s.rank} className="cw-lb-row">
+                                            <span className="cw-rank r4">{fa(s.rank)}</span>
+                                            <span className="cw-lb-av">{s.avatar ? <img src={s.avatar} alt="" /> : (s.name || '؟').trim().charAt(0)}</span>
+                                            <div className="cw-lb-t"><b>{s.name}</b><small>{[s.school, s.class, s.team].filter(Boolean).join(' · ')}</small></div>
+                                            <em>⭐ {fa(s.xp)}</em>
+                                        </div>
+                                    ))}
                                 </div>
-                            )) : <div className="cw-lb-row"><b>هنوز امتیازی ثبت نشده</b></div>}
-                        </div>
-                    </div>
-                    <div className="sm-reveal" id="how">
-                        <div className="cw-head start"><h2>راه‌اندازی در سه قدم</h2><p>از ثبت‌نامِ مدرسه تا ورودِ دانش‌آموز به دنیای دلخواهش</p></div>
-                        <ol className="cw-steps">
-                            <li><b>ثبت‌نامِ مدرسه</b><span>مدیر درخواست می‌دهد و پس از تأیید، حسابِ مدرسه ساخته می‌شود</span></li>
-                            <li><b>ساختِ معلم‌ها و کلاس‌ها</b><span>برای هر کلاس یک معلم و کدِ کلاس ایجاد می‌شود</span></li>
-                            <li><b>ورودِ دانش‌آموز</b><span>مدرسه، معلم و دنیای دلخواهش را انتخاب می‌کند و شروع می‌کند</span></li>
-                        </ol>
-                    </div>
+                            )}
+                        </>
+                    ) : (
+                        <div className="cw-lb"><div className="cw-lb-row"><b>هنوز امتیازی ثبت نشده — اولین ستاره تو باش! 🌟</b></div></div>
+                    )}
+                </section>
+
+                <section className="cw-sec cw-wrap" id="how">
+                    <div className="cw-head sm-reveal"><h2>راه‌اندازی در سه قدم</h2><p>از ثبت‌نامِ مدرسه تا ورودِ دانش‌آموز به دنیای دلخواهش</p></div>
+                    <ol className="cw-steps cw-steps-row sm-reveal">
+                        <li><b>ثبت‌نامِ مدرسه</b><span>مدیر درخواست می‌دهد و پس از تأیید، حسابِ مدرسه ساخته می‌شود</span></li>
+                        <li><b>ساختِ معلم‌ها و کلاس‌ها</b><span>برای هر کلاس یک معلم و کدِ کلاس ایجاد می‌شود</span></li>
+                        <li><b>ورودِ دانش‌آموز</b><span>مدرسه، معلم و دنیای دلخواهش را انتخاب می‌کند و شروع می‌کند</span></li>
+                    </ol>
                 </section>
 
                 <section className="cw-sec cw-wrap" id="mobile-app">
@@ -477,7 +504,7 @@ function WelcomeClassic() {
                                 {weeklyTop.length ? weeklyTop.map((s) => (
                                     <div key={s.rank} className="sm-lb-row">
                                         <div className={`sm-rank ${s.rank === 1 ? 'g1' : s.rank === 2 ? 'g2' : s.rank === 3 ? 'g3' : ''}`}>{fa(s.rank)}</div>
-                                        <div className="sm-lb-name">{s.rank === 1 && '👑 '}{s.name}</div>
+                                        <div className="sm-lb-name">{s.rank === 1 && '👑 '}{s.name}{(s.school || s.class) && <div style={{ fontSize: 12, opacity: .7, fontWeight: 500 }}>{[s.school, s.class].filter(Boolean).join(' · ')}</div>}</div>
                                         <div className="sm-xp">⭐ {fa(s.xp)}</div>
                                     </div>
                                 )) : <div className="sm-lb-row" style={{ color: '#a9bade' }}>هنوز امتیازی ثبت نشده</div>}

@@ -22,6 +22,7 @@ class PublicPaymentController extends Controller
 
         if ($res['ok']) {
             $transaction->update(['status' => 'paid', 'ref_id' => $res['ref_id']]);
+            \App\Support\AdminAlert::send('payment', '💳 پرداختِ موفق: ' . number_format((int) ($transaction->amount ?? 0)) . ' تومان — کدِ پیگیری ' . $res['ref_id']);
             if ($transaction->school_request_id) {
                 SchoolRequest::whereKey($transaction->school_request_id)->update(['paid' => true]);
             }

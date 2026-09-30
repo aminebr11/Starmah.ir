@@ -5,7 +5,7 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
 const ALARM_C = [['#3d7bf0', '#2555c0'], ['#a24cf0', '#6f2fb0'], ['#2bb673', '#1a8a52'], ['#e8862e', '#c06712'], ['#e8505b', '#b0333f']];
 
 export default function Dashboard() {
-    const { auth, classrooms = [], totals = {}, announcements = [], alarms = [], smartLab = false, unreadNotices = 0, ui = 'classic' } = usePage().props;
+    const { auth, classrooms = [], totals = {}, announcements = [], alarms = [], smartLab = false, unreadNotices = 0, ui = 'classic', birthdaysToday = [] } = usePage().props;
     const clay = ui === 'clay';
     // «امروز چه بسازیم؟» — چهار کارِ اصلیِ معلم، فقط در طرحِ خمیرماه
     const makers = [
@@ -55,6 +55,17 @@ export default function Dashboard() {
                             ))}
                         </div>
                     </div>
+                </div>
+            )}
+
+            {birthdaysToday.length > 0 && (
+                <div className="bd-today-card">
+                    <span className="bd-cake" aria-hidden="true">🎂</span>
+                    <div>
+                        <b>امروز تولدِ {birthdaysToday.map((b) => b.name).join('، ')} است!</b>
+                        <div style={{ fontSize: 13, color: 'var(--muted)' }}>با یک لمس از قالب‌های آماده برایش تبریک بفرست.</div>
+                    </div>
+                    <Link href={route('teacher.birthdays')} className="btn btn-sm">🎁 تبریک بفرست</Link>
                 </div>
             )}
 

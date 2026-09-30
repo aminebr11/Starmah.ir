@@ -53,6 +53,9 @@ class RegistrationController extends Controller
         ]);
 
         $req = SchoolRequest::create($data);
+        \App\Support\AdminAlert::send('school_request', "🏫 درخواستِ ثبت‌نامِ مدرسه‌ی تازه:\n"
+            . ($data['school_name'] ?? '') . (! empty($data['city']) ? ' — ' . $data['city'] : '')
+            . "\nمدیر: " . ($data['manager_name'] ?? '') . ' ' . ($data['manager_phone'] ?? ''));
         $plan = $data['plan_key'] ? \App\Models\Plan::where('key', $data['plan_key'])->where('is_active', true)->first() : null;
 
         // اگر طرحِ رایگان/بدونِ قیمت است → مستقیم به تشکر (بررسیِ دستیِ ادمین)
