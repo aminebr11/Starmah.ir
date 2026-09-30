@@ -13,7 +13,7 @@ export default function SchoolManage() {
     useEffect(() => { if (flash?.flash) setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); }, [flash]);
 
     const STATUS = { pending: 'در انتظار', active: 'فعال', suspended: 'معلق' };
-    const sch = useForm({ name: school?.name || '', city: school?.city || '', level: school?.level || '', status: school?.status || 'active' });
+    const sch = useForm({ name: school?.name || '', city: school?.city || '', level: school?.level || '', status: school?.status || 'active', ui: school?.ui || '' });
     const [editSchool, setEditSchool] = useState(false);
 
     // حذفِ کاملِ مدرسه — برای جلوگیری از اشتباه، نامِ مدرسه باید تایپ شود
@@ -56,6 +56,14 @@ export default function SchoolManage() {
                             <select className="input" value={sch.data.status} onChange={(e) => sch.setData('status', e.target.value)}>
                                 {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                             </select>
+                        </div>
+                        <div className="field" style={{ margin: 0 }}><label>🎨 طرحِ ظاهریِ این مدرسه</label>
+                            <select className="input" value={sch.data.ui} onChange={(e) => sch.setData('ui', e.target.value)}>
+                                <option value="">پیش‌فرضِ سامانه (خمیرماه)</option>
+                                <option value="clay">خمیرماه — روشن و خمیری</option>
+                                <option value="classic">طرحِ قدیمی — سرمه‌ایِ شب</option>
+                            </select>
+                            {sch.errors.ui && <Err>{sch.errors.ui}</Err>}
                         </div>
                         <div style={{ display: 'flex', gap: 8 }}>
                             <button type="submit" disabled={sch.processing} className="btn btn-sm">💾 ذخیره</button>

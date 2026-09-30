@@ -7,6 +7,11 @@
    با یک کلید جابه‌جا می‌شود. برای مهاجرتِ کامل فقط پیش‌فرض عوض می‌شود.
    ═════════════════════════════════════════════════════════════════════ */
 
+/* کارتِ آماریِ قابلِ کلیک */
+.dcard-link{display:block;color:inherit;text-decoration:none;cursor:pointer;transition:transform .2s}
+.dcard-link:hover{transform:translateY(-3px)}
+.dcard-link:active{transform:translateY(2px)}
+
 /* پیامِ کوتاهِ سراسری */
 .sm-toasts{position:fixed;left:12px;right:12px;bottom:calc(92px + var(--safe-bottom,0px));z-index:200;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
 .sm-toast{pointer-events:auto;display:flex;align-items:center;gap:10px;max-width:520px;width:100%;padding:12px 14px;border-radius:16px;color:#fff;
@@ -255,8 +260,13 @@
 :root[data-ui="clay"] .hamburger{border:0;border-radius:14px;background:#f1f4fb;box-shadow:inset 0 -4px 0 #dfe6f5}
 :root[data-ui="clay"] .footer{background:#1b2742;border-radius:32px 32px 0 0}
 @media (max-width:900px){
-  :root[data-ui="clay"] .nav{padding:calc(8px + var(--safe-top)) 10px 0}
-  :root[data-ui="clay"] .nav .nav-inner{height:62px}
+  /* موبایل: نوارِ یکپارچه‌ی سفید و مات چسبیده به بالا — بدونِ حاشیه‌ی شفاف/شیشه‌ای
+     که محتوا از زیرش دیده شود؛ دکمه‌ها بزرگ‌تر و خواناتر */
+  :root[data-ui="clay"] .nav{padding:var(--safe-top) 0 0;background:#fff;pointer-events:auto;
+    border-radius:0 0 22px 22px;box-shadow:0 10px 24px -16px rgba(40,60,120,.45)}
+  :root[data-ui="clay"] .nav .nav-inner{height:64px;box-shadow:none;border-radius:0;background:transparent;padding:0 12px}
+  :root[data-ui="clay"] .nav .btn-sm{padding:10px 14px;font-size:14px}
+  :root[data-ui="clay"] .hamburger{padding:10px 14px;font-size:20px}
   :root[data-ui="clay"] .nav-menu{background:#fff;padding:10px;border-radius:22px;box-shadow:var(--clay-shadow)}
   :root[data-ui="clay"] .nav-menu a{padding:12px 14px}
 }
@@ -389,4 +399,90 @@
 @media (prefers-reduced-motion:reduce){
   .cw-blob,.cw-stage img,.cw-sticker,.cw-band img,.clay-hello>img,.cd-sheet{animation:none!important}
   :root[data-ui="clay"] *{transition:none!important}
+}
+
+/* ═════ صفحه‌ی اصلی: حرکتِ زنده (مدار، اسکرول، ماوس) ═════ */
+.cw{--sy:0;--mx:0;--my:0;position:relative}
+.cw>*:not(.cw-bg){position:relative;z-index:1}
+.cw-bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.cw-bg i{position:absolute;display:block;border-radius:44% 56% 52% 48%/50% 44% 56% 50%;opacity:.55;
+  box-shadow:inset -10px -12px 24px rgba(0,0,0,.12),inset 10px 10px 18px rgba(255,255,255,.55);
+  animation:cw-drift 14s ease-in-out infinite;will-change:transform}
+.cw-bg .s1{width:120px;height:120px;top:14%;left:4%;background:linear-gradient(145deg,#ffe2a0,#ffc24b);translate:0 calc(var(--sy) * -0.25px)}
+.cw-bg .s2{width:70px;height:70px;top:42%;right:3%;background:linear-gradient(145deg,#c6d7ff,#8fb4ff);animation-delay:-3s;translate:0 calc(var(--sy) * -0.4px)}
+.cw-bg .s3{width:90px;height:90px;top:70%;left:8%;background:linear-gradient(145deg,#ffc9dc,#ff7aa8);animation-delay:-6s;translate:0 calc(var(--sy) * -0.18px)}
+.cw-bg .s4{width:54px;height:54px;top:8%;right:22%;background:linear-gradient(145deg,#c8fbef,#34d3b4);animation-delay:-9s;translate:0 calc(var(--sy) * -0.32px)}
+.cw-bg .s5{width:140px;height:140px;bottom:-40px;right:16%;background:linear-gradient(145deg,#e2dcff,#a99bff);animation-delay:-2s;opacity:.4;translate:0 calc(var(--sy) * -0.12px)}
+.cw-bg .s6{width:38px;height:38px;top:55%;left:46%;background:linear-gradient(145deg,#ffe2a0,#ffab4a);animation-delay:-5s;translate:0 calc(var(--sy) * -0.5px)}
+@keyframes cw-drift{0%,100%{transform:translate(0,0) rotate(0)}33%{transform:translate(18px,-22px) rotate(12deg)}66%{transform:translate(-14px,12px) rotate(-8deg)}}
+
+/* مدارِ حباب‌ها دورِ لوگو */
+.cw-stage{translate:calc(var(--mx) * -14px) calc(var(--my) * -14px);transition:translate .4s ease-out}
+.cw-stage .cw-logo{z-index:2;rotate:calc(var(--mx) * 4deg);transition:rotate .5s ease-out}
+.cw-blob.b2{translate:calc(var(--mx) * 26px) calc(var(--sy) * -0.18px + var(--my) * 20px)}
+.cw-blob.b3{translate:calc(var(--mx) * -22px) calc(var(--sy) * 0.14px + var(--my) * -18px)}
+.cw-orbit{position:absolute;border-radius:50%;z-index:3;animation:cw-spin 28s linear infinite;pointer-events:none}
+.cw-orbit.o1{inset:-3%;border:2px dashed rgba(91,141,239,.35)}
+.cw-orbit.o2{inset:10%;animation-duration:38s;animation-direction:reverse}
+.cw-orbit span{position:absolute;width:0;height:0}
+.cw-orbit b{position:absolute;left:-26px;top:-26px;width:52px;height:52px;border-radius:18px;display:grid;place-items:center;font-size:25px;font-weight:400;
+  background:#fff;box-shadow:0 6px 0 #d6def0,0 14px 22px -10px rgba(40,60,120,.45);animation:cw-spin 28s linear infinite reverse}
+.cw-orbit.o2 b{width:42px;height:42px;left:-21px;top:-21px;font-size:20px;border-radius:15px;animation-duration:38s;animation-direction:normal;background:#fffaf0}
+.cw-orbit span:nth-child(2) b{animation-delay:0s}
+@keyframes cw-spin{to{transform:rotate(360deg)}}
+.cw-orbit b::after{content:"";position:absolute;inset:0;border-radius:inherit;animation:cw-pulse 3s ease-in-out infinite;animation-delay:calc(var(--k) * -.7s);box-shadow:0 0 0 0 rgba(255,194,75,.5)}
+@keyframes cw-pulse{50%{box-shadow:0 0 0 8px rgba(255,194,75,0)}}
+
+/* دکمه‌های اپ */
+.cw-apps{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+.cw-app{display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:16px;background:#1b2742;color:#fff;text-decoration:none;
+  box-shadow:0 5px 0 #0c1428,0 12px 20px -10px rgba(12,20,40,.6);transition:transform .15s}
+.cw-app:hover{transform:translateY(-2px)}.cw-app:active{transform:translateY(3px)}
+.cw-app span{font-size:24px}
+.cw-app small{display:block;font-size:10.5px;opacity:.75;line-height:1.3}
+.cw-app b{font-size:14px;line-height:1.4}
+.cw-appband{display:grid;grid-template-columns:auto 1fr auto;gap:20px;align-items:center;padding:24px 26px;border-radius:30px;background:#fff;box-shadow:var(--clay-shadow)}
+.cw-appband img{width:96px;height:96px;border-radius:26px;box-shadow:0 8px 0 #cfd9ef;animation:clay-bob 4s var(--clay-spring) infinite}
+.cw-appband h2{font:800 26px var(--clay-head);margin:0 0 4px}
+.cw-appband p{margin:0;color:var(--clay-muted)}
+.cw-appband-b{display:flex;flex-direction:column;gap:10px}
+
+/* چهار دنیا */
+.cw-worlds{grid-template-columns:repeat(min(var(--count,4),4),1fr)!important}
+.cw-world{background:linear-gradient(160deg,var(--w1,#5b8def),var(--w2,#3a67c8))!important;
+  box-shadow:0 8px 0 color-mix(in srgb,var(--w2,#3a67c8) 70%,#000),0 22px 34px -16px var(--w2,#3a67c8)!important;
+  padding:22px 20px 20px;min-height:280px;display:flex;flex-direction:column}
+.cw-world::before{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.28) 50%,transparent 65%);
+  transform:translateX(120%);transition:transform .8s ease;pointer-events:none}
+.cw-world:hover::before{transform:translateX(-120%)}
+.cw-world-char{font-size:64px;line-height:1;display:block;filter:drop-shadow(0 10px 12px rgba(0,0,0,.35));animation:clay-bob 3.6s var(--clay-spring) infinite;animation-delay:var(--d)}
+.cw-world-hero{position:absolute;top:14px;left:16px;font-size:30px;opacity:.9;animation:cw-spin 9s linear infinite;animation-delay:var(--d)}
+.cw-world h3{font-size:21px!important;margin:14px 0 6px!important}
+.cw-world p{font-size:14px;line-height:2;flex:1}
+.cw-world .cw-tags span{background:rgba(255,255,255,.22);color:#fff}
+
+/* امکانات: آیکون‌ها آرام شناورند و با اشاره تکان می‌خورند */
+.cw-feat i{animation:cw-float 4s ease-in-out infinite}
+.cw-feat:nth-child(2) i{animation-delay:-.7s}.cw-feat:nth-child(3) i{animation-delay:-1.4s}.cw-feat:nth-child(4) i{animation-delay:-2.1s}.cw-feat:nth-child(5) i{animation-delay:-2.8s}.cw-feat:nth-child(6) i{animation-delay:-3.5s}
+.cw-feat:hover i{animation:cw-wiggle .5s ease}
+@keyframes cw-float{50%{transform:translateY(-6px)}}
+@keyframes cw-wiggle{25%{transform:rotate(-12deg) scale(1.08)}75%{transform:rotate(10deg) scale(1.08)}}
+.cw-subjects span{animation:cw-float 5s ease-in-out infinite}
+.cw-subjects span:nth-child(odd){animation-delay:-2.5s}
+
+@media (max-width:1100px){.cw-worlds{grid-template-columns:repeat(2,1fr)!important}}
+@media (max-width:900px){
+  .cw-appband{grid-template-columns:1fr;text-align:center;justify-items:center}
+  .cw-appband-b{width:100%}
+  .cw-apps{justify-content:center}
+  .cw-orbit b{width:42px;height:42px;left:-21px;top:-21px;font-size:20px;border-radius:14px}
+  .cw-orbit.o2 b{width:34px;height:34px;left:-17px;top:-17px;font-size:16px}
+  .cw-bg i{opacity:.22}
+  .cw-sticker{display:none}
+  .cw-stage{margin-top:10px}
+}
+@media (max-width:560px){.cw-worlds{grid-template-columns:1fr!important}.cw-world{min-height:0}}
+@media (prefers-reduced-motion:reduce){
+  .cw-bg i,.cw-orbit,.cw-orbit b,.cw-orbit b::after,.cw-world-char,.cw-world-hero,.cw-feat i,.cw-subjects span,.cw-appband img{animation:none!important}
+  .cw-stage,.cw-stage .cw-logo,.cw-blob,.cw-bg i{translate:none!important;rotate:none!important}
 }

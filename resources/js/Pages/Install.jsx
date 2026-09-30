@@ -81,7 +81,9 @@ export default function Install() {
 
                     <section className={`install-card ${!ios ? 'on' : ''}`}>
                         <h2>🤖 اندروید</h2>
-                        <p className="sub">در <b>Chrome</b> یا هر مرورگرِ مبتنی بر آن</p>
+                        <a href="/downloads/starmah.apk" className="btn" download style={{ width: '100%', justifyContent: 'center', margin: '4px 0 12px' }}>⬇️ دانلودِ مستقیمِ اپ (فایلِ APK)</a>
+                        <p className="sub" style={{ marginTop: 0 }}>بعد از دانلود، فایل را باز کنید. اگر گوشی پرسید، «اجازه‌ی نصب از این منبع» را روشن کنید.</p>
+                        <p className="sub">یا بدونِ دانلود، در <b>Chrome</b> یا هر مرورگرِ مبتنی بر آن:</p>
                         <ol>
                             <li>سایت <b>starmah.ir</b> را باز کن</li>
                             <li>اگر نوارِ <b>«افزودن به صفحه اصلی»</b> پایینِ صفحه آمد، همان را بزن</li>

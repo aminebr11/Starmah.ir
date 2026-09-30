@@ -118,9 +118,57 @@ const CLAY_FEATURES = [
     { ic: 'heart', c: 'orange', t: 'ارتباط با والدین', d: 'گفت‌وگوی دوسویه‌ی خانه و مدرسه', href: '/messages' },
 ];
 
+/* متنِ جذابِ هر دنیا (بر اساسِ کلیدِ تم در پایگاه‌داده) */
+const WORLD_COPY = {
+    'fire-strikers': { d: 'مثلِ شیرِ میدان بازی کن! هر پاسخِ درست یک شوتِ آتشین به دروازه است و تیمت را به صدرِ جدول می‌برد.', tags: ['⚽ گلِ طلایی', '🔥 شوتِ آتشین', '🏆 جامِ قهرمانی'] },
+    'blue-thunders': { d: 'سریع مثلِ صاعقه! کنارِ اژدهای آبی مأموریت‌ها را پشتِ سر بگذار و با هر تمرین نیروی رعد و برقِ تیمت را بیشتر کن.', tags: ['⚡ صاعقه', '🐉 اژدهای آبی', '🥇 لیگِ ستاره‌ها'] },
+    'creeper-warriors': { d: 'در دنیای بلوکی بساز، کشف کن و قهرمان شو! هر درس یک بلوکِ تازه است و با هر سؤال قلعه‌ی دانشِ تیمت بلندتر می‌شود.', tags: ['⛏️ ماجراجویی', '🧱 ساختن', '💎 گنجِ دانش'] },
+    'super-speed': { d: 'پشتِ فرمان بنشین و گاز بده! هر جوابِ درست نیتروی بیشتری می‌دهد تا در پیستِ یادگیری از همه جلو بزنی.', tags: ['🏁 گرنپری', '⚡ نیترو', '🏆 سکوی قهرمانی'] },
+};
+const WORLD_FALLBACK = { d: 'دنیایی پر از مأموریت، بازی و جایزه که با علاقه‌ی خودت ساخته می‌شود.', tags: ['🎯 مأموریت', '🎮 بازی', '⭐ جایزه'] };
+
+// حباب‌هایی که دورِ لوگو در مدار می‌چرخند
+const ORBIT = ['🧮', '📖', '🔬', '🎨', '🌍', '🏆', '✍️', '🚀'];
+const orbitPos = (i, n, offset) => {
+    const a = ((i / n) * 360 + offset - 90) * (Math.PI / 180);
+    return { left: `${(50 + 50 * Math.cos(a)).toFixed(2)}%`, top: `${(50 + 50 * Math.sin(a)).toFixed(2)}%`, '--k': i };
+};
+
+/**
+ * حرکتِ زنده‌ی صفحه: اسکرول و ماوس به‌صورتِ متغیرهای CSS (--sy, --mx, --my)
+ * روی ریشه‌ی صفحه نوشته می‌شوند و شکل‌ها با transform جابه‌جا می‌شوند؛
+ * فقط یک requestAnimationFrame در هر فریم، بدونِ رندرِ دوباره‌ی React.
+ */
+function useLiveMotion(ref) {
+    useEffect(() => {
+        const el = ref.current;
+        if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+        let raf = 0; let mx = 0; let my = 0;
+        const paint = () => {
+            raf = 0;
+            el.style.setProperty('--sy', String(Math.min(window.scrollY, 2400)));
+            el.style.setProperty('--mx', mx.toFixed(3));
+            el.style.setProperty('--my', my.toFixed(3));
+        };
+        const queue = () => { if (!raf) raf = requestAnimationFrame(paint); };
+        const onMove = (e) => {
+            if (e.pointerType !== 'mouse') return;
+            mx = e.clientX / window.innerWidth - 0.5;
+            my = e.clientY / window.innerHeight - 0.5;
+            queue();
+        };
+        window.addEventListener('scroll', queue, { passive: true });
+        window.addEventListener('pointermove', onMove, { passive: true });
+        paint();
+        return () => { window.removeEventListener('scroll', queue); window.removeEventListener('pointermove', onMove); cancelAnimationFrame(raf); };
+    }, [ref]);
+}
+
 /** صفحه‌ی اصلی در طرحِ «خمیرماه». همان محتوا و همان داده‌ی واقعی. */
 function WelcomeClay() {
-    const { auth, weeklyTop = [], stats = {} } = usePage().props;
+    const { auth, weeklyTop = [], stats = {}, worlds = [] } = usePage().props;
+    const liveRef = useRef(null);
+    useLiveMotion(liveRef);
     const user = auth?.user;
     // صفحه‌های امکانات مالِ دانش‌آموزند؛ بقیه به داشبوردِ خودشان و مهمان به ثبت‌نام می‌رود
     const isStudent = (auth?.roles ?? []).includes('student');
@@ -129,7 +177,11 @@ function WelcomeClay() {
 
     return (
         <WebLayout active="home">
-            <div className="cw">
+            <div className="cw" ref={liveRef}>
+                {/* شکل‌های خمیریِ شناورِ پس‌زمینه — با اسکرول آرام جابه‌جا می‌شوند */}
+                <div className="cw-bg" aria-hidden="true">
+                    <i className="s1" /><i className="s2" /><i className="s3" /><i className="s4" /><i className="s5" /><i className="s6" />
+                </div>
                 <header className="cw-hero cw-wrap">
                     <div className="cw-hero-txt">
                         <span className="cw-tag"><Icon name="spark" size={17} /> پلتفرمِ آموزشِ هوشمندِ مدارس · با هوش مصنوعی</span>
@@ -149,10 +201,16 @@ function WelcomeClay() {
                             )}
                         </div>
                         {!user && <Link href={route('login')} prefetch="mount" cacheFor="5m" className="cw-login">قبلاً ثبت‌نام کرده‌ای؟ ورود ←</Link>}
+                        <div className="cw-apps">
+                            <a href="/downloads/starmah.apk" className="cw-app" download><span>🤖</span><div><small>دانلودِ مستقیم</small><b>اپِ اندروید</b></div></a>
+                            <Link href="/install" className="cw-app"><span>🍎</span><div><small>بدونِ نصبِ فایل</small><b>نصب روی آیفون</b></div></Link>
+                        </div>
                     </div>
                     <div className="cw-stage" aria-hidden="true">
                         <span className="cw-blob b1" /><span className="cw-blob b2" /><span className="cw-blob b3" />
-                        <img src="/brand/logo-main-640.webp" srcSet="/brand/logo-main-320.webp 320w, /brand/logo-main-640.webp 640w"
+                        <div className="cw-orbit o1">{ORBIT.slice(0, 4).map((e, i) => <span key={e} style={orbitPos(i, 4, 0)}><b>{e}</b></span>)}</div>
+                        <div className="cw-orbit o2">{ORBIT.slice(4).map((e, i) => <span key={e} style={orbitPos(i, 4, 45)}><b>{e}</b></span>)}</div>
+                        <img className="cw-logo" src="/brand/logo-main-640.webp" srcSet="/brand/logo-main-320.webp 320w, /brand/logo-main-640.webp 640w"
                             sizes="(max-width: 900px) 70vw, 440px" width="880" height="880" fetchPriority="high" decoding="async" alt="" />
                         <span className="cw-sticker s1"><i className="mint"><Icon name="trophy" size={17} /></i> سطحِ بعدی نزدیک است!</span>
                         <span className="cw-sticker s2"><i className="pink"><Icon name="star" size={17} /></i> +۲۰ ستاره</span>
@@ -165,9 +223,19 @@ function WelcomeClay() {
 
                 <section className="cw-sec cw-wrap" id="worlds">
                     <div className="cw-head sm-reveal"><h2>دنیای خودت را انتخاب کن</h2><p>درس‌ها، جایزه‌ها و حتی ظاهرِ برنامه بر اساسِ علاقه‌ی دانش‌آموز شکل می‌گیرد</p></div>
-                    <div className="cw-worlds sm-reveal">
-                        <div className="cw-world mint"><Icon name="ball" size={40} /><h3>دنیای فوتبال</h3><p>درس‌ها در قالبِ لیگ، گل و قهرمانی</p><div className="cw-tags"><span>گل</span><span>لیگِ برتر</span><span>قهرمانی</span></div></div>
-                        <div className="cw-world pink"><Icon name="car" size={40} /><h3>دنیای ماشین و مسابقه</h3><p>یادگیری در قالبِ گرنپری و نیترو</p><div className="cw-tags"><span>نیترو</span><span>گرنپری</span><span>سکوی قهرمانی</span></div></div>
+                    <div className="cw-worlds sm-reveal" style={{ '--count': Math.max(1, worlds.length) }}>
+                        {worlds.map((w, i) => {
+                            const c = WORLD_COPY[w.key] || WORLD_FALLBACK;
+                            return (
+                                <div key={w.key} className="cw-world" style={{ '--w1': w.p1, '--w2': w.p2, '--wa': w.acc, '--d': `${i * -1.3}s` }}>
+                                    <span className="cw-world-hero" aria-hidden="true">{w.hero}</span>
+                                    <span className="cw-world-char" aria-hidden="true">{w.character}</span>
+                                    <h3>{w.emoji} {w.name}</h3>
+                                    <p>{c.d}</p>
+                                    <div className="cw-tags">{c.tags.map((t) => <span key={t}>{t}</span>)}</div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </section>
 
@@ -212,6 +280,20 @@ function WelcomeClay() {
                             <li><b>ساختِ معلم‌ها و کلاس‌ها</b><span>برای هر کلاس یک معلم و کدِ کلاس ایجاد می‌شود</span></li>
                             <li><b>ورودِ دانش‌آموز</b><span>مدرسه، معلم و دنیای دلخواهش را انتخاب می‌کند و شروع می‌کند</span></li>
                         </ol>
+                    </div>
+                </section>
+
+                <section className="cw-sec cw-wrap" id="mobile-app">
+                    <div className="cw-appband sm-reveal">
+                        <img src="/brand/icon-192.png" alt="" width="96" height="96" />
+                        <div className="cw-appband-t">
+                            <h2>ستاره ماه روی گوشیِ شما</h2>
+                            <p>اپِ اندروید را مستقیم دانلود کنید، یا روی آیفون با «افزودن به صفحه‌ی اصلی» مثلِ یک اپ نصبش کنید. همه‌ی امکاناتِ سایت، با یک لمس.</p>
+                        </div>
+                        <div className="cw-appband-b">
+                            <a href="/downloads/starmah.apk" className="btn btn-lg" download>🤖 دانلودِ اپِ اندروید</a>
+                            <Link href="/install" className="btn btn-lg btn-ghost">🍎 راهنمای نصب روی آیفون</Link>
+                        </div>
                     </div>
                 </section>
 

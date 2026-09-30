@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, Fragment } from 'react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import PersonCell from '@/Components/PersonCell';
 import ListSearch from '@/Components/ListSearch';
+import StudentRecord from '@/Components/StudentRecord';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -34,14 +35,12 @@ export default function Classroom() {
         if (themeId) router.post(route('teacher.students.team', s.id), { theme_id: themeId }, { preserveScroll: true });
     };
 
-    const edit = useForm({ name: '', phone: '', national_id: '', password: '' });
-    const [editId, setEditId] = useState(null);
-    const startEdit = (s) => {
-        setEditId(s.id);
-        edit.setData({ name: s.name || '', phone: s.phone || '', national_id: s.national_id || '', password: '' });
-        edit.clearErrors();
-    };
-    const saveEdit = (e) => { e.preventDefault(); edit.put(route('manage.users.update', editId), { preserveScroll: true, onSuccess: () => setEditId(null) }); };
+    // پرونده‌ی کاملِ دانش‌آموز — همان که مدیرِ مدرسه می‌بیند: مشاهده و ویرایشِ
+    // همه‌ی مشخصات (عکس، سرپرست، تاریخِ تولد، نشانی، رمز و…)
+    const [rec, setRec] = useState(null);   // { id, mode }
+    const openRec = (s, mode = 'view') => setRec({ id: s.id, mode });
+    const startEdit = (s) => openRec(s, 'edit');
+    const recStudent = rec ? students.find((x) => x.id === rec.id) : null;
     const del = (s) => { if (confirm(`دانش‌آموز «${s.name}» حذف شود؟`)) router.delete(route('manage.users.destroy', s.id), { preserveScroll: true }); };
 
     /* ── شمارشِ هر گروه، برای چیپ‌های فیلتر ── */
@@ -188,7 +187,7 @@ export default function Classroom() {
                             <div className="cls-cards">
                                 {g.list.map((s, i) => (
                                     <StudentCard key={s.id} s={s} rank={i + 1} themes={themes}
-                                        onTeam={changeTeam} onEdit={startEdit} onDel={del} />
+                                        onTeam={changeTeam} onOpen={openRec} onEdit={startEdit} onDel={del} />
                                 ))}
                             </div>
                         </section>
@@ -208,7 +207,12 @@ export default function Classroom() {
                                     <Fragment key={s.id}>
                                         <tr>
                                             <td style={{ width: 30 }}>{fa(i + 1)}</td>
-                                            <td><PersonCell name={s.name} avatar={s.avatar} sub={s.national_id || undefined} size={32} /></td>
+                                            <td>
+                                                <button type="button" onClick={() => openRec(s)} title="پرونده‌ی کامل"
+                                                    style={{ border: 0, background: 'none', padding: 0, cursor: 'pointer', font: 'inherit', textAlign: 'start', color: 'inherit' }}>
+                                                    <PersonCell name={s.name} avatar={s.avatar} sub={s.national_id || undefined} size={32} />
+                                                </button>
+                                            </td>
                                             <td dir="ltr">{s.phone || '—'}</td>
                                             <td>
                                                 <select className="input" style={{ width: 'auto', padding: '6px 9px', fontSize: 12.5 }}
@@ -220,11 +224,11 @@ export default function Classroom() {
                                             <td style={{ color: 'var(--gold-2)', fontWeight: 800 }}>{fa(s.xp)}</td>
                                             <td>{fa(s.avg)}٪</td>
                                             <td style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>
-                                                <button onClick={() => startEdit(s)} className="btn btn-ghost btn-sm">✏️</button>
-                                                <button onClick={() => del(s)} className="btn btn-ghost btn-sm" style={{ color: '#e8505b', marginInlineStart: 4 }}>🗑️</button>
+                                                <button onClick={() => openRec(s)} className="btn btn-ghost btn-sm" title="پرونده‌ی کامل">📋</button>
+                                                <button onClick={() => startEdit(s)} className="btn btn-ghost btn-sm" title="ویرایش" style={{ marginInlineStart: 4 }}>✏️</button>
+                                                <button onClick={() => del(s)} className="btn btn-ghost btn-sm" title="حذف" style={{ color: '#e8505b', marginInlineStart: 4 }}>🗑️</button>
                                             </td>
                                         </tr>
-                                        {editId === s.id && <EditRow cols={7} form={edit} onSave={saveEdit} onCancel={() => setEditId(null)} />}
                                     </Fragment>
                                 ))}
                             </tbody>
@@ -232,12 +236,9 @@ export default function Classroom() {
                     </div>
                 )}
 
-                {/* فرمِ ویرایش در نمای گروهی */}
-                {view === 'groups' && editId && (
-                    <div className="panel" style={{ marginTop: 16, background: 'var(--cream)' }}>
-                        <h4 style={{ marginTop: 0 }}>✏️ ویرایشِ دانش‌آموز</h4>
-                        <EditForm form={edit} onSave={saveEdit} onCancel={() => setEditId(null)} />
-                    </div>
+                {recStudent && (
+                    <StudentRecord key={`${rec.id}-${rec.mode}`} s={recStudent} themes={themes} grades={grades}
+                        initialMode={rec.mode} onClose={() => setRec(null)} />
                 )}
             </div>
         </DashLayout>
@@ -245,12 +246,15 @@ export default function Classroom() {
 }
 
 /* ─────────────────────────── کارتِ دانش‌آموز ─────────────────────────── */
-function StudentCard({ s, rank, themes, onTeam, onEdit, onDel }) {
+function StudentCard({ s, rank, themes, onTeam, onOpen, onEdit, onDel }) {
     const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
     return (
         <article className="cls-card">
             <div className="cls-card-top">
-                <PersonCell name={s.name} avatar={s.avatar} sub={s.phone || undefined} size={44} />
+                <button type="button" onClick={() => onOpen(s)} title="پرونده‌ی کامل"
+                    style={{ border: 0, background: 'none', padding: 0, cursor: 'pointer', font: 'inherit', textAlign: 'start', color: 'inherit', minWidth: 0 }}>
+                    <PersonCell name={s.name} avatar={s.avatar} sub={s.phone || undefined} size={44} />
+                </button>
                 {medal && <span className="cls-medal" title={`رتبه ${rank} در گروه`}>{medal}</span>}
             </div>
 
@@ -269,41 +273,11 @@ function StudentCard({ s, rank, themes, onTeam, onEdit, onDel }) {
                     <option value="" disabled>— بدون گروه —</option>
                     {themes.map((t) => <option key={t.id} value={t.id}>{t.emoji} {t.name}</option>)}
                 </select>
+                <button onClick={() => onOpen(s)} className="btn btn-ghost btn-sm" title="پرونده‌ی کامل">📋</button>
                 <button onClick={() => onEdit(s)} className="btn btn-ghost btn-sm" title="ویرایش">✏️</button>
                 <button onClick={() => onDel(s)} className="btn btn-ghost btn-sm" style={{ color: '#e8505b' }} title="حذف">🗑️</button>
             </div>
         </article>
-    );
-}
-
-/* ─────────────────────────── فرمِ ویرایش ─────────────────────────── */
-const FIELDS = { name: 'نام', phone: 'موبایل', national_id: 'کد ملی', password: 'رمز جدید' };
-
-function EditForm({ form, onSave, onCancel }) {
-    return (
-        <form onSubmit={onSave} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, alignItems: 'end' }}>
-            {Object.entries(FIELDS).map(([f, label]) => (
-                <div className="field" key={f} style={{ margin: 0 }}>
-                    <label>{label}</label>
-                    <input className="input" value={form.data[f]} onChange={(e) => form.setData(f, e.target.value)}
-                        dir={['phone', 'national_id'].includes(f) ? 'ltr' : 'rtl'}
-                        placeholder={f === 'password' ? 'بدون تغییر' : ''} />
-                    {form.errors[f] && <div style={{ color: '#e8505b', fontSize: 12, marginTop: 4 }}>{form.errors[f]}</div>}
-                </div>
-            ))}
-            <div style={{ display: 'flex', gap: 8 }}>
-                <button type="submit" disabled={form.processing} className="btn btn-sm">💾 ذخیره</button>
-                <button type="button" onClick={onCancel} className="btn btn-ghost btn-sm">انصراف</button>
-            </div>
-        </form>
-    );
-}
-
-function EditRow({ cols, form, onSave, onCancel }) {
-    return (
-        <tr><td colSpan={cols} style={{ background: 'var(--cream)' }}>
-            <div style={{ padding: 8 }}><EditForm form={form} onSave={onSave} onCancel={onCancel} /></div>
-        </td></tr>
     );
 }
 

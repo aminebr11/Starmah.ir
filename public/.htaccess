@@ -1,3 +1,6 @@
+# اپِ اندروید با نوعِ درست دانلود شود (بعضی هاست‌ها apk را نمی‌شناسند)
+AddType application/vnd.android.package-archive .apk
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes

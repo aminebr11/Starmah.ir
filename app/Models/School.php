@@ -15,6 +15,8 @@ class School extends Model
         'sms_enabled', 'sms_quota', 'sms_sender', 'sms_events',
         // دستیارِ هوشمند: برای چه کسی باز باشد و آیا هوش مصنوعی مجاز است
         'assistant_students', 'assistant_teachers', 'assistant_ai',
+        // طرحِ ظاهریِ مدرسه — فقط ادمینِ کل (clay | classic | خالی = پیش‌فرض)
+        'ui',
     ];
 
     protected $casts = [

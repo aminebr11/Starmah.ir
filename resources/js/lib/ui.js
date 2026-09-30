@@ -25,6 +25,20 @@ export function setUi(v) {
     window.location.replace(url.toString());
 }
 
+/**
+ * طرح به کاربر بستگی دارد (مدرسه‌اش)، ولی بعد از ورود یا خروج اینرشیا صفحه را
+ * کامل بارگذاری نمی‌کند؛ پس data-ui را با هر ناوبری از props به‌روز می‌کنیم.
+ */
+export function syncUi(ui) {
+    if (!UI_SKINS.includes(ui)) return;
+    const root = document.documentElement;
+    if (root.dataset.ui !== ui) {
+        root.dataset.ui = ui;
+        const meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', ui === 'clay' ? '#eaf0ff' : '#0b1224');
+    }
+}
+
 /** ?ui=clay در نشانی → همان انتخاب برای صفحه‌های بعدی هم بماند. */
 export function initUi() {
     try {

@@ -19,7 +19,8 @@
         {{-- نصب روی آیفون: iOS از manifest برای حالتِ اپ استفاده نمی‌کند
              و به این متاتگ‌ها نیاز دارد («افزودن به صفحه‌ی اصلی» در سافاری). --}}
         <meta name="apple-mobile-web-app-capable" content="yes">
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        {{-- «خمیرماه»: نوارِ وضعیتِ معمولی (نه شیشه‌ایِ روی صفحه) تا دکمه‌های بالا زیرش نروند --}}
+        <meta name="apple-mobile-web-app-status-bar-style" content="{{ $ui === 'clay' ? 'default' : 'black-translucent' }}">
         <meta name="apple-mobile-web-app-title" content="ستاره ماه">
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="application-name" content="ستاره ماه">

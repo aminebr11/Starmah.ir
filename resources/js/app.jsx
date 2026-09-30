@@ -5,10 +5,12 @@ import '../css/smart-exams.css';
 import '../css/theme-clay.css';
 import './bootstrap';
 import { initPwa } from './lib/pwa';
-import { initUi } from './lib/ui';
+import { initUi, syncUi } from './lib/ui';
+import { router } from '@inertiajs/react';
 import { initToasts } from './lib/toast';
 
 initUi();
+router.on('navigate', (e) => syncUi(e.detail?.page?.props?.ui));
 
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';

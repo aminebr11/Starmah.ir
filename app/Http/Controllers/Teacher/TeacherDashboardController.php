@@ -142,7 +142,7 @@ class TeacherDashboardController extends Controller
     {
         abort_unless($classroom->teacher_id === $request->user()->id, 403);
 
-        $students = $classroom->students()->with('theme:id,name,emoji')->get()->map(fn ($s) => [
+        $students = $classroom->students()->with('theme:id,name,emoji')->get()->map(fn ($s) => \App\Support\StudentRecordData::row($s) + [
             'id'   => $s->id,
             'name' => $s->name,
             'phone' => $s->phone,

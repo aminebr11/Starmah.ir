@@ -1,9 +1,11 @@
 import { usePage } from '@inertiajs/react';
 import { setUi } from '@/lib/ui';
 
-/** کلیدِ جابه‌جاییِ طرح: «خمیرماه» ⇄ طرحِ قبلی. */
+/** کلیدِ پیش‌نمایشِ طرح برای ادمینِ کل: «خمیرماه» ⇄ طرحِ قبلی. */
 export default function UiSwitch({ compact = false, className = '' }) {
-    const { ui = 'classic' } = usePage().props;
+    const { ui = 'clay', auth } = usePage().props;
+    // طرح را ادمینِ کل برای هر مدرسه تعیین می‌کند؛ کلید فقط برای پیش‌نمایشِ خودِ او
+    if (!(auth?.roles ?? []).includes('super_admin')) return null;
     const clay = ui === 'clay';
     return (
         <button type="button" className={`ui-switch ${clay ? 'on' : ''} ${className}`}

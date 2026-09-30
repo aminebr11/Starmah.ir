@@ -18,10 +18,10 @@ export default function Dashboard() {
     const dismiss = (id) => router.post(route('teacher.dismiss-alarm'), { id }, { preserveScroll: true });
 
     const cards = [
-        { ic: '🏛️', lbl: 'کلاس‌ها', val: totals.classrooms, c: '#fff3d6' },
-        { ic: '🎓', lbl: 'دانش‌آموزان', val: totals.students, c: '#dcebff' },
-        { ic: '📝', lbl: 'تکالیف', val: totals.assignments, c: '#e9e4ff' },
-        { ic: '⭐', lbl: 'ستاره‌های داده‌شده', val: totals.stars, c: '#d4f5ef' },
+        { ic: '🏛️', lbl: 'کلاس‌ها', val: totals.classrooms, c: '#fff3d6', href: '/teacher/students' },
+        { ic: '🎓', lbl: 'دانش‌آموزان', val: totals.students, c: '#dcebff', href: '/teacher/students' },
+        { ic: '📝', lbl: 'تکالیف', val: totals.assignments, c: '#e9e4ff', href: route('teacher.materials') },
+        { ic: '⭐', lbl: 'ستاره‌های داده‌شده', val: totals.stars, c: '#d4f5ef', href: route('teacher.discipline') },
     ];
 
     // ابزارهای معلم — مطابق امکانات وبسایت قبلی + امکانات فعلی
@@ -94,9 +94,10 @@ export default function Dashboard() {
 
             {/* آمار */}
             <div className="dash-cards" style={{ marginTop: 20 }}>
+                {/* هر کارت به صفحه‌ی خودش می‌رود — پیش از این «دانش‌آموزان» فقط عدد بود و لمسش کاری نمی‌کرد */}
                 {cards.map((c) => (
-                    <div key={c.lbl} className="dcard"><div className="ic" style={{ background: c.c }}>{c.ic}</div>
-                        <div className="lbl">{c.lbl}</div><div className="val">{fa(c.val ?? 0)}</div></div>
+                    <Link key={c.lbl} href={c.href} className="dcard dcard-link"><div className="ic" style={{ background: c.c }}>{c.ic}</div>
+                        <div className="lbl">{c.lbl}</div><div className="val">{fa(c.val ?? 0)}</div></Link>
                 ))}
             </div>
 

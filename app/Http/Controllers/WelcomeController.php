@@ -31,6 +31,16 @@ class WelcomeController extends Controller
             'weeklyTop' => $weekly->values()->map(fn ($r, $i) => [
                 'rank' => $i + 1, 'name' => $r->name, 'xp' => (int) $r->xp,
             ]),
+            // دنیاها (تیم‌ها)ی واقعیِ سایت برای بخشِ «دنیای خودت را انتخاب کن»
+            'worlds' => \App\Models\Theme::where('is_active', true)->where('key', '!=', 'brand')
+                ->orderBy('sort')->get(['id', 'key', 'name', 'emoji', 'skin'])
+                ->map(fn ($t) => [
+                    'key' => $t->key, 'name' => $t->name, 'emoji' => $t->emoji,
+                    'p1' => $t->skin['p1'] ?? '#5b8def', 'p2' => $t->skin['p2'] ?? '#3a67c8',
+                    'acc' => $t->skin['acc'] ?? '#ffd87a',
+                    'character' => $t->skin['character'] ?? ($t->skin['mascot'] ?? $t->emoji),
+                    'hero' => $t->skin['hero'] ?? '⭐',
+                ])->values(),
             'stats' => [
                 'students'   => User::role(Roles::STUDENT)->count(),
                 'classrooms' => Classroom::count(),

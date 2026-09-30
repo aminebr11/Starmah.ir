@@ -61,7 +61,7 @@ class SchoolManageController extends Controller
             ])->values();
 
         return Inertia::render('Admin/SchoolManage', [
-            'school'   => $school->only('id', 'name', 'city', 'level', 'status')
+            'school'   => $school->only('id', 'name', 'city', 'level', 'status', 'ui')
                 + ['logo_url' => $school->logo_url],
             // شمارشِ داده‌هایی که با حذفِ مدرسه از بین می‌روند
             'purgePreview' => app(SchoolPurger::class)->preview($school),
@@ -82,7 +82,12 @@ class SchoolManageController extends Controller
             'city'   => ['nullable', 'string', 'max:80'],
             'level'  => ['required', Rule::in(Levels::levels())],
             'status' => ['required', 'in:pending,active,suspended'],
-        ], [], ['level' => 'مقطع مدرسه']);
+            'ui'     => ['nullable', Rule::in(\App\Support\Ui::SKINS)],
+        ], [], ['level' => 'مقطع مدرسه', 'ui' => 'طرحِ ظاهری']);
+        $data['ui'] = $data['ui'] ?? null;
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('schools', 'ui')) {
+            unset($data['ui']);   // مهاجرت هنوز روی سرور اجرا نشده
+        }
 
         $levelChanged = $school->level !== $data['level'];
         $school->update($data);
