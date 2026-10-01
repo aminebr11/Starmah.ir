@@ -1,4 +1,5 @@
 import { usePage, Link, useForm, router } from '@inertiajs/react';
+import { MasteryTag } from '@/Components/MasteryPanel';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
@@ -68,7 +69,7 @@ export default function Classroom() {
         });
         out = [...out].sort((a, b) => (
             sort === 'name' ? String(a.name).localeCompare(String(b.name), 'fa')
-                : sort === 'avg' ? (b.avg - a.avg)
+                : sort === 'avg' ? ((b.avg ?? -1) - (a.avg ?? -1))
                     : (b.xp - a.xp)
         ));
         return out;
@@ -87,8 +88,9 @@ export default function Classroom() {
     }, [filtered, themes]);
 
     const totalXp = useMemo(() => students.reduce((a, s) => a + (s.xp || 0), 0), [students]);
-    const avgMastery = students.length
-        ? Math.round(students.reduce((a, s) => a + (s.avg || 0), 0) / students.length) : 0;
+    // میانگینِ تسلط فقط از دانش‌آموزانی که داده‌ی کافی دارند
+    const rated = students.filter((s) => s.avg != null);
+    const avgMastery = rated.length ? Math.round(rated.reduce((a, s) => a + s.avg, 0) / rated.length) : null;
 
     if (!classroom) {
         return (
@@ -120,7 +122,7 @@ export default function Classroom() {
                 <div className="cls-sum-item"><b>{fa(students.length)}</b><span>دانش‌آموز</span></div>
                 <div className="cls-sum-item"><b>{fa(grouped.length || 0)}</b><span>گروهِ فعال</span></div>
                 <div className="cls-sum-item"><b>{fa(totalXp)}</b><span>مجموعِ امتیاز</span></div>
-                <div className="cls-sum-item"><b>{fa(avgMastery)}٪</b><span>میانگینِ تسلط</span></div>
+                <div className="cls-sum-item"><b>{avgMastery == null ? "—" : `${fa(avgMastery)}٪`}</b><span>میانگینِ تسلط</span></div>
                 <div className="cls-sum-code">
                     <span>کدِ ورودِ کلاس</span>
                     <b dir="ltr">{classroom.join_code}</b>
@@ -222,7 +224,7 @@ export default function Classroom() {
                                                 </select>
                                             </td>
                                             <td style={{ color: 'var(--gold-2)', fontWeight: 800 }}>{fa(s.xp)}</td>
-                                            <td>{fa(s.avg)}٪</td>
+                                            <td><MasteryTag value={s.avg} title={s.mastery_level || undefined} /></td>
                                             <td style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>
                                                 <button onClick={() => openRec(s)} className="btn btn-ghost btn-sm" title="پرونده‌ی کامل">📋</button>
                                                 <button onClick={() => startEdit(s)} className="btn btn-ghost btn-sm" title="ویرایش" style={{ marginInlineStart: 4 }}>✏️</button>
@@ -260,11 +262,11 @@ function StudentCard({ s, rank, themes, onTeam, onOpen, onEdit, onDel }) {
 
             <div className="cls-card-stats">
                 <div><b style={{ color: 'var(--gold-2)' }}>⭐ {fa(s.xp)}</b><span>امتیاز</span></div>
-                <div><b>{fa(s.avg)}٪</b><span>تسلط</span></div>
+                <div><b>{s.avg == null ? '—' : `${fa(s.avg)}٪`}</b><span>{s.mastery_level || 'تسلط'}</span></div>
             </div>
 
-            <div className="cls-card-bar" title={`تسلط ${fa(s.avg)} درصد`}>
-                <span style={{ width: `${Math.max(0, Math.min(100, s.avg))}%` }} />
+            <div className="cls-card-bar" title={s.avg == null ? 'تسلط: هنوز داده‌ی کافی نیست' : `تسلط ${fa(s.avg)} درصد`}>
+                <span style={{ width: `${Math.max(0, Math.min(100, s.avg ?? 0))}%` }} />
             </div>
 
             <div className="cls-card-actions">

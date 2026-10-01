@@ -1,4 +1,5 @@
 import { usePage, useForm, router, Link } from '@inertiajs/react';
+import MasteryPanel from '@/Components/MasteryPanel';
 import { useState, useEffect } from 'react';
 import ThemedDash from '@/Layouts/ThemedDash';
 import { AreaTrend, Donut, Gauge, HBars, OK, CRIT, PAL } from '@/Components/Charts';
@@ -134,8 +135,10 @@ function ParentArea({ r, notes, banner }) {
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 14 }} className="themes-grid">
                         <div style={{ ...lightPanel, textAlign: 'center' }}>
-                            <div style={{ fontWeight: 900, fontSize: 14.5, marginBottom: 6 }}>🎯 تسلطِ مهارتی</div>
-                            <Gauge value={r.mastery} size={110} label="میانگینِ تسلط" />
+                            <div style={{ fontWeight: 900, fontSize: 14.5, marginBottom: 6 }}>🎯 تسلط بر درس‌ها</div>
+                            {r.mastery == null
+                                ? <div style={{ fontSize: 12.5, opacity: .8, lineHeight: 2 }}>هنوز داده‌ی کافی نیست.</div>
+                                : <Gauge value={r.mastery} size={110} label={r.mastery_detail?.level?.label || 'تسلطِ کلی'} color={r.mastery_detail?.level?.color} />}
                         </div>
                         <div style={lightPanel}>
                             <div style={{ fontWeight: 900, fontSize: 14.5, marginBottom: 8 }}>⭐ انضباط (۳۰ روز)</div>

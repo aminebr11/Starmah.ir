@@ -1,4 +1,5 @@
 import { usePage, router, Link } from '@inertiajs/react';
+import MasteryPanel from '@/Components/MasteryPanel';
 import DashLayout, { parentMenu } from '@/Layouts/DashLayout';
 import Avatar from '@/Components/Avatar';
 import { AreaTrend, Donut, HBars, Heatmap, Gauge, Stat, OK, WARN, CRIT, PAL } from '@/Components/Charts';
@@ -108,11 +109,13 @@ export default function Dashboard() {
                     {/* تسلط + عادتِ مطالعه + انضباط */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr 1fr', gap: 16, marginTop: 16 }} className="themes-grid">
                         <div className="panel" style={{ textAlign: 'center' }}>
-                            <h3 style={{ marginTop: 0 }}>🎯 تسلطِ مهارتی</h3>
-                            <Gauge value={r.mastery} label="میانگینِ تسلط بر مهارت‌ها" size={120} />
-                            <p style={{ color: 'var(--muted)', fontSize: 11.5, marginTop: 8 }}>
-                                {r.mastery >= 70 ? 'تسلطِ خیلی خوب — یادگیری تثبیت شده.' : r.mastery >= 40 ? 'در مسیرِ رشد — تمرینِ بیشتر کمک می‌کند.' : 'نیازمندِ تمرین — بازی‌های درسی را با هم انجام دهید.'}
-                            </p>
+                            <h3 style={{ marginTop: 0 }}>🎯 تسلط بر درس‌ها</h3>
+                            {r.mastery == null
+                                ? <p style={{ color: 'var(--muted)', fontSize: 12.5, lineHeight: 2 }}>هنوز فعالیتِ کافی برای برآوردِ تسلط ثبت نشده. پس از چند آزمون، بازی و مأموریت محاسبه می‌شود.</p>
+                                : <>
+                                    <Gauge value={r.mastery} label={r.mastery_detail?.level?.label || 'تسلطِ کلی'} size={120} color={r.mastery_detail?.level?.color} />
+                                    <p style={{ color: 'var(--muted)', fontSize: 11.5, marginTop: 8 }}>جزئیاتِ هر درس در پایینِ همین صفحه است.</p>
+                                </>}
                         </div>
                         <div className="panel">
                             <h3 style={{ marginTop: 0 }}>🗓️ عادتِ فعالیت (۶ هفته)</h3>
@@ -131,6 +134,13 @@ export default function Dashboard() {
                             <Link href="/messages" className="btn btn-sm" style={{ marginTop: 10 }}>💬 پیام به معلم</Link>
                         </div>
                     </div>
+
+                    {r.mastery_detail && (
+                        <div style={{ marginTop: 16 }}>
+                            <h3 style={{ margin: '0 0 10px' }}>🎯 تسلطِ درس‌به‌درس</h3>
+                            <MasteryPanel data={r.mastery_detail} levels={r.mastery_levels} who="parent" />
+                        </div>
+                    )}
                 </>
             )}
         </DashLayout>

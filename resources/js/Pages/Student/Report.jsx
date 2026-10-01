@@ -1,6 +1,7 @@
 import { usePage, router } from '@inertiajs/react';
 import { useState } from 'react';
 import ThemedDash from '@/Layouts/ThemedDash';
+import MasteryPanel from '@/Components/MasteryPanel';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const hue = (p) => p == null ? '#8896ad' : p >= 70 ? '#2bb673' : p >= 50 ? '#f0952e' : '#e8505b';
@@ -8,6 +9,7 @@ const card = { background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,
 
 const TABS = [
     { v: 'overview', t: 'خلاصه و تحلیل', ic: '📊' },
+    { v: 'mastery', t: 'تسلطِ من', ic: '🎯' },
     { v: 'cross', t: 'درس‌به‌درس', ic: '📚' },
     { v: 'grades', t: 'نمرات کلاسی', ic: '📔' },
     { v: 'smart', t: 'آزمون هوشمند', ic: '🧠' },
@@ -45,7 +47,8 @@ export default function Report() {
             </div>
 
             <div style={{ marginTop: 14 }}>
-                {tab === 'overview' && <Overview report={report} />}
+                {tab === 'overview' && <Overview report={report} onMastery={() => go('mastery')} />}
+                {tab === 'mastery' && <MasteryPanel data={report.mastery} levels={report.masteryLevels} who="kid" />}
                 {tab === 'cross' && <CrossSubject data={crossSubject} />}
                 {tab === 'grades' && <Grades grades={grades} />}
                 {tab === 'smart' && <Smart smart={smart} />}
@@ -55,7 +58,7 @@ export default function Report() {
 }
 
 /* ---------- تب خلاصه و تحلیل ---------- */
-function Overview({ report }) {
+function Overview({ report, onMastery }) {
     const o = report.overview || {};
     const trend = report.trend || [];
     const maxTrend = Math.max(1, ...trend.map((t) => t.value));
@@ -64,7 +67,9 @@ function Overview({ report }) {
         <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: 12 }}>
                 <Kpi ic="⚡" l="امتیاز کل" v={fa(o.xp)} c1="#f5b53f" c2="#d98f0f" />
-                <Kpi ic="🎯" l="میانگین تسلط" v={`${fa(o.avgMastery)}٪`} c1="#2bb673" c2="#1a8a52" />
+                <button type="button" onClick={onMastery} style={{ border: 0, padding: 0, background: 'none', cursor: 'pointer', font: 'inherit', textAlign: 'inherit' }}>
+                    <Kpi ic="🎯" l={o.avgMastery == null ? 'تسلط (داده کافی نیست)' : `تسلط · ${report.mastery?.level?.label || ''}`} v={o.avgMastery == null ? '—' : `${fa(o.avgMastery)}٪`} c1="#2bb673" c2="#1a8a52" />
+                </button>
                 <Kpi ic="💻" l="میانگین آزمون" v={o.examAvg == null ? '—' : `${fa(o.examAvg)}٪`} c1="#7c5cf0" c2="#4c2fb0" />
                 <Kpi ic="⭐" l="ستاره‌ها" v={fa(o.stars)} c1="#0ea5b7" c2="#0a7d8a" />
                 <Kpi ic="🏅" l="نشان‌ها" v={fa(o.badges)} c1="#e8862e" c2="#a5570f" />
@@ -73,12 +78,12 @@ function Overview({ report }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 14, marginTop: 14 }}>
                 <div style={card}>
                     <ST>💪 نقاط قوت</ST>
-                    {(report.strengths || []).length === 0 && <Empty>هنوز داده‌ای نداریم.</Empty>}
+                    {(report.strengths || []).length === 0 && <Empty>هنوز درسی به سطحِ «نزدیک به تسلط» (۷۰٪) نرسیده؛ با تمرین می‌رسد 💪</Empty>}
                     {(report.strengths || []).map((s, i) => <Bar key={i} name={s.name} pct={s.mastery} color="#2bb673" />)}
                 </div>
                 <div style={card}>
                     <ST>🔧 نیاز به تمرین</ST>
-                    {(report.weaknesses || []).length === 0 && <Empty>ضعف مشخصی دیده نمی‌شود 🎉</Empty>}
+                    {(report.weaknesses || []).length === 0 && <Empty>{report.overview?.avgMastery == null ? 'هنوز داده‌ی کافی نیست.' : 'ضعف مشخصی دیده نمی‌شود 🎉'}</Empty>}
                     {(report.weaknesses || []).map((s, i) => <Bar key={i} name={s.name} pct={s.mastery} color="#e8505b" />)}
                 </div>
             </div>

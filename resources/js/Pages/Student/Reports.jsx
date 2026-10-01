@@ -29,7 +29,7 @@ export default function Reports() {
             {/* کارت‌های کلیدی */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 12, marginTop: 16 }}>
                 <Kpi icon="⚡" label="امتیاز کل" value={fa(overview.xp)} c1="#f5b53f" c2="#d98f0f" />
-                <Kpi icon="🎯" label="میانگین تسلط" value={`${fa(overview.avgMastery)}٪`} c1="#2bb673" c2="#1a8a52" />
+                <Kpi icon="🎯" label="میانگین تسلط" value={overview.avgMastery == null ? "—" : `${fa(overview.avgMastery)}٪`} c1="#2bb673" c2="#1a8a52" />
                 <Kpi icon="💻" label="میانگین آزمون‌ها" value={overview.examAvg === null ? '—' : `${fa(overview.examAvg)}٪`} c1="#7c5cf0" c2="#4c2fb0" />
                 <Kpi icon="⭐" label="ستاره‌ها" value={fa(overview.stars)} c1="#0ea5b7" c2="#0a7d8a" />
                 <Kpi icon="🏅" label="نشان‌ها" value={fa(overview.badges)} c1="#e8862e" c2="#a5570f" />

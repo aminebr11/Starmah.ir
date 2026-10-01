@@ -88,10 +88,12 @@ class TeacherDashboardController extends Controller
 
         $rows = [];
         if ($classroom) {
-            $rows = $classroom->students()->get()->map(fn ($s) => [
+            $students = $classroom->students()->get();
+            $mastery = app(\App\Services\MasteryService::class)->forStudents($students->pluck('id')->all());
+            $rows = $students->map(fn ($s) => [
                 'id' => $s->id, 'name' => $s->name,
                 'xp' => $s->totalXp(),
-                'mastery' => (int) round($s->skillMastery()->avg('mastery') ?? 0),
+                'mastery' => $mastery[$s->id]['overall'] ?? null,
                 'stars' => DisciplineRecord::where('student_id', $s->id)->where('type', 'star')->sum('points'),
             ])->sortByDesc('xp')->values();
         }
@@ -151,7 +153,9 @@ class TeacherDashboardController extends Controller
     {
         abort_unless($classroom->teacher_id === $request->user()->id, 403);
 
-        $students = $classroom->students()->with('theme:id,name,emoji')->get()->map(fn ($s) => \App\Support\StudentRecordData::row($s) + [
+        $list = $classroom->students()->with('theme:id,name,emoji')->get();
+        $masteryMap = app(\App\Services\MasteryService::class)->forStudents($list->pluck('id')->all());
+        $students = $list->map(fn ($s) => \App\Support\StudentRecordData::row($s) + [
             'id'   => $s->id,
             'name' => $s->name,
             'phone' => $s->phone,
@@ -162,7 +166,8 @@ class TeacherDashboardController extends Controller
             'team_name'  => $s->theme?->name,
             'team_emoji' => $s->theme?->emoji,
             'xp'   => $s->totalXp(),
-            'avg'  => (int) round($s->skillMastery()->avg('mastery') ?? 0),
+            'avg'  => $masteryMap[$s->id]['overall'] ?? null,
+            'mastery_level' => $masteryMap[$s->id]['level']['label'] ?? null,
         ])->sortByDesc('xp')->values();
 
         $themes = \App\Models\Theme::where('is_active', true)->where('key', '!=', 'brand')

@@ -6,6 +6,7 @@ import '../css/theme-clay.css';
 import '../css/visits.css';
 import '../css/hub.css';
 import '../css/schedule-kids.css';
+import '../css/mastery.css';
 import './bootstrap';
 import { initPwa } from './lib/pwa';
 import { initUi, syncUi } from './lib/ui';

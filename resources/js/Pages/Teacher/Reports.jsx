@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import { MasteryTag } from '@/Components/MasteryPanel';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import { AreaTrend, Donut, Heatmap, PAL } from '@/Components/Charts';
 
@@ -75,7 +76,7 @@ export default function Reports() {
                         {report.per_student.map((s, i) => (
                             <tr key={s.id}><td>{fa(i + 1)}</td><td style={{ fontWeight: 700 }}>{s.name}</td>
                                 <td>{s.emoji} {s.group}</td><td style={{ color: 'var(--gold-2)', fontWeight: 800 }}>{fa(s.xp)}</td>
-                                <td><span className={`tag ${s.mastery >= 70 ? 'tag-ok' : s.mastery >= 40 ? 'tag-warn' : 'tag-info'}`}>{fa(s.mastery)}٪</span></td>
+                                <td><MasteryTag value={s.mastery} title={s.mastery_level || undefined} /></td>
                                 <td>{fa(s.activities)}</td>
                                 <td><a href={`/print/student/${s.id}`} target="_blank" rel="noopener" title="چاپِ کارنامه‌ی جامع" className="btn btn-ghost btn-sm">🖨️</a></td></tr>
                         ))}

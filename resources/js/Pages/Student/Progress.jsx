@@ -1,12 +1,13 @@
 import { usePage } from '@inertiajs/react';
 import ThemedDash from '@/Layouts/ThemedDash';
+import MasteryPanel from '@/Components/MasteryPanel';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const card = { background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 18, padding: 18, color: '#fff' };
 
 /** کارنامه‌ی من — تسلط، نمرات، امتیازهای گرفته/ازدست‌رفته، انضباط، نشان‌ها. */
 export default function Progress() {
-    const { stats = {}, mastery = [], recent = [], points_log = [], summary = {}, grades = [], discipline = [], badges = [] } = usePage().props;
+    const { stats = {}, masteryDetail, masteryLevels = [], recent = [], points_log = [], summary = {}, grades = [], discipline = [], badges = [] } = usePage().props;
     const byType = summary.by_type ?? [];
     const maxType = Math.max(1, ...byType.map((x) => x.points));
 
@@ -14,7 +15,7 @@ export default function Progress() {
         <ThemedDash title="کارنامه‌ی من" active="progress">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }} className="prog-stats">
                 <Stat b={fa(stats.xp ?? 0)} s="امتیاز کل" c1="#f5b53f" c2="#d98f0f" />
-                <Stat b={`${fa(stats.avg ?? 0)}٪`} s="میانگین تسلط" c1="#2bb673" c2="#1a8a52" />
+                <Stat b={stats.avg == null ? '—' : `${fa(stats.avg)}٪`} s={stats.avg == null ? 'تسلط (داده کافی نیست)' : 'تسلطِ کلی'} c1="#2bb673" c2="#1a8a52" />
                 <Stat b={`⭐${fa(stats.stars ?? 0)}`} s="ستاره انضباط" c1="#0ea5b7" c2="#0a7d8a" />
                 <Stat b={fa(stats.badges ?? 0)} s="نشان" c1="#a24cf0" c2="#6f2fb0" />
             </div>
@@ -46,20 +47,8 @@ export default function Progress() {
                 <div style={{ textAlign: 'center', opacity: .8, fontSize: 13, marginTop: 4 }}>📅 امتیاز این هفته: <b style={{ color: 'var(--acc)' }}>{fa(summary.week_points ?? 0)}</b></div>
             </div>
 
-            <Title>📊 تسلط بر مهارت‌ها</Title>
-            <div style={{ ...card, display: 'grid', gap: 14 }}>
-                {mastery.length ? mastery.map((m, i) => (
-                    <div key={i}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                            <b style={{ fontSize: 13 }}>{m.skill}</b>
-                            <span style={{ opacity: .7, fontSize: 12 }}>{fa(m.mastery)}٪ · {label(m.mastery)}</span>
-                        </div>
-                        <div style={{ height: 11, borderRadius: 8, background: 'rgba(255,255,255,.12)', overflow: 'hidden' }}>
-                            <div style={{ width: `${m.mastery}%`, height: '100%', background: barFor(i) }} />
-                        </div>
-                    </div>
-                )) : <span style={{ opacity: .7 }}>هنوز تمرینی ثبت نشده. یک مأموریت انجام بده!</span>}
-            </div>
+            <Title>🎯 تسلطِ من بر درس‌ها</Title>
+            <MasteryPanel data={masteryDetail} levels={masteryLevels} who="kid" />
 
             <Title>🎯 امتیازهای اخیر</Title>
             <div style={{ ...card, display: 'grid', gap: 10 }}>

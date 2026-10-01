@@ -19,14 +19,12 @@ class ProgressController extends Controller
         $user = $request->user();
         $summary = $analytics->studentSummary($user);
 
-        $mastery = SkillMastery::with('skill.topic')
-            ->where('student_id', $user->id)
-            ->get()
-            ->map(fn ($m) => [
-                'skill'   => $m->skill?->name,
-                'topic'   => $m->skill?->topic?->name,
-                'mastery' => $m->mastery,
-            ]);
+        // تسلط از همه‌ی فعالیت‌ها: هر درس یک ردیف، مبحث‌ها زیرِ آن
+        $detail = app(\App\Services\MasteryService::class)->forStudent($user->id);
+        $mastery = collect($detail['subjects'])->flatMap(fn ($s) => collect($s['topics'])->filter(fn ($t) => $t['mastery'] !== null)
+            ->map(fn ($t) => ['skill' => $t['name'], 'topic' => $s['name'], 'mastery' => $t['mastery']])
+            ->prepend(['skill' => $s['name'], 'topic' => 'کلِ درس', 'mastery' => $s['mastery']]))
+            ->filter(fn ($r) => $r['mastery'] !== null)->values();
 
         $recent = ActivityResult::with('skill')
             ->where('student_id', $user->id)
@@ -63,11 +61,13 @@ class ProgressController extends Controller
         return Inertia::render('Student/Progress', [
             'stats' => [
                 'xp'        => $user->totalXp(),
-                'avg'       => (int) round($mastery->avg('mastery') ?? 0),
+                'avg'       => $detail['overall'],
                 'stars'     => (int) DisciplineRecord::where('student_id', $user->id)->where('type', 'star')->sum('points'),
                 'badges'    => $user->badges()->count(),
             ],
             'mastery'    => $mastery,
+            'masteryDetail' => $detail,
+            'masteryLevels' => \App\Services\MasteryService::LEVELS,
             'recent'     => $recent,
             'points_log' => $pointsLog,
             'summary'    => $summary,
