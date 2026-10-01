@@ -35,6 +35,43 @@ trait BuildsAiQuestions
 
     private function aiRespondInner(Request $request, SmartExamAiService $ai, string $audience, array $types, int $max, array $extra): JsonResponse
     {
+        // ورودی‌های فرم را پیش از اعتبارسنجی «اصلاح» می‌کنیم نه رد: عنوانِ بلندِ فصل/مبحث
+        // کوتاه می‌شود، تعدادِ بیش از سقف به سقف می‌رسد و نوعِ ناشناخته کنار می‌رود
+        $cut = fn ($v, $n) => is_string($v) ? mb_substr(trim($v), 0, $n) : $v;
+        $alias = ['short' => 'blank', 'fill' => 'blank', 'essay' => 'desc'];
+        $request->merge(array_filter([
+            'grade' => $cut($request->input('grade'), 40), 'level' => $cut($request->input('level'), 40),
+            'subject' => $cut($request->input('subject'), 80), 'book' => $cut($request->input('book'), 120),
+            'chapter' => $cut($request->input('chapter'), 160), 'topic' => $cut($request->input('topic'), 160),
+            'goal' => $cut($request->input('goal'), 300), 'kind' => $cut($request->input('kind'), 40),
+            'flavor' => $cut($request->input('flavor'), 60), 'instructions' => $cut($request->input('instructions'), 500),
+            'count' => is_numeric($request->input('count')) ? max(1, min($max, (int) $request->input('count'))) : null,
+            'types' => is_array($request->input('types'))
+                ? array_values(array_unique(array_intersect(array_map(fn ($t) => $alias[$t] ?? $t, $request->input('types')), $types))) ?: null
+                : null,
+            'avoid' => is_array($request->input('avoid'))
+                ? array_slice(array_map(fn ($a) => mb_substr((string) $a, 0, 600), array_filter($request->input('avoid'), 'is_string')), -80)
+                : null,
+            'difficulty' => in_array($request->input('difficulty'), ['easy', 'medium', 'hard', 'mixed'], true) ? $request->input('difficulty') : null,
+            'bloom' => in_array($request->input('bloom'), ['remember', 'understand', 'apply', 'analyze', 'mixed'], true) ? $request->input('bloom') : null,
+            'classroom_id' => is_numeric($request->input('classroom_id')) ? (int) $request->input('classroom_id') : null,
+            'chapter_id' => is_numeric($request->input('chapter_id')) ? (int) $request->input('chapter_id') : null,
+        ], fn ($v) => $v !== null));
+        foreach (['difficulty', 'bloom', 'types', 'classroom_id', 'chapter_id'] as $k) {
+            // مقدارِ نامعتبرِ این‌ها را حذف کن تا پیش‌فرض اعمال شود
+            if ($request->has($k) && ! array_key_exists($k, array_filter([
+                'difficulty' => in_array($request->input('difficulty'), ['easy', 'medium', 'hard', 'mixed'], true) ?: null,
+                'bloom' => in_array($request->input('bloom'), ['remember', 'understand', 'apply', 'analyze', 'mixed'], true) ?: null,
+                'types' => is_array($request->input('types')) && $request->input('types') ? true : null,
+                'classroom_id' => is_numeric($request->input('classroom_id')) ?: null,
+                'chapter_id' => is_numeric($request->input('chapter_id')) ?: null,
+            ]))) {
+                $request->request->remove($k);
+                $request->query->remove($k);
+                $request->json()?->remove($k);
+            }
+        }
+
         $data = $request->validate([
             'classroom_id' => ['nullable', 'integer'],
             'grade' => ['nullable', 'string', 'max:40'],

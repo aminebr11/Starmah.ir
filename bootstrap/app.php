@@ -12,6 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // پیش از همه (بیرونی‌ترین لایه): ریدایرکتِ درخواست‌های JSON را به پاسخِ JSON تبدیل کن
+        $middleware->web(prepend: [
+            \App\Http\Middleware\JsonRedirectsForAjax::class,
+        ]);
         $middleware->web(append: [
             \App\Http\Middleware\HandleInertiaRequests::class,
             \App\Http\Middleware\EnsurePasswordChanged::class,
@@ -30,8 +34,11 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // خطاها برای درخواست‌هایی که JSON می‌خواهند (axios، نه Inertia) هم JSON باشد.
+        // قبلاً فقط api/* بود؛ پس خطای اعتبارسنجی یا نشستِ منقضی در /teacher/... به
+        // «ریدایرکت» تبدیل می‌شد، مرورگر صفحه‌ی HTML می‌گرفت و طراحیِ سؤال می‌شکست.
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*'),
+            fn (Request $request) => $request->is('api/*') || ($request->expectsJson() && ! $request->header('X-Inertia')),
         );
 
         // همه‌ی خطاها به فارسی — هم صفحه‌ی خطا، هم پاسخِ JSON.

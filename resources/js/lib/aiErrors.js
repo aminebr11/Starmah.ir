@@ -12,7 +12,14 @@ export function aiFailText(status, body) {
     if (status === 502 || status === 503 || status === 504 || status === 524) return 'سرور در زمانِ مجاز پاسخ نداد (احتمالاً سقفِ زمانِ هاست). تعدادِ سؤال را کمتر کنید یا از ادمین بخواهید مدلِ سریع‌تری انتخاب کند.';
     if (status >= 500) return 'خطای سرور هنگامِ طراحیِ سؤال (' + status + '). چند لحظه بعد دوباره تلاش کنید؛ اگر تکرار شد به ادمین خبر دهید.';
     if (status === 200 && (body === '' || body == null)) return 'سرور پاسخِ خالی داد — معمولاً یعنی زمانِ اجرای PHP روی هاست تمام شده. تعدادِ سؤال را کمتر کنید یا مدلِ سریع‌تری انتخاب شود.';
-    if (looksLikeLogin(body)) return 'نشستِ شما منقضی شده؛ صفحه را تازه کنید (یا دوباره وارد شوید) و دوباره تلاش کنید.';
+    const pg = inertiaPage(body);
+    if (pg) {
+        if (/Auth\/Login|Login$/.test(pg.component || '')) return 'نشستِ شما منقضی شده یا از حساب خارج شده‌اید؛ دوباره وارد شوید و دوباره تلاش کنید.';
+        if (/ForcePassword|ChangePassword/i.test(pg.component || '')) return 'پیش از ادامه باید رمزِ عبورتان را تغییر دهید (صفحه را تازه کنید).';
+        return 'سرور به‌جای پاسخ، صفحه‌ی «' + (pg.component || '؟') + '» (' + (pg.url || '') + ') را برگرداند — این متن را برای پشتیبانی بفرستید.';
+    }
+    const t = titleOf(body);
+    if (t) return 'پاسخی غیرمنتظره رسید: صفحه‌ای با عنوانِ «' + t.trim().slice(0, 80) + '» (احتمالاً فایروال یا صفحه‌ی امنیتیِ هاست). این متن را برای پشتیبانی بفرستید.';
     const sn = snippet(body);
     return 'پاسخِ نامعتبر از سرور دریافت شد (' + status + ').' + (sn ? ' ابتدای پاسخ: «' + sn + '» — این متن را برای پشتیبانی بفرستید.' : ' صفحه را تازه کنید و دوباره تلاش کنید.');
 }
@@ -36,7 +43,18 @@ export function salvageAiPayload(data) {
     return null;
 }
 
-const looksLikeLogin = (s) => typeof s === 'string' && /<html/i.test(s) && /(login|ورود|password|رمز)/i.test(s);
+/** اگر پاسخ یک صفحه‌ی کاملِ سایت (Inertia) باشد: نامِ صفحه و نشانی‌اش. */
+function inertiaPage(s) {
+    if (typeof s !== 'string') return null;
+    const m = s.match(/data-page="([^"]+)"/);
+    if (!m) return null;
+    try {
+        const txt = m[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+        const pg = JSON.parse(txt);
+        return { component: pg.component, url: pg.url };
+    } catch { return null; }
+}
+const titleOf = (s) => (typeof s === 'string' && (s.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1]) || '';
 const snippet = (s) => typeof s === 'string' ? s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140) : '';
 
 /** متنِ خطا از استثنای axios. */
