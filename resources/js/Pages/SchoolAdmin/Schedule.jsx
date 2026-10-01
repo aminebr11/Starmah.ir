@@ -1,16 +1,13 @@
 import { usePage } from '@inertiajs/react';
+import { useMemo } from 'react';
 import DashLayout, { schoolMenu } from '@/Layouts/DashLayout';
+import { makeSubjectPalette, titlesOf, DAY_TINTS } from '@/lib/subjects';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
-const PALETTE = [
-    ['#fff3d6', '#8a5a00'], ['#dcebff', '#1b4b8a'], ['#d4f5ef', '#0f766e'],
-    ['#ffe0ec', '#a01a4a'], ['#e9e4ff', '#4c2fb0'], ['#e6f7d9', '#3a6b12'],
-    ['#ffe4d1', '#a04413'], ['#d9f0ff', '#0b6ea8'],
-];
-const colorFor = (s) => { let h = 0; for (const c of (s || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0; return PALETTE[h % PALETTE.length]; };
 
 export default function Schedule() {
     const { days = [], classes = [] } = usePage().props;
+    const pal = useMemo(() => makeSubjectPalette(classes.flatMap((c) => titlesOf(c.entries))), [classes]);
 
     return (
         <DashLayout title="برنامه‌ی کلاس‌ها" roleLabel="مدیر مدرسه" menu={schoolMenu} active="schedule">
@@ -28,16 +25,16 @@ export default function Schedule() {
                             <div className="sched-board">
                                 {days.map((d, i) => (
                                     <div key={i} className="sched-day">
-                                        <div className="sched-day-head">{d}</div>
+                                        <div className="sched-day-head sc2" style={{ '--day': DAY_TINTS[i % 7] }}>{d}</div>
                                         {(c.entries[i] ?? []).map((e) => {
                                             if (e.kind === 'recess') {
-                                                return <div key={e.id} className="sched-recess">☕ {e.title}{e.time && <span dir="ltr" style={{ opacity: .8, fontSize: 10, display: 'block' }}>{fa(e.time)}</span>}</div>;
+                                                return <div key={e.id} className="sched-recess">🍎 {e.title}{e.time && <span dir="ltr" style={{ opacity: .8, fontSize: 10, display: 'block' }}>{fa(e.time)}</span>}</div>;
                                             }
-                                            const [bg, fg] = colorFor(e.title);
+                                            const k = pal(e.title);
                                             return (
-                                                <div key={e.id} className="sched-card" style={{ background: bg, color: fg, borderColor: fg + '33' }}>
+                                                <div key={e.id} className="sched-card sc2" style={{ '--sc-a': k.a, '--sc-b': k.b, '--sc-grad': k.grad }}>
                                                     {e.period && <span className="sched-period">زنگ {fa(e.period)}</span>}
-                                                    <div style={{ fontWeight: 800, fontSize: 13 }}>{e.title}</div>
+                                                    <div className="sc2-t"><span className="sc2-e">{k.emoji}</span>{e.title}</div>
                                                     {e.time && <div style={{ fontSize: 11, opacity: .85 }}>⏰ <span dir="ltr" style={{ display: 'inline-block' }}>{fa(e.time)}</span></div>}
                                                 </div>
                                             );
