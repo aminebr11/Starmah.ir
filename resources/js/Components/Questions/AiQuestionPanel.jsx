@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
-import { aiFailText } from '@/lib/aiErrors';
+import { aiFailText, salvageAiPayload } from '@/lib/aiErrors';
 import CurriculumFields from './CurriculumFields';
 import { fa, TYPE_FA, DIFF_FA, BLOOM_FA, DIFF_COLOR, contextLine, contextPayload } from './shared';
 
@@ -71,7 +71,7 @@ export default function AiQuestionPanel({
         clearInterval(timer.current);
         timer.current = setInterval(() => setElapsed(Math.round((Date.now() - t0) / 1000)), 500);
         try {
-            const { data } = await axios.post(endpoint, {
+            const { data: raw } = await axios.post(endpoint, {
                 ...contextPayload(context),
                 kind,
                 count: Math.max(1, Math.min(maxCount, +cfg.count || 1)),
@@ -83,9 +83,10 @@ export default function AiQuestionPanel({
                 sample: cfg.sample,
                 avoid: [...existing, ...shown].filter(Boolean).slice(-80),
             });
+            const data = salvageAiPayload(raw) || raw;
             // پاسخِ غیرِ JSON یا خالی (مثلاً قطعِ PHP روی هاست، صفحه‌ی خطای فایروال یا ورودِ دوباره)
             if (!data || typeof data !== 'object' || !('ok' in data)) {
-                setMsg({ ok: false, text: aiFailText(200, data) });
+                setMsg({ ok: false, text: aiFailText(200, raw) });
                 clearInterval(timer.current);
                 setBusy(false);
                 return;

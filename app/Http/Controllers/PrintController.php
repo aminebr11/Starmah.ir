@@ -24,7 +24,7 @@ class PrintController extends Controller
     }
 
     /** هدرِ مشترک: مدرسه + تاریخ + لینکِ بازگشت + جهتِ صفحه. */
-    private function head(?int $schoolId, Request $request = null): array
+    private function head(?int $schoolId, ?Request $request = null): array
     {
         $school = $schoolId ? \App\Models\School::find($schoolId) : null;
         $orient = $request && $request->query('orient') === 'landscape' ? 'landscape' : 'portrait';

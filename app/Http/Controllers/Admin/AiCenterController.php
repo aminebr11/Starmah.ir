@@ -118,7 +118,7 @@ class AiCenterController extends Controller
     }
 
     /** قیمتِ هر یک میلیون توکن (ورودی/خروجی) برای هر مدل. */
-    public function prices(Request $request = null): array|RedirectResponse
+    public function prices(?Request $request = null): array|RedirectResponse
     {
         if ($request && $request->isMethod('post')) {
             $data = $request->validate([

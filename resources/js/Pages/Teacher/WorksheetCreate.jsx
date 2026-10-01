@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { aiErrorText, aiResultText } from '@/lib/aiErrors';
+import { aiErrorText, aiResultText, salvageAiPayload } from '@/lib/aiErrors';
 import { usePage, router } from '@inertiajs/react';
 import axios from 'axios';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
@@ -53,12 +53,13 @@ export default function WorksheetCreate() {
     const runAi = async (sample = false) => {
         setBusy(true); setMsg(null);
         try {
-            const { data } = await axios.post(route('teacher.worksheets.ai'), {
+            const { data: raw } = await axios.post(route('teacher.worksheets.ai'), {
                 level: spec.level, subject: spec.subject, grade: spec.grade, chapter_id: spec.chapter_id || undefined,
                 topic: spec.topic, goal: spec.goal, theme: spec.theme, count: spec.count,
                 difficulty: spec.difficulty, type: spec.type, sample,
                 avoid: questions.map((q) => q.prompt).filter(Boolean),
             });
+            const data = salvageAiPayload(raw) || raw;
             if (data?.ok && Array.isArray(data.questions)) {
                 setQuestions(data.questions.map((q) => ({ ...q, source: data.mode === 'sample' ? 'sample' : 'ai' })));
                 setMsg(data.message ? { t: 'info', m: data.message } : { t: 'ok', m: `${fa(data.questions.length)} سؤال پیشنهاد شد ✅` });

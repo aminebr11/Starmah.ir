@@ -20,6 +20,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // روی سرورِ واقعی، هشدار و Deprecatedِ PHP نباید وسطِ پاسخ چاپ شود؛ روی بعضی
+        // هاست‌ها display_errors روشن است و همین JSONِ پاسخ‌ها را خراب می‌کرد
+        // (مثلاً «پاسخِ نامعتبر از سرور (200)» در طراحیِ سؤال). خطاها همچنان در لاگ ثبت می‌شوند.
+        if (! config('app.debug')) {
+            @ini_set('display_errors', '0');
+        }
+
         // مصرفِ توکنِ هوش مصنوعی از پاسخِ همه‌ی سرویس‌ها
         \Illuminate\Support\Facades\Event::listen(\Illuminate\Http\Client\Events\ResponseReceived::class, [\App\Support\AiUsage::class, 'handle']);
 

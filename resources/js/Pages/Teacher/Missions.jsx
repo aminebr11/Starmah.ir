@@ -1,5 +1,5 @@
 import { usePage, useForm, router, Link } from '@inertiajs/react';
-import { aiErrorText, aiResultText } from '@/lib/aiErrors';
+import { aiErrorText, aiResultText, salvageAiPayload } from '@/lib/aiErrors';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
@@ -401,10 +401,11 @@ function QuestionMaker({ form, onSaved }) {
     const suggest = async (sample = false) => {
         setBusy(true); setMsg(null);
         try {
-            const { data } = await axios.post(route('teacher.missions.ai'), {
+            const { data: raw } = await axios.post(route('teacher.missions.ai'), {
                 subject: form.data.subject, lesson_no: form.data.lesson_no,
                 difficulty: form.data.difficulty || 'medium', count: 4, sample,
             });
+            const data = salvageAiPayload(raw) || raw;
             if (data?.ok && Array.isArray(data.questions)) { setAi(data.questions); setMsg(data.message ? { t: 'info', m: data.message } : null); }
             else setMsg({ t: 'err', m: aiResultText(data) });
         } catch (e) { setMsg({ t: 'err', m: aiErrorText(e) }); } finally { setBusy(false); }

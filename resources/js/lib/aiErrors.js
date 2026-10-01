@@ -12,12 +12,32 @@ export function aiFailText(status, body) {
     if (status === 502 || status === 503 || status === 504 || status === 524) return 'سرور در زمانِ مجاز پاسخ نداد (احتمالاً سقفِ زمانِ هاست). تعدادِ سؤال را کمتر کنید یا از ادمین بخواهید مدلِ سریع‌تری انتخاب کند.';
     if (status >= 500) return 'خطای سرور هنگامِ طراحیِ سؤال (' + status + '). چند لحظه بعد دوباره تلاش کنید؛ اگر تکرار شد به ادمین خبر دهید.';
     if (status === 200 && (body === '' || body == null)) return 'سرور پاسخِ خالی داد — معمولاً یعنی زمانِ اجرای PHP روی هاست تمام شده. تعدادِ سؤال را کمتر کنید یا مدلِ سریع‌تری انتخاب شود.';
-    return 'پاسخِ نامعتبر از سرور دریافت شد (' + status + '). صفحه را تازه کنید و دوباره تلاش کنید.';
+    if (looksLikeLogin(body)) return 'نشستِ شما منقضی شده؛ صفحه را تازه کنید (یا دوباره وارد شوید) و دوباره تلاش کنید.';
+    const sn = snippet(body);
+    return 'پاسخِ نامعتبر از سرور دریافت شد (' + status + ').' + (sn ? ' ابتدای پاسخ: «' + sn + '» — این متن را برای پشتیبانی بفرستید.' : ' صفحه را تازه کنید و دوباره تلاش کنید.');
 }
 
 
 /** آیا پاسخ واقعاً JSONِ سرویس است؟ */
 export const isAiPayload = (data) => !!data && typeof data === 'object' && 'ok' in data;
+
+/**
+ * اگر پیش از JSON متنی چاپ شده باشد (هشدارِ PHP روی هاست)، axios پاسخ را رشته
+ * برمی‌گرداند؛ JSONِ اصلی را از داخلش بیرون می‌کشیم.
+ */
+export function salvageAiPayload(data) {
+    if (isAiPayload(data)) return data;
+    if (typeof data !== 'string') return null;
+    const i = data.indexOf('{"ok"');
+    if (i < 0) return null;
+    for (let j = data.lastIndexOf('}'); j > i; j = data.lastIndexOf('}', j - 1)) {
+        try { const o = JSON.parse(data.slice(i, j + 1)); if (isAiPayload(o)) return o; } catch { /* ادامه */ }
+    }
+    return null;
+}
+
+const looksLikeLogin = (s) => typeof s === 'string' && /<html/i.test(s) && /(login|ورود|password|رمز)/i.test(s);
+const snippet = (s) => typeof s === 'string' ? s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140) : '';
 
 /** متنِ خطا از استثنای axios. */
 export function aiErrorText(e) {

@@ -19,6 +19,22 @@ trait BuildsAiQuestions
 {
     protected function aiRespond(Request $request, SmartExamAiService $ai, string $audience, array $types, int $max = 20, array $extra = []): JsonResponse
     {
+        // هر خروجیِ ناخواسته (هشدارِ PHP، فاصله یا BOM در فایلی روی هاست) پیش از JSON
+        // پاسخ را برای مرورگر نامعتبر می‌کرد؛ آن را می‌گیریم و دور می‌ریزیم
+        @ini_set('display_errors', '0');
+        $level = ob_get_level();
+        ob_start();
+        try {
+            return $this->aiRespondInner($request, $ai, $audience, $types, $max, $extra);
+        } finally {
+            while (ob_get_level() > $level) {
+                ob_end_clean();
+            }
+        }
+    }
+
+    private function aiRespondInner(Request $request, SmartExamAiService $ai, string $audience, array $types, int $max, array $extra): JsonResponse
+    {
         $data = $request->validate([
             'classroom_id' => ['nullable', 'integer'],
             'grade' => ['nullable', 'string', 'max:40'],
