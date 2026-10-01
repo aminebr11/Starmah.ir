@@ -106,6 +106,11 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::post('/smart-lab', [\App\Http\Controllers\Admin\SmartLabController::class, 'update'])->name('smart-lab.update');
     Route::get('/reports', [PlatformController::class, 'reports'])->name('reports');
     Route::get('/visits', [\App\Http\Controllers\Admin\VisitReportController::class, 'index'])->name('visits');
+    // مرکزِ هوش مصنوعی
+    Route::get('/ai', [\App\Http\Controllers\Admin\AiCenterController::class, 'index'])->name('ai');
+    Route::post('/ai', [\App\Http\Controllers\Admin\AiCenterController::class, 'save'])->name('ai.save');
+    Route::post('/ai/test', [\App\Http\Controllers\Admin\AiCenterController::class, 'test'])->middleware('throttle:15,1')->name('ai.test');
+    Route::post('/ai/prices', [\App\Http\Controllers\Admin\AiCenterController::class, 'savePrices'])->name('ai.prices');
     Route::get('/settings', [PlatformController::class, 'settings'])->name('settings');
     Route::post('/settings', [PlatformController::class, 'storeSettings'])->name('settings.store');
     Route::post('/settings/test-image', [PlatformController::class, 'testImage'])->name('settings.test-image');
@@ -385,6 +390,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/family-notes/{parentNote}', [\App\Http\Controllers\ParentNoteController::class, 'destroy'])->name('family.notes.destroy');
 
     // خروجی‌های چاپی (A4 / PDF از طریقِ چاپِ مرورگر)
+    Route::get('/print/me', fn (\Illuminate\Http\Request $r) => redirect()->route('print.student', [$r->user()->id] + $r->query()))->name('print.me');
     Route::get('/print/student/{user}', [\App\Http\Controllers\PrintController::class, 'student'])->name('print.student');
     Route::get('/print/student/{user}/card', [\App\Http\Controllers\PrintController::class, 'studentCard'])->name('print.student.card');
     Route::get('/print/class', [\App\Http\Controllers\PrintController::class, 'classroom'])->name('print.class');

@@ -66,6 +66,13 @@
     <script>
         // داخلِ اپِ اندروید window.print کاری نمی‌کند؛ اپ پلِ StarmahApp.print را دارد
         function doPrint(){ if (window.StarmahApp && window.StarmahApp.print) { window.StarmahApp.print(document.title); } else { window.print(); } }
+        // ?autoprint=1 → وقتی فونت‌ها و تصویرها آماده شدند، پنجره‌ی چاپ خودکار باز شود
+        if (/[?&]autoprint=1/.test(location.search)) {
+            window.addEventListener('load', function () {
+                var go = function () { setTimeout(doPrint, 350); };
+                (document.fonts && document.fonts.ready) ? document.fonts.ready.then(go) : go();
+            });
+        }
         function tryClose(){ window.close(); setTimeout(function(){ if(!window.closed){ window.location.href = @json($back ?? url('/')); } }, 120); }
     </script>
     <div class="sheet">

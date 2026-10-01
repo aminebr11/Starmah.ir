@@ -601,8 +601,8 @@ class AssistantService
         $turns = $this->turns($history, $message);
 
         if ($this->ai->provider() === 'openai' && $this->ai->openaiKey()) {
-            $res = Http::withToken($this->ai->openaiKey())->timeout(40)->post('https://api.openai.com/v1/chat/completions', [
-                'model' => Setting::get('openai_model') ?: 'gpt-4o-mini',
+            $res = Http::withToken($this->ai->openaiKey())->timeout(40)->post(\App\Support\AiConfig::chatUrl(), [
+                'model' => \App\Support\AiConfig::model(),
                 'max_tokens' => self::MAX_TOKENS,
                 'messages' => array_merge([['role' => 'system', 'content' => $system]], $turns),
             ]);
@@ -616,7 +616,7 @@ class AssistantService
             'anthropic-version' => '2023-06-01',
             'content-type' => 'application/json',
         ])->timeout(40)->post('https://api.anthropic.com/v1/messages', [
-            'model' => Setting::get('anthropic_model') ?: env('ANTHROPIC_MODEL', 'claude-haiku-4-5-20251001'),
+            'model' => \App\Support\AiConfig::model('anthropic'),
             'max_tokens' => self::MAX_TOKENS,
             'system' => $system,
             'messages' => $turns,

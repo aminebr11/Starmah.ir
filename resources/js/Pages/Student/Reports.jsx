@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import { openPrint } from '@/lib/print';
 import ThemedDash from '@/Layouts/ThemedDash';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
@@ -22,7 +23,7 @@ export default function Reports() {
                             {student.classroom ? `کلاس ${student.classroom}` : ''}{student.teacher ? ` · معلم: ${student.teacher}` : ''}
                         </div>
                     </div>
-                    <button onClick={() => window.print()} className="k3-btn ghost" style={{ fontSize: 13, flex: 'none' }}>🖨️ چاپ / PDF</button>
+                    <button onClick={() => openPrint("/print/me")} className="k3-btn ghost" style={{ fontSize: 13, flex: 'none' }}>🖨️ چاپ / PDF</button>
                 </div>
             </div>
 

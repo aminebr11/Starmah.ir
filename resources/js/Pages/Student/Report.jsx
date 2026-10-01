@@ -2,6 +2,7 @@ import { usePage, router } from '@inertiajs/react';
 import { useState } from 'react';
 import ThemedDash from '@/Layouts/ThemedDash';
 import MasteryPanel from '@/Components/MasteryPanel';
+import { openPrint } from '@/lib/print';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const hue = (p) => p == null ? '#8896ad' : p >= 70 ? '#2bb673' : p >= 50 ? '#f0952e' : '#e8505b';
@@ -23,7 +24,7 @@ export default function Report() {
 
     return (
         <ThemedDash title="کارنامه‌ی من" active="report"
-            actions={<a href={`/print/student/${auth?.user?.id}`} target="_blank" rel="noopener" className="k3-btn ghost" style={{ fontSize: 12.5, flex: 'none' }}>🖨️ چاپ</a>}>
+            actions={<button type="button" onClick={() => openPrint(`/print/student/${auth?.user?.id}`)} className="k3-btn ghost" style={{ fontSize: 12.5, flex: 'none' }}>🖨️ چاپ</button>}>
             <div className="k3-card" style={{ background: 'linear-gradient(135deg,#6d28d9,#4c1d95)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 38 }}>📊</span>
@@ -31,7 +32,7 @@ export default function Report() {
                         <div style={{ fontWeight: 900, fontSize: 19 }}>کارنامه‌ی {report.student?.name || 'من'}</div>
                         <div style={{ opacity: .85, fontSize: 12.5 }}>همه‌ی عملکردِ تو در یک نگاه — خلاصه، درس‌به‌درس، نمرات و آزمون هوشمند</div>
                     </div>
-                    <button onClick={() => window.print()} className="k3-btn ghost" style={{ fontSize: 12.5 }}>🖨️ چاپ / PDF</button>
+                    <button type="button" onClick={() => openPrint(`/print/student/${auth?.user?.id}`)} className="k3-btn ghost" style={{ fontSize: 12.5 }}>🖨️ چاپ / PDF کارنامه</button>
                 </div>
             </div>
 

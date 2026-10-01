@@ -16,11 +16,11 @@ class AiExamService
     public function generate(string $topic, int $count, string $grade = 'چهارم'): array
     {
         $count = max(1, min(20, $count));
-        $key = config('services.anthropic.key') ?: env('ANTHROPIC_API_KEY');
-
-        if ($key) {
+        // سرویسِ فعالِ هوش مصنوعی (هر کدام که ادمین انتخاب کرده)
+        if (\App\Support\AiConfig::configured()) {
             try {
-                return $this->viaClaude($key, $topic, $count, $grade);
+                $out = $this->viaActive($topic, $count, $grade);
+                if ($out) return $out;
             } catch (\Throwable $e) {
                 // در صورت خطا به fallback می‌رویم
             }
@@ -29,23 +29,15 @@ class AiExamService
         return $this->fallback($topic, $count);
     }
 
-    private function viaClaude(string $key, string $topic, int $count, string $grade): array
+    private function viaActive(string $topic, int $count, string $grade): array
     {
         $prompt = "تو یک معلم ابتدایی هستی. {$count} سؤال چهارگزینه‌ای ساده درباره‌ی موضوع «{$topic}» "
             . "برای دانش‌آموز پایه‌ی {$grade} بساز. فقط یک JSON معتبر برگردان به شکل آرایه‌ای از اشیاء با کلیدهای: "
             . "prompt (متن سؤال)، choices (آرایه‌ی ۴ شیء با کلیدهای value و correct که فقط یکی true است). بدون توضیح اضافه.";
 
-        $res = Http::withHeaders([
-            'x-api-key' => $key,
-            'anthropic-version' => '2023-06-01',
-            'content-type' => 'application/json',
-        ])->timeout(40)->post('https://api.anthropic.com/v1/messages', [
-            'model' => env('ANTHROPIC_MODEL', 'claude-haiku-4-5-20251001'),
-            'max_tokens' => 2000,
-            'messages' => [['role' => 'user', 'content' => $prompt]],
-        ]);
-
-        $text = data_get($res->json(), 'content.0.text', '');
+        $r = \App\Support\AiChat::send('فقط JSON معتبر برگردان.', $prompt, 2000);
+        if (! $r['ok']) return [];
+        $text = $r['text'];
         preg_match('/\[.*\]/s', $text, $m);
         $data = json_decode($m[0] ?? $text, true);
 

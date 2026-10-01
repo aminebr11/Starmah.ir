@@ -20,6 +20,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // مصرفِ توکنِ هوش مصنوعی از پاسخِ همه‌ی سرویس‌ها
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Http\Client\Events\ResponseReceived::class, [\App\Support\AiUsage::class, 'handle']);
+
         // آخرین ورود و شمارِ ورودها — برای گزارشِ بازدید
         \Illuminate\Support\Facades\Event::listen(\Illuminate\Auth\Events\Login::class, function ($e) {
             try {

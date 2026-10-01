@@ -44,10 +44,9 @@ class SmartExamAiService
         @set_time_limit(150);
 
         $o = $this->normalizeOptions($opts);
-        $provider = Setting::get('ai_provider', 'anthropic');
-        $key = $provider === 'openai'
-            ? (Setting::get('openai_key') ?: env('OPENAI_API_KEY'))
-            : (Setting::get('anthropic_key') ?: env('ANTHROPIC_API_KEY'));
+        // خانواده‌ی سرویسِ فعال: anthropic یا openai (DeepSeek، Gemini، OpenRouter و سازگارها هم openai‌اند)
+        $provider = \App\Support\AiConfig::family();
+        $key = $provider === 'off' ? null : \App\Support\AiConfig::key();
 
         if ($o['sample'] || $provider === 'off' || ! $key) {
             if (! $o['sample']) {
@@ -395,7 +394,7 @@ class SmartExamAiService
     private function viaAnthropic(string $key, array $o, array $plan, array $avoid): array
     {
         $body = [
-            'model' => Setting::get('anthropic_model') ?: 'claude-haiku-4-5-20251001',
+            'model' => \App\Support\AiConfig::model('anthropic'),
             'max_tokens' => $this->maxTokens($plan),
             'temperature' => 0.7,
             'system' => $this->systemPrompt($o),
@@ -434,7 +433,7 @@ class SmartExamAiService
             ['role' => 'system', 'content' => $this->systemPrompt($o)],
             ['role' => 'user', 'content' => $this->userPrompt($o, $plan, $avoid)],
         ];
-        $model = Setting::get('openai_model') ?: 'gpt-4o-mini';
+        $model = \App\Support\AiConfig::model();
         $attempts = [
             ['temperature' => 0.7, 'response_format' => ['type' => 'json_schema', 'json_schema' => ['name' => 'questions', 'strict' => true, 'schema' => $this->schema()]]],
             ['response_format' => ['type' => 'json_schema', 'json_schema' => ['name' => 'questions', 'strict' => true, 'schema' => $this->schema()]]],
@@ -447,7 +446,7 @@ class SmartExamAiService
                 $msgs[0]['content'] .= "\n\nخروجی فقط یک شیءِ JSON با کلیدِ questions باشد، با همان فیلدهای اسکیما: "
                     . json_encode($this->schema(), JSON_UNESCAPED_UNICODE);
             }
-            $res = Http::withToken($key)->timeout(100)->post('https://api.openai.com/v1/chat/completions',
+            $res = Http::withToken($key)->timeout(100)->post(\App\Support\AiConfig::chatUrl(),
                 ['model' => $model, 'messages' => $msgs] + $extra);
             if ($res->status() !== 400) {
                 break;   // فقط خطای «پارامترِ پشتیبانی‌نشده» را با حالتِ ساده‌تر تکرار می‌کنیم
@@ -676,7 +675,7 @@ class SmartExamAiService
             SmartExamAiRequest::create([
                 'school_id' => $o['school_id'], 'teacher_id' => $o['teacher_id'],
                 'provider' => $provider,
-                'model' => $provider === 'openai' ? Setting::get('openai_model') : Setting::get('anthropic_model'),
+                'model' => \App\Support\AiConfig::model(),
                 'subject' => $o['subject'] ?: null,
                 'requested' => $requested, 'produced' => $produced, 'ok' => $ok,
                 'error' => $err ? mb_substr($err, 0, 240) : null,

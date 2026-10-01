@@ -203,7 +203,8 @@ class PlatformController extends Controller
     public function storeSettings(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'ai_provider'     => ['required', 'in:anthropic,openai'],
+            // سرویس و مدلِ متنی از «مرکزِ هوش مصنوعی» تنظیم می‌شود؛ اینجا فقط اگر فرستاده شود
+            'ai_provider'     => ['nullable', 'in:off,' . implode(',', array_keys(\App\Support\AiConfig::PROVIDERS))],
             'anthropic_key'   => ['nullable', 'string', 'max:200'],
             'openai_key'      => ['nullable', 'string', 'max:200'],
             'anthropic_model' => ['nullable', 'string', 'max:80'],
@@ -215,9 +216,9 @@ class PlatformController extends Controller
             'gemini_image_model'=> ['nullable', 'string', 'max:80'],
         ]);
 
-        \App\Models\Setting::put('ai_provider', $data['ai_provider']);
-        \App\Models\Setting::put('anthropic_model', $data['anthropic_model'] ?: 'claude-haiku-4-5-20251001');
-        \App\Models\Setting::put('openai_model', $data['openai_model'] ?: 'gpt-4o-mini');
+        if (! empty($data['ai_provider'])) \App\Models\Setting::put('ai_provider', $data['ai_provider']);
+        if (! empty($data['anthropic_model'])) \App\Models\Setting::put('anthropic_model', $data['anthropic_model']);
+        if (! empty($data['openai_model'])) \App\Models\Setting::put('openai_model', $data['openai_model']);
         \App\Models\Setting::put('ws_image_provider', $data['ws_image_provider'] ?? 'auto');
         \App\Models\Setting::put('ws_image_model', $data['ws_image_model'] ?: 'gpt-image-1');
         \App\Models\Setting::put('gemini_image_model', $data['gemini_image_model'] ?: 'gemini-2.5-flash-image');

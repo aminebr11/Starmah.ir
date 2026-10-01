@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Setting;
+use App\Support\AiConfig;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -12,24 +13,26 @@ use Illuminate\Support\Facades\Http;
  */
 class AiContentService
 {
+    /** خانواده‌ی سرویسِ فعال: anthropic | openai (شاملِ DeepSeek، Gemini، OpenRouter، سازگار) | off */
     public function provider(): string
     {
-        return Setting::get('ai_provider', 'anthropic');
+        return AiConfig::family();
     }
 
     public function anthropicKey(): ?string
     {
-        return Setting::get('anthropic_key') ?: env('ANTHROPIC_API_KEY');
+        return AiConfig::family() === 'anthropic' ? AiConfig::key() : AiConfig::key('anthropic');
     }
 
+    /** کلیدِ سرویسِ فعالِ سازگار با OpenAI */
     public function openaiKey(): ?string
     {
-        return Setting::get('openai_key') ?: env('OPENAI_API_KEY');
+        return AiConfig::family() === 'openai' ? AiConfig::key() : null;
     }
 
     public function isConfigured(): bool
     {
-        return (bool) ($this->provider() === 'openai' ? $this->openaiKey() : $this->anthropicKey());
+        return AiConfig::configured();
     }
 
     /**
@@ -39,6 +42,9 @@ class AiContentService
     public function generate(string $prompt, ?string $topic = null): string
     {
         $provider = $this->provider();
+        if ($provider === 'off') {
+            return $this->localDraft($topic ?: $prompt);
+        }
         try {
             if ($provider === 'openai' && $this->openaiKey()) {
                 return $this->viaOpenAI($this->openaiKey(), $prompt);
@@ -85,7 +91,7 @@ class AiContentService
             'anthropic-version' => '2023-06-01',
             'content-type' => 'application/json',
         ])->timeout(40)->post('https://api.anthropic.com/v1/messages', [
-            'model' => Setting::get('anthropic_model') ?: env('ANTHROPIC_MODEL', 'claude-haiku-4-5-20251001'),
+            'model' => AiConfig::model('anthropic'),
             'max_tokens' => 700,
             'system' => $this->systemPrompt(),
             'messages' => [['role' => 'user', 'content' => $prompt]],
@@ -99,8 +105,8 @@ class AiContentService
 
     private function viaOpenAI(string $key, string $prompt): string
     {
-        $res = Http::withToken($key)->timeout(40)->post('https://api.openai.com/v1/chat/completions', [
-            'model' => Setting::get('openai_model') ?: 'gpt-4o-mini',
+        $res = Http::withToken($key)->timeout(40)->post(AiConfig::chatUrl(), [
+            'model' => AiConfig::model(),
             'max_tokens' => 700,
             'messages' => [
                 ['role' => 'system', 'content' => $this->systemPrompt()],
@@ -109,7 +115,7 @@ class AiContentService
         ]);
 
         if (! $res->successful()) {
-            throw new \RuntimeException('خطا در ارتباط با ChatGPT: ' . $res->status());
+            throw new \RuntimeException(AiConfig::meta()['label'] . ' — خطای ارتباط: ' . $res->status());
         }
         return trim((string) data_get($res->json(), 'choices.0.message.content', ''));
     }

@@ -262,6 +262,7 @@ export const adminMenu = [
     { divider: 'گزارش و تنظیمات' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/admin/reports' },
     { key: 'visits', label: 'گزارشِ بازدیدها', icon: '👁️', href: '/admin/visits' },
+    { key: 'ai', label: 'مرکزِ هوش مصنوعی', icon: '🤖', href: '/admin/ai' },
     { key: 'users', label: 'کاربران و شماره‌ها', icon: '👥', href: '/admin/users' },
     { key: 'sms', label: 'سامانه‌ی پیامک', icon: '📩', href: '/admin/sms' },
     { key: 'integrations', label: 'درگاه‌ها (پیامک/پرداخت)', icon: '🔌', href: '/admin/integrations' },

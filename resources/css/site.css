@@ -1604,3 +1604,22 @@ a, button, [role="button"], summary { -webkit-tap-highlight-color: transparent; 
 }
 /* ستاره‌های تزئینیِ صفحه‌های معرفی در گوشی روی تیتر می‌افتادند */
 @media (max-width:480px){ .sm-spark{display:none} }
+
+/* کارت‌های آماری روی موبایل — آیکون یک طرف، «عنوان / عدد / توضیح» زیرِ هم کنارش.
+   قبلاً همه‌ی بچه‌ها در یک ردیف بودند و عدد آن‌قدر باریک می‌شد که رقم‌به‌رقم
+   می‌شکست (مثلاً «۱۷,۸۳۳» در چهار خط). عدد حالا هرگز نمی‌شکند و اندازه‌اش با
+   پهنای صفحه کوچک می‌شود. */
+@media(max-width:860px){
+  .dcard{display:grid!important;grid-template-columns:auto minmax(0,1fr);column-gap:12px;row-gap:0;align-items:center;align-content:center}
+  .dcard>.ic{grid-column:1;grid-row:1/span 4;align-self:center}
+  .dcard>:not(.ic){grid-column:2;min-width:0}
+  .dcard>*{overflow-wrap:normal!important;word-break:normal!important}
+  .dcard .lbl{line-height:1.6}
+  .dcard .val{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;font-size:clamp(17px,5.2vw,24px)!important;font-variant-numeric:tabular-nums}
+  .dcard .val *{white-space:nowrap}
+}
+@media(max-width:380px){
+  .dcard{grid-template-columns:minmax(0,1fr);text-align:center;justify-items:center;row-gap:2px}
+  .dcard>.ic{grid-row:auto}
+  .dcard>:not(.ic){grid-column:1}
+}

@@ -88,7 +88,7 @@ class QuestionBankController extends Controller
                 'allSchools' => School::orderBy('name')->get(['id', 'name', 'level'])
                     ->map(fn ($s) => ['id' => $s->id, 'name' => $s->name, 'level' => $s->level]),
             ] : null,
-            'aiOn' => (bool) (Setting::get('anthropic_key') || Setting::get('openai_key')),
+            'aiOn' => \App\Support\AiConfig::configured(),
         ]);
     }
 
