@@ -90,3 +90,6 @@
 .ai-link-card small{font-size:12px;opacity:.85;line-height:1.8}
 .ai-link-card div{flex:1}
 .ai-link-card em{font-style:normal;font-size:22px;font-weight:900}
+.ai-test-big.alt{margin-inline-start:8px;background:linear-gradient(135deg,#9fe7ff,#5bb8ff);box-shadow:0 5px 0 #2a7fc4,0 14px 24px -12px rgba(91,184,255,.8)}
+.ai-reply.bad{background:rgba(255,107,122,.2)}
+@media (max-width:560px){.ai-test-big.alt{margin-inline-start:0}}

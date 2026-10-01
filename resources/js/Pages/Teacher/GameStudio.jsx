@@ -180,7 +180,7 @@ export default function GameStudio() {
                             <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{fa(form.data.questions.filter((q) => q.prompt.trim()).length)} سؤال در بازی</span>
                         </div>
                         {panel === 'ai' && (
-                            <AiQuestionPanel endpoint={route('teacher.studio.ai')} context={form.data} classes={classes}
+                            <AiQuestionPanel onContext={setCtx} endpoint={route('teacher.studio.ai')} context={form.data} classes={classes}
                                 types={['mc', 'tf', 'blank']} typeLabels={{ blank: 'پاسخِ کوتاه' }} maxCount={15} kind="game"
                                 defaults={{ count: 6, types: ['mc', 'tf'], difficulty: form.data.difficulty || 'easy' }}
                                 flavors={themes} flavorDefault={flavorTheme?.name || ''}

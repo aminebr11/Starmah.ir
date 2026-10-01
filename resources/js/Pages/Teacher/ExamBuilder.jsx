@@ -127,7 +127,7 @@ export default function ExamBuilder() {
                             <div className="field" style={{ margin: 0 }}><label>تعداد سؤال</label><input type="number" min="1" max="20" className="input" value={aiCount} onChange={(e) => setAiCount(+e.target.value)} /></div>
                             <button type="button" onClick={generate} disabled={busy} className="btn">{busy ? 'در حال ساخت...' : '✨ تولید سؤال'}</button>
                         </div>
-                        {!aiEnabled && <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 8 }}>کلید هوش مصنوعی تنظیم نشده؛ فعلاً سؤال‌های پایه تولید می‌شود. با تنظیم ANTHROPIC_API_KEY در .env، تولید واقعی AI فعال می‌شود.</div>}
+                        {!aiEnabled && <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 8 }}>هوش مصنوعی هنوز فعال نشده؛ فعلاً سؤال‌های پایه تولید می‌شود. ادمینِ کل می‌تواند از «مرکزِ هوش مصنوعی» سرویس را فعال کند.</div>}
                     </div>
                 )}
 

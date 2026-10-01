@@ -56,7 +56,7 @@ class ExamBuilderController extends Controller
             'subjects'  => $classroom ? $classroom->subjectNames() : [],
             'exams'     => $exams,
             'bank'      => $bank,
-            'aiEnabled' => (bool) (env('ANTHROPIC_API_KEY') || env('OPENAI_API_KEY')),
+            'aiEnabled' => \App\Support\AiConfig::configured(),
         ]);
     }
 

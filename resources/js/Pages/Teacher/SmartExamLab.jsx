@@ -135,7 +135,7 @@ export default function SmartExamLab() {
                                 <span className="smart-muted" style={{ fontSize: 12.5 }}>{fa(form.data.questions.filter((q) => q.prompt.trim()).length)} سؤال در آزمون</span>
                             </div>
                             {panel === 'ai' && aiEnabled && (
-                                <AiQuestionPanel endpoint={route('teacher.smart.ai')} context={form.data} classes={classes}
+                                <AiQuestionPanel onContext={setCtx} endpoint={route('teacher.smart.ai')} context={form.data} classes={classes}
                                     types={['mc', 'tf', 'blank', 'desc']} maxCount={20} kind={form.data.kind}
                                     defaults={{ count: 5, types: ['mc'], difficulty: form.data.kind === 'diagnostic' ? 'mixed' : 'medium' }}
                                     flavors={themes} flavorDefault={flavorTheme?.name || ''}

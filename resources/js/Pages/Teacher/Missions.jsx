@@ -1,4 +1,5 @@
 import { usePage, useForm, router, Link } from '@inertiajs/react';
+import { aiErrorText, aiResultText } from '@/lib/aiErrors';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
@@ -404,9 +405,9 @@ function QuestionMaker({ form, onSaved }) {
                 subject: form.data.subject, lesson_no: form.data.lesson_no,
                 difficulty: form.data.difficulty || 'medium', count: 4, sample,
             });
-            if (data.ok) { setAi(data.questions || []); setMsg(data.message ? { t: 'info', m: data.message } : null); }
-            else setMsg({ t: 'err', m: data.message || 'تولید نشد.' });
-        } catch { setMsg({ t: 'err', m: 'خطا در ارتباط با سرور.' }); } finally { setBusy(false); }
+            if (data?.ok && Array.isArray(data.questions)) { setAi(data.questions); setMsg(data.message ? { t: 'info', m: data.message } : null); }
+            else setMsg({ t: 'err', m: aiResultText(data) });
+        } catch (e) { setMsg({ t: 'err', m: aiErrorText(e) }); } finally { setBusy(false); }
     };
 
     return (

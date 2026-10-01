@@ -140,6 +140,9 @@ class AiConfig
             }
             if (self::isReasoningModel($body['model'] ?? '')) {
                 unset($body['temperature'], $body['top_p']);
+                // بدونِ این، مدل با «تلاشِ متوسط» فکر می‌کند و طراحیِ چند سؤال از
+                // سقفِ زمانِ PHP روی هاست (معمولاً ۳۰ ثانیه) بیشتر می‌شود
+                $body['reasoning_effort'] ??= 'low';
             }
         }
 
@@ -178,11 +181,28 @@ class AiConfig
                 $fixed['max_tokens'] = $fixed['max_completion_tokens']; unset($fixed['max_completion_tokens']);
             }
             if (str_contains($err, 'temperature')) unset($fixed['temperature']);
+            if (str_contains($err, 'reasoning_effort') || str_contains($err, 'reasoning effort')) unset($fixed['reasoning_effort']);
+            if (str_contains($err, 'response_format') || str_contains($err, 'json_schema')) {
+                $fixed['response_format'] = ['type' => 'json_object'];
+            }
             if (str_contains($err, 'top_p')) unset($fixed['top_p']);
             if ($fixed !== $body) $res = $send($fixed);
         }
 
         return $res;
+    }
+
+    /**
+     * چند ثانیه برای فراخوانیِ هوش مصنوعی وقت داریم؟ سقفِ واقعیِ PHP روی هاست
+     * (max_execution_time) را در نظر می‌گیرد؛ set_time_limit روی بسیاری از هاست‌ها
+     * بسته است و اگر از سقف بگذریم، PHP بی‌صدا قطع می‌شود و مرورگر پاسخی نمی‌گیرد.
+     */
+    public static function timeBudget(int $wanted = 100): int
+    {
+        @set_time_limit($wanted + 20);
+        $max = (int) ini_get('max_execution_time');
+
+        return $max > 0 ? max(10, min($wanted, $max - 6)) : $wanted;
     }
 
     /** آیا این نشانی متعلق به یکی از سرویس‌های متنیِ هوش مصنوعی است؟ (برای ثبتِ مصرف) */

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
+import { aiFailText } from '@/lib/aiErrors';
+import CurriculumFields from './CurriculumFields';
 import { fa, TYPE_FA, DIFF_FA, BLOOM_FA, DIFF_COLOR, contextLine, contextPayload } from './shared';
 
 /**
@@ -26,7 +28,7 @@ import { fa, TYPE_FA, DIFF_FA, BLOOM_FA, DIFF_COLOR, contextLine, contextPayload
  */
 export default function AiQuestionPanel({
     endpoint, context = {}, classes = [], types = ['mc', 'tf'], typeLabels = {}, defaults = {},
-    maxCount = 15, kind = '', flavors = [], flavorDefault = '', existing = [], onAdd,
+    maxCount = 15, kind = '', flavors = [], flavorDefault = '', existing = [], onAdd, onContext,
 }) {
     const labels = { ...TYPE_FA, ...typeLabels };
     const [cfg, setCfg] = useState({
@@ -59,6 +61,11 @@ export default function AiQuestionPanel({
     const summary = contextLine(context, classes);
 
     const run = async () => {
+        // بدونِ درس، هوش مصنوعی نمی‌داند چه بسازد — پیامِ روشن به‌جای دکمه‌ی بی‌صدا
+        if (!ready) {
+            setMsg({ ok: false, text: 'برای طراحیِ سؤال اول «درس» را انتخاب کنید' + (onContext ? ' (همین بالا، در همین کادر).' : ' (گامِ «اطلاعاتِ پایه»).') });
+            return;
+        }
         setBusy(true); setMsg(null); setResults([]); setElapsed(0);
         const t0 = Date.now();
         clearInterval(timer.current);
@@ -76,9 +83,17 @@ export default function AiQuestionPanel({
                 sample: cfg.sample,
                 avoid: [...existing, ...shown].filter(Boolean).slice(-80),
             });
+            // پاسخِ غیرِ JSON یا خالی (مثلاً قطعِ PHP روی هاست، صفحه‌ی خطای فایروال یا ورودِ دوباره)
+            if (!data || typeof data !== 'object' || !('ok' in data)) {
+                setMsg({ ok: false, text: aiFailText(200, data) });
+                clearInterval(timer.current);
+                setBusy(false);
+                return;
+            }
             const stats = data.stats || {};
             setMsg({
-                ok: data.ok, mode: data.mode, text: data.message,
+                ok: !!data.ok, mode: data.mode,
+                text: data.message || (data.ok ? null : 'هوش مصنوعی پاسخِ قابلِ استفاده‌ای برنگرداند؛ دوباره تلاش کنید یا مبحث را دقیق‌تر بنویسید.'),
                 dropped: stats.dropped || 0, seconds: stats.seconds,
             });
             if (data.ok) {
@@ -89,8 +104,8 @@ export default function AiQuestionPanel({
             }
         } catch (e) {
             const err = e.response?.data;
-            const first = err?.errors ? Object.values(err.errors)[0]?.[0] : null;
-            setMsg({ ok: false, text: first || err?.message || 'ارتباط با سرویس برقرار نشد.' });
+            const first = err && typeof err === 'object' && err.errors ? Object.values(err.errors)[0]?.[0] : null;
+            setMsg({ ok: false, text: first || (typeof err === 'object' && err?.message) || aiFailText(e.response?.status, err) });
         }
         clearInterval(timer.current);
         setBusy(false);
@@ -111,8 +126,13 @@ export default function AiQuestionPanel({
             </div>
 
             <div className={`qk-summary ${ready ? '' : 'warn'}`}>
-                {ready ? <>🎯 {summary}{context.goal ? <em> — هدف: {context.goal}</em> : null}</> : 'ابتدا در گامِ «اطلاعاتِ پایه» کلاس و درس (و ترجیحاً فصل) را انتخاب کنید.'}
+                {ready ? <>🎯 {summary}{context.goal ? <em> — هدف: {context.goal}</em> : null}</> : (onContext ? '👇 اول کلاس و درس (و ترجیحاً فصل) را همین‌جا انتخاب کنید:' : 'ابتدا در گامِ «اطلاعاتِ پایه» کلاس و درس (و ترجیحاً فصل) را انتخاب کنید.')}
             </div>
+            {!ready && onContext && (
+                <div className="qk-inline-ctx">
+                    <CurriculumFields classes={classes} value={context} onChange={onContext} showGoal={false} />
+                </div>
+            )}
 
             <div className="qk-grid">
                 <label className="qk-field">
@@ -165,7 +185,7 @@ export default function AiQuestionPanel({
             )}
 
             <div className="qk-actions">
-                <button type="button" className="qk-btn" onClick={run} disabled={busy || !ready}>
+                <button type="button" className={`qk-btn ${ready ? '' : 'wait'}`} onClick={run} disabled={busy}>
                     {busy ? `⏳ در حالِ طراحی… ${fa(elapsed)} ثانیه` : '✨ طراحیِ سؤال'}
                 </button>
                 <label className="qk-check"><input type="checkbox" checked={cfg.sample} onChange={(e) => set('sample', e.target.checked)} /> حالتِ نمونه (بدونِ کلیدِ هوش مصنوعی)</label>

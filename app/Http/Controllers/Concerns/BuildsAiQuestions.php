@@ -44,6 +44,7 @@ trait BuildsAiQuestions
         ]);
         $user = $request->user();
         $ctx = Curriculum::resolve($data, $user);
+        self::guardFatal();
 
         $requested = $data['types'] ?? [];
         if (! $requested && ! empty($data['type'])) {
@@ -68,5 +69,30 @@ trait BuildsAiQuestions
         // زمینه‌ی نهایی را برمی‌گردانیم تا فرم همان برچسب‌ها را هنگامِ ذخیره بفرستد
         $result['context'] = $ctx;
         return response()->json($result);
+    }
+
+    /**
+     * اگر هاست وسطِ کار PHP را به‌خاطرِ سقفِ زمان (max_execution_time) قطع کند، مرورگر
+     * پاسخِ خالی می‌گرفت و پنلِ طراحیِ سؤال یک کادرِ قرمزِ خالی نشان می‌داد.
+     * این تابع در همان لحظه یک پاسخِ JSONِ روشن می‌فرستد.
+     */
+    protected static function guardFatal(): void
+    {
+        register_shutdown_function(function () {
+            $e = error_get_last();
+            if (! $e || ! in_array($e['type'], [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR], true) || headers_sent()) {
+                return;
+            }
+            $timeout = str_contains((string) $e['message'], 'Maximum execution time');
+            while (ob_get_level() > 0) @ob_end_clean();
+            http_response_code(200);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'ok' => false, 'mode' => 'error', 'questions' => [],
+                'message' => $timeout
+                    ? 'زمانِ اجرای سرور (حدود ' . (int) ini_get('max_execution_time') . ' ثانیه) پیش از رسیدنِ پاسخِ هوش مصنوعی تمام شد. تعدادِ سؤال را کمتر کنید یا در «مرکزِ هوش مصنوعی» مدلِ سریع‌تری انتخاب کنید (gpt-4o-mini، gpt-4.1-mini یا deepseek-chat). مدیرِ هاست هم می‌تواند max_execution_time را به ۱۲۰ ثانیه برساند.'
+                    : 'خطای داخلیِ سرور هنگامِ طراحیِ سؤال رخ داد؛ دوباره تلاش کنید.',
+            ], JSON_UNESCAPED_UNICODE);
+        });
     }
 }

@@ -1623,3 +1623,5 @@ a, button, [role="button"], summary { -webkit-tap-highlight-color: transparent; 
   .dcard>.ic{grid-row:auto}
   .dcard>:not(.ic){grid-column:1}
 }
+.qk-inline-ctx{margin:10px 0 4px;padding:10px;border-radius:12px;background:#fffaf0;border:1px dashed #f0c96a}
+.qk-btn.wait{opacity:.75}

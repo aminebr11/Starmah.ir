@@ -38,10 +38,18 @@ class SmartExamAiService
 
     private float $started = 0;
 
+    /** ثانیه‌های مجاز برای کلِ کار (سقفِ واقعیِ PHP روی هاست) */
+    private int $budget = 100;
+
+    private function remaining(): int
+    {
+        return max(8, (int) floor($this->budget - (microtime(true) - $this->started)));
+    }
+
     public function generate(array $opts): array
     {
         $this->started = microtime(true);
-        @set_time_limit(150);
+        $this->budget = \App\Support\AiConfig::timeBudget(100);
 
         $o = $this->normalizeOptions($opts);
         // خانواده‌ی سرویسِ فعال: anthropic یا openai (DeepSeek، Gemini، OpenRouter و سازگارها هم openai‌اند)
@@ -54,7 +62,7 @@ class SmartExamAiService
                     'ok' => false, 'mode' => 'unavailable', 'questions' => [], 'stats' => [],
                     'message' => $provider === 'off'
                         ? 'سرویس هوش مصنوعی توسط ادمین غیرفعال است.'
-                        : 'کلید هوش مصنوعی تنظیم نشده — برای تولید نمونه‌ی آزمایشی، گزینه‌ی «حالت نمونه» را بزنید.',
+                        : 'هوش مصنوعی هنوز برای سامانه فعال نشده (ادمینِ کل → «مرکزِ هوش مصنوعی» → کلید و «فعال کن»). برای دیدنِ نمونه‌ی آزمایشی، «حالتِ نمونه» را بزنید.',
                 ];
             }
             return ['ok' => true, 'mode' => 'sample', 'questions' => $this->sample($o), 'stats' => [],
@@ -71,7 +79,8 @@ class SmartExamAiService
         try {
             // حداکثر دو فراخوانی: اصلی + یک بارِ تکمیل اگر چیزی کنار گذاشته شد
             while (count($accepted) < $o['count'] && $calls < 2) {
-                if ($calls > 0 && (microtime(true) - $this->started) > 55) {
+                // فراخوانیِ دوم فقط اگر دستِ‌کم نیمی از وقت مانده باشد
+                if ($calls > 0 && (microtime(true) - $this->started) > min(55, $this->budget / 2)) {
                     break;
                 }
                 $need = $o['count'] - count($accepted);
@@ -408,7 +417,7 @@ class SmartExamAiService
         ];
         $send = fn ($b) => Http::withHeaders([
             'x-api-key' => $key, 'anthropic-version' => '2023-06-01', 'content-type' => 'application/json',
-        ])->timeout(100)->post('https://api.anthropic.com/v1/messages', $b);
+        ])->timeout($this->remaining())->post('https://api.anthropic.com/v1/messages', $b);
 
         $res = $send($body);
         if ($res->status() === 400 && str_contains(strtolower($res->body()), 'temperature')) {
@@ -434,19 +443,20 @@ class SmartExamAiService
             ['role' => 'user', 'content' => $this->userPrompt($o, $plan, $avoid)],
         ];
         $model = \App\Support\AiConfig::model();
-        $attempts = [
-            ['temperature' => 0.7, 'response_format' => ['type' => 'json_schema', 'json_schema' => ['name' => 'questions', 'strict' => true, 'schema' => $this->schema()]]],
-            ['response_format' => ['type' => 'json_schema', 'json_schema' => ['name' => 'questions', 'strict' => true, 'schema' => $this->schema()]]],
-            ['response_format' => ['type' => 'json_object']],
-        ];
+        $schema = ['response_format' => ['type' => 'json_schema', 'json_schema' => ['name' => 'questions', 'strict' => true, 'schema' => $this->schema()]]];
+        // اسکیمای سخت‌گیرانه را فقط خودِ OpenAI کامل پشتیبانی می‌کند؛ DeepSeek، Gemini و
+        // سرویس‌های سازگار با آن خطای ۴۰۰ می‌دادند و دو درخواست هدر می‌رفت
+        $attempts = \App\Support\AiConfig::provider() === 'openai'
+            ? [['temperature' => 0.7] + $schema, ['response_format' => ['type' => 'json_object']]]
+            : [['temperature' => 0.7, 'response_format' => ['type' => 'json_object']], []];
         $res = null;
         foreach ($attempts as $i => $extra) {
             $msgs = $messages;
-            if ($i === 2) {
+            if (($extra['response_format']['type'] ?? '') !== 'json_schema') {
                 $msgs[0]['content'] .= "\n\nخروجی فقط یک شیءِ JSON با کلیدِ questions باشد، با همان فیلدهای اسکیما: "
                     . json_encode($this->schema(), JSON_UNESCAPED_UNICODE);
             }
-            $res = \App\Support\AiConfig::postChat($key, ['model' => $model, 'messages' => $msgs] + $extra, 100);
+            $res = \App\Support\AiConfig::postChat($key, ['model' => $model, 'messages' => $msgs] + $extra, $this->remaining());
             if ($res->status() !== 400) {
                 break;   // فقط خطای «پارامترِ پشتیبانی‌نشده» را با حالتِ ساده‌تر تکرار می‌کنیم
             }
@@ -477,13 +487,22 @@ class SmartExamAiService
     private function friendlyError(string $e): string
     {
         if (str_contains($e, 'HTTP 401') || str_contains($e, 'HTTP 403')) {
-            return 'کلیدِ API نامعتبر است یا دسترسی ندارد (ادمین کل → تنظیمات).';
+            return 'کلیدِ API نامعتبر است یا دسترسی ندارد (ادمین کل → مرکزِ هوش مصنوعی).';
         }
         if (str_contains($e, 'HTTP 429')) {
             return 'سقفِ استفاده از سرویس پر شده؛ چند دقیقه بعد دوباره تلاش کنید.';
         }
         if (str_contains($e, 'timed out') || str_contains($e, 'cURL error 28')) {
-            return 'پاسخ طول کشید؛ تعدادِ سؤال را کمتر کنید و دوباره تلاش کنید.';
+            return 'پاسخِ هوش مصنوعی بیش از وقتِ مجاز طول کشید؛ تعدادِ سؤال را کمتر کنید (مثلاً ۳) یا در «مرکزِ هوش مصنوعی» مدلِ سریع‌تری انتخاب کنید (gpt-4o-mini، gpt-4.1-mini یا deepseek-chat).';
+        }
+        if (str_contains($e, 'HTTP 402') || str_contains(strtolower($e), 'insufficient') || str_contains(strtolower($e), 'quota')) {
+            return 'اعتبارِ حسابِ سرویسِ هوش مصنوعی تمام شده است (ادمین کل → مرکزِ هوش مصنوعی).';
+        }
+        if (str_contains($e, 'HTTP 404')) {
+            return 'مدلِ انتخاب‌شده پیدا نشد؛ نامِ مدل را در «مرکزِ هوش مصنوعی» بررسی کنید.';
+        }
+        if (str_contains($e, 'Could not resolve') || str_contains($e, 'cURL error 6') || str_contains($e, 'cURL error 7') || str_contains($e, 'Connection refused')) {
+            return 'سرور به سرویسِ هوش مصنوعی وصل نشد (قطعی یا فیلترِ شبکه‌ی هاست).';
         }
         return mb_substr($e, 0, 200);
     }

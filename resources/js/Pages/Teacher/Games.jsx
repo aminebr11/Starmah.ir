@@ -1,4 +1,5 @@
 import { usePage, useForm, router } from '@inertiajs/react';
+import { aiErrorText, aiResultText } from '@/lib/aiErrors';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -48,9 +49,10 @@ export default function Games() {
         try {
             const topic = (ai.topic || '').trim() || form.data.title?.trim() || form.data.subject;
             const { data } = await axios.post(route('teacher.games.ai'), { ...ai, subject: form.data.subject, topic });
-            setAiMsg({ ok: data.ok, mode: data.mode, text: data.message });
-            if (data.ok) setAiRes((data.questions || []).map((q) => ({ ...q, _pick: true })));
-        } catch (e) { setAiMsg({ ok: false, text: e.response?.data?.message || 'خطا' }); }
+            const good = !!data?.ok && Array.isArray(data.questions);
+            setAiMsg({ ok: good, mode: data?.mode, text: good ? data.message : aiResultText(data) });
+            if (good) setAiRes(data.questions.map((q) => ({ ...q, _pick: true })));
+        } catch (e) { setAiMsg({ ok: false, text: aiErrorText(e) }); }
         setAiBusy(false);
     };
     const addAi = () => {

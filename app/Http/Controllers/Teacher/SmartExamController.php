@@ -73,7 +73,9 @@ class SmartExamController extends Controller
             'groups' => $groups,
             'themes' => Theme::where('is_active', true)->where('key', '!=', 'brand')->orderBy('sort')
                 ->get(['id', 'name', 'emoji'])->map(fn ($t) => ['id' => $t->id, 'name' => $t->name, 'emoji' => $t->emoji]),
+            // دکمه‌ی طراحی همیشه دیده شود؛ اگر کلید نباشد «حالتِ نمونه» و پیامِ روشن داریم
             'aiEnabled' => SmartLab::flag('smart_ai_enabled'),
+            'aiConfigured' => \App\Support\AiConfig::configured(),
             'adaptiveEnabled' => SmartLab::flag('smart_adaptive_enabled'),
             'classes' => \App\Support\Curriculum::teacherClasses($teacher),
         ];
@@ -312,7 +314,10 @@ class SmartExamController extends Controller
     /** دستیار هوشمند طراحی سؤال. */
     public function aiGenerate(Request $request, SmartExamAiService $ai): JsonResponse
     {
-        abort_unless(SmartLab::flag('smart_ai_enabled'), 403);
+        if (! SmartLab::flag('smart_ai_enabled')) {
+            return response()->json(['ok' => false, 'mode' => 'unavailable', 'questions' => [],
+                'message' => 'طراحیِ سؤال با هوش مصنوعی در «آزمایشگاهِ هوشمند» توسطِ ادمینِ کل خاموش است (ادمین کل → آزمایشگاه هوشمند → «تولید سؤال با هوش مصنوعی»).']);
+        }
         return $this->aiRespond($request, $ai, 'exam', ['mc', 'tf', 'blank', 'desc'], 20);
     }
 

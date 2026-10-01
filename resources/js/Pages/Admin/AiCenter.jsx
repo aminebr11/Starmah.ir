@@ -12,7 +12,14 @@ const money = (n, cur) => (n ? `${num(n)} ${cur}` : `۰ ${cur}`);
 
 /** مرکزِ هوش مصنوعی — سرویس و مدل، آزمایشِ اتصال، مصرفِ توکن و هزینه. */
 export default function AiCenter() {
-    const { active, providers = [], prices = {}, currency, days, usage = {}, flash, errors = {} } = usePage().props;
+    const { active, providers = [], prices = {}, currency, days, usage = {}, flash, errors = {}, server = {}, qtest: qtest0 } = usePage().props;
+    const [qtest, setQtest] = useState(qtest0);
+    const testQ = async () => {
+        setBusy('q');
+        try { const { data } = await axios.post(route('admin.ai.testq')); setQtest(data); }
+        catch (e) { setQtest({ ok: false, message: e.response?.status === 429 ? 'آزمایش‌ها زیاد شد؛ یک دقیقه صبر کنید.' : `درخواست ناموفق بود (${e.response?.status || 'بدونِ پاسخ'}) — احتمالاً سقفِ زمانِ هاست.` }); }
+        finally { setBusy(null); }
+    };
     const banner = typeof flash?.flash === 'string' ? flash.flash : flash?.flash?.message;
     const act = providers.find((p) => p.key === active);
     const t = usage.totals || {};
@@ -65,7 +72,23 @@ export default function AiCenter() {
                             {busy === active ? <><i className="ai-spin" /> در حالِ آزمایش…</> : '⚡ آزمایشِ اتصال'}
                         </button>
                     )}
+                    {active !== 'off' && (
+                        <button type="button" className="ai-test-big alt" disabled={busy === 'q'} onClick={testQ}>
+                            {busy === 'q' ? <><i className="ai-spin" /> در حالِ طراحیِ ۲ سؤالِ آزمایشی…</> : '🧪 آزمایشِ طراحیِ سؤال'}
+                        </button>
+                    )}
                     {actTest?.ok && actTest.reply && <div className="ai-reply">💬 «{actTest.reply}»</div>}
+                    {qtest && (
+                        <div className={`ai-reply ${qtest.ok ? '' : 'bad'}`}>
+                            {qtest.ok
+                                ? <>🧪 طراحیِ سؤال کار می‌کند: {fa(qtest.n)} سؤال در {fa(qtest.seconds)} ثانیه{qtest.sample && <><br />«{qtest.sample}»</>}</>
+                                : <>🧪 طراحیِ سؤال ناموفق: {qtest.message || 'پاسخی نیامد.'}</>}
+                            {qtest.at && <small style={{ display: 'block', opacity: .7 }}>{qtest.at}</small>}
+                        </div>
+                    )}
+                    {server.max_execution_time > 0 && server.max_execution_time < 60 && (
+                        <div className="ai-reply bad">⏱️ سقفِ زمانِ PHP روی این هاست {fa(server.max_execution_time)} ثانیه است. مدل‌های «فکرکننده» (GPT‑5، o4) ممکن است در این زمان نرسند؛ مدل‌های سریع‌تر (gpt-4o-mini، gpt-4.1-mini، deepseek-chat، claude-haiku) را انتخاب کنید یا از پشتیبانیِ هاست بخواهید max_execution_time را ۱۲۰ کند.</div>
+                    )}
                 </div>
                 <div className="ai-kpis">
                     <div><b>{short(t.requests)}</b><span>درخواست ({fa(days)} روز)</span></div>

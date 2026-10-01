@@ -47,6 +47,8 @@ class AiCenterController extends Controller
             'prices' => $this->prices(), 'currency' => Setting::get('ai_currency', 'تومان'),
             'days' => $days, 'usage' => $this->usage($days),
             'features' => AiUsage::FEATURES,
+            'server' => ['max_execution_time' => (int) ini_get('max_execution_time'), 'curl' => function_exists('curl_init')],
+            'qtest' => json_decode((string) Setting::get('ai_testq_' . $active), true) ?: null,
         ]);
     }
 
@@ -90,6 +92,27 @@ class AiCenterController extends Controller
             'at' => Jalali::format(now(), true) . ' ' . Jalali::fa(now()->format('H:i')),
         ];
         Setting::put("ai_test_$p", json_encode($result, JSON_UNESCAPED_UNICODE));
+
+        return response()->json($result);
+    }
+
+    /** آزمایشِ مسیرِ واقعیِ طراحیِ سؤال (همان که معلم‌ها استفاده می‌کنند) با ۲ سؤال. */
+    public function testQuestions(Request $request, \App\Services\SmartExamAiService $ai): JsonResponse
+    {
+        AiUsage::$feature = 'test';
+        $r = $ai->generate([
+            'audience' => 'exam', 'types' => ['mc'], 'count' => 2, 'difficulty' => 'easy', 'bloom' => 'mixed',
+            'level' => 'ابتدایی', 'grade' => 'چهارم', 'subject' => 'ریاضی', 'book' => 'ریاضی', 'topic' => 'جمع و تفریق', 'goal' => '',
+            'kind' => 'practice', 'flavor' => '', 'instructions' => '', 'avoid' => [], 'sample' => false,
+            'school_id' => null, 'teacher_id' => $request->user()->id,
+        ]);
+        $result = [
+            'ok' => (bool) $r['ok'] && count($r['questions'] ?? []) > 0,
+            'n' => count($r['questions'] ?? []), 'seconds' => $r['stats']['seconds'] ?? null,
+            'message' => $r['message'] ?? null, 'sample' => ($r['questions'][0]['prompt'] ?? null),
+            'at' => Jalali::format(now(), true) . ' ' . Jalali::fa(now()->format('H:i')),
+        ];
+        Setting::put('ai_testq_' . AiConfig::provider(), json_encode($result, JSON_UNESCAPED_UNICODE));
 
         return response()->json($result);
     }

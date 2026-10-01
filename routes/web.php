@@ -110,6 +110,7 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::get('/ai', [\App\Http\Controllers\Admin\AiCenterController::class, 'index'])->name('ai');
     Route::post('/ai', [\App\Http\Controllers\Admin\AiCenterController::class, 'save'])->name('ai.save');
     Route::post('/ai/test', [\App\Http\Controllers\Admin\AiCenterController::class, 'test'])->middleware('throttle:15,1')->name('ai.test');
+    Route::post('/ai/test-questions', [\App\Http\Controllers\Admin\AiCenterController::class, 'testQuestions'])->middleware('throttle:6,1')->name('ai.testq');
     Route::post('/ai/prices', [\App\Http\Controllers\Admin\AiCenterController::class, 'savePrices'])->name('ai.prices');
     Route::get('/settings', [PlatformController::class, 'settings'])->name('settings');
     Route::post('/settings', [PlatformController::class, 'storeSettings'])->name('settings.store');

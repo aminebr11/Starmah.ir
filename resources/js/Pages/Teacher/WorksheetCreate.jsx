@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { aiErrorText, aiResultText } from '@/lib/aiErrors';
 import { usePage, router } from '@inertiajs/react';
 import axios from 'axios';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
@@ -58,16 +59,14 @@ export default function WorksheetCreate() {
                 difficulty: spec.difficulty, type: spec.type, sample,
                 avoid: questions.map((q) => q.prompt).filter(Boolean),
             });
-            if (data.ok) {
+            if (data?.ok && Array.isArray(data.questions)) {
                 setQuestions(data.questions.map((q) => ({ ...q, source: data.mode === 'sample' ? 'sample' : 'ai' })));
                 setMsg(data.message ? { t: 'info', m: data.message } : { t: 'ok', m: `${fa(data.questions.length)} سؤال پیشنهاد شد ✅` });
             } else {
-                setMsg({ t: 'err', m: data.message || 'تولید نشد.' });
+                setMsg({ t: 'err', m: aiResultText(data) });
             }
         } catch (e) {
-            const err = e.response?.data;
-            const first = err?.errors ? Object.values(err.errors)[0]?.[0] : null;
-            setMsg({ t: 'err', m: first || err?.message || 'خطا در ارتباط با سرور.' });
+            setMsg({ t: 'err', m: aiErrorText(e) });
         } finally { setBusy(false); }
     };
 
