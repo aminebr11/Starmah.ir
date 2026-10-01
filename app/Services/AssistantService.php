@@ -601,7 +601,7 @@ class AssistantService
         $turns = $this->turns($history, $message);
 
         if ($this->ai->provider() === 'openai' && $this->ai->openaiKey()) {
-            $res = Http::withToken($this->ai->openaiKey())->timeout(40)->post(\App\Support\AiConfig::chatUrl(), [
+            $res = \App\Support\AiConfig::postChat($this->ai->openaiKey(), [
                 'model' => \App\Support\AiConfig::model(),
                 'max_tokens' => self::MAX_TOKENS,
                 'messages' => array_merge([['role' => 'system', 'content' => $system]], $turns),

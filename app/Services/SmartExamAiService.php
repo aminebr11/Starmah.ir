@@ -446,8 +446,7 @@ class SmartExamAiService
                 $msgs[0]['content'] .= "\n\nخروجی فقط یک شیءِ JSON با کلیدِ questions باشد، با همان فیلدهای اسکیما: "
                     . json_encode($this->schema(), JSON_UNESCAPED_UNICODE);
             }
-            $res = Http::withToken($key)->timeout(100)->post(\App\Support\AiConfig::chatUrl(),
-                ['model' => $model, 'messages' => $msgs] + $extra);
+            $res = \App\Support\AiConfig::postChat($key, ['model' => $model, 'messages' => $msgs] + $extra, 100);
             if ($res->status() !== 400) {
                 break;   // فقط خطای «پارامترِ پشتیبانی‌نشده» را با حالتِ ساده‌تر تکرار می‌کنیم
             }

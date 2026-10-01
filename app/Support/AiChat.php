@@ -32,12 +32,10 @@ class AiChat
                 $in = (int) data_get($res->json(), 'usage.input_tokens', 0);
                 $out = (int) data_get($res->json(), 'usage.output_tokens', 0);
             } else {
-                $req = Http::withToken($key)->timeout($timeout);
-                if ($p === 'openrouter') $req = $req->withHeaders(['HTTP-Referer' => config('app.url'), 'X-Title' => 'Starmah']);
-                $res = $req->post(AiConfig::chatUrl($p), [
+                $res = AiConfig::postChat($key, [
                     'model' => $model, 'max_tokens' => $maxTokens,
                     'messages' => [['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $user]],
-                ]);
+                ], $timeout, $p);
                 $text = (string) data_get($res->json(), 'choices.0.message.content', '');
                 $in = (int) data_get($res->json(), 'usage.prompt_tokens', 0);
                 $out = (int) data_get($res->json(), 'usage.completion_tokens', 0);

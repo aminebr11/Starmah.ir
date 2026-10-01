@@ -26,7 +26,7 @@ class AiConfig
             'label' => 'ChatGPT', 'vendor' => 'OpenAI', 'family' => 'openai', 'emoji' => '🟢',
             'base' => 'https://api.openai.com/v1', 'key' => 'openai_key', 'model' => 'openai_model',
             'default' => 'gpt-4o-mini',
-            'models' => ['gpt-4o-mini', 'gpt-4.1-mini', 'gpt-4o', 'gpt-4.1'],
+            'models' => ['gpt-5-mini', 'gpt-5', 'gpt-5-nano', 'gpt-4.1-mini', 'gpt-4o-mini', 'gpt-4o', 'o4-mini'],
             'hint' => 'سریع و همه‌کاره.', 'site' => 'platform.openai.com',
         ],
         'deepseek' => [
@@ -117,6 +117,72 @@ class AiConfig
         $p ??= self::provider();
 
         return $p !== 'off' && (bool) self::key($p) && ($p !== 'custom' || self::base($p));
+    }
+
+    /**
+     * آماده‌کردنِ بدنه‌ی chat/completions برای سرویسِ مقصد.
+     *
+     * مدل‌های تازه‌ی OpenAI (خانواده‌ی GPT‑5 و سری o) پارامترِ max_tokens را
+     * نمی‌پذیرند و max_completion_tokens می‌خواهند؛ دما (temperature) را هم جز
+     * مقدارِ پیش‌فرض قبول نمی‌کنند. خودِ OpenAI برای همه‌ی مدل‌هایش
+     * max_completion_tokens را می‌پذیرد، پس برای OpenAI همیشه همان فرستاده می‌شود.
+     * سرویس‌های سازگارِ دیگر (DeepSeek و…) همان max_tokens را می‌خواهند.
+     */
+    public static function adaptChatBody(array $body, ?string $p = null): array
+    {
+        $p ??= self::provider();
+        if ($p === 'openai') {
+            if (isset($body['max_tokens'])) {
+                // مدل‌های استدلالی بخشی از سقف را صرفِ «فکرکردن» می‌کنند؛ کمی جا اضافه می‌کنیم
+                $max = (int) $body['max_tokens'];
+                $body['max_completion_tokens'] = self::isReasoningModel($body['model'] ?? '') ? max($max * 4, 1500) : $max;
+                unset($body['max_tokens']);
+            }
+            if (self::isReasoningModel($body['model'] ?? '')) {
+                unset($body['temperature'], $body['top_p']);
+            }
+        }
+
+        return $body;
+    }
+
+    /** GPT‑5، o1، o3، o4… — مدل‌هایی که دما ندارند و «توکنِ استدلال» مصرف می‌کنند. */
+    public static function isReasoningModel(string $model): bool
+    {
+        return (bool) preg_match('/^(gpt-5|o\d)/i', trim($model));
+    }
+
+    /**
+     * فرستادنِ درخواستِ chat/completions با پیکربندیِ سرویس و یک بار تلاشِ دوباره
+     * اگر مدل پارامتری را نپذیرفت (max_tokens / max_completion_tokens / temperature).
+     */
+    public static function postChat(string $key, array $body, int $timeout = 40, ?string $p = null): \Illuminate\Http\Client\Response
+    {
+        $p ??= self::provider();
+        $body = self::adaptChatBody($body, $p);
+        $send = function ($b) use ($key, $timeout, $p) {
+            $req = \Illuminate\Support\Facades\Http::withToken($key)->timeout($timeout);
+            if ($p === 'openrouter') {
+                $req = $req->withHeaders(['HTTP-Referer' => config('app.url'), 'X-Title' => 'Starmah']);
+            }
+
+            return $req->post(self::chatUrl($p), $b);
+        };
+        $res = $send($body);
+        if ($res->status() === 400) {
+            $err = strtolower((string) data_get($res->json(), 'error.message', $res->body()));
+            $fixed = $body;
+            if (str_contains($err, 'max_completion_tokens') && isset($fixed['max_tokens'])) {
+                $fixed['max_completion_tokens'] = $fixed['max_tokens']; unset($fixed['max_tokens']);
+            } elseif (str_contains($err, 'max_tokens') && isset($fixed['max_completion_tokens'])) {
+                $fixed['max_tokens'] = $fixed['max_completion_tokens']; unset($fixed['max_completion_tokens']);
+            }
+            if (str_contains($err, 'temperature')) unset($fixed['temperature']);
+            if (str_contains($err, 'top_p')) unset($fixed['top_p']);
+            if ($fixed !== $body) $res = $send($fixed);
+        }
+
+        return $res;
     }
 
     /** آیا این نشانی متعلق به یکی از سرویس‌های متنیِ هوش مصنوعی است؟ (برای ثبتِ مصرف) */

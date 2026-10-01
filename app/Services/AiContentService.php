@@ -105,7 +105,7 @@ class AiContentService
 
     private function viaOpenAI(string $key, string $prompt): string
     {
-        $res = Http::withToken($key)->timeout(40)->post(AiConfig::chatUrl(), [
+        $res = AiConfig::postChat($key, [
             'model' => AiConfig::model(),
             'max_tokens' => 700,
             'messages' => [
