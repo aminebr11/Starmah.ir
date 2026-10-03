@@ -29,6 +29,8 @@ class ParentHomeController extends Controller
             ])->values(),
             'selectedId' => $child?->id,
             'report' => $child ? $analytics->childReport($child) : null,
+            // روندِ هفته‌به‌هفته‌ی امتیاز و رتبه (نمودارِ کارنامه)
+            'pointsTrend' => $child ? app(\App\Services\PointsAnalytics::class)->studentTrend($child) : null,
         ]);
     }
 }

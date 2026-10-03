@@ -1,4 +1,6 @@
-import { usePage } from '@inertiajs/react';
+import { usePage, router } from '@inertiajs/react';
+import { useRef } from 'react';
+import PointsTrend from '@/Components/PointsTrend';
 import { MasteryTag } from '@/Components/MasteryPanel';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import { AreaTrend, Donut, Heatmap, PAL } from '@/Components/Charts';
@@ -7,7 +9,13 @@ import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 export default function Reports() {
-    const { classroom, report, crossSubject = {}, studentCount = 0, trend = [], heatmap = null } = usePage().props;
+    const { classroom, report, crossSubject = {}, studentCount = 0, trend = [], heatmap = null, studentTrend = null, trendStudent = null } = usePage().props;
+    const trendRef = useRef(null);
+    // نمودارِ روندِ یک دانش‌آموز، بدونِ بارگذاریِ دوباره‌ی کلِ صفحه
+    const showTrend = (id) => router.get(route('teacher.reports'), id ? { student: id } : {}, {
+        preserveScroll: true, preserveState: true, only: ['studentTrend', 'trendStudent'],
+        onSuccess: () => id && setTimeout(() => trendRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120),
+    });
     const ps = useSort(report?.per_student, { name: (r) => firstName(r.name), family: (r) => lastName(r.name), group: 'group', xp: 'xp', mastery: 'mastery', activities: 'activities' },
         { id: 'teacher-reports-students', firstDir: { xp: 'desc', mastery: 'desc', activities: 'desc' } });
     if (!report) return <DashLayout title="گزارش کلاس" roleLabel="معلم" menu={teacherMenu} active="reports"><div className="panel"><p style={{ color: 'var(--muted)' }}>کلاسی برای گزارش نیست.</p></div></DashLayout>;
@@ -71,6 +79,16 @@ export default function Reports() {
                 </div>
             </div>
 
+            {studentTrend && (
+                <div className="panel" ref={trendRef}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+                        <h3 style={{ margin: 0 }}>📊 روندِ {trendStudent}</h3>
+                        <button type="button" className="btn btn-ghost btn-sm no-print" style={{ marginInlineStart: 'auto' }} onClick={() => showTrend(null)}>بستن</button>
+                    </div>
+                    <PointsTrend data={studentTrend} title={`روندِ امتیاز و رتبه‌ی ${trendStudent}`} />
+                </div>
+            )}
+
             <div className="panel">
                 <h3>👥 جدول کامل دانش‌آموزان</h3>
                 {report.per_student.length > 1 && <SortBar s={ps} options={[['name', 'نام'], ['family', 'نام خانوادگی'], ['xp', 'امتیاز'], ['mastery', 'تسلط']]} />}
@@ -82,7 +100,10 @@ export default function Reports() {
                                 <td>{s.emoji} {s.group}</td><td style={{ color: 'var(--gold-2)', fontWeight: 800 }}>{fa(s.xp)}</td>
                                 <td><MasteryTag value={s.mastery} title={s.mastery_level || undefined} /></td>
                                 <td>{fa(s.activities)}</td>
-                                <td><a href={`/print/student/${s.id}`} target="_blank" rel="noopener" title="چاپِ کارنامه‌ی جامع" className="btn btn-ghost btn-sm">🖨️</a></td></tr>
+                                <td style={{ whiteSpace: 'nowrap' }}>
+                                    <button type="button" onClick={() => showTrend(s.id)} title="نمودارِ روندِ امتیاز و رتبه" className="btn btn-ghost btn-sm">📊</button>
+                                    <a href={`/print/student/${s.id}`} target="_blank" rel="noopener" title="چاپِ کارنامه‌ی جامع" className="btn btn-ghost btn-sm">🖨️</a>
+                                </td></tr>
                         ))}
                     </tbody>
                 </table>

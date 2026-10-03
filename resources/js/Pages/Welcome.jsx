@@ -104,6 +104,59 @@ const BENTO = [
     { ic: '🖼️', cls: 'ic-gold', t: 'گالری', d: 'لحظه‌های کلاس', href: '/gallery' },
 ];
 
+/** فهرستِ ساده‌ی برترین‌ها (پوسته‌ی کلاسیک). */
+function ClassicBoard({ rows = [], gold = false }) {
+    if (!rows.length) return <div className="sm-lb"><div className="sm-lb-row" style={{ color: '#a9bade' }}>هنوز امتیازی ثبت نشده</div></div>;
+    return (
+        <div className="sm-lb">
+            {rows.map((s) => (
+                <div key={s.rank} className="sm-lb-row">
+                    <div className={`sm-rank ${s.rank === 1 ? 'g1' : s.rank === 2 ? 'g2' : s.rank === 3 ? 'g3' : ''}`}>{fa(s.rank)}</div>
+                    <div className="sm-lb-name">{s.rank === 1 && (gold ? '🏆 ' : '👑 ')}{s.name}{(s.school || s.class) && <div style={{ fontSize: 12, opacity: .7, fontWeight: 500 }}>{[s.school, s.class].filter(Boolean).join(' · ')}</div>}</div>
+                    <div className="sm-xp">⭐ {fa(s.xp)}</div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+/** تابلوی برترین‌ها: سه‌نفرِ اولِ سکو + بقیه در فهرست. */
+function StarBoard({ rows = [], empty, gold = false }) {
+    if (!rows.length) return <div className="cw-lb"><div className="cw-lb-row"><b>{empty}</b></div></div>;
+    return (
+        <div className={gold ? 'cw-board gold' : 'cw-board'}>
+            <div className="cw-podium sm-reveal">
+                {[rows[1], rows[0], rows[2]].filter(Boolean).map((s) => (
+                    <div key={s.rank} className={`cw-pod r${s.rank}`}>
+                        {s.rank === 1 && <span className="cw-crown" aria-hidden="true">{gold ? '🏆' : '👑'}</span>}
+                        <div className="cw-pod-av">
+                            {s.avatar ? <img src={s.avatar} alt="" /> : <span>{(s.name || '؟').trim().charAt(0)}</span>}
+                            <em>{fa(s.rank)}</em>
+                        </div>
+                        <b className="cw-pod-name">{s.name}</b>
+                        <small className="cw-pod-meta">{[s.school, s.class].filter(Boolean).join(' · ')}</small>
+                        {s.team && <span className="cw-pod-team">{s.team}</span>}
+                        <div className="cw-pod-xp">⭐ {fa(s.xp)} <small>امتیاز</small></div>
+                        <div className="cw-pod-base" />
+                    </div>
+                ))}
+            </div>
+            {rows.length > 3 && (
+                <div className="cw-lb sm-reveal">
+                    {rows.slice(3).map((s) => (
+                        <div key={s.rank} className="cw-lb-row">
+                            <span className="cw-rank r4">{fa(s.rank)}</span>
+                            <span className="cw-lb-av">{s.avatar ? <img src={s.avatar} alt="" /> : (s.name || '؟').trim().charAt(0)}</span>
+                            <div className="cw-lb-t"><b>{s.name}</b><small>{[s.school, s.class, s.team].filter(Boolean).join(' · ')}</small></div>
+                            <em>⭐ {fa(s.xp)}</em>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function Welcome() {
     const { ui = 'classic' } = usePage().props;
     return ui === 'clay' ? <WelcomeClay /> : <WelcomeClassic />;
@@ -166,7 +219,7 @@ function useLiveMotion(ref) {
 
 /** صفحه‌ی اصلی در طرحِ «خمیرماه». همان محتوا و همان داده‌ی واقعی. */
 function WelcomeClay() {
-    const { auth, weeklyTop = [], stats = {}, worlds = [], starsPeriod = 'week' } = usePage().props;
+    const { auth, weeklyTop = [], weekInfo = null, yearTop = [], yearLabel = '', stats = {}, worlds = [] } = usePage().props;
     const liveRef = useRef(null);
     useLiveMotion(liveRef);
     const user = auth?.user;
@@ -262,43 +315,16 @@ function WelcomeClay() {
 
                 <section className="cw-sec cw-wrap" id="stars">
                     <div className="cw-head sm-reveal">
-                        <h2>{starsPeriod === 'week' ? 'ستاره‌های این هفته' : starsPeriod === 'month' ? 'ستاره‌های این ماه' : 'ستاره‌های ستاره ماه'}</h2>
-                        <p>{starsPeriod === 'week' ? 'دانش‌آموزانی که در ۷ روزِ گذشته بیشترین امتیاز را گرفتند' : 'این هفته هنوز امتیازی ثبت نشده؛ برترین‌های اخیر را ببین'}</p>
+                        <h2>🌟 برترین‌های {weekInfo ? weekInfo.short : 'هفته'}</h2>
+                        <p>{weekInfo ? <>{weekInfo.range} — {weekInfo.title.replace(weekInfo.short + ' ', '')}</> : 'برترین‌های این هفته'}</p>
                     </div>
-                    {weeklyTop.length ? (
-                        <>
-                            <div className="cw-podium sm-reveal">
-                                {[weeklyTop[1], weeklyTop[0], weeklyTop[2]].filter(Boolean).map((s) => (
-                                    <div key={s.rank} className={`cw-pod r${s.rank}`}>
-                                        {s.rank === 1 && <span className="cw-crown" aria-hidden="true">👑</span>}
-                                        <div className="cw-pod-av">
-                                            {s.avatar ? <img src={s.avatar} alt="" /> : <span>{(s.name || '؟').trim().charAt(0)}</span>}
-                                            <em>{fa(s.rank)}</em>
-                                        </div>
-                                        <b className="cw-pod-name">{s.name}</b>
-                                        <small className="cw-pod-meta">{[s.school, s.class].filter(Boolean).join(' · ')}</small>
-                                        {s.team && <span className="cw-pod-team">{s.team}</span>}
-                                        <div className="cw-pod-xp">⭐ {fa(s.xp)} <small>امتیاز</small></div>
-                                        <div className="cw-pod-base" />
-                                    </div>
-                                ))}
-                            </div>
-                            {weeklyTop.length > 3 && (
-                                <div className="cw-lb sm-reveal">
-                                    {weeklyTop.slice(3).map((s) => (
-                                        <div key={s.rank} className="cw-lb-row">
-                                            <span className="cw-rank r4">{fa(s.rank)}</span>
-                                            <span className="cw-lb-av">{s.avatar ? <img src={s.avatar} alt="" /> : (s.name || '؟').trim().charAt(0)}</span>
-                                            <div className="cw-lb-t"><b>{s.name}</b><small>{[s.school, s.class, s.team].filter(Boolean).join(' · ')}</small></div>
-                                            <em>⭐ {fa(s.xp)}</em>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </>
-                    ) : (
-                        <div className="cw-lb"><div className="cw-lb-row"><b>هنوز امتیازی ثبت نشده — اولین ستاره تو باش! 🌟</b></div></div>
-                    )}
+                    <StarBoard rows={weeklyTop} empty="این هفته هنوز امتیازی ثبت نشده — اولین ستاره تو باش! 🌟" />
+
+                    <div className="cw-head sm-reveal" style={{ marginTop: 34 }}>
+                        <h2>🏆 برترین‌های سالِ تحصیلی {yearLabel}</h2>
+                        <p>بیشترین امتیازِ جمع‌شده از ابتدای مهر تا امروز</p>
+                    </div>
+                    <StarBoard rows={yearTop} gold empty="امسال هنوز امتیازی ثبت نشده است." />
                 </section>
 
                 <section className="cw-sec cw-wrap" id="how">
@@ -337,7 +363,7 @@ function WelcomeClay() {
 }
 
 function WelcomeClassic() {
-    const { auth, weeklyTop = [], stats = {} } = usePage().props;
+    const { auth, weeklyTop = [], weekInfo = null, yearTop = [], yearLabel = '', stats = {} } = usePage().props;
     const user = auth?.user;
     const isStudent = (auth?.roles ?? []).includes('student');
     const featHref = (h) => (isStudent ? h : user ? '/dashboard' : '/register');
@@ -496,20 +522,16 @@ function WelcomeClassic() {
                     <div className="sm-wrap">
                         <div className="sm-head sm-reveal">
                             <span className="sm-kicker">🏆 افتخارات</span>
-                            <h2>ستاره‌های درخشان این هفته</h2>
-                            <p>دانش‌آموزانی که بیشترین تلاش را داشتند</p>
+                            <h2>ستاره‌های درخشانِ {weekInfo ? weekInfo.short : 'این هفته'}</h2>
+                            <p>{weekInfo ? weekInfo.range : 'دانش‌آموزانی که بیشترین تلاش را داشتند'}</p>
                         </div>
-                        <div className="sm-reveal">
-                            <div className="sm-lb">
-                                {weeklyTop.length ? weeklyTop.map((s) => (
-                                    <div key={s.rank} className="sm-lb-row">
-                                        <div className={`sm-rank ${s.rank === 1 ? 'g1' : s.rank === 2 ? 'g2' : s.rank === 3 ? 'g3' : ''}`}>{fa(s.rank)}</div>
-                                        <div className="sm-lb-name">{s.rank === 1 && '👑 '}{s.name}{(s.school || s.class) && <div style={{ fontSize: 12, opacity: .7, fontWeight: 500 }}>{[s.school, s.class].filter(Boolean).join(' · ')}</div>}</div>
-                                        <div className="sm-xp">⭐ {fa(s.xp)}</div>
-                                    </div>
-                                )) : <div className="sm-lb-row" style={{ color: '#a9bade' }}>هنوز امتیازی ثبت نشده</div>}
-                            </div>
+                        <div className="sm-reveal"><ClassicBoard rows={weeklyTop} /></div>
+                        <div className="sm-head sm-reveal" style={{ marginTop: 30 }}>
+                            <span className="sm-kicker">🏆 سالِ تحصیلی</span>
+                            <h2>بالاترین امتیازاتِ {yearLabel}</h2>
+                            <p>از ابتدای مهر تا امروز</p>
                         </div>
+                        <div className="sm-reveal"><ClassicBoard rows={yearTop} gold /></div>
                     </div>
                 </section>
 

@@ -33,6 +33,8 @@ class ReportHubController extends Controller
             'crossSubject' => $cross->forStudent($user),
             'grades'       => $grades->gradesData($user),
             'smart'        => $smart->performanceData($user, false), // بدونِ فراخوانیِ AI روی هر بار بارگذاری
+            // روندِ هفته‌به‌هفته‌ی امتیاز و رتبه در سالِ تحصیلی
+            'pointsTrend'  => app(\App\Services\PointsAnalytics::class)->studentTrend($user),
         ]);
     }
 }

@@ -9,6 +9,7 @@ import '../css/schedule-kids.css';
 import '../css/mastery.css';
 import '../css/gradebook.css';
 import '../css/sort.css';
+import '../css/points-trend.css';
 import '../css/gallery.css';
 import '../css/ai-center.css';
 import './bootstrap';

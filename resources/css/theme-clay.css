@@ -565,3 +565,8 @@
   :root[data-ui="clay"] :is(.panel,.card,.dcard,.smart-panel){box-shadow:none!important;border:1px solid #dfe4ee!important;break-inside:avoid}
   :root[data-ui="clay"] .btn{display:none!important}
 }
+
+/* تابلوی برترین‌های سالِ تحصیلی — متمایز از برترین‌های هفته */
+.cw-board.gold .cw-pod.r1 .cw-pod-av{box-shadow:0 0 0 4px #ffd25a,0 10px 26px rgba(240,170,20,.4)}
+.cw-board.gold .cw-pod-xp{color:#a06a00}
+.cw-board.gold .cw-lb-row em{color:#a06a00}

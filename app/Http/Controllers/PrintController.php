@@ -79,6 +79,8 @@ class PrintController extends Controller
                 'address'     => $guardian['address'] ?? null,
             ],
             'r' => $report,
+            // روندِ هفته‌به‌هفته‌ی امتیاز و رتبه در سالِ تحصیلی
+            'pt' => app(\App\Services\PointsAnalytics::class)->studentTrend($user),
         ]);
     }
 

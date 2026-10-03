@@ -2,6 +2,7 @@ import { usePage, router } from '@inertiajs/react';
 import { useState } from 'react';
 import ThemedDash from '@/Layouts/ThemedDash';
 import MasteryPanel from '@/Components/MasteryPanel';
+import PointsTrend from '@/Components/PointsTrend';
 import { openPrint } from '@/lib/print';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
@@ -11,6 +12,7 @@ const card = { background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,
 const TABS = [
     { v: 'overview', t: 'خلاصه و تحلیل', ic: '📊' },
     { v: 'mastery', t: 'تسلطِ من', ic: '🎯' },
+    { v: 'trend', t: 'روندِ امتیاز و رتبه', ic: '📊' },
     { v: 'cross', t: 'درس‌به‌درس', ic: '📚' },
     { v: 'grades', t: 'نمرات کلاسی', ic: '📔' },
     { v: 'smart', t: 'آزمون هوشمند', ic: '🧠' },
@@ -18,7 +20,7 @@ const TABS = [
 
 /** کارنامه‌ی یکپارچه — چهار بخش در یک صفحه‌ی تب‌دار. */
 export default function Report() {
-    const { tab: initialTab = 'overview', report = {}, crossSubject = {}, grades = {}, smart = {}, auth } = usePage().props;
+    const { tab: initialTab = 'overview', report = {}, crossSubject = {}, grades = {}, smart = {}, pointsTrend = null, auth } = usePage().props;
     const [tab, setTab] = useState(TABS.some((t) => t.v === initialTab) ? initialTab : 'overview');
     const go = (v) => { setTab(v); window.history.replaceState(null, '', `/report?tab=${v}`); };
 
@@ -50,6 +52,7 @@ export default function Report() {
             <div style={{ marginTop: 14 }}>
                 {tab === 'overview' && <Overview report={report} onMastery={() => go('mastery')} />}
                 {tab === 'mastery' && <MasteryPanel data={report.mastery} levels={report.masteryLevels} who="kid" />}
+                {tab === 'trend' && <div className="pt-dark"><PointsTrend data={pointsTrend} title="📊 روندِ امتیاز و رتبه‌ی من" /></div>}
                 {tab === 'cross' && <CrossSubject data={crossSubject} />}
                 {tab === 'grades' && <Grades grades={grades} onMastery={() => go('mastery')} />}
                 {tab === 'smart' && <Smart smart={smart} />}

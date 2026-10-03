@@ -249,6 +249,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::delete('/activities/{classActivity}', [\App\Http\Controllers\Teacher\ActivityController::class, 'destroy'])->name('activities.destroy');
     // مدیریت امتیازاتِ دانش‌آموز (افزودن/کسر/حذف سابقه)
     Route::get('/points', [\App\Http\Controllers\Teacher\StudentPointsController::class, 'index'])->name('points');
+    Route::get('/points/print', [\App\Http\Controllers\Teacher\StudentPointsController::class, 'print'])->name('points.print');
     Route::post('/points/adjust', [\App\Http\Controllers\Teacher\StudentPointsController::class, 'adjust'])->name('points.adjust');
     Route::delete('/points/entry/{xpEntry}', [\App\Http\Controllers\Teacher\StudentPointsController::class, 'destroyEntry'])->name('points.entry.destroy');
     Route::post('/points/destroy-many', [\App\Http\Controllers\Teacher\StudentPointsController::class, 'destroyMany'])->name('points.destroyMany');

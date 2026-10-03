@@ -7,6 +7,7 @@ use App\Models\Classroom;
 use App\Models\User;
 use App\Models\XpEntry;
 use App\Services\GamificationService;
+use App\Services\PointsAnalytics;
 use App\Support\Jalali;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,10 +29,14 @@ class StudentPointsController extends Controller
             ->flatMap(fn ($c) => $c->students->pluck('id'))->unique()->values()->all();
     }
 
-    public function index(Request $request): Response
+    public function index(Request $request, PointsAnalytics $points): Response
     {
         $teacher = $request->user();
         $ids = $this->myStudentIds($teacher);
+
+        // بازه‌ی گزارش: هفته (پیش‌فرض) / ماه / روز / سالِ تحصیلی / دلخواه
+        $preset = $request->query('range', 'week');
+        $range = $points->resolveRange($preset, $request->query('from'), $request->query('to'));
 
         $students = User::whereIn('id', $ids)->orderBy('name')->get(['id', 'name'])
             ->map(fn ($s) => [
@@ -53,10 +58,53 @@ class StudentPointsController extends Controller
                 ]);
         }
 
+        $jy = \App\Support\SchoolCalendar::schoolYearOf();
+
         return Inertia::render('Teacher/StudentPoints', [
             'students' => $students->values(),
             'selected' => $selected,
             'ledger'   => $ledger,
+            // رتبه‌بندیِ بازه‌ی انتخابی + ابزارهای انتخابِ بازه
+            'rank'     => $points->rankTable($ids, $range['from'], $range['to']),
+            'range'    => [
+                'preset' => $preset,
+                'label'  => $range['label'],
+                'from'   => $range['from']?->toDateString(),
+                'to'     => $range['to']?->toDateString(),
+            ],
+            'weeks'    => collect(\App\Support\SchoolCalendar::weeksSoFar($jy))->reverse()->values()
+                ->map(fn ($w) => ['key' => $w['key'], 'label' => $w['short'] . ' — ' . $w['range']])->all(),
+            'months'   => collect(\App\Support\SchoolCalendar::months($jy))->filter(fn ($m) => $m['from']->lte(now()))
+                ->reverse()->values()->map(fn ($m) => ['key' => $m['from']->toDateString(), 'label' => $m['label']])->all(),
+            'yearLabel' => \App\Support\SchoolCalendar::yearLabel($jy),
+            'classroom' => Classroom::where('teacher_id', $teacher->id)->value('name'),
+            // نمودارِ روندِ دانش‌آموزِ انتخاب‌شده
+            'trend'    => $selected ? $points->studentTrend(User::find($selectedId)) : null,
+        ]);
+    }
+
+    /** برگه‌ی چاپِ رتبه‌بندیِ امتیازها در بازه‌ی انتخابی. */
+    public function print(Request $request, PointsAnalytics $points): \Illuminate\View\View
+    {
+        $teacher = $request->user();
+        $ids = $this->myStudentIds($teacher);
+        $range = $points->resolveRange($request->query('range', 'week'), $request->query('from'), $request->query('to'));
+        $rows = $points->rankTable($ids, $range['from'], $range['to']);
+
+        return view('print.points', [
+            ...\App\Http\Controllers\PrintController::header($teacher->school_id, $request),
+            'title' => 'رتبه‌بندیِ امتیازِ دانش‌آموزان',
+            'range' => $range['label'],
+            'classroom' => Classroom::where('teacher_id', $teacher->id)->value('name'),
+            'teacher' => $teacher->name,
+            'rows' => $rows,
+            'sum' => [
+                'students' => count($rows),
+                'xp' => array_sum(array_column($rows, 'xp')),
+                'plus' => array_sum(array_column($rows, 'plus')),
+                'minus' => array_sum(array_column($rows, 'minus')),
+                'entries' => array_sum(array_column($rows, 'entries')),
+            ],
         ]);
     }
 

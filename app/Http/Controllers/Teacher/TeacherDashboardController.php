@@ -145,6 +145,12 @@ class TeacherDashboardController extends Controller
             'crossSubject' => $cross->forStudents($studentIds),
             'studentCount' => $studentIds->count(),
             'trend'   => $classIds->isNotEmpty() ? $analytics->dailyXpSeries($classIds, 28) : [],
+            // روندِ هفتگیِ امتیاز و رتبه برای نمودارِ گزارشِ معلم (یک دانش‌آموزِ انتخابی)
+            'studentTrend' => ($sid = (int) $request->query('student'))
+                && $studentIds->contains($sid)
+                ? app(\App\Services\PointsAnalytics::class)->studentTrend(\App\Models\User::find($sid))
+                : null,
+            'trendStudent' => isset($sid) && $studentIds->contains($sid) ? \App\Models\User::find($sid)?->name : null,
             'heatmap' => $classIds->isNotEmpty() ? $analytics->activityHeatmap($classIds, 6) : null,
         ]);
     }

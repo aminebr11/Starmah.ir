@@ -1,5 +1,6 @@
 import { usePage, router, Link } from '@inertiajs/react';
 import MasteryPanel from '@/Components/MasteryPanel';
+import PointsTrend from '@/Components/PointsTrend';
 import DashLayout, { parentMenu } from '@/Layouts/DashLayout';
 import Avatar from '@/Components/Avatar';
 import { AreaTrend, Donut, HBars, Heatmap, Gauge, Stat, OK, WARN, CRIT, PAL } from '@/Components/Charts';
@@ -8,7 +9,7 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
 
 /** داشبوردِ والد — «وضعیتِ فرزندِ من» با نمودارهای BI و توصیه‌ی قابل‌فهم. */
 export default function Dashboard() {
-    const { children = [], selectedId, report } = usePage().props;
+    const { children = [], selectedId, report, pointsTrend = null } = usePage().props;
     const pick = (id) => router.get(route('parent.home'), { child: id }, { preserveScroll: true });
 
     if (!children.length) {
@@ -139,6 +140,7 @@ export default function Dashboard() {
                         <div style={{ marginTop: 16 }}>
                             <h3 style={{ margin: '0 0 10px' }}>🎯 تسلطِ درس‌به‌درس</h3>
                             <MasteryPanel data={r.mastery_detail} levels={r.mastery_levels} who="parent" />
+                            {pointsTrend && <div style={{ marginTop: 14 }}><PointsTrend data={pointsTrend} title="📊 روندِ امتیاز و رتبه" /></div>}
                         </div>
                     )}
                 </>

@@ -72,6 +72,53 @@
         <p style="font-size:10px;color:var(--muted);margin-top:6px">تسلط از همه‌ی پاسخ‌ها در آزمون، بازی، مأموریت، تکلیف و نمره‌ی معلم برآورد می‌شود؛ کارهای تازه‌تر و سؤال‌های دشوارتر وزنِ بیشتری دارند. مسلط = ۸۵٪ و بالاتر.</p>
     @endif
 
+    @if (!empty($pt['points']))
+        @php
+            $pts = collect($pt['points']);
+            $withXp = $pts->filter(fn ($p) => $p['xp'] > 0);
+            $maxXp = max(1, (int) $pts->max('xp'));
+            $sum = $pt['summary'];
+        @endphp
+        <h2>📊 روندِ امتیاز و رتبه — سالِ تحصیلیِ {{ $pt['label'] }}</h2>
+        <div class="kv">
+            <div><b>امتیازِ امسال:</b> {{ $fa((string) $sum['total']) }}</div>
+            <div><b>رتبه در کلاس:</b> {{ $sum['class_rank'] ? $fa((string) $sum['class_rank']) . ' از ' . $fa((string) $sum['class_size']) : '—' }}</div>
+            <div><b>بهترین رتبه‌ی امسال:</b> {{ $sum['best_rank'] ? $fa((string) $sum['best_rank']) : '—' }}</div>
+            <div><b>رتبه در مدرسه:</b> {{ $sum['school_rank'] ? $fa((string) $sum['school_rank']) . ' از ' . $fa((string) $sum['school_size']) : '—' }}</div>
+            <div><b>بهترین هفته:</b> {{ $sum['best_week'] ? $sum['best_week']['label'] . ' (' . $fa((string) $sum['best_week']['xp']) . ')' : '—' }}</div>
+            <div><b>امتیازِ هفته‌ی جاری:</b> {{ $fa((string) $sum['week_xp']) }}</div>
+        </div>
+
+        {{-- نمودارِ ستونیِ امتیازِ هفتگی با CSS خالص تا در چاپ هم درست دربیاید --}}
+        <div style="display:flex;align-items:flex-end;gap:3px;height:74px;margin:10px 0 2px;border-bottom:1px solid var(--line);padding-bottom:2px">
+            @foreach ($pts as $p)
+                <div style="flex:1;min-width:0;display:flex;justify-content:center;align-items:flex-end" title="{{ $p['range'] }}">
+                    <div style="width:100%;max-width:26px;height:{{ max(2, (int) round($p['xp'] / $maxXp * 62)) }}px;background:{{ $p['xp'] === (int) $pts->max('xp') && $p['xp'] > 0 ? '#f0a020' : '#8fb6f5' }};border-radius:3px 3px 0 0"></div>
+                </div>
+            @endforeach
+        </div>
+        <div style="display:flex;gap:3px;font-size:8.5px;color:var(--muted);margin-bottom:10px">
+            @foreach ($pts as $p)
+                <div style="flex:1;min-width:0;text-align:center">{{ $loop->first || $loop->last || $loop->index % 3 === 0 ? $p['label'] : '' }}</div>
+            @endforeach
+        </div>
+
+        <table>
+            <thead><tr><th>هفته</th><th>بازه</th><th style="width:60px">امتیازِ هفته</th><th style="width:60px">جمعِ امتیاز</th><th style="width:76px">رتبه در کلاس</th></tr></thead>
+            <tbody>
+                @foreach ($pts->reverse()->take(12)->reverse() as $p)
+                    <tr>
+                        <td>{{ $p['label'] }}</td>
+                        <td style="font-size:10.5px;color:var(--muted)">{{ $p['range'] }}</td>
+                        <td class="num">{{ $fa((string) $p['xp']) }}</td>
+                        <td class="num">{{ $fa((string) $p['total']) }}</td>
+                        <td class="num">{{ $fa((string) $p['class_rank']) }} از {{ $fa((string) $p['class_size']) }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
+
     <h2>🧩 امتیاز از کجا آمده</h2>
     <table>
         <tr><th>نوعِ فعالیت</th><th>امتیاز</th><th>سهم</th></tr>
