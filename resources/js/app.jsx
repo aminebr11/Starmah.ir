@@ -12,6 +12,8 @@ import '../css/sort.css';
 import '../css/gallery.css';
 import '../css/ai-center.css';
 import './bootstrap';
+// پیش از Inertia: «بازگشت» گوشی اول پنجره‌های باز را می‌بندد
+import './lib/overlayBack';
 import { initPwa } from './lib/pwa';
 import { initUi, syncUi } from './lib/ui';
 import { router } from '@inertiajs/react';

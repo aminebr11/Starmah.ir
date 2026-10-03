@@ -4,6 +4,7 @@ import axios from 'axios';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import { compressImage, chunkFiles } from '@/lib/imageCompress';
 import { useSort, SortBar } from '@/lib/useSort';
+import { pushOverlay, closeOverlay } from '@/lib/overlayBack';
 
 /**
  * گالریِ آلبومی — مشترک بینِ معلم و دانش‌آموز.
@@ -19,6 +20,19 @@ export const THEMES = {
     candy: ['#ff9bd6', '#a774ff', '🍭'], night: ['#6f6fe6', '#232a6b', '🌙'], sky: ['#8fdcff', '#8f9bff', '☁️'],
 };
 const themeOf = (a) => THEMES[a.theme] || THEMES.sky;
+
+/**
+ * بستن با دکمه‌ی «بازگشت» گوشی/مرورگر (و کشیدنِ لبه در آیفون).
+ * هنگامِ باز شدن یک ورودیِ تاریخچه اضافه می‌شود؛ «بازگشت» فقط همین پنجره را
+ * می‌بندد، نه کلِ صفحه را. بستن با دکمه هم همان ورودی را برمی‌دارد.
+ */
+function useBackClose(key, onClose) {
+    const me = useRef(null);
+    if (!me.current) me.current = { key, close: () => {} };
+    me.current.close = onClose;
+    useEffect(() => pushOverlay(me.current), []); // eslint-disable-line
+    return () => closeOverlay(me.current);
+}
 
 /* ═══════════════════════════ قفسه‌ی آلبوم‌ها ═══════════════════════════ */
 export default function AlbumGallery({ albums = [], mode = 'student', classrooms = [], openAlbum = null, onViewed }) {
@@ -117,6 +131,7 @@ function AlbumCard({ a, i, teacher, onOpen }) {
 function AlbumView({ a, teacher, albums, classrooms, onClose, onViewed }) {
     const [c1, c2, emo] = themeOf(a);
     const [lb, setLb] = useState(null); // اندیسِ عکسِ باز در نمایشگر
+    const close = useBackClose('agAlbum', onClose);
     const [editing, setEditing] = useState(false);
     const [adding, setAdding] = useState(false);
     const [photoEdit, setPhotoEdit] = useState(null);
@@ -129,7 +144,7 @@ function AlbumView({ a, teacher, albums, classrooms, onClose, onViewed }) {
     }, [a.photos, order]);
 
     useEffect(() => {
-        const onKey = (e) => { if (e.key === 'Escape' && lb === null && !editing && !photoEdit && !adding) onClose(); };
+        const onKey = (e) => { if (e.key === 'Escape' && lb === null && !editing && !photoEdit && !adding) close(); };
         document.addEventListener('keydown', onKey);
         document.body.classList.add('ag-lock');
         return () => { document.removeEventListener('keydown', onKey); document.body.classList.remove('ag-lock'); };
@@ -153,15 +168,21 @@ function AlbumView({ a, teacher, albums, classrooms, onClose, onViewed }) {
     };
     const delAlbum = () => {
         if (!confirm(`آلبومِ «${a.title}» با ${fa(a.count)} عکس برای همیشه حذف شود؟`)) return;
-        router.delete(route('teacher.gallery.albums.destroy', a.id), { preserveScroll: true, onSuccess: onClose });
+        router.delete(route('teacher.gallery.albums.destroy', a.id), { preserveScroll: true, onSuccess: close });
     };
 
     return (
+        <>
+        {/* دکمه‌ی بستنِ ثابت، بیرون از پنجره‌ی اسکرول‌شونده: همیشه پیداست و زیرِ نوارِ وضعیتِ آیفون نمی‌رود */}
+        {lb === null && (
+            <button type="button" className="ag-close" onClick={close} aria-label="بستنِ آلبوم">
+                <span>✕</span><b>بازگشت به گالری</b>
+            </button>
+        )}
         <div className="ag-modal" role="dialog" aria-modal="true" aria-label={a.title}>
             <div className="ag-sheet">
                 <header className="ag-hero" style={{ '--c1': c1, '--c2': c2 }}>
                     {a.cover && <span className="ag-hero-bg" style={{ backgroundImage: `url("${a.cover}")` }} />}
-                    <button type="button" className="ag-x" onClick={onClose} aria-label="بستن">✕</button>
                     <div className="ag-hero-in">
                         {a.cover && <img className="ag-hero-cover" src={a.cover} alt="" onClick={() => setLb(Math.max(0, photos.findIndex((p) => p.id === a.cover_id)))} />}
                         <div className="ag-hero-t">
@@ -232,6 +253,7 @@ function AlbumView({ a, teacher, albums, classrooms, onClose, onViewed }) {
             {photoEdit && <PhotoEdit p={photoEdit} albums={albums} onClose={() => setPhotoEdit(null)} />}
             {adding && <Uploader classrooms={classrooms} album={a} onClose={() => setAdding(false)} onDone={() => setAdding(false)} />}
         </div>
+        </>
     );
 }
 
@@ -241,10 +263,11 @@ function Lightbox({ photos, index, album, onIndex, onClose, onViewed }) {
     const touch = useRef(null);
     const stripRef = useRef(null);
     const go = useCallback((d) => onIndex((i) => (i + d + photos.length) % photos.length), [photos.length]); // eslint-disable-line
+    const close = useBackClose('agLb', onClose);
 
     useEffect(() => {
         const onKey = (e) => {
-            if (e.key === 'Escape') onClose();
+            if (e.key === 'Escape') close();
             // راست‌به‌چپ: فلشِ چپ = عکسِ بعدی
             if (e.key === 'ArrowLeft') go(1);
             if (e.key === 'ArrowRight') go(-1);
@@ -262,14 +285,14 @@ function Lightbox({ photos, index, album, onIndex, onClose, onViewed }) {
 
     if (!p) return null;
     return (
-        <div className="ag-lb" onClick={onClose}
+        <div className="ag-lb" onClick={close}
             onTouchStart={(e) => { touch.current = e.touches[0].clientX; }}
             onTouchEnd={(e) => { if (touch.current == null) return; const dx = e.changedTouches[0].clientX - touch.current; touch.current = null; if (Math.abs(dx) > 50) go(dx > 0 ? 1 : -1); }}>
             <div className="ag-lb-top" onClick={(e) => e.stopPropagation()}>
                 <span className="ag-lb-n">{fa(index + 1)} / {fa(photos.length)}</span>
                 <span className="ag-lb-t">{album.title}</span>
                 <a className="ag-lb-btn" href={p.url} download target="_blank" rel="noreferrer" title="دریافتِ عکس">⬇️</a>
-                <button type="button" className="ag-lb-btn" onClick={onClose} aria-label="بستن">✕</button>
+                <button type="button" className="ag-lb-btn close" onClick={close} aria-label="بستن">✕</button>
             </div>
             <div className="ag-lb-stage" onClick={(e) => e.stopPropagation()}>
                 {photos.length > 1 && <button type="button" className="ag-lb-nav prev" onClick={() => go(-1)} aria-label="قبلی">›</button>}
