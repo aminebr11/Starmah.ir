@@ -78,9 +78,20 @@ class StudentHubController extends Controller
     public function content(Request $request): Response
     {
         $user = $request->user();
+        if (($tid = $this->teacherId($user)) && \App\Support\GalleryAlbums::ready()) {
+            \App\Support\GalleryAlbums::adopt($tid);
+        }
         $rows = $this->contentQuery($user)
             ->whereIn('type', ['material', 'podcast', 'video', 'gallery'])
             ->get();
+        // عکس‌های آلبومِ مخفی یا هنوز منتشرنشده دیده نمی‌شوند
+        if (\App\Support\GalleryAlbums::ready()) {
+            $hidden = \App\Models\GalleryAlbum::withoutGlobalScopes()->where('teacher_id', $tid)
+                ->where(fn ($q) => $q->where('is_visible', false)->orWhere('publish_at', '>', now()))->pluck('id')->all();
+            if ($hidden) {
+                $rows = $rows->reject(fn ($c) => $c->type === 'gallery' && in_array($c->album_id, $hidden))->values();
+            }
+        }
 
         // رکوردِ بازدید/گوش‌دادنِ خودِ دانش‌آموز
         $views = ContentView::where('student_id', $user->id)
@@ -108,7 +119,15 @@ class StudentHubController extends Controller
             ->map(fn ($c) => $this->mapItem($c))
             ->sortBy(fn ($i) => $i['overdue'] ? 1 : 0)->values();
 
+        $viewed = $views->filter(fn ($v) => $v !== null)->keys()->all();
+        $albums = \App\Support\GalleryAlbums::present(
+            $rows->where('type', 'gallery')->values(),
+            fn ($p) => ['viewed' => in_array($p->id, $viewed), 'xp_value' => app(\App\Services\ContentProgressService::class)->xpFor($p)]
+        );
+
         return Inertia::render('Student/ClassContent', [
+            'albums' => $albums,
+            'openAlbum' => $request->integer('album') ?: null,
             'items' => $items->values(),
             'homework' => $homework,
             'worksheets' => $this->worksheetsFor($user),
@@ -178,6 +197,7 @@ class StudentHubController extends Controller
                 'amount' => (int) $e->amount,
                 'reason' => $e->reason,
                 'date'   => Jalali::format($e->created_at, true),
+                'date_raw' => $e->created_at?->timestamp,
                 'kind'   => $e->amount >= 0 ? 'plus' : 'minus',
             ]);
 

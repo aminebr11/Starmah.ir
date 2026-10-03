@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import { MasteryTag } from '@/Components/MasteryPanel';
+import { useSort, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -21,6 +22,9 @@ const ICON = { 'غایب': '🚫', 'کامل': '✅', 'ناقص': '⚠️', 'ا�
 
 export default function Gradebook() {
     const { classroom, subjects = [], students = [], activities = [], descriptiveOptions = [], homeworkOptions = [], flash, highlight } = usePage().props;
+    // ترتیبِ دانش‌آموزان در همه‌ی جدول‌های دفتر (نام / نام خانوادگی)
+    const ss = useSort(students, { name: (r) => firstName(r.name), family: (r) => lastName(r.name) }, { key: 'family', id: 'gradebook-students' });
+    const ordered = ss.sorted;
     const [banner, setBanner] = useState(null);
     const [tab, setTab] = useState(highlight ? 'history' : 'new'); // new | history
     // پس از ثبت/ویرایش، کارتِ همان فعالیت در سوابق برجسته و دیده می‌شود
@@ -135,6 +139,7 @@ export default function Gradebook() {
                     <div className="panel">
                         <h3 style={{ marginTop: 0 }}>② نمره و بازخورد دانش‌آموزان</h3>
 
+                        <SortBar s={ss} options={[['name', 'نام'], ['family', 'نام خانوادگی']]} />
                         {/* اعمال گروهی */}
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
                             {st !== 'numeric' && opts.map((o) => (
@@ -150,7 +155,7 @@ export default function Gradebook() {
                             <table className="tbl">
                                 <thead><tr><th>#</th><th>دانش‌آموز</th><th>{st === 'numeric' ? 'نمره' : 'ارزیابی'}</th><th style={{ minWidth: 160 }}>بازخورد</th></tr></thead>
                                 <tbody>
-                                    {students.map((s, i) => (
+                                    {ordered.map((s, i) => (
                                         <tr key={s.id}>
                                             <td>{fa(i + 1)}</td>
                                             <td style={{ fontWeight: 700 }}>{s.name}</td>
@@ -211,12 +216,13 @@ export default function Gradebook() {
                         </div>
                     )}
 
+                    {activities.length > 0 && <SortBar s={ss} label="ترتیبِ دانش‌آموزان:" options={[['name', 'نام'], ['family', 'نام خانوادگی']]} />}
                     {activities.length === 0 && <p className="no-print" style={{ color: 'var(--muted)' }}>هنوز فعالیتی ثبت نشده. از تب «ثبت فعالیت» شروع کن.</p>}
                     {activities.length > 0 && filtered.length === 0 && <p className="no-print" style={{ color: 'var(--muted)' }}>با این فیلترها موردی پیدا نشد.</p>}
 
                     {filtered.map((a) => {
                         const editing = editAct === a.id;
-                        const rowStudents = fStudent ? students.filter((s) => String(s.id) === String(fStudent)) : students;
+                        const rowStudents = fStudent ? ordered.filter((s) => String(s.id) === String(fStudent)) : ordered;
                         const etype = editing ? emeta.score_type : a.score_type;
                         const aopts = optsFor(etype);
                         const mi = a.mastery;
@@ -352,6 +358,7 @@ function Impact({ r }) {
     return (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
             <MasteryTag value={r.after} title={r.level?.label} />
+            {d == null && r.before == null && <span className="gb-d up" title="پیش از این نمره، شاهدِ کافی برای این درس نبود">✨ نخستین</span>}
             {d != null && <span className={`gb-d ${d > 0 ? 'up' : d < 0 ? 'down' : ''}`} title={`بدونِ این نمره: ${r.before}٪`}>{d > 0 ? '▲ +' : d < 0 ? '▼ ' : '● '}{fa(Math.abs(d))}</span>}
             {r.topic != null && <span style={{ fontSize: 11, color: 'var(--muted)' }}>مبحث {fa(r.topic)}٪</span>}
         </span>

@@ -281,6 +281,14 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/materials/{classContent}', [\App\Http\Controllers\Teacher\ClassContentController::class, 'update'])->name('materials.update');
     Route::post('/materials/{classContent}/visibility', [\App\Http\Controllers\Teacher\ClassContentController::class, 'toggleVisibility'])->name('materials.visibility');
     Route::delete('/materials/{classContent}', [\App\Http\Controllers\Teacher\ClassContentController::class, 'destroy'])->name('materials.destroy');
+    // گالریِ آلبومی
+    Route::post('/gallery/upload', [\App\Http\Controllers\Teacher\GalleryController::class, 'upload'])->name('gallery.upload');
+    Route::post('/gallery/albums/{album}', [\App\Http\Controllers\Teacher\GalleryController::class, 'update'])->name('gallery.albums.update');
+    Route::post('/gallery/albums/{album}/visibility', [\App\Http\Controllers\Teacher\GalleryController::class, 'visibility'])->name('gallery.albums.visibility');
+    Route::post('/gallery/albums/{album}/cover/{photo}', [\App\Http\Controllers\Teacher\GalleryController::class, 'cover'])->name('gallery.albums.cover');
+    Route::post('/gallery/albums/{album}/photos/delete', [\App\Http\Controllers\Teacher\GalleryController::class, 'destroyPhotos'])->name('gallery.albums.photos.destroy');
+    Route::delete('/gallery/albums/{album}', [\App\Http\Controllers\Teacher\GalleryController::class, 'destroy'])->name('gallery.albums.destroy');
+    Route::post('/gallery/photos/{photo}', [\App\Http\Controllers\Teacher\GalleryController::class, 'updatePhoto'])->name('gallery.photos.update');
     // مدیریتِ امتیازِ گروه‌ها (تیم‌های تم‌دار)
     Route::get('/groups', [\App\Http\Controllers\Teacher\GroupPointsController::class, 'index'])->name('groups');
     Route::post('/groups/adjust', [\App\Http\Controllers\Teacher\GroupPointsController::class, 'adjust'])->name('groups.adjust');

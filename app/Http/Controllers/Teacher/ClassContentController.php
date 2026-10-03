@@ -23,6 +23,8 @@ class ClassContentController extends Controller
     public function index(Request $request): Response
     {
         $teacher = $request->user();
+        // عکس‌های قدیمیِ بی‌آلبوم یک‌بار دسته‌بندی می‌شوند
+        \App\Support\GalleryAlbums::adopt($teacher->id);
 
         $contents = ClassContent::where('teacher_id', $teacher->id)->latest()->get();
 
@@ -89,7 +91,15 @@ class ClassContentController extends Controller
                 'date' => Jalali::format($w->created_at),
             ]);
 
+        // آلبوم‌های گالری با آمارِ بازدیدِ هر عکس
+        $albums = \App\Support\GalleryAlbums::present(
+            $contents->where('type', 'gallery')->values(),
+            fn ($p) => ['views' => ($views->get($p->id) ?? collect())->count()]
+        );
+
         return Inertia::render('Teacher/Materials', [
+            'albums'     => $albums,
+            'openAlbum'  => $request->integer('album') ?: null,
             'items'      => $items->values(),
             'classrooms' => $classrooms->values(),
             'worksheets' => $worksheets->values(),
@@ -123,11 +133,6 @@ class ClassContentController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        // گالری: چند عکس با یک مشخصات — هر عکس پستِ جداگانه با همان مشخصات
-        if ($request->input('type') === 'gallery' && $request->hasFile('files')) {
-            return $this->storeGalleryBatch($request);
-        }
-
         $data = $request->validate([
             'type'         => 'required|in:material,podcast,video,gallery,homework',
             'title'        => 'required|string|max:150',
@@ -173,6 +178,10 @@ class ClassContentController extends Controller
             'xp_reward'    => $data['xp_reward'] ?? null,
         ]);
 
+        if ($content->type === 'gallery') {
+            \App\Support\GalleryAlbums::adopt($content->teacher_id);
+        }
+
         // زمان‌دار؟ اعلان سرِ همان ساعت فرستاده می‌شود (releaseDue)، نه حالا.
         if ($content->isLive()) {
             $this->notifyStudents($content);
@@ -183,71 +192,6 @@ class ClassContentController extends Controller
 
         return back()->with('flash', 'محتوا ذخیره شد ⏰ و در ' . Jalali::format($content->publish_at)
             . ' ساعت ' . Jalali::fa($content->publish_at->format('H:i')) . ' منتشر می‌شود.');
-    }
-
-    /**
-     * آپلودِ گروهیِ عکس‌های گالری.
-     *
-     * مشخصات (عنوان، توضیح، کلاس، زمانِ انتشار) روی تک‌تکِ عکس‌ها می‌نشیند
-     * و هر عکس جدا قابلِ ویرایش/حذف/مخفی‌کردن است. اعلان فقط یک‌بار برای کلِ
-     * دسته فرستاده می‌شود. مرورگر دسته‌های بزرگ را چند تکه می‌فرستد؛ تکه‌های
-     * میانی «silent» هستند و تکه‌ی آخر با «notify_count» اعلانِ کل را می‌دهد.
-     */
-    private function storeGalleryBatch(Request $request): RedirectResponse
-    {
-        $data = $request->validate([
-            'title'        => 'required|string|max:150',
-            'description'  => 'nullable|string|max:2000',
-            'classroom_id' => 'nullable|integer|exists:classrooms,id',
-            'files'        => 'required|array|min:1|max:20',
-            'files.*'      => 'file|max:30720',
-            'publish_at'   => 'nullable|date',
-            'silent'       => 'nullable|boolean',
-            'notify_count' => 'nullable|integer|min:1|max:500',
-        ], [
-            'files.max'   => 'در هر بار حداکثر ۲۰ عکس فرستاده می‌شود.',
-            'files.*.max' => 'حجمِ یکی از عکس‌ها بیش از ۳۰ مگابایت است.',
-            'files.*.file'=> 'یکی از فایل‌ها درست بارگذاری نشد.',
-        ]);
-
-        $files = $request->file('files');
-        foreach ($files as $f) {
-            if (! $this->extensionSafe($f, self::ALLOWED_EXT['gallery'])) {
-                return back()->withErrors(['files' => $this->extError('gallery') . ' (' . $f->getClientOriginalName() . ')']);
-            }
-        }
-
-        $created = [];
-        foreach ($files as $f) {
-            $path = $this->storeUpload($f, 'class-content/gallery');
-            if ($path === false) {
-                return back()->withErrors(['files' => 'ذخیره‌ی «' . $f->getClientOriginalName() . '» روی سرور ممکن نشد.']);
-            }
-            $created[] = ClassContent::create([
-                'teacher_id'   => $request->user()->id,
-                'classroom_id' => $data['classroom_id'] ?? null,
-                'type'         => 'gallery',
-                'title'        => $data['title'],
-                'description'  => $data['description'] ?? null,
-                'file_path'    => $path,
-                'publish_at'   => $data['publish_at'] ?? null,
-                'is_visible'   => true,
-            ]);
-        }
-
-        $first = $created[0];
-        $count = count($created);
-        if ($first->isLive()) {
-            if (! $request->boolean('silent')) {
-                ContentRelease::notify($first, (int) ($data['notify_count'] ?? $count));
-            }
-            ClassContent::whereIn('id', collect($created)->pluck('id'))->update(['notified_at' => now()]);
-
-            return back()->with('flash', '🖼️ ' . Jalali::fa((string) ($data['notify_count'] ?? $count)) . ' عکس به گالری اضافه شد ✅');
-        }
-
-        return back()->with('flash', '🖼️ ' . Jalali::fa((string) $count) . ' عکس ذخیره شد ⏰ و در ' . Jalali::format($first->publish_at)
-            . ' ساعت ' . Jalali::fa($first->publish_at->format('H:i')) . ' منتشر می‌شود.');
     }
 
     public function update(Request $request, ClassContent $classContent): RedirectResponse
@@ -307,7 +251,12 @@ class ClassContentController extends Controller
         if ($classContent->file_path) {
             Storage::disk('public')->delete($classContent->file_path);
         }
+        $albumId = $classContent->album_id;
         $classContent->delete();
+        // کاورِ حذف‌شده جایگزین می‌شود و آلبومِ خالی برداشته می‌شود
+        if ($albumId && ($album = \App\Models\GalleryAlbum::find($albumId))) {
+            \App\Support\GalleryAlbums::repair($album);
+        }
 
         return back()->with('flash', 'محتوا حذف شد ✅');
     }

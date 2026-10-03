@@ -3,7 +3,7 @@ import { usePage, Link } from '@inertiajs/react';
 import axios from 'axios';
 import ThemedDash from '@/Layouts/ThemedDash';
 import ListSearch, { normalizeFa } from '@/Components/ListSearch';
-import GalleryByDate from '@/Components/GalleryByDate';
+import AlbumGallery from '@/Components/AlbumGallery';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -37,12 +37,24 @@ const secFmt = (s) => {
 };
 
 export default function ClassContent() {
-    const { items = [], homework = [], worksheets = [], tab: initialTab } = usePage().props;
+    const { items = [], homework = [], worksheets = [], albums = [], openAlbum = null, tab: initialTab } = usePage().props;
     // شمارشِ هر تب — تکالیف و کاربرگ‌ها از فهرستِ خودشان می‌آیند
     const countOf = (v) => (v === 'homework' ? homework.length : v === 'worksheet' ? worksheets.length : items.filter((i) => i.type === v).length);
     const firstWith = TABS.find((t) => countOf(t.v) > 0)?.v || 'material';
     const [tab, setTab] = useState(TABS.some((t) => t.v === initialTab) ? initialTab : firstWith);
     const [q, setQ] = useState('');
+
+    // دیدنِ هر عکس در نمایشگر = یک‌بار «دیده شد» (و امتیازِ دیدن، اگر دارد)
+    const seen = useRef(new Set());
+    const [toast, setToast] = useState(null);
+    const onViewed = async (p) => {
+        if (p.viewed || seen.current.has(p.id)) return;
+        seen.current.add(p.id);
+        try {
+            const { data } = await axios.post(route('my.content.progress', p.id), { position: 0, ended: true });
+            if (data?.gained > 0) { setToast(`+${fa(data.gained)} امتیاز 🎉`); setTimeout(() => setToast(null), 2400); }
+        } catch { /* بی‌صدا */ }
+    };
 
     const list = useMemo(() => {
         const nq = normalizeFa(q);
@@ -89,7 +101,7 @@ export default function ClassContent() {
                 })}
             </div>
 
-            {tab !== 'worksheet' && countOf(tab) > 3 && (
+            {tab !== 'worksheet' && tab !== 'gallery' && countOf(tab) > 3 && (
                 <div style={{ marginTop: 12 }}>
                     <ListSearch value={q} onChange={setQ} placeholder={`جست‌وجو در ${active.t}…`} />
                 </div>
@@ -119,7 +131,7 @@ export default function ClassContent() {
                 </>
             ) : (
                 <>
-                    {list.length === 0 && (
+                    {list.length === 0 && tab !== 'gallery' && (
                         <div className="k3-card" style={{ marginTop: 14, textAlign: 'center', opacity: .85 }}>
                             {q ? 'با این جست‌وجو چیزی پیدا نشد 🔍' : `هنوز ${active.t} اضافه نشده 📭`}
                         </div>
@@ -127,7 +139,10 @@ export default function ClassContent() {
                     {tab === 'homework' ? (
                         list.map((it) => <HwCard key={it.id} it={it} dim={it.overdue} />)
                     ) : tab === 'gallery' ? (
-                        <GalleryByDate list={list} dark render={(it) => <ContentCard key={it.id} it={it} />} />
+                        <>
+                            <AlbumGallery albums={albums} mode="student" openAlbum={openAlbum} onViewed={onViewed} />
+                            {toast && <div className="cc-toast" style={{ position: 'fixed', top: 16, zIndex: 2147483300 }}>{toast}</div>}
+                        </>
                     ) : (
                         <div className="cc-grid">
                             {list.map((it) => <ContentCard key={it.id} it={it} />)}

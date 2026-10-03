@@ -35,6 +35,30 @@ use Illuminate\Support\Facades\Schema;
 class MasteryService
 {
     public const MIN_OBS = 3;
+    /**
+     * یا به‌جای ۳ نشانه، «وزنِ شواهد» دستِ‌کم این‌قدر باشد. یک نمره‌ی معلم
+     * (ارزشیابیِ مستقیمِ کلِ یک مبحث) به‌تنهایی به این حد می‌رسد؛ چند پاسخِ
+     * بازی نمی‌رسد. با برآوردِ بیزی، عدد هنوز به‌سمتِ ۵۰٪ کشیده می‌شود.
+     */
+    public const MIN_WEIGHT = 2.5;
+
+    /** ارزشِ ارزیابی‌های متنیِ دفترِ کلاسی (کسرِ ۰ تا ۱) و ضریبِ وزنشان. */
+    public const GRADE_TEXT = [
+        'خیلی خوب' => [1.0, 1.0], 'خوب' => [0.8, 1.0], 'قابل قبول' => [0.6, 1.0], 'نیاز به تلاش' => [0.35, 1.0],
+        // تکلیف: انجام‌دادن نشانه‌ی تمرین است، نه آزمونِ دانسته‌ها؛ پس وزنِ کمتر
+        'کامل' => [0.9, 0.6], 'ناقص' => [0.55, 0.6], 'انجام نداده' => [0.2, 0.4],
+        // «غایب» شاهدِ یادگیری نیست و حساب نمی‌شود
+    ];
+
+    /** کسرِ ۰ تا ۱ برای یک نمره‌ی دفترِ کلاسی، یا null اگر شاهدِ یادگیری نیست. */
+    public static function gradeFraction(?string $type, $score, ?string $text, $max): ?float
+    {
+        if ($type === 'numeric') {
+            return ($score === null || ! ($max > 0)) ? null : max(0.0, min(1.0, $score / $max));
+        }
+
+        return self::GRADE_TEXT[$text][0] ?? null;
+    }
     private const HALF_LIFE_DAYS = 45;
     private const SOURCE_W = ['grade' => 2.5, 'exam' => 1.3, 'homework' => 1.1, 'mission' => 1.0, 'legacy' => 1.0, 'game' => 0.8];
     public const SOURCE_LABELS = ['exam' => 'آزمون', 'game' => 'بازی', 'mission' => 'مأموریت', 'grade' => 'نمره‌ی معلم', 'homework' => 'تکلیف', 'legacy' => 'تمرین'];
@@ -65,7 +89,7 @@ class MasteryService
     /** گزارشِ کاملِ یک دانش‌آموز (یک دقیقه کش). */
     public function forStudent(int $studentId): array
     {
-        return Cache::remember("mastery:v1:$studentId", 60, fn () => $this->summarize($this->evidence([$studentId])[$studentId] ?? []));
+        return Cache::remember("mastery:v2:$studentId", 60, fn () => $this->summarize($this->evidence([$studentId])[$studentId] ?? []));
     }
 
     /** خلاصه برای چند دانش‌آموز (فهرستِ کلاس) — شناسه => گزارش. */
@@ -88,7 +112,7 @@ class MasteryService
 
     public static function forget(int $studentId): void
     {
-        Cache::forget("mastery:v1:$studentId");
+        Cache::forget("mastery:v2:$studentId");
     }
 
     /**
@@ -129,7 +153,7 @@ class MasteryService
                 }
                 $rows[$sid] = [
                     'after' => $after['mastery'], 'before' => $before['mastery'], 'delta' => $delta,
-                    'n' => $after['n'], 'need' => max(0, self::MIN_OBS - $after['n']),
+                    'n' => $after['n'], 'need' => $after['need'],
                     'level' => self::level($after['mastery']), 'topic' => $topicNow,
                 ];
                 if ($delta !== null) $deltas[] = $delta;
@@ -211,20 +235,15 @@ class MasteryService
                 $r->score / $r->total, min(10, (int) $r->total), $r->created_at, 'mission', $r->difficulty));
 
         // ۴) نمره‌ی معلم در دفترِ نمره
-        $desc = ['خیلی خوب' => 1.0, 'خوب' => 0.8, 'قابل قبول' => 0.6, 'نیاز به تلاش' => 0.35];
         DB::table('grades as g')->join('grade_columns as c', 'c.id', '=', 'g.grade_column_id')
             ->whereIn('g.student_id', $ids)
             ->select('g.student_id', 'g.score', 'g.text', 'g.created_at', 'c.id as col_id', 'c.max', 'c.type', 'c.score_type', 'c.lesson', 'c.topic', 'c.title', 'c.graded_at')->get()
-            ->each(function ($r) use ($push, $desc) {
+            ->each(function ($r) use ($push) {
                 $type = $r->score_type ?: $r->type;
-                if ($type === 'numeric') {
-                    if ($r->score === null || ! ($r->max > 0)) return;
-                    $c = $r->score / $r->max;
-                } else {
-                    if (! isset($desc[$r->text])) return; // «غایب» یا خالی شاهدِ یادگیری نیست
-                    $c = $desc[$r->text];
-                }
-                $push($r->student_id, $r->lesson ?: self::guessSubject($r->title), $r->topic, $c, 1.0, $r->graded_at ?: $r->created_at, 'grade', null, (int) $r->col_id);
+                $c = self::gradeFraction($type, $r->score, $r->text, $r->max);
+                if ($c === null) return; // «غایب» یا خالی شاهدِ یادگیری نیست
+                $w = $type === 'numeric' ? 1.0 : (self::GRADE_TEXT[$r->text][1] ?? 1.0);
+                $push($r->student_id, $r->lesson ?: self::guessSubject($r->title), $r->topic, $c, $w, $r->graded_at ?: $r->created_at, 'grade', null, (int) $r->col_id);
             });
 
         // ۵) تکلیف و آزمونِ کلاسی
@@ -266,20 +285,23 @@ class MasteryService
     /** برآوردِ بیزی + اطمینان برای یک دسته مشاهده. */
     private function estimate(array $obs): array
     {
-        $sw = 0.0; $swc = 0.0; $raw = 0.0;
+        $sw = 0.0; $swc = 0.0; $raw = 0.0; $base = 0.0;
         foreach ($obs as $o) {
             $w = $o['w'] * $this->decay($o['at']);
-            $sw += $w; $swc += $w * $o['c']; $raw += $o['c'];
+            $sw += $w; $swc += $w * $o['c']; $raw += $o['c']; $base += $o['w'];
         }
         $n = count($obs);
         $m = $n ? ($swc + 1) / ($sw + 2) : null;
+        $rated = $n >= self::MIN_OBS || ($n > 0 && $base >= self::MIN_WEIGHT);
 
         return [
-            'mastery' => $n >= self::MIN_OBS ? (int) round($m * 100) : null,
+            'mastery' => $rated ? (int) round($m * 100) : null,
             'raw' => $n ? (int) round($raw / $n * 100) : null, // درصدِ ساده‌ی درست (برای شفافیت)
             'n' => $n,
             'weight' => round($sw, 2),
-            'confidence' => $n >= self::MIN_OBS ? (int) round($sw / ($sw + 6) * 100) : 0,
+            'confidence' => $rated ? (int) round($sw / ($sw + 6) * 100) : 0,
+            // چند نشانه‌ی دیگر تا محاسبه (برای نمایشِ «هنوز کافی نیست»)
+            'need' => $rated ? 0 : max(1, self::MIN_OBS - $n),
         ];
     }
 
@@ -333,7 +355,7 @@ class MasteryService
             'weaknesses' => array_values(array_reverse(array_filter($subjects, fn ($s) => $s['mastery'] !== null && $s['mastery'] < 70))),
             'weakTopics' => $topicsAll->sortBy('mastery')->filter(fn ($t) => $t['mastery'] < 70)->take(5)->values()->all(),
             'strongTopics' => $topicsAll->sortByDesc('mastery')->filter(fn ($t) => $t['mastery'] >= 85)->take(5)->values()->all(),
-            'pending' => array_values(array_map(fn ($s) => ['name' => $s['name'], 'n' => $s['n']], array_filter($subjects, fn ($s) => $s['mastery'] === null))),
+            'pending' => array_values(array_map(fn ($s) => ['name' => $s['name'], 'n' => $s['n'], 'need' => $s['need']], array_filter($subjects, fn ($s) => $s['mastery'] === null))),
         ];
     }
 
