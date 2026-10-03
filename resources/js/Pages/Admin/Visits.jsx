@@ -3,6 +3,7 @@ import { usePage, router, Link } from '@inertiajs/react';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
 import { Donut, HBars } from '@/Components/Charts';
 import { PeriodPicker, Kpi, DailyBars, HoursStrip, Pct, Dot, fa, mins, tone } from '@/Components/VisitKit';
+import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const DEV = { app: ['app', 'اپ'], mobile: ['mobile', 'موبایل'], desktop: ['desktop', 'کامپیوتر'] };
 
@@ -10,6 +11,12 @@ const DEV = { app: ['app', 'اپ'], mobile: ['mobile', 'موبایل'], desktop:
 export default function Visits() {
     const { days, periods, kpis: k, roles = [], schools = [], onlineNow = [], series = [], hours = [], sections = [], devices = [], users, filters = {}, schoolOptions = [] } = usePage().props;
     const [q, setQ] = useState(filters.q || '');
+    const D = 'desc';
+    const os = useSort(onlineNow, { name: (r) => firstName(r.name), family: (r) => lastName(r.name), role: 'role', school: 'school', section: 'section' }, { id: 'admin-visits-online' });
+    const ss = useSort(schools, { name: 'name', users: 'users', active: 'active', rate: 'rate', student_rate: 'student_rate', teacher_rate: 'teacher_rate', parent_rate: 'parent_rate', hits: 'hits', minutes: 'minutes' },
+        { id: 'admin-visits-schools', firstDir: { users: D, active: D, rate: D, student_rate: D, teacher_rate: D, parent_rate: D, hits: D, minutes: D } });
+    const us = useSort(users?.data, { name: (r) => firstName(r.name), family: (r) => lastName(r.name), role: 'role', school: 'school', online: (r) => (r.online ? 1 : 0), last_seen: 'last_seen_raw', days: 'days', hits: 'hits', minutes: 'minutes', logins: 'logins' },
+        { id: 'admin-visits-users', firstDir: { online: D, last_seen: D, days: D, hits: D, minutes: D, logins: D } });
     const go = (patch) => router.get(route('admin.visits'), { days, q, role: filters.role || '', school: filters.school || '', status: filters.status || '', ...patch }, { preserveState: true, preserveScroll: true, replace: true, only: ['users', 'filters'] });
 
     return (
@@ -57,9 +64,10 @@ export default function Visits() {
                 <div className="panel"><h3>🧭 پربازدیدترین بخش‌ها</h3><HBars items={sections} colorByIndex /></div>
                 <div className="panel">
                     <h3>🟢 همین حالا آنلاین ({fa(onlineNow.length)})</h3>
+                    {onlineNow.length > 1 && <SortBar s={os} options={[['name', 'نام'], ['family', 'نام خانوادگی'], ['role', 'نقش'], ['school', 'مدرسه'], ['section', 'بخش']]} />}
                     {onlineNow.length ? (
                         <div style={{ display: 'grid', gap: 6, maxHeight: 330, overflowY: 'auto' }}>
-                            {onlineNow.map((o) => (
+                            {os.sorted.map((o) => (
                                 <div key={o.id} className="vk-online-p" style={{ justifyContent: 'space-between' }}>
                                     <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}><Dot on /><b>{o.name}</b><small>{o.role}{o.school ? ` · ${o.school}` : ''}</small></span>
                                     <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}><small>📍 {o.section}</small>{o.device && <span className={`vk-tag ${DEV[o.device]?.[0]}`}>{DEV[o.device]?.[1]}</span>}</span>
@@ -74,9 +82,9 @@ export default function Visits() {
                 <h3>🏫 رتبه‌ی مدارس در مشارکت</h3>
                 <div className="vk-tblwrap">
                     <table className="tbl vk-tbl">
-                        <thead><tr><th>#</th><th>مدرسه</th><th>کاربران</th><th>فعال</th><th>مشارکتِ کل</th><th>دانش‌آموزان</th><th>معلم‌ها</th><th>والدین</th><th>صفحه</th><th>زمان</th></tr></thead>
+                        <thead><tr><th>#</th><SortTh s={ss} k="name">مدرسه</SortTh><SortTh s={ss} k="users">کاربران</SortTh><SortTh s={ss} k="active">فعال</SortTh><SortTh s={ss} k="rate">مشارکتِ کل</SortTh><SortTh s={ss} k="student_rate">دانش‌آموزان</SortTh><SortTh s={ss} k="teacher_rate">معلم‌ها</SortTh><SortTh s={ss} k="parent_rate">والدین</SortTh><SortTh s={ss} k="hits">صفحه</SortTh><SortTh s={ss} k="minutes">زمان</SortTh></tr></thead>
                         <tbody>
-                            {schools.map((s, i) => (
+                            {ss.sorted.map((s) => [s, schools.indexOf(s)]).map(([s, i]) => (
                                 <tr key={s.id}>
                                     <td>{['🥇', '🥈', '🥉'][i] || fa(i + 1)}</td>
                                     <td><b>{s.name}</b>{s.city && <small style={{ color: 'var(--muted)' }}> · {s.city}</small>}</td>
@@ -113,11 +121,12 @@ export default function Visits() {
                     <button className="btn btn-sm" type="submit">جست‌وجو</button>
                     <span className="vk-count">{fa(users?.total ?? 0)} کاربر</span>
                 </form>
+                {(users?.data?.length || 0) > 1 && <SortBar s={us} options={[['name', 'نام'], ['family', 'نام خانوادگی'], ['last_seen', 'آخرین حضور'], ['days', 'روزهای حضور'], ['minutes', 'زمان']]} />}
                 <div className="vk-tblwrap">
                     <table className="tbl vk-tbl">
-                        <thead><tr><th>کاربر</th><th>نقش</th><th>مدرسه</th><th>وضعیت</th><th>آخرین حضور</th><th>روزهای حضور</th><th>صفحه</th><th>زمان</th><th>ورودها</th></tr></thead>
+                        <thead><tr><SortTh s={us} k="family">کاربر</SortTh><SortTh s={us} k="role">نقش</SortTh><SortTh s={us} k="school">مدرسه</SortTh><SortTh s={us} k="online">وضعیت</SortTh><SortTh s={us} k="last_seen">آخرین حضور</SortTh><SortTh s={us} k="days">روزهای حضور</SortTh><SortTh s={us} k="hits">صفحه</SortTh><SortTh s={us} k="minutes">زمان</SortTh><SortTh s={us} k="logins">ورودها</SortTh></tr></thead>
                         <tbody>
-                            {(users?.data || []).map((u) => (
+                            {us.sorted.map((u) => (
                                 <tr key={u.id}>
                                     <td><b>{u.name}</b><div dir="ltr" style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'right' }}>{u.phone}</div></td>
                                     <td>{u.role}</td><td>{u.school || '—'}</td>

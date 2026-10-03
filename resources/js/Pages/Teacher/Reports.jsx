@@ -2,11 +2,14 @@ import { usePage } from '@inertiajs/react';
 import { MasteryTag } from '@/Components/MasteryPanel';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import { AreaTrend, Donut, Heatmap, PAL } from '@/Components/Charts';
+import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 export default function Reports() {
     const { classroom, report, crossSubject = {}, studentCount = 0, trend = [], heatmap = null } = usePage().props;
+    const ps = useSort(report?.per_student, { name: (r) => firstName(r.name), family: (r) => lastName(r.name), group: 'group', xp: 'xp', mastery: 'mastery', activities: 'activities' },
+        { id: 'teacher-reports-students', firstDir: { xp: 'desc', mastery: 'desc', activities: 'desc' } });
     if (!report) return <DashLayout title="گزارش کلاس" roleLabel="معلم" menu={teacherMenu} active="reports"><div className="panel"><p style={{ color: 'var(--muted)' }}>کلاسی برای گزارش نیست.</p></div></DashLayout>;
 
     const t = report.totals;
@@ -70,10 +73,11 @@ export default function Reports() {
 
             <div className="panel">
                 <h3>👥 جدول کامل دانش‌آموزان</h3>
+                {report.per_student.length > 1 && <SortBar s={ps} options={[['name', 'نام'], ['family', 'نام خانوادگی'], ['xp', 'امتیاز'], ['mastery', 'تسلط']]} />}
                 <table className="tbl">
-                    <thead><tr><th>#</th><th>نام</th><th>تیم</th><th>امتیاز</th><th>تسلط</th><th>فعالیت</th><th>کارنامه</th></tr></thead>
+                    <thead><tr><th>#</th><SortTh s={ps} k="family">نام</SortTh><SortTh s={ps} k="group">تیم</SortTh><SortTh s={ps} k="xp">امتیاز</SortTh><SortTh s={ps} k="mastery">تسلط</SortTh><SortTh s={ps} k="activities">فعالیت</SortTh><th>کارنامه</th></tr></thead>
                     <tbody>
-                        {report.per_student.map((s, i) => (
+                        {ps.sorted.map((s, i) => (
                             <tr key={s.id}><td>{fa(i + 1)}</td><td style={{ fontWeight: 700 }}>{s.name}</td>
                                 <td>{s.emoji} {s.group}</td><td style={{ color: 'var(--gold-2)', fontWeight: 800 }}>{fa(s.xp)}</td>
                                 <td><MasteryTag value={s.mastery} title={s.mastery_level || undefined} /></td>
@@ -97,6 +101,7 @@ const CSEC = { smart: '🧠 آزمون', game: '🎮 بازی', mission: '🎯 �
 /** تحلیلِ درس‌به‌درسِ همه‌ی کلاس‌ها (کلِ دانش‌آموزانِ معلم). */
 function TeacherCrossSubject({ data, studentCount }) {
     const subjects = data?.subjects || [];
+    const ss = useSort(subjects, { subject: 'subject', pct: 'pct', activities: 'activities' }, { id: 'teacher-reports-subjects', firstDir: { pct: 'desc', activities: 'desc' } });
     return (
         <div className="panel">
             <h3>📚 تحلیل درس‌به‌درسِ همه‌ی کلاس‌ها ({fa(studentCount)} دانش‌آموز)</h3>
@@ -106,9 +111,9 @@ function TeacherCrossSubject({ data, studentCount }) {
                     <p style={{ color: 'var(--muted)', fontSize: 12.5, marginTop: 0 }}>میانگینِ کلِ درس‌ها: <b style={{ color: chue(data.overall) }}>{fa(data.overall)}٪</b> · مجموعِ فعالیت‌ها: {fa(data.activities)} — درس‌های ضعیف‌تر بالاترند.</p>
                     <div style={{ overflowX: 'auto' }}>
                         <table className="tbl">
-                            <thead><tr><th>درس</th><th>میانگین</th><th>فعالیت</th><th>تفکیک بخش‌ها</th></tr></thead>
+                            <thead><tr><SortTh s={ss} k="subject">درس</SortTh><SortTh s={ss} k="pct">میانگین</SortTh><SortTh s={ss} k="activities">فعالیت</SortTh><th>تفکیک بخش‌ها</th></tr></thead>
                             <tbody>
-                                {subjects.map((s, i) => (
+                                {ss.sorted.map((s, i) => (
                                     <tr key={i}>
                                         <td style={{ fontWeight: 700 }}>{s.subject}</td>
                                         <td><span style={{ display: 'inline-block', minWidth: 46, textAlign: 'center', borderRadius: 8, padding: '3px 8px', color: '#fff', fontWeight: 800, background: chue(s.pct) }}>{s.pct == null ? '—' : `${fa(s.pct)}٪`}</span></td>

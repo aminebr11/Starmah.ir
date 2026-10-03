@@ -5,6 +5,7 @@ import DashLayout, { schoolMenu } from '@/Layouts/DashLayout';
 import PersonCell from '@/Components/PersonCell';
 import ListSearch, { normalizeFa } from '@/Components/ListSearch';
 import StudentRecord from '@/Components/StudentRecord';
+import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 export default function Students() {
@@ -58,9 +59,16 @@ export default function Students() {
         || normalizeFa(s.class).includes(nq)
         || normalizeFa(s.guardian_name).includes(nq));
 
+    // مرتب‌سازیِ مشترکِ همه‌ی جدول‌های کلاس (کلیک روی سرِ ستون)
+    const st = useSort(shown, {
+        name: (r) => firstName(r.name), family: (r) => lastName(r.name), phone: 'phone', national_id: 'national_id',
+        guardian: 'guardian_name', xp: 'xp',
+    }, { id: 'school-students', firstDir: { xp: 'desc' } });
+    const au = useSort(audit, { when: 'when_raw', actor: 'actor', action: 'action', summary: 'summary' }, { id: 'school-students-audit', firstDir: { when: 'desc' } });
+
     // گروه‌بندی بر اساس کلاس
-    const groups = classrooms.map((c) => ({ cls: c, list: shown.filter((s) => s.classroom_id === c.id) }));
-    const noClass = shown.filter((s) => !s.classroom_id);
+    const groups = classrooms.map((c) => ({ cls: c, list: st.sorted.filter((s) => s.classroom_id === c.id) }));
+    const noClass = st.sorted.filter((s) => !s.classroom_id);
 
     const printClass = classrooms.find((c) => c.id === printId);
     const printList = printClass ? students.filter((s) => s.classroom_id === printClass.id) : [];
@@ -109,6 +117,7 @@ export default function Students() {
                     <ListSearch value={q} onChange={setQ} placeholder="جست‌وجوی نام، موبایل، کد ملی، کلاس یا سرپرست…" />
                 </div>
                 {q && <span className="list-count">{fa(shown.length)} از {fa(students.length)}</span>}
+                {students.length > 1 && <div style={{ flexBasis: '100%' }}><SortBar s={st} options={[['name', 'نام'], ['family', 'نام خانوادگی'], ['xp', 'امتیاز'], ['national_id', 'کد ملی'], ['guardian', 'سرپرست']]} /></div>}
             </div>
 
             {students.length === 0 && <div className="panel no-print"><p style={{ color: 'var(--muted)' }}>هنوز دانش‌آموزی ثبت‌نام نکرده.</p></div>}
@@ -127,14 +136,14 @@ export default function Students() {
                             <button onClick={() => setPrintId(cls.id)} className="btn btn-ghost btn-sm">🖨️ چاپ لیست کلاس</button>
                         </div>
                     </div>
-                    <StudentTable list={list} classrooms={classrooms} currentClassId={cls.id} onOpen={setOpenId} del={del} moveStudent={moveStudent} />
+                    <StudentTable st={st} list={list} classrooms={classrooms} currentClassId={cls.id} onOpen={setOpenId} del={del} moveStudent={moveStudent} />
                 </div>
             ))}
 
             {noClass.length > 0 && (
                 <div className="panel no-print">
                     <h3 style={{ marginTop: 0 }}>❓ بدون کلاس ({fa(noClass.length)})</h3>
-                    <StudentTable list={noClass} classrooms={classrooms} currentClassId={0} onOpen={setOpenId} del={del} moveStudent={moveStudent} />
+                    <StudentTable st={st} list={noClass} classrooms={classrooms} currentClassId={0} onOpen={setOpenId} del={del} moveStudent={moveStudent} />
                 </div>
             )}
 
@@ -144,8 +153,8 @@ export default function Students() {
                 {audit.length === 0 ? <p style={{ color: 'var(--muted)' }}>هنوز تغییری ثبت نشده.</p> : (
                     <div style={{ overflowX: 'auto' }}>
                         <table className="tbl">
-                            <thead><tr><th>زمان</th><th>کاربر</th><th>اقدام</th><th>توضیح</th></tr></thead>
-                            <tbody>{audit.map((a, i) => (
+                            <thead><tr><SortTh s={au} k="when">زمان</SortTh><SortTh s={au} k="actor">کاربر</SortTh><SortTh s={au} k="action">اقدام</SortTh><SortTh s={au} k="summary">توضیح</SortTh></tr></thead>
+                            <tbody>{au.sorted.map((a, i) => (
                                 <tr key={i}><td style={{ whiteSpace: 'nowrap', fontSize: 12.5, color: 'var(--muted)' }}>{a.when}</td>
                                     <td style={{ fontWeight: 700 }}>{a.actor} <span style={{ fontSize: 11, color: 'var(--muted)' }}>({a.role})</span></td>
                                     <td><span className="tag tag-info">{a.action}</span></td><td style={{ fontSize: 13 }}>{a.summary}</td></tr>
@@ -183,12 +192,12 @@ export default function Students() {
     );
 }
 
-function StudentTable({ list, classrooms, currentClassId, onOpen, del, moveStudent }) {
+function StudentTable({ st, list, classrooms, currentClassId, onOpen, del, moveStudent }) {
     if (list.length === 0) return <p style={{ color: 'var(--muted)' }}>دانش‌آموزی در این کلاس نیست.</p>;
     return (
         <div style={{ overflowX: 'auto' }}>
             <table className="tbl">
-                <thead><tr><th>#</th><th>نام</th><th>موبایل</th><th>کد ملی</th><th>سرپرست</th><th>امتیاز</th><th>تغییر کلاس</th><th style={{ textAlign: 'left' }}>عملیات</th></tr></thead>
+                <thead><tr><th>#</th><SortTh s={st} k="family">نام</SortTh><SortTh s={st} k="phone">موبایل</SortTh><SortTh s={st} k="national_id">کد ملی</SortTh><SortTh s={st} k="guardian">سرپرست</SortTh><SortTh s={st} k="xp">امتیاز</SortTh><th>تغییر کلاس</th><th style={{ textAlign: 'left' }}>عملیات</th></tr></thead>
                 <tbody>{list.map((s, i) => (
                     <tr key={s.id}>
                         <td>{fa(i + 1)}</td>

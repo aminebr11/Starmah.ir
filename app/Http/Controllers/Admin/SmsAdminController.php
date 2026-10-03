@@ -98,6 +98,7 @@ class SmsAdminController extends Controller
                 'error'   => $m->error,
                 'segments' => $m->segments,
                 'date'    => Jalali::format($m->created_at, true) . ' ساعت ' . Jalali::fa($m->created_at->format('H:i')),
+                'date_raw' => $m->created_at?->timestamp,
             ])->all();
     }
 

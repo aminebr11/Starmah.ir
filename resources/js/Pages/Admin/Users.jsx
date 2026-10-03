@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { usePage, useForm, router, Link } from '@inertiajs/react';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
 import PersonCell from '@/Components/PersonCell';
+import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -11,6 +12,7 @@ export default function Users() {
     const [q, setQ] = useState(filters.q || '');
     const [edit, setEdit] = useState(null);
     const banner = typeof flash?.flash === 'string' ? flash.flash : flash?.flash?.message;
+    const us = useSort(users.data, { name: (r) => firstName(r.name), family: (r) => lastName(r.name), role: (r) => (r.roles || []).join('، '), school: 'school', phone: 'phone' }, { id: 'admin-users' });
     const go = (patch) => router.get(route('admin.users'), { q, role: filters.role || '', ...patch }, { preserveState: true, replace: true });
 
     return (
@@ -29,10 +31,11 @@ export default function Users() {
             </div>
 
             <div className="panel">
+                {users.data.length > 1 && <SortBar s={us} options={[['name', 'نام'], ['family', 'نام خانوادگی'], ['role', 'نقش'], ['school', 'مدرسه']]} />}
                 <table className="tbl">
-                    <thead><tr><th>کاربر</th><th>نقش</th><th>مدرسه</th><th>موبایل</th><th style={{ textAlign: 'left' }}>ویرایش</th></tr></thead>
+                    <thead><tr><SortTh s={us} k="family">کاربر</SortTh><SortTh s={us} k="role">نقش</SortTh><SortTh s={us} k="school">مدرسه</SortTh><SortTh s={us} k="phone">موبایل</SortTh><th style={{ textAlign: 'left' }}>ویرایش</th></tr></thead>
                     <tbody>
-                        {users.data.map((u) => (
+                        {us.sorted.map((u) => (
                             edit === u.id
                                 ? <EditRow key={u.id} u={u} onDone={() => setEdit(null)} />
                                 : (

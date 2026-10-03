@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { usePage, useForm, router } from '@inertiajs/react';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
+import { useSort, SortTh, SortBar } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -8,6 +9,7 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
 export default function Sms() {
     const { gateway = {}, schools = [], stats = {}, log = [], alerts = null, flash } = usePage().props;
     const [tab, setTab] = useState('gateway');
+    const scs = useSort(schools, { name: 'name', city: 'city', used: 'used', quota: 'quota', enabled: (r) => (r.enabled ? 1 : 0) }, { id: 'admin-sms-schools', firstDir: { used: 'desc', quota: 'desc', enabled: 'desc' } });
 
     const g = useForm({
         sms_enabled: gateway.enabled ?? false,
@@ -130,8 +132,9 @@ export default function Sms() {
                     <p style={{ color: 'var(--muted)', fontSize: 13 }}>
                         سهمیه بر حسبِ «قطعه‌ی پیامک» در {fa(stats.window ?? 30)} روزِ اخیر است. خالی گذاشتنِ سهمیه یعنی بدونِ سقف.
                     </p>
+                    {schools.length > 1 && <SortBar s={scs} options={[['name', 'نام مدرسه'], ['city', 'شهر'], ['used', 'مصرف'], ['quota', 'سهمیه'], ['enabled', 'فعال']]} />}
                     <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
-                        {schools.map((s) => <SchoolRow key={s.id} s={s} />)}
+                        {scs.sorted.map((s) => <SchoolRow key={s.id} s={s} />)}
                         {schools.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز مدرسه‌ای ثبت نشده.</p>}
                     </div>
                 </div>
@@ -179,6 +182,7 @@ function SchoolRow({ s }) {
 }
 
 export function LogTable({ log = [], showSchool = false }) {
+    const ls = useSort(log, { date: 'date_raw', school: 'school', sender: 'sender', to: (r) => r.to || r.phone, kind: 'kind', body: 'body', status: 'status' }, { id: 'sms-log' + (showSchool ? '-admin' : ''), firstDir: { date: 'desc' } });
     if (log.length === 0) {
         return <div className="panel"><p style={{ color: 'var(--muted)', margin: 0 }}>هنوز پیامکی ارسال نشده.</p></div>;
     }
@@ -189,17 +193,17 @@ export function LogTable({ log = [], showSchool = false }) {
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
                     <thead>
                         <tr style={{ background: '#f6f8fc' }}>
-                            <th style={th}>تاریخ</th>
-                            {showSchool && <th style={th}>مدرسه</th>}
-                            <th style={th}>فرستنده</th>
-                            <th style={th}>گیرنده</th>
-                            <th style={th}>نوع</th>
-                            <th style={th}>متن</th>
-                            <th style={th}>وضعیت</th>
+                            <SortTh s={ls} k="date" style={th}>تاریخ</SortTh>
+                            {showSchool && <SortTh s={ls} k="school" style={th}>مدرسه</SortTh>}
+                            <SortTh s={ls} k="sender" style={th}>فرستنده</SortTh>
+                            <SortTh s={ls} k="to" style={th}>گیرنده</SortTh>
+                            <SortTh s={ls} k="kind" style={th}>نوع</SortTh>
+                            <SortTh s={ls} k="body" style={th}>متن</SortTh>
+                            <SortTh s={ls} k="status" style={th}>وضعیت</SortTh>
                         </tr>
                     </thead>
                     <tbody>
-                        {log.map((m) => (
+                        {ls.sorted.map((m) => (
                             <tr key={m.id} style={{ borderTop: '1px solid var(--line)' }}>
                                 <td style={td}>{fa(m.date)}</td>
                                 {showSchool && <td style={td}>{m.school || '—'}</td>}

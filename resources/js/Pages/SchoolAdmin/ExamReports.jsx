@@ -1,5 +1,6 @@
 import { usePage } from '@inertiajs/react';
 import DashLayout, { schoolMenu } from '@/Layouts/DashLayout';
+import { useSort, SortTh } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const pctColor = (p) => p == null ? 'var(--muted)' : p >= 75 ? '#16a34a' : p >= 50 ? '#d97706' : '#dc2626';
@@ -7,6 +8,7 @@ const pctColor = (p) => p == null ? 'var(--muted)' : p >= 75 ? '#16a34a' : p >= 
 /** مدیر: گزارش عملکردِ آزمون‌های همه‌ی کلاس‌ها. */
 export default function ExamReports() {
     const { exams = [], summary = {} } = usePage().props;
+    const es = useSort(exams, { title: 'title', cls: 'class', teacher: 'teacher', date: (e) => e.date_raw ?? e.jdate, taken: 'taken', avg: 'avg', pass: 'pass' }, { id: 'school-exam-reports', firstDir: { date: 'desc', taken: 'desc', avg: 'desc', pass: 'desc' } });
 
     return (
         <DashLayout title="گزارش آزمون‌ها" roleLabel="مدیر مدرسه" menu={schoolMenu} active="examreports"
@@ -22,9 +24,9 @@ export default function ExamReports() {
                 {exams.length === 0 ? <p style={{ color: 'var(--muted)' }}>هنوز آزمونی ساخته نشده.</p> : (
                     <div style={{ overflowX: 'auto' }}>
                         <table className="tbl">
-                            <thead><tr><th>آزمون</th><th>کلاس</th><th>معلم</th><th>تاریخ</th><th style={{ textAlign: 'center' }}>شرکت‌کننده</th><th style={{ textAlign: 'center' }}>میانگین</th><th style={{ textAlign: 'center' }}>درصد قبولی</th></tr></thead>
+                            <thead><tr><SortTh s={es} k="title">آزمون</SortTh><SortTh s={es} k="cls">کلاس</SortTh><SortTh s={es} k="teacher">معلم</SortTh><SortTh s={es} k="date">تاریخ</SortTh><SortTh s={es} k="taken" style={{ textAlign: 'center' }}>شرکت‌کننده</SortTh><SortTh s={es} k="avg" style={{ textAlign: 'center' }}>میانگین</SortTh><SortTh s={es} k="pass" style={{ textAlign: 'center' }}>درصد قبولی</SortTh></tr></thead>
                             <tbody>
-                                {exams.map((e) => (
+                                {es.sorted.map((e) => (
                                     <tr key={e.id}>
                                         <td style={{ fontWeight: 700 }}>{e.title}</td>
                                         <td>{e.class || '—'}</td><td>{e.teacher || '—'}</td>

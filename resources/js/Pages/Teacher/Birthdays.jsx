@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { usePage, useForm } from '@inertiajs/react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import PersonCell from '@/Components/PersonCell';
+import { useSort, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const first = (n) => String(n || '').trim().split(/\s+/)[0] || n;
@@ -13,9 +14,10 @@ export default function Birthdays() {
     const { birthdays = [], templates = [], teacher = '', smsOk = false, smsReason = '', focus = null, flash } = usePage().props;
     const [openId, setOpenId] = useState(focus || birthdays.find((b) => b.offset === 0 && !b.sent)?.id || null);
     const banner = typeof flash?.flash === 'string' ? flash.flash : flash?.flash?.message;
-    const today = birthdays.filter((b) => b.offset === 0);
-    const soon = birthdays.filter((b) => b.offset > 0);
-    const past = birthdays.filter((b) => b.offset < 0);
+    const bs = useSort(birthdays, { when: 'offset', name: (r) => firstName(r.name), family: (r) => lastName(r.name), age: 'age', cls: 'class' }, { id: 'teacher-birthdays', firstDir: { age: 'desc' } });
+    const today = bs.sorted.filter((b) => b.offset === 0);
+    const soon = bs.sorted.filter((b) => b.offset > 0);
+    const past = bs.sorted.filter((b) => b.offset < 0);
 
     return (
         <DashLayout title="تولدِ دانش‌آموزان" roleLabel="معلم" menu={teacherMenu} active="birthdays">
@@ -32,6 +34,8 @@ export default function Birthdays() {
             {birthdays.length === 0 && (
                 <div className="panel" style={{ color: 'var(--muted)' }}>در ۳۰ روزِ آینده تولدی نیست. اگر تاریخِ تولدِ دانش‌آموزی ثبت نشده، از «دانش‌آموزان ← پرونده ← ویرایش» اضافه‌اش کنید.</div>
             )}
+
+            {birthdays.length > 1 && <SortBar s={bs} options={[['when', 'تاریخ تولد'], ['name', 'نام'], ['family', 'نام خانوادگی'], ['age', 'سن'], ['cls', 'کلاس']]} />}
 
             {[['🎉 امروز', today], ['📅 به‌زودی (۳۰ روزِ آینده)', soon], ['⏪ هفته‌ی گذشته — هنوز دیر نیست', past]].map(([t, list]) => list.length > 0 && (
                 <div key={t} className="panel">

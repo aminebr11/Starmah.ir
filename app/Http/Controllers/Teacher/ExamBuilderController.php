@@ -256,6 +256,7 @@ class ExamBuilderController extends Controller
                 'descAnswers' => $descAnswers,
                 'perQuestion' => $perQ,
                 'jdate' => $sub?->submitted_at ? Jalali::format($sub->submitted_at, true) : null,
+                'date_raw' => $sub?->submitted_at?->timestamp,
             ];
         })->sortByDesc(fn ($r) => $r['percent'] ?? -1)->values();
 

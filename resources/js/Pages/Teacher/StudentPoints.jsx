@@ -1,6 +1,7 @@
 import { usePage, router, useForm } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
+import { useSort, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const QUICK = [5, 10, 20, -5, -10];
@@ -10,6 +11,9 @@ export default function StudentPoints() {
     const { students = [], selected, ledger = [], flash } = usePage().props;
     const [banner, setBanner] = useState(null);
     useEffect(() => { if (flash?.flash) setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); }, [flash]);
+
+    const ss = useSort(students, { name: (r) => firstName(r.name), family: (r) => lastName(r.name), total: 'total' }, { id: 'teacher-points-students', firstDir: { total: 'desc' } });
+    const ls = useSort(ledger, { amount: 'amount', date: 'date_raw', reason: 'reason' }, { id: 'teacher-points-ledger', firstDir: { amount: 'desc', date: 'desc' } });
 
     const pick = (id) => router.get(route('teacher.points'), { student: id }, { preserveState: true, preserveScroll: true });
 
@@ -39,8 +43,9 @@ export default function StudentPoints() {
                 <div className="panel">
                     <h3 style={{ marginTop: 0 }}>🎓 دانش‌آموزان</h3>
                     {students.length === 0 && <p style={{ color: 'var(--muted)' }}>دانش‌آموزی در کلاس‌های شما نیست.</p>}
+                    {students.length > 1 && <SortBar s={ss} options={[['name', 'نام'], ['family', 'نام خانوادگی'], ['total', 'امتیاز']]} />}
                     <div style={{ display: 'grid', gap: 6 }}>
-                        {students.map((s) => (
+                        {ss.sorted.map((s) => (
                             <button key={s.id} onClick={() => pick(s.id)}
                                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, textAlign: 'start', border: selected?.id === s.id ? '2px solid var(--gold)' : '1px solid var(--line)', background: selected?.id === s.id ? '#fff8e8' : '#fff', borderRadius: 10, padding: '9px 12px', cursor: 'pointer', fontFamily: 'inherit' }}>
                                 <span style={{ fontWeight: 700 }}>{s.name}</span>
@@ -90,8 +95,9 @@ export default function StudentPoints() {
                                 {sel.length > 0 && <button onClick={delSelected} className="btn btn-sm" style={{ marginInlineStart: 'auto', background: '#e8505b' }}>🗑️ حذفِ انتخابی‌ها ({fa(sel.length)})</button>}
                             </div>
                             {ledger.length === 0 && <p style={{ color: 'var(--muted)' }}>سابقه‌ای ثبت نشده است.</p>}
+                            {ledger.length > 1 && <SortBar s={ls} options={[['date', 'تاریخ'], ['amount', 'مقدار'], ['reason', 'علت']]} />}
                             <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
-                                {ledger.map((e) => (
+                                {ls.sorted.map((e) => (
                                     <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, border: sel.includes(e.id) ? '1px solid #e8505b' : '1px solid var(--line)', background: sel.includes(e.id) ? '#fdecee' : '#fff', borderRadius: 10, padding: '8px 12px' }}>
                                         <input type="checkbox" checked={sel.includes(e.id)} onChange={() => toggle(e.id)} />
                                         <span style={{ fontWeight: 900, minWidth: 48, color: e.kind === 'plus' ? '#16a34a' : '#dc2626' }}>{e.kind === 'plus' ? '+' : ''}{fa(e.amount)}</span>

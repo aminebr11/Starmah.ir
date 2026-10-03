@@ -1,12 +1,14 @@
 import { usePage, Link, useForm, router } from '@inertiajs/react';
 import { useState, useRef } from 'react';
 import DashLayout, { schoolMenu } from '@/Layouts/DashLayout';
+import { useSort, SortTh } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 export default function Overview() {
     const { auth, school, stats = {}, classes = [], topStudents = [], flash } = usePage().props;
     const name = auth?.user?.name || 'مدیر';
+    const cs = useSort(classes, { name: 'name', teacher: 'teacher', students: 'students', code: 'code' }, { id: 'school-overview-classes', firstDir: { students: 'desc' } });
     const fileRef = useRef(null);
     const [preview, setPreview] = useState(null);
 
@@ -109,8 +111,8 @@ export default function Overview() {
                     {classes.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز کلاسی ساخته نشده. <Link href={route('school.teachers')} className="link-gold">یک معلم بساز ←</Link></p>}
                     {classes.length > 0 && (
                         <table className="tbl">
-                            <thead><tr><th>کلاس</th><th>معلم</th><th>دانش‌آموز</th><th>کد ورود</th></tr></thead>
-                            <tbody>{classes.map((c, i) => (
+                            <thead><tr><SortTh s={cs} k="name">کلاس</SortTh><SortTh s={cs} k="teacher">معلم</SortTh><SortTh s={cs} k="students">دانش‌آموز</SortTh><SortTh s={cs} k="code">کد ورود</SortTh></tr></thead>
+                            <tbody>{cs.sorted.map((c, i) => (
                                 <tr key={i}><td style={{ fontWeight: 700 }}>{c.name}</td><td>{c.teacher ?? '—'}</td><td>{fa(c.students)}</td>
                                     <td><span className="tag tag-info">{c.code}</span></td></tr>
                             ))}</tbody>

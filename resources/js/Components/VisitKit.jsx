@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { router } from '@inertiajs/react';
 import PersonCell from '@/Components/PersonCell';
+import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
 import { PAL, OK, WARN, CRIT } from '@/Components/Charts';
 
 /**
@@ -101,12 +102,14 @@ export function HoursStrip({ hours = [] }) {
 
 /** رتبه‌بندیِ گروه‌ها (کلاس/تیم/مدرسه) بر اساسِ مشارکت. */
 export function RankList({ items = [], title, unit = 'عضو', empty = 'هنوز داده‌ای نیست' }) {
+    const rs = useSort(items, { score: 'score', label: 'label', active: 'active', tasks: 'tasks', minutes: 'minutes' }, { firstDir: { score: 'desc', active: 'desc', tasks: 'desc', minutes: 'desc' } });
     if (!items.length) return <div className="vk-empty">{empty}</div>;
     const medal = ['🥇', '🥈', '🥉'];
     return (
         <div className="vk-rank">
             {title && <div className="vk-rank-t">{title}</div>}
-            {items.map((g, i) => (
+            {items.length > 2 && <SortBar s={rs} options={[['score', 'مشارکت'], ['label', 'نام'], ['active', 'فعال'], ['tasks', 'کار'], ['minutes', 'زمان']]} />}
+            {rs.sorted.map((g) => [g, items.indexOf(g)]).map(([g, i]) => (
                 <div key={i} className={`vk-rank-row ${i === 0 ? 'top' : ''}`}>
                     <span className="vk-rank-n">{medal[i] || fa(i + 1)}</span>
                     <div className="vk-rank-b">
@@ -144,24 +147,29 @@ export function PeopleTable({ rows = [], columns = [], classOptions, initialSort
     const [q, setQ] = useState('');
     const [st, setSt] = useState('');
     const [cls, setCls] = useState('');
-    const [sort, setSort] = useState({ k: initialSort, d: -1 });
     const [open, setOpen] = useState(null);
 
-    const list = useMemo(() => {
+    const filtered = useMemo(() => {
         const t = q.trim();
-        return rows
-            .filter((r) => (!t || r.name.includes(t)) && statusOk(r, st) && (!cls || String(r.class_id) === cls))
-            .sort((a, b) => {
-                const x = a[sort.k] ?? -1, y = b[sort.k] ?? -1;
-                return (typeof x === 'string' ? x.localeCompare(y, 'fa') : x - y) * sort.d;
-            });
-    }, [rows, q, st, cls, sort]);
+        return rows.filter((r) => (!t || r.name.includes(t)) && statusOk(r, st) && (!cls || String(r.class_id) === cls));
+    }, [rows, q, st, cls]);
 
-    const head = (c) => (
-        <th key={c.k} className={c.sort === false ? '' : 'vk-sortable'} onClick={() => c.sort !== false && setSort((s) => ({ k: c.sort || c.k, d: s.k === (c.sort || c.k) ? -s.d : -1 }))}>
-            {c.t}{sort.k === (c.sort || c.k) ? (sort.d < 0 ? ' ▾' : ' ▴') : ''}
-        </th>
-    );
+    // مرتب‌سازی با کلیک روی سرِ ستون — عددها اولِ کار نزولی، متن‌ها صعودی
+    const TEXT_COLS = ['class', 'classes', 'children'];
+    const getters = { name: (r) => firstName(r.name), family: (r) => lastName(r.name) };
+    const firstDir = {};
+    columns.forEach((c) => {
+        if (c.sort === false) return;
+        const key = c.sort || c.k;
+        getters[key] = key;
+        if (!TEXT_COLS.includes(key)) firstDir[key] = 'desc';
+    });
+    const srt = useSort(filtered, getters, { id: 'people-' + columns.map((c) => c.k).join('-'), key: initialSort, dir: 'desc', firstDir });
+    const list = srt.sorted;
+
+    const head = (c) => (c.sort === false
+        ? <th key={c.k}>{c.t}</th>
+        : <SortTh key={c.k} s={srt} k={c.sort || c.k}>{c.t}</SortTh>);
 
     return (
         <div>
@@ -178,9 +186,10 @@ export function PeopleTable({ rows = [], columns = [], classOptions, initialSort
                 )}
                 <span className="vk-count">{fa(list.length)} نفر</span>
             </div>
+            {rows.length > 1 && <SortBar s={srt} options={[['name', 'نام'], ['family', 'نام خانوادگی'], ...(getters[initialSort] ? [[initialSort, (columns.find((c) => (c.sort || c.k) === initialSort)?.t) || 'امتیاز']] : [])]} />}
             <div className="vk-tblwrap">
                 <table className="tbl vk-tbl">
-                    <thead><tr><th>#</th><th className="vk-sortable" onClick={() => setSort((s) => ({ k: 'name', d: s.k === 'name' ? -s.d : 1 }))}>نام</th>{columns.map(head)}</tr></thead>
+                    <thead><tr><th>#</th><SortTh s={srt} k="family">نام</SortTh>{columns.map(head)}</tr></thead>
                     <tbody>
                         {list.map((r, i) => (
                             <FragmentRow key={r.id} r={r} i={i} columns={columns} subOf={subOf} open={open === r.id} toggle={() => setOpen(open === r.id ? null : r.id)} />

@@ -1,6 +1,7 @@
 import { usePage, router, useForm } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
+import { useSort, SortBar } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const QUICK = [10, 25, 50, -10, -25];
@@ -25,6 +26,10 @@ export default function GroupPoints() {
     };
     const delEntry = (id) => { if (confirm('این ردیفِ امتیازِ گروهی حذف شود؟')) router.delete(route('teacher.groups.entry.destroy', id), { preserveScroll: true }); };
 
+    const ts = useSort(teams, { name: 'name', total: 'total', count: 'count', bonus: 'bonus' }, { id: 'teacher-groups-teams', firstDir: { total: 'desc', count: 'desc', bonus: 'desc' } });
+    const ls = useSort(ledger, { date: 'ts', amount: 'amount', reason: 'reason', who: 'who' }, { id: 'teacher-groups-ledger', firstDir: { date: 'desc', amount: 'desc' } });
+    const topTeamId = teams.length ? teams.reduce((a, t) => ((t.total ?? 0) > (a.total ?? 0) ? t : a), teams[0]).theme_id : null;
+
     if (!classroom) {
         return <DashLayout title="امتیازِ گروه‌ها" roleLabel="معلم" menu={teacherMenu} active="groups"><div className="panel"><b>ابتدا باید یک کلاس داشته باشید.</b></div></DashLayout>;
     }
@@ -38,14 +43,15 @@ export default function GroupPoints() {
                 <div className="panel">
                     <h3 style={{ marginTop: 0 }}>🏆 تیم‌ها</h3>
                     {teams.length === 0 && <p style={{ color: 'var(--muted)' }}>دانش‌آموزی با تیم در کلاس نیست.</p>}
+                    {teams.length > 1 && <SortBar s={ts} options={[['total', 'امتیاز'], ['name', 'نام تیم'], ['count', 'تعداد عضو'], ['bonus', 'امتیاز گروهی']]} />}
                     <div style={{ display: 'grid', gap: 8 }}>
-                        {teams.map((t, i) => (
+                        {ts.sorted.map((t) => (
                             <button key={t.theme_id} onClick={() => pick(t.theme_id)}
                                 style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'start', cursor: 'pointer', fontFamily: 'inherit',
                                     border: selectedId === t.theme_id ? '2px solid var(--gold)' : '1px solid var(--line)', background: selectedId === t.theme_id ? '#fff8e8' : '#fff', borderRadius: 12, padding: '10px 12px' }}>
                                 <span style={{ fontSize: 22 }}>{t.emoji}</span>
                                 <span style={{ flex: 1, minWidth: 0 }}>
-                                    <span style={{ fontWeight: 800, display: 'block' }}>{i === 0 ? '🥇 ' : ''}{t.name}</span>
+                                    <span style={{ fontWeight: 800, display: 'block' }}>{t.theme_id === topTeamId ? '🥇 ' : ''}{t.name}</span>
                                     <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{fa(t.count)} عضو{t.bonus ? ` · گروهی ${t.bonus > 0 ? '+' : ''}${fa(t.bonus)}` : ''}</span>
                                 </span>
                                 <span className="tag" style={{ background: '#eef3ff', color: '#2555c0', fontWeight: 800 }}>⚡{fa(t.total)}</span>
@@ -93,8 +99,9 @@ export default function GroupPoints() {
                             </div>
                             {filteredName && <div style={{ fontSize: 12.5, color: '#2555c0', marginBottom: 8 }}>در حالِ نمایشِ ریزِ امتیازِ <b>{filteredName}</b> — <button onClick={() => filterStudent(null)} className="btn btn-ghost btn-sm" style={{ padding: '2px 8px' }}>نمایشِ کلِ تیم</button></div>}
                             {ledger.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز امتیازی ثبت نشده.</p>}
+                            {ledger.length > 1 && <SortBar s={ls} options={[['date', 'تاریخ'], ['amount', 'مقدار'], ['reason', 'علت'], ['who', 'نام']]} />}
                             <div style={{ display: 'grid', gap: 6 }}>
-                                {ledger.map((e, i) => (
+                                {ls.sorted.map((e, i) => (
                                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--line)', borderRadius: 10, padding: '8px 12px', background: e.kind === 'team' ? '#fff8e8' : '#fff' }}>
                                         <span style={{ fontWeight: 900, minWidth: 48, color: e.amount >= 0 ? '#16a34a' : '#dc2626' }}>{e.amount >= 0 ? '+' : ''}{fa(e.amount)}</span>
                                         <span style={{ flex: 1, fontSize: 13 }}>{e.reason}<span style={{ color: 'var(--muted)' }}> · {e.who}</span></span>

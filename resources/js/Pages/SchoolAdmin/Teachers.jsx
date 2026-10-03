@@ -2,6 +2,7 @@ import { usePage, useForm, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import DashLayout, { schoolMenu } from '@/Layouts/DashLayout';
 import Avatar from '@/Components/Avatar';
+import { useSort, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -21,7 +22,9 @@ export default function Teachers() {
 
     const gradeBooks = data.grade ? (booksByGrade[data.grade] || []) : [];
     const [tq, setTq] = useState('');
-    const shownTeachers = teachers.filter((t) => !tq || (t.name || '').includes(tq) || (t.class_name || '').includes(tq) || (t.phone || '').includes(tq));
+    const filteredTeachers = teachers.filter((t) => !tq || (t.name || '').includes(tq) || (t.class_name || '').includes(tq) || (t.phone || '').includes(tq));
+    const ts = useSort(filteredTeachers, { name: (r) => firstName(r.name), family: (r) => lastName(r.name), cls: 'class_name', grade: 'grade', students: 'students' }, { id: 'school-teachers', firstDir: { students: 'desc' } });
+    const shownTeachers = ts.sorted;
 
     return (
         <DashLayout title="معلم‌ها و کلاس‌ها" roleLabel="مدیر مدرسه" menu={schoolMenu} active="teachers">
@@ -67,6 +70,7 @@ export default function Teachers() {
                         <input className="input" value={tq} onChange={(e) => setTq(e.target.value)} placeholder="🔍 جست‌وجوی نام/کلاس…" style={{ marginInlineStart: 'auto', width: 'auto', maxWidth: 200, padding: '8px 12px' }} />
                     </div>
                     {teachers.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز معلمی ساخته نشده.</p>}
+                    {teachers.length > 1 && <SortBar s={ts} options={[['name', 'نام'], ['family', 'نام خانوادگی'], ['cls', 'کلاس'], ['grade', 'پایه'], ['students', 'تعداد دانش‌آموز']]} />}
                     {teachers.length > 0 && shownTeachers.length === 0 && <p style={{ color: 'var(--muted)' }}>معلمی با این نام پیدا نشد.</p>}
                     {shownTeachers.map((t) => (
                         <div key={t.id} style={{ padding: '12px 0', borderBottom: '1px solid var(--line)' }}>

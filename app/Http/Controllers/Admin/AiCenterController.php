@@ -226,7 +226,8 @@ class AiCenterController extends Controller
 
         $recentErrors = $q()->where('ok', false)->latest('created_at')->limit(8)->get(['provider', 'model', 'status', 'feature', 'created_at'])
             ->map(fn ($r) => ['provider' => AiConfig::PROVIDERS[$r->provider]['label'] ?? $r->provider, 'model' => $r->model, 'status' => $r->status,
-                'feature' => AiUsage::FEATURES[$r->feature] ?? '', 'at' => Jalali::ymParts(\Illuminate\Support\Carbon::parse($r->created_at))['short'] . ' ' . Jalali::fa(substr($r->created_at, 11, 5))]);
+                'feature' => AiUsage::FEATURES[$r->feature] ?? '', 'at' => Jalali::ymParts(\Illuminate\Support\Carbon::parse($r->created_at))['short'] . ' ' . Jalali::fa(substr($r->created_at, 11, 5)),
+                'at_raw' => \Illuminate\Support\Carbon::parse($r->created_at)->timestamp]);
 
         return compact('totals', 'series', 'byFeature', 'schools', 'topUsers', 'models', 'recentErrors');
     }

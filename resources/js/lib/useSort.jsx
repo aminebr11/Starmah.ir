@@ -25,11 +25,13 @@ export const normDigits = (s) => String(s ?? '')
 
 const normText = (s) => normDigits(s).replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/[‌‏]/g, ' ').trim();
 
+// برای جداکردنِ کلمه‌های نام، نیم‌فاصله (ZWNJ) جزوِ کلمه می‌ماند: «دانش‌آموز» یک کلمه است
+const nameWords = (full) => normDigits(full).replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/\u200f/g, '').trim().split(/\s+/).filter(Boolean);
 /** کلمه‌ی اولِ نام. */
-export const firstName = (full) => normText(full).split(/\s+/)[0] || '';
+export const firstName = (full) => nameWords(full)[0] || '';
 /** نام خانوادگی = بقیه‌ی نام پس از کلمه‌ی اول (اگر تک‌کلمه بود، همان). */
 export const lastName = (full) => {
-    const parts = normText(full).split(/\s+/).filter(Boolean);
+    const parts = nameWords(full);
     return parts.length > 1 ? parts.slice(1).join(' ') : (parts[0] || '');
 };
 

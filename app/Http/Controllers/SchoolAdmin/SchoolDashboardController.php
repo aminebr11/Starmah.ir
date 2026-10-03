@@ -102,6 +102,7 @@ class SchoolDashboardController extends Controller
             ->map(fn ($a) => [
                 'actor' => $a->actor_name, 'role' => $a->actor_role, 'action' => $a->action,
                 'summary' => $a->summary, 'when' => Jalali::format($a->created_at, true),
+                'when_raw' => $a->created_at?->timestamp,
             ]);
 
         return Inertia::render('SchoolAdmin/Students', [

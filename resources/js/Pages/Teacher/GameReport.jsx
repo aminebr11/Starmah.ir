@@ -1,11 +1,15 @@
 import { usePage, Link } from '@inertiajs/react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
+import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const mins = (s) => s >= 60 ? `${fa(Math.floor(s / 60))}د ${fa(s % 60)}ث` : `${fa(s)}ث`;
 
 export default function GameReport() {
     const { game = {}, summary = {}, rows = [], hardQuestions = [] } = usePage().props;
+    const D = 'desc';
+    const rs = useSort(rows, { name: (r) => firstName(r.name), family: (r) => lastName(r.name), score: 'score', percent: 'percent', status: (r) => (r.status === 'completed' ? 1 : 0), hints: 'hints', duration: 'duration' },
+        { id: 'teacher-game-report', firstDir: { score: D, percent: D, status: D, hints: D, duration: D } });
 
     return (
         <DashLayout title={`گزارش: ${game.title}`} roleLabel="معلم" menu={teacherMenu} active="studio">
@@ -44,10 +48,11 @@ export default function GameReport() {
                 {rows.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز کسی این بازی را انجام نداده.</p>}
                 {rows.length > 0 && (
                     <div style={{ overflowX: 'auto' }}>
+                        {rows.length > 1 && <SortBar s={rs} options={[['name', 'نام'], ['family', 'نام خانوادگی'], ['score', 'امتیاز'], ['percent', 'دقت']]} />}
                         <table className="tbl">
-                            <thead><tr><th>#</th><th>نام</th><th>امتیاز</th><th>دقت</th><th>وضعیت</th><th>راهنما</th><th>زمان</th></tr></thead>
+                            <thead><tr><th>#</th><SortTh s={rs} k="family">نام</SortTh><SortTh s={rs} k="score">امتیاز</SortTh><SortTh s={rs} k="percent">دقت</SortTh><SortTh s={rs} k="status">وضعیت</SortTh><SortTh s={rs} k="hints">راهنما</SortTh><SortTh s={rs} k="duration">زمان</SortTh></tr></thead>
                             <tbody>
-                                {rows.map((r, i) => (
+                                {rs.sorted.map((r, i) => (
                                     <tr key={i}>
                                         <td>{fa(i + 1)}</td>
                                         <td style={{ fontWeight: 700 }}>{r.name}</td>

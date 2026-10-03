@@ -6,6 +6,7 @@ import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import PersonCell from '@/Components/PersonCell';
 import ListSearch from '@/Components/ListSearch';
 import StudentRecord from '@/Components/StudentRecord';
+import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -29,7 +30,6 @@ export default function Classroom() {
     const [q, setQ] = useState('');
     const [team, setTeam] = useState('all');      // all | none | <theme_id>
     const [view, setView] = useState('groups');   // groups | table
-    const [sort, setSort] = useState('xp');       // xp | name | avg
 
     // تغییر تیم/گروهِ دانش‌آموز — فقط معلم مجاز است
     const changeTeam = (s, themeId) => {
@@ -55,10 +55,10 @@ export default function Classroom() {
         return m;
     }, [students, themes]);
 
-    /* ── اعمالِ جست‌وجو + فیلتر + مرتب‌سازی ── */
-    const filtered = useMemo(() => {
+    /* ── اعمالِ جست‌وجو + فیلتر ── */
+    const matched = useMemo(() => {
         const nq = norm(q);
-        let out = students.filter((s) => {
+        return students.filter((s) => {
             if (team === 'none' && s.theme_id) return false;
             if (team !== 'all' && team !== 'none' && String(s.theme_id) !== String(team)) return false;
             if (!nq) return true;
@@ -67,13 +67,14 @@ export default function Classroom() {
                 || norm(s.national_id).includes(nq)
                 || norm(s.team_name).includes(nq);
         });
-        out = [...out].sort((a, b) => (
-            sort === 'name' ? String(a.name).localeCompare(String(b.name), 'fa')
-                : sort === 'avg' ? ((b.avg ?? -1) - (a.avg ?? -1))
-                    : (b.xp - a.xp)
-        ));
-        return out;
-    }, [students, q, team, sort]);
+    }, [students, q, team]);
+
+    /* ── مرتب‌سازی (کلیک روی سرِ ستون یا نوارِ مرتب‌سازی) ── */
+    const srt = useSort(matched, {
+        name: (r) => firstName(r.name), family: (r) => lastName(r.name),
+        phone: 'phone', team: 'team_name', xp: 'xp', avg: 'avg',
+    }, { id: 'teacher-classroom', key: 'xp', dir: 'desc', firstDir: { xp: 'desc', avg: 'desc' } });
+    const filtered = srt.sorted;
 
     /* ── گروه‌بندی برای نمای «گروه‌ها» ── */
     const grouped = useMemo(() => {
@@ -163,12 +164,7 @@ export default function Classroom() {
                 </div>
 
                 {/* ── مرتب‌سازی ── */}
-                <div className="filter-chips" style={{ marginBottom: 16 }}>
-                    <span style={{ fontSize: 12.5, color: 'var(--muted)', alignSelf: 'center', marginInlineEnd: 4 }}>مرتب‌سازی:</span>
-                    {[['xp', '⭐ امتیاز'], ['avg', '📈 تسلط'], ['name', '🔤 نام']].map(([k, label]) => (
-                        <button key={k} type="button" className={`filter-chip ${sort === k ? 'on' : ''}`} onClick={() => setSort(k)}>{label}</button>
-                    ))}
-                </div>
+                <SortBar s={srt} options={[['xp', '⭐ امتیاز'], ['avg', '📈 تسلط'], ['name', '🔤 نام'], ['family', '🔤 نام خانوادگی'], ['team', '🗂️ گروه']]} className="" />
 
                 {filtered.length === 0 ? (
                     <div className="list-empty">
@@ -187,8 +183,8 @@ export default function Classroom() {
                                 <span className="xp">⭐ {fa(g.list.reduce((a, s) => a + (s.xp || 0), 0))}</span>
                             </header>
                             <div className="cls-cards">
-                                {g.list.map((s, i) => (
-                                    <StudentCard key={s.id} s={s} rank={i + 1} themes={themes}
+                                {g.list.map((s) => (
+                                    <StudentCard key={s.id} s={s} rank={xpRank(g.list, s)} themes={themes}
                                         onTeam={changeTeam} onOpen={openRec} onEdit={startEdit} onDel={del} />
                                 ))}
                             </div>
@@ -199,8 +195,8 @@ export default function Classroom() {
                         <table className="tbl">
                             <thead>
                                 <tr>
-                                    <th>#</th><th>دانش‌آموز</th><th>موبایل</th>
-                                    <th>گروه</th><th>امتیاز</th><th>تسلط</th>
+                                    <th>#</th><SortTh s={srt} k="family">دانش‌آموز</SortTh><SortTh s={srt} k="phone">موبایل</SortTh>
+                                    <SortTh s={srt} k="team">گروه</SortTh><SortTh s={srt} k="xp">امتیاز</SortTh><SortTh s={srt} k="avg">تسلط</SortTh>
                                     <th style={{ textAlign: 'left' }}>عملیات</th>
                                 </tr>
                             </thead>
@@ -246,6 +242,9 @@ export default function Classroom() {
         </DashLayout>
     );
 }
+
+/** رتبه‌ی امتیازیِ دانش‌آموز در گروهش (برای مدال)، مستقل از ترتیبِ نمایش. */
+const xpRank = (list, s) => 1 + [...list].sort((a, b) => (b.xp || 0) - (a.xp || 0)).indexOf(s);
 
 /* ─────────────────────────── کارتِ دانش‌آموز ─────────────────────────── */
 function StudentCard({ s, rank, themes, onTeam, onOpen, onEdit, onDel }) {

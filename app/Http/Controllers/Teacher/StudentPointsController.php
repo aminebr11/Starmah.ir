@@ -48,6 +48,7 @@ class StudentPointsController extends Controller
                 ->map(fn ($e) => [
                     'id' => $e->id, 'amount' => (int) $e->amount, 'reason' => $e->reason,
                     'date' => Jalali::format($e->created_at, true),
+                    'date_raw' => $e->created_at?->timestamp,
                     'kind' => $e->amount >= 0 ? 'plus' : 'minus',
                 ]);
         }

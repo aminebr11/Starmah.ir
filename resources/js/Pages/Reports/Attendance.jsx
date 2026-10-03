@@ -2,6 +2,7 @@ import { usePage, router, Link } from '@inertiajs/react';
 import { useState } from 'react';
 import DashLayout, { teacherMenu, schoolMenu } from '@/Layouts/DashLayout';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
+import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const iso = (d) => d.toISOString().slice(0, 10);
 const PRESETS = [
@@ -28,6 +29,9 @@ export default function AttendanceReport() {
     const apply = () => router.get(route(routeName), f, { preserveState: true, preserveScroll: true });
 
     const [printMode, setPrintMode] = useState('both'); // list | summary | both
+    const D = 'desc';
+    const rs = useSort(rows, { name: (r) => firstName(r.name), family: (r) => lastName(r.name), present: 'present', absent: 'absent', late: 'late', excused: 'excused', total: 'total', percent: 'percent' },
+        { id: 'attendance-report', firstDir: { present: D, absent: D, late: D, excused: D, total: D, percent: D } });
     const monthlyRoute = role === 'teacher' ? 'teacher.attendance.monthly' : 'school.attendance.monthly';
 
     const maxDay = Math.max(1, ...daily.map((d) => d.present + d.absent + d.late));
@@ -139,13 +143,14 @@ export default function AttendanceReport() {
                 <h3 className="no-print" style={{ marginTop: 0 }}>📋 جدول تفکیکی</h3>
                 {rows.length === 0 ? <p className="no-print" style={{ color: 'var(--muted)' }}>در این بازه رکوردی ثبت نشده.</p> : (
                     <div style={{ overflowX: 'auto' }}>
+                        {rows.length > 1 && <SortBar s={rs} options={[['name', 'نام'], ['family', 'نام خانوادگی'], ['absent', 'غیبت'], ['percent', 'درصد حضور']]} />}
                         <table className="tbl">
                             <thead><tr>
-                                <th>#</th><th>دانش‌آموز</th><th style={{ textAlign: 'center' }}>حضور</th><th style={{ textAlign: 'center' }}>غیبت</th>
-                                <th style={{ textAlign: 'center' }}>تأخیر</th><th style={{ textAlign: 'center' }}>مرخصی</th><th style={{ textAlign: 'center' }}>جمع</th><th style={{ textAlign: 'center' }}>درصد حضور</th>
+                                <th>#</th><SortTh s={rs} k="family">دانش‌آموز</SortTh><SortTh s={rs} k="present" style={{ textAlign: 'center' }}>حضور</SortTh><SortTh s={rs} k="absent" style={{ textAlign: 'center' }}>غیبت</SortTh>
+                                <SortTh s={rs} k="late" style={{ textAlign: 'center' }}>تأخیر</SortTh><SortTh s={rs} k="excused" style={{ textAlign: 'center' }}>مرخصی</SortTh><SortTh s={rs} k="total" style={{ textAlign: 'center' }}>جمع</SortTh><SortTh s={rs} k="percent" style={{ textAlign: 'center' }}>درصد حضور</SortTh>
                             </tr></thead>
                             <tbody>
-                                {rows.map((r, i) => (
+                                {rs.sorted.map((r, i) => (
                                     <tr key={r.id}>
                                         <td>{fa(i + 1)}</td><td style={{ fontWeight: 700 }}>{r.name}</td>
                                         <td style={{ textAlign: 'center', color: '#16a34a' }}>{fa(r.present)}</td>

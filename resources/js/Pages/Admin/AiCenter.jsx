@@ -4,6 +4,7 @@ import axios from 'axios';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
 import { AreaTrend, HBars } from '@/Components/Charts';
 import { PeriodPicker } from '@/Components/VisitKit';
+import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const num = (n) => fa(Math.round(n || 0).toLocaleString('en-US'));
@@ -173,16 +174,20 @@ export default function AiCenter() {
             <div className="panel" style={{ marginTop: 10 }}>
                 {tab === 'schools' && <Schools rows={usage.schools || []} currency={currency} />}
                 {tab === 'users' && (
-                    <Table head={['#', 'کاربر', 'نقش', 'مدرسه', 'درخواست', 'توکن', 'هزینه']} empty="هنوز مصرفی نیست."
-                        rows={(usage.topUsers || []).map((u, i) => [fa(i + 1), <b key="n">{u.name}</b>, u.role, u.school, num(u.requests), num(u.tokens), money(u.cost, currency)])} />
+                    <Table id="ai-users" empty="هنوز مصرفی نیست." items={usage.topUsers || []}
+                        cols={[{ h: '#' }, { h: 'کاربر', k: 'family', get: (u) => lastName(u.name) }, { h: 'نقش', k: 'role' }, { h: 'مدرسه', k: 'school' }, { h: 'درخواست', k: 'requests', d: 1 }, { h: 'توکن', k: 'tokens', d: 1 }, { h: 'هزینه', k: 'cost', d: 1 }]}
+                        bar={[['name', 'نام', (u) => firstName(u.name)], ['family', 'نام خانوادگی'], ['tokens', 'توکن'], ['cost', 'هزینه']]}
+                        render={(u, i) => [fa(i + 1), <b key="n">{u.name}</b>, u.role, u.school, num(u.requests), num(u.tokens), money(u.cost, currency)]} />
                 )}
                 {tab === 'models' && (
-                    <Table head={['سرویس', 'مدل', 'درخواست', 'موفق', 'توکنِ ورودی', 'توکنِ خروجی', 'میانگینِ پاسخ', 'هزینه']} empty="هنوز مصرفی نیست."
-                        rows={(usage.models || []).map((m) => [m.label, <span key="m" dir="ltr">{m.model}</span>, num(m.requests), num(m.ok), num(m.in), num(m.out), `${fa(m.ms)}ms`, money(m.cost, currency)])} />
+                    <Table id="ai-models" empty="هنوز مصرفی نیست." items={usage.models || []}
+                        cols={[{ h: 'سرویس', k: 'label' }, { h: 'مدل', k: 'model' }, { h: 'درخواست', k: 'requests', d: 1 }, { h: 'موفق', k: 'ok', d: 1 }, { h: 'توکنِ ورودی', k: 'in', d: 1 }, { h: 'توکنِ خروجی', k: 'out', d: 1 }, { h: 'میانگینِ پاسخ', k: 'ms', d: 1 }, { h: 'هزینه', k: 'cost', d: 1 }]}
+                        render={(m) => [m.label, <span key="m" dir="ltr">{m.model}</span>, num(m.requests), num(m.ok), num(m.in), num(m.out), `${fa(m.ms)}ms`, money(m.cost, currency)]} />
                 )}
                 {tab === 'errors' && (
-                    <Table head={['زمان', 'سرویس', 'مدل', 'کدِ خطا', 'کاربرد']} empty="خطایی ثبت نشده 🎉"
-                        rows={(usage.recentErrors || []).map((e) => [e.at, e.provider, <span key="m" dir="ltr">{e.model}</span>, fa(e.status), e.feature])} />
+                    <Table id="ai-errors" empty="خطایی ثبت نشده 🎉" items={usage.recentErrors || []}
+                        cols={[{ h: 'زمان', k: 'at', get: (e) => e.at_raw ?? e.at, d: 1 }, { h: 'سرویس', k: 'provider' }, { h: 'مدل', k: 'model' }, { h: 'کدِ خطا', k: 'status' }, { h: 'کاربرد', k: 'feature' }]}
+                        render={(e) => [e.at, e.provider, <span key="m" dir="ltr">{e.model}</span>, fa(e.status), e.feature]} />
                 )}
             </div>
 
@@ -191,14 +196,20 @@ export default function AiCenter() {
     );
 }
 
-function Table({ head, rows, empty }) {
+/** جدولِ ساده‌ی قابلِ مرتب‌سازی. cols: [{ h: عنوان, k?: کلید, get?: (row) => مقدار, d?: اولِ کار نزولی }] */
+function Table({ id, cols, items, render, empty, bar }) {
+    const getters = {}, firstDir = {};
+    cols.forEach((c) => { if (c.k) { getters[c.k] = c.get || c.k; if (c.d) firstDir[c.k] = 'desc'; } });
+    (bar || []).forEach(([k, , get]) => { if (get && !getters[k]) getters[k] = get; });
+    const s = useSort(items, getters, { id, firstDir });
     return (
         <div className="vk-tblwrap">
+            {bar && items.length > 1 && <SortBar s={s} options={bar.map(([k, t]) => [k, t])} />}
             <table className="tbl vk-tbl" style={{ minWidth: 640 }}>
-                <thead><tr>{head.map((h) => <th key={h}>{h}</th>)}</tr></thead>
+                <thead><tr>{cols.map((c) => (c.k ? <SortTh key={c.h} s={s} k={c.k}>{c.h}</SortTh> : <th key={c.h}>{c.h}</th>))}</tr></thead>
                 <tbody>
-                    {rows.map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j}>{c}</td>)}</tr>)}
-                    {!rows.length && <tr><td colSpan={head.length} style={{ color: 'var(--muted)' }}>{empty}</td></tr>}
+                    {s.sorted.map((r, i) => <tr key={i}>{render(r, i).map((c, j) => <td key={j}>{c}</td>)}</tr>)}
+                    {!items.length && <tr><td colSpan={cols.length} style={{ color: 'var(--muted)' }}>{empty}</td></tr>}
                 </tbody>
             </table>
         </div>
@@ -208,11 +219,13 @@ function Table({ head, rows, empty }) {
 /** هر مدرسه، با بازشدن: معلم‌ها — مصرفِ خودشان و مصرفِ دانش‌آموزانشان جدا. */
 function Schools({ rows, currency }) {
     const [open, setOpen] = useState(null);
+    const ss = useSort(rows, { name: 'name', tokens: 'tokens', cost: 'cost', requests: 'requests', users: 'users' }, { id: 'ai-schools', firstDir: { tokens: 'desc', cost: 'desc', requests: 'desc', users: 'desc' } });
     if (!rows.length) return <div className="vk-empty">هنوز مصرفی ثبت نشده. با اولین استفاده از دستیار یا طراحیِ سؤال، اینجا پر می‌شود.</div>;
     const max = Math.max(1, ...rows.map((r) => r.tokens));
     return (
         <div className="ai-schools">
-            {rows.map((s) => (
+            {rows.length > 1 && <SortBar s={ss} options={[['tokens', 'توکن'], ['cost', 'هزینه'], ['requests', 'درخواست'], ['users', 'کاربر'], ['name', 'نام مدرسه']]} />}
+            {ss.sorted.map((s) => (
                 <div key={s.id ?? 'none'} className="ai-school">
                     <button type="button" className="ai-school-h" onClick={() => setOpen(open === s.id ? null : s.id)}>
                         <span className="ai-school-n"><b>🏫 {s.name}</b><small>{fa(s.requests)} درخواست · {fa(s.users)} کاربر · ورودی {short(s.in)} / خروجی {short(s.out)}</small></span>
@@ -222,23 +235,31 @@ function Schools({ rows, currency }) {
                     <div className="ai-bar"><i style={{ width: `${(s.tokens / max) * 100}%` }} /></div>
                     {open === s.id && (
                         s.teachers.length ? (
-                            <div className="vk-tblwrap"><table className="tbl vk-tbl" style={{ minWidth: 620, marginTop: 8 }}>
-                                <thead><tr><th>معلم</th><th>مصرفِ خودِ معلم</th><th>مصرفِ دانش‌آموزانش</th><th>جمع</th><th>هزینه</th></tr></thead>
-                                <tbody>{s.teachers.map((tt) => (
-                                    <tr key={tt.id}>
-                                        <td><b>{tt.name}</b></td>
-                                        <td>{num(tt.own_tokens)} <small style={{ color: 'var(--muted)' }}>({fa(tt.own_req)} درخواست)</small></td>
-                                        <td>{num(tt.stu_tokens)} <small style={{ color: 'var(--muted)' }}>({fa(tt.stu_req)} درخواست)</small></td>
-                                        <td><b>{num(tt.tokens)}</b></td>
-                                        <td>{money(tt.cost, currency)}</td>
-                                    </tr>
-                                ))}</tbody>
-                            </table></div>
+                            <SchoolTeachers teachers={s.teachers} currency={currency} />
                         ) : <div className="vk-empty">در این مدرسه مصرفی به نامِ معلمی ثبت نشده (مثلاً فقط مدیر استفاده کرده).</div>
                     )}
                 </div>
             ))}
         </div>
+    );
+}
+
+/** جدولِ معلم‌های یک مدرسه (کامپوننتِ جدا تا هوکِ مرتب‌سازی داخلِ حلقه صدا زده نشود). */
+function SchoolTeachers({ teachers, currency }) {
+    const ts = useSort(teachers, { name: (r) => firstName(r.name), family: (r) => lastName(r.name), own: 'own_tokens', stu: 'stu_tokens', tokens: 'tokens', cost: 'cost' }, { id: 'ai-school-teachers', firstDir: { own: 'desc', stu: 'desc', tokens: 'desc', cost: 'desc' } });
+    return (
+        <div className="vk-tblwrap"><table className="tbl vk-tbl" style={{ minWidth: 620, marginTop: 8 }}>
+            <thead><tr><SortTh s={ts} k="family">معلم</SortTh><SortTh s={ts} k="own">مصرفِ خودِ معلم</SortTh><SortTh s={ts} k="stu">مصرفِ دانش‌آموزانش</SortTh><SortTh s={ts} k="tokens">جمع</SortTh><SortTh s={ts} k="cost">هزینه</SortTh></tr></thead>
+            <tbody>{ts.sorted.map((tt) => (
+                <tr key={tt.id}>
+                    <td><b>{tt.name}</b></td>
+                    <td>{num(tt.own_tokens)} <small style={{ color: 'var(--muted)' }}>({fa(tt.own_req)} درخواست)</small></td>
+                    <td>{num(tt.stu_tokens)} <small style={{ color: 'var(--muted)' }}>({fa(tt.stu_req)} درخواست)</small></td>
+                    <td><b>{num(tt.tokens)}</b></td>
+                    <td>{money(tt.cost, currency)}</td>
+                </tr>
+            ))}</tbody>
+        </table></div>
     );
 }
 

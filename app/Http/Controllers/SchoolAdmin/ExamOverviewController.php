@@ -29,6 +29,7 @@ class ExamOverviewController extends Controller
                     'class' => $a->classroom?->name,
                     'teacher' => $roster?->teacher?->name,
                     'jdate' => Jalali::format($a->created_at),
+                    'date_raw' => $a->created_at?->timestamp,
                     'total' => $totalStudents,
                     'taken' => $subs->count(),
                     'avg' => $percents->count() ? (int) round($percents->avg()) : null,

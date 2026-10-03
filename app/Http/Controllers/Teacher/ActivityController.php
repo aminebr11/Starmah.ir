@@ -37,6 +37,7 @@ class ActivityController extends Controller
                 'title' => $a->title, 'points' => $a->points, 'status' => $a->status,
                 'description' => $a->description,
                 'awarded' => $a->awards_count, 'scheduled' => $a->scheduledJalali(),
+                'scheduled_raw' => $a->scheduled_at?->timestamp, 'created_raw' => $a->created_at?->timestamp,
             ]);
 
         return Inertia::render('Teacher/Activities', [

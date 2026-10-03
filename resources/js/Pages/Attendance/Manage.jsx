@@ -2,6 +2,7 @@ import { usePage, useForm, router, Link } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import DashLayout, { teacherMenu, schoolMenu } from '@/Layouts/DashLayout';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
+import { useSort, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -40,6 +41,7 @@ export default function Manage() {
     const delDay = () => { if (confirm(`تمام رکوردهای حضور و غیاب این روز (${jdate}) حذف شود؟`)) router.delete(route(routes.destroyDay), { data: { classroom_id: classroomId, date }, preserveScroll: true }); };
     const delOne = (sid, name) => { if (confirm(`رکورد «${name}» در این روز حذف شود؟`)) router.delete(route(routes.destroyOne), { data: { classroom_id: classroomId, student_id: sid, date }, preserveScroll: true }); };
 
+    const ss = useSort(students, { name: (r) => firstName(r.name), family: (r) => lastName(r.name) }, { id: 'attendance-manage' });
     const counts = STATUSES.map((s) => ({ ...s, n: students.filter((x) => (marks[x.id] || 'present') === s.v).length }));
 
     const noClass = !classroom;
@@ -90,7 +92,8 @@ export default function Manage() {
                                 <button onClick={() => setAll('present')} className="btn btn-ghost btn-sm" style={{ marginInlineStart: 'auto' }}>✅ همه حاضر</button>
                             </h3>
                             {students.length === 0 && <p style={{ color: 'var(--muted)' }}>دانش‌آموزی در کلاس نیست.</p>}
-                            {students.map((s) => {
+                            {students.length > 1 && <SortBar s={ss} options={[['name', 'نام'], ['family', 'نام خانوادگی']]} />}
+                            {ss.sorted.map((s) => {
                                 const cur = marks[s.id] || 'present';
                                 const sc = stMap[cur];
                                 return (

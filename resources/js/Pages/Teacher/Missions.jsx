@@ -4,6 +4,7 @@ import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
+import { useSort, SortBar } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const DIFF = { easy: 'آسان', medium: 'متوسط', hard: 'دشوار' };
@@ -34,6 +35,7 @@ const TEMPLATES = [
 
 export default function Missions() {
     const { missions = [], facets = [], classrooms = [], themes = [], resources = {}, stats = {}, bankTotal = 0, smartLab = false, flash } = usePage().props;
+    const mst = useSort(missions, { title: 'title', subject: 'subject', lesson: 'lesson_no', count: 'question_count', active: (m) => (m.is_active ? 1 : 0) }, { id: 'teacher-missions', firstDir: { count: 'desc', active: 'desc' } });
     const [banner, setBanner] = useState(null);
     const [editId, setEditId] = useState(null);
     const formRef = useRef(null);
@@ -227,8 +229,9 @@ export default function Missions() {
             <div className="panel">
                 <h3>🗄️ مأموریت‌های من ({fa(missions.length)})</h3>
                 {missions.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز مأموریتی نساخته‌ای. از «شروعِ سریع» بالا یک الگو را بزن.</p>}
+                {missions.length > 1 && <SortBar s={mst} options={[['title', 'عنوان'], ['subject', 'درس'], ['lesson', 'شماره درس'], ['count', 'تعداد سؤال'], ['active', 'فعال']]} />}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 12, marginTop: 8 }}>
-                    {missions.map((m) => (
+                    {mst.sorted.map((m) => (
                         <MissionCard key={m.id} m={m} themes={themes} onEdit={() => edit(m)} onToggle={() => toggle(m)} onDup={() => dup(m)} onDel={() => del(m)} />
                     ))}
                 </div>

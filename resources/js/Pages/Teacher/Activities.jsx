@@ -2,6 +2,7 @@ import { usePage, useForm, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
+import { useSort, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const TYPES = [['game', '🎮 بازی'], ['exam', '📝 آزمون'], ['homework', '📚 تکلیف'], ['podcast', '🎧 پادکست'], ['online_exam', '💻 آزمون آنلاین'], ['custom', '⭐ فعالیت']];
@@ -28,6 +29,9 @@ export default function Activities() {
     const startEdit = (a) => { setAwardFor(null); setEditFor(a.id); eform.setData({ type: a.type, title: a.title, points: a.points, description: a.description || '' }); };
     const saveEdit = (id) => eform.put(route('teacher.activities.update', id), { preserveScroll: true, onSuccess: () => setEditFor(null) });
     const delAct = (a) => { if (confirm(`فعالیتِ «${a.title}» و امتیازهای داده‌شده‌اش حذف شود؟`)) router.delete(route('teacher.activities.destroy', a.id), { preserveScroll: true }); };
+
+    const actS = useSort(activities, { created: 'created_raw', scheduled: 'scheduled_raw', title: 'title', type: 'type_label', points: 'points', awarded: 'awarded' }, { id: 'teacher-activities', firstDir: { created: 'desc', scheduled: 'desc', points: 'desc', awarded: 'desc' } });
+    const ps = useSort(students, { name: (r) => firstName(r.name), family: (r) => lastName(r.name), group: 'group' }, { id: 'teacher-activities-students' });
 
     if (!classroom) {
         return <DashLayout title="فعالیت‌ها و امتیاز" roleLabel="معلم" menu={teacherMenu} active="activities">
@@ -70,7 +74,8 @@ export default function Activities() {
                 <div className="panel">
                     <h3>🎯 فعالیت‌های کلاس {classroom.name}</h3>
                     {activities.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز فعالیتی ثبت نشده.</p>}
-                    {activities.map((a) => (
+                    {activities.length > 1 && <SortBar s={actS} options={[['created', 'زمانِ ثبت'], ['scheduled', 'تاریخ'], ['title', 'عنوان'], ['type', 'نوع'], ['points', 'امتیاز'], ['awarded', 'تعداد گیرنده']]} />}
+                    {actS.sorted.map((a) => (
                         <div key={a.id} style={{ padding: '14px 0', borderBottom: '1px solid var(--line)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                                 <div>
@@ -118,8 +123,9 @@ export default function Activities() {
                                         <button onClick={() => award(a.id, students.map((s) => s.id))} className="tag tag-warn" style={{ cursor: 'pointer', border: 0, fontFamily: 'inherit', padding: '8px 14px' }}>👥 کل کلاس</button>
                                     </div>
                                     <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>یا انتخاب دانش‌آموزها:</div>
+                                    {students.length > 1 && <SortBar s={ps} options={[['name', 'نام'], ['family', 'نام خانوادگی'], ['group', 'تیم']]} />}
                                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-                                        {students.map((s) => (
+                                        {ps.sorted.map((s) => (
                                             <button key={s.id} onClick={() => toggle(s.id)} className={`tag ${picked.includes(s.id) ? 'tag-warn' : 'tag-info'}`} style={{ cursor: 'pointer', border: 0, fontFamily: 'inherit', padding: '6px 11px' }}>
                                                 {s.emoji} {s.name}
                                             </button>

@@ -4,12 +4,14 @@ import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
+import { useSort, SortBar } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const blankQ = () => ({ prompt: '', choices: [{ value: '', correct: true }, { value: '', correct: false }] });
 
 export default function Games() {
     const { classroom, games = [], subjects = [], flash } = usePage().props;
+    const gs = useSort(games, { title: 'title', subject: 'subject', count: 'count', points: 'points', plays: 'plays', live: (g) => (g.live ? 1 : 0) }, { id: 'teacher-games', firstDir: { count: 'desc', points: 'desc', plays: 'desc', live: 'desc' } });
     const [banner, setBanner] = useState(null);
     const [editId, setEditId] = useState(null);
     useEffect(() => { if (flash?.flash) { setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); window.scrollTo({ top: 0, behavior: 'smooth' }); } }, [flash]);
@@ -175,8 +177,9 @@ export default function Games() {
             <div className="panel">
                 <h3>🗄️ بانک بازی‌ها ({fa(games.length)})</h3>
                 {games.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز بازی‌ای نساخته‌ای.</p>}
+                {games.length > 1 && <SortBar s={gs} options={[['title', 'عنوان'], ['subject', 'درس'], ['points', 'امتیاز'], ['plays', 'تعداد بازی'], ['count', 'تعداد سؤال'], ['live', 'منتشر']]} />}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12, marginTop: 8 }}>
-                    {games.map((g) => (
+                    {gs.sorted.map((g) => (
                         <div key={g.id} style={{ border: '1px solid var(--line)', borderRadius: 14, padding: 14, borderTop: `4px solid ${g.live ? '#2bb673' : '#c4ccda'}` }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <span style={{ fontSize: 22 }}>🎮</span>

@@ -130,6 +130,7 @@ class VisitReportController extends Controller
                 'role' => VisitAnalytics::ROLE_LABELS[$u->roles->first()?->name] ?? '—', 'school' => $u->school?->name,
                 'online' => $u->last_seen_at && $u->last_seen_at->gte(now()->subMinutes(VisitTracker::ONLINE_MINUTES)),
                 'last_seen_label' => $va->ago($u->last_seen_at), 'logins' => (int) $u->login_count,
+                'last_seen_raw' => $u->last_seen_at?->timestamp,
                 'days' => (int) ($v->days ?? 0), 'hits' => (int) ($v->hits ?? 0), 'minutes' => (int) round(($v->seconds ?? 0) / 60),
                 'presence' => (int) round(((int) ($v->days ?? 0)) / $days * 100),
             ];

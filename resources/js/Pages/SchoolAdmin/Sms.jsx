@@ -4,6 +4,7 @@ import DashLayout, { schoolMenu } from '@/Layouts/DashLayout';
 import SmsComposer from '@/Components/SmsComposer';
 import StudentSmsAccess from '@/Components/StudentSmsAccess';
 import { LogTable } from '@/Pages/Admin/Sms';
+import { useSort, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -200,6 +201,7 @@ function EventMatrix({ events, config, sender }) {
 
 /** اجازه و سهمیه‌ی هر معلم. */
 function Teachers({ teachers }) {
+    const ts = useSort(teachers, { name: (r) => firstName(r.name), family: (r) => lastName(r.name), used: 'used', quota: 'quota', allowed: (r) => (r.allowed ? 1 : 0) }, { id: 'school-sms-teachers', firstDir: { used: 'desc', quota: 'desc', allowed: 'desc' } });
     return (
         <div className="panel">
             <h3 style={{ marginTop: 0 }}>👩‍🏫 دسترسیِ پیامکِ معلم‌ها</h3>
@@ -208,7 +210,8 @@ function Teachers({ teachers }) {
                 سهمیه‌ی خالی یعنی «فقط محدود به سهمیه‌ی مدرسه».
             </p>
             <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
-                {teachers.map((t) => <TeacherRow key={t.id} t={t} />)}
+                {teachers.length > 1 && <SortBar s={ts} options={[['name', 'نام'], ['family', 'نام خانوادگی'], ['used', 'مصرف'], ['quota', 'سهمیه'], ['allowed', 'مجاز']]} />}
+                {ts.sorted.map((t) => <TeacherRow key={t.id} t={t} />)}
                 {teachers.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز معلمی ثبت نشده.</p>}
             </div>
         </div>
