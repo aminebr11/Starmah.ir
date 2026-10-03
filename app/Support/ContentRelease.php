@@ -35,16 +35,16 @@ class ContentRelease
     }
 
     /** اعلانِ «محتوای جدید». هرگز جریانِ اصلی را نمی‌شکند. */
-    public static function notify(ClassContent $content): void
+    public static function notify(ClassContent $content, int $count = 1): void
     {
         try {
-            self::doNotify($content);
+            self::doNotify($content, max(1, $count));
         } catch (\Throwable $e) {
             Log::warning('content notify failed: ' . $e->getMessage());
         }
     }
 
-    private static function doNotify(ClassContent $content): void
+    private static function doNotify(ClassContent $content, int $count = 1): void
     {
         $teacher = $content->teacher ?: User::find($content->teacher_id);
 
@@ -59,10 +59,14 @@ class ContentRelease
             return;
         }
 
+        // دسته‌ای از عکس‌ها یک اعلان دارد، نه یک اعلان برای هر عکس
+        $label = ($content->type === 'gallery' && $count > 1)
+            ? '🖼️ ' . Jalali::fa((string) $count) . ' عکسِ جدید'
+            : (self::LABELS[$content->type] ?? '📚 محتوای جدید');
         $payload = [
             'school_id' => $content->school_id ?? optional($teacher)->school_id,
             'sender_id' => $content->teacher_id,
-            'title' => (self::LABELS[$content->type] ?? '📚 محتوای جدید') . ' — ' . $content->title,
+            'title' => $label . ' — ' . $content->title,
             'audience' => 'personal',
             'body' => "معلمت محتوای جدیدی برایت گذاشت: «{$content->title}». روی همین اعلان بزن تا ببینی"
                 . ($content->type === 'podcast' ? ' و با گوش‌دادن امتیاز بگیری ⚡' : '.'),
@@ -76,7 +80,6 @@ class ContentRelease
 
         // پیامک — تکلیف رویدادِ جداگانه دارد چون معمولاً مهم‌ترینِ آن‌هاست
         $event = $content->type === 'homework' ? 'homework' : 'content';
-        $label = self::LABELS[$content->type] ?? 'محتوای جدید';
         foreach (User::whereIn('id', $ids)->get() as $student) {
             SmsGateway::event($event, $student,
                 "{$label} — «{$content->title}» برای {$student->name} در سامانه‌ی ستاره ماه ثبت شد.", $teacher);
@@ -99,7 +102,20 @@ class ContentRelease
                 ->where('is_visible', true)
                 ->limit(20)->get()
                 ->each(function (ClassContent $c) {
-                    self::notify($c);
+                    if ($c->fresh()?->notified_at) {
+                        return; // همراهِ دسته‌ی گالریِ خودش اعلان شده
+                    }
+                    $count = 1;
+                    if ($c->type === 'gallery') {
+                        // عکس‌های هم‌دسته (همان معلم، عنوان، کلاس و زمانِ انتشار) یک اعلان می‌گیرند
+                        $siblings = ClassContent::where('type', 'gallery')
+                            ->where('teacher_id', $c->teacher_id)->where('title', $c->title)
+                            ->where('publish_at', $c->publish_at)->whereNull('notified_at')
+                            ->when($c->classroom_id, fn ($q) => $q->where('classroom_id', $c->classroom_id), fn ($q) => $q->whereNull('classroom_id'));
+                        $count = max(1, (clone $siblings)->count());
+                        $siblings->update(['notified_at' => now()]);
+                    }
+                    self::notify($c, $count);
                     $c->forceFill(['notified_at' => now()])->save();
                 });
         } catch (\Throwable $e) {

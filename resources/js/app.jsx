@@ -7,6 +7,8 @@ import '../css/visits.css';
 import '../css/hub.css';
 import '../css/schedule-kids.css';
 import '../css/mastery.css';
+import '../css/gradebook.css';
+import '../css/gallery.css';
 import '../css/ai-center.css';
 import './bootstrap';
 import { initPwa } from './lib/pwa';

@@ -3,6 +3,7 @@ import { usePage, Link } from '@inertiajs/react';
 import axios from 'axios';
 import ThemedDash from '@/Layouts/ThemedDash';
 import ListSearch, { normalizeFa } from '@/Components/ListSearch';
+import GalleryByDate from '@/Components/GalleryByDate';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -125,6 +126,8 @@ export default function ClassContent() {
                     )}
                     {tab === 'homework' ? (
                         list.map((it) => <HwCard key={it.id} it={it} dim={it.overdue} />)
+                    ) : tab === 'gallery' ? (
+                        <GalleryByDate list={list} dark render={(it) => <ContentCard key={it.id} it={it} />} />
                     ) : (
                         <div className="cc-grid">
                             {list.map((it) => <ContentCard key={it.id} it={it} />)}

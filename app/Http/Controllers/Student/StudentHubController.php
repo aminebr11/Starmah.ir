@@ -46,6 +46,7 @@ class StudentHubController extends Controller
             'due_at'  => $c->due_at ? Jalali::format($c->due_at) : null,
             'overdue' => $c->due_at ? now()->greaterThan($c->due_at) : false,
             'date'    => Jalali::format($c->created_at),
+            'day'     => $c->created_at?->toDateString(),
             'duration' => $c->duration_seconds ? (int) $c->duration_seconds : null,
             'xp_value' => app(\App\Services\ContentProgressService::class)->xpFor($c),
         ];

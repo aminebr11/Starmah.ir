@@ -2,6 +2,8 @@ import { usePage, useForm, router, Link } from '@inertiajs/react';
 import { useState, useEffect, useRef } from 'react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
+import { compressImage, chunkFiles } from '@/lib/imageCompress';
+import GalleryByDate from '@/Components/GalleryByDate';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -63,8 +65,70 @@ export default function Materials() {
         form.setData('duration_seconds', d ?? '');
     };
 
+    /* ───── گالری: انتخابِ چند عکس با یک مشخصات ───── */
+    const [pics, setPics] = useState([]); // [{ file, url }]
+    const [gBusy, setGBusy] = useState(null); // { done, total, phase }
+    const [gErr, setGErr] = useState(null);
+    const addPics = (fileList) => {
+        const fresh = Array.from(fileList || []).filter((f) => f.type.startsWith('image/'))
+            .map((file) => ({ file, url: URL.createObjectURL(file), key: `${file.name}-${file.size}-${file.lastModified}` }));
+        setPics((cur) => {
+            const keys = new Set(cur.map((p) => p.key));
+            return [...cur, ...fresh.filter((p) => !keys.has(p.key))].slice(0, 100);
+        });
+        setGErr(null);
+    };
+    const dropPic = (key) => setPics((cur) => { const p = cur.find((x) => x.key === key); if (p) URL.revokeObjectURL(p.url); return cur.filter((x) => x.key !== key); });
+    const clearPics = () => { pics.forEach((p) => URL.revokeObjectURL(p.url)); setPics([]); if (fileRef.current) fileRef.current.value = ''; };
+
+    const postChunk = (data) => new Promise((resolve, reject) => {
+        router.post(route('teacher.materials.store'), data, {
+            preserveScroll: true, forceFormData: true,
+            onSuccess: (page) => {
+                const errs = page?.props?.errors || {};
+                Object.keys(errs).length ? reject(errs) : resolve();
+            },
+            onError: (errs) => reject(errs),
+        });
+    });
+
+    const submitGallery = async () => {
+        if (!form.data.title.trim()) { setGErr('عنوان را بنویس؛ روی همه‌ی عکس‌ها می‌نشیند.'); return; }
+        if (!pics.length) { setGErr('دستِ‌کم یک عکس انتخاب کن.'); return; }
+        setGErr(null);
+        const total = pics.length;
+        try {
+            setGBusy({ done: 0, total, phase: 'آماده‌سازیِ عکس‌ها' });
+            const files = [];
+            for (const p of pics) {
+                files.push(await compressImage(p.file));
+                setGBusy({ done: files.length, total, phase: 'آماده‌سازیِ عکس‌ها' });
+            }
+            const chunks = chunkFiles(files);
+            const base = {
+                type: 'gallery', title: form.data.title, description: form.data.description || '',
+                classroom_id: form.data.classroom_id || '',
+                publish_at: pubDate ? `${pubDate} ${pubTime || '00:00'}` : '',
+            };
+            let sent = 0;
+            for (let i = 0; i < chunks.length; i++) {
+                const last = i === chunks.length - 1;
+                setGBusy({ done: sent, total, phase: 'بارگذاری' });
+                await postChunk({ ...base, files: chunks[i], silent: last ? 0 : 1, notify_count: last ? total : '' });
+                sent += chunks[i].length;
+            }
+            setGBusy(null);
+            clearPics();
+            form.reset(); setPubDate(''); setPubTime('08:00');
+        } catch (errs) {
+            setGBusy(null);
+            setGErr(typeof errs === 'object' ? (errs.files || errs.title || Object.values(errs)[0] || 'بارگذاری ناموفق بود.') : 'بارگذاری ناموفق بود؛ اتصال را بررسی کن و دوباره بفرست.');
+        }
+    };
+
     const submit = (e) => {
         e.preventDefault();
+        if (tab === 'gallery') { submitGallery(); return; }
         form.transform((d) => ({
             ...d, type: tab,
             publish_at: pubDate ? `${pubDate} ${pubTime || '00:00'}` : null,
@@ -145,6 +209,42 @@ export default function Materials() {
                         </div>
                         <div className="xp-note">{pubDate ? '⏰ در تاریخ و ساعتِ انتخابی منتشر و اعلان می‌شود.' : 'بدون انتخابِ زمان، بلافاصله منتشر می‌شود.'}</div>
                     </Field>
+                    {tab === 'gallery' ? (
+                        <Field label="عکس‌ها — می‌توانی چند عکس را با هم انتخاب کنی" err={gErr}>
+                            <label className="gl-drop"
+                                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('on'); }}
+                                onDragLeave={(e) => e.currentTarget.classList.remove('on')}
+                                onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove('on'); addPics(e.dataTransfer.files); }}>
+                                <input ref={fileRef} type="file" accept="image/*" multiple hidden
+                                    onChange={(e) => { addPics(e.target.files); e.target.value = ''; }} />
+                                <span className="gl-drop-ic">🖼️</span>
+                                <b>{pics.length ? '➕ افزودنِ عکس‌های بیشتر' : 'انتخابِ عکس‌ها'}</b>
+                                <small>از گالریِ گوشی چند عکس را با هم انتخاب کن یا اینجا رها کن</small>
+                            </label>
+                            {pics.length > 0 && (
+                                <>
+                                    <div className="gl-picked-h">
+                                        <span>{fa(pics.length)} عکس انتخاب شد — عنوان، توضیح، کلاس و زمانِ انتشار روی همه می‌نشیند.</span>
+                                        <button type="button" className="btn btn-ghost btn-sm" onClick={clearPics} disabled={!!gBusy}>پاک‌کردنِ همه</button>
+                                    </div>
+                                    <div className="gl-picked">
+                                        {pics.map((p) => (
+                                            <div key={p.key} className="gl-thumb">
+                                                <img src={p.url} alt="" />
+                                                {!gBusy && <button type="button" onClick={() => dropPic(p.key)} title="برداشتن">✕</button>}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                            {gBusy && (
+                                <div className="gl-prog">
+                                    <div className="gl-prog-bar"><div style={{ width: `${Math.round((gBusy.done / gBusy.total) * 100)}%` }} /></div>
+                                    <span>{gBusy.phase}… {fa(gBusy.done)} از {fa(gBusy.total)}</span>
+                                </div>
+                            )}
+                        </Field>
+                    ) : (
                     <Field label={`فایل — ${active.hint}`} err={form.errors.file}>
                         <input ref={fileRef} type="file" accept={active.accept} className="input" style={{ padding: 9 }}
                             onChange={onPickFile} />
@@ -154,9 +254,12 @@ export default function Materials() {
                             </div>
                         )}
                     </Field>
+                    )}
+                    {tab !== 'gallery' && (
                     <Field label="یا لینک بیرونی (اختیاری)" err={form.errors.external_url}>
                         <input className="input" value={form.data.external_url} onChange={(e) => form.setData('external_url', e.target.value)} placeholder="https://…" dir="ltr" />
                     </Field>
+                    )}
 
                     {/* امتیاز — فقط برای محتوای پخش‌شونده معنا دارد */}
                     {active.playable && (
@@ -177,10 +280,16 @@ export default function Materials() {
                             <div style={{ height: '100%', width: `${form.progress.percentage}%`, background: 'var(--gold)' }} />
                         </div>
                     )}
-                    <button type="submit" disabled={form.processing} className="btn" style={{ width: '100%' }}>
-                        {form.processing ? 'در حال بارگذاری…' : `➕ افزودن ${active.t}`}
+                    <button type="submit" disabled={form.processing || !!gBusy} className="btn" style={{ width: '100%' }}>
+                        {form.processing || gBusy ? 'در حال بارگذاری…'
+                            : tab === 'gallery' ? (pics.length > 1 ? `➕ افزودنِ ${fa(pics.length)} عکس به گالری` : '➕ افزودن به گالری')
+                            : `➕ افزودن ${active.t}`}
                     </button>
-                    <p style={{ color: 'var(--muted)', fontSize: 12, marginTop: 10 }}>حداکثر حجم فایل: ۲۰ مگابایت. دانش‌آموزان کلاس این محتوا را می‌بینند.</p>
+                    <p style={{ color: 'var(--muted)', fontSize: 12, marginTop: 10 }}>
+                        {tab === 'gallery'
+                            ? 'عکس‌های بزرگ پیش از ارسال خودکار کوچک می‌شوند تا سریع بارگذاری شوند. هر عکس جدا قابلِ ویرایش، مخفی‌کردن و حذف است.'
+                            : 'حداکثر حجم فایل: ۲۰ مگابایت. دانش‌آموزان کلاس این محتوا را می‌بینند.'}
+                    </p>
                 </form>
 
                 {/* لیست محتوا */}
@@ -189,13 +298,12 @@ export default function Materials() {
                     {list.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز چیزی در این بخش اضافه نکرده‌ای.</p>}
 
                     {tab === 'gallery' ? (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: 12 }}>
-                            {list.map((i) => (
+                        <GalleryByDate list={list} render={(i) => (
                                 <div key={i.id} style={{ border: '1px solid var(--line)', borderRadius: 14, overflow: 'hidden', position: 'relative' }}>
-                                    {i.url && <img src={i.url} alt={i.title} style={{ width: '100%', height: 110, objectFit: 'cover' }} />}
+                                    {i.url && <a href={i.url} target="_blank" rel="noreferrer"><img src={i.url} alt={i.title} loading="lazy" style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block' }} /></a>}
                                     <div style={{ padding: '8px 10px' }}>
                                         <div style={{ fontWeight: 700, fontSize: 13 }}>{i.title}</div>
-                                        <div style={{ color: 'var(--muted)', fontSize: 11 }}>{fa(i.date)} · 👁️ {fa(i.views_count)}</div>
+                                        <div style={{ color: 'var(--muted)', fontSize: 11 }}>{i.time ? `🕒 ${i.time}` : fa(i.date)} · 👁️ {fa(i.views_count)}</div>
                                         <StatusBadge item={i} />
                                         <button onClick={() => setEditing(i)} className="btn btn-ghost btn-sm" style={{ marginTop: 6, width: '100%', padding: '4px' }}>✏️ ویرایش</button>
                                         <button onClick={() => toggleVisible(i.id)} className="btn btn-ghost btn-sm" style={{ marginTop: 4, width: '100%', padding: '4px' }}>
@@ -205,8 +313,7 @@ export default function Materials() {
                                     <button onClick={() => remove(i.id)} title="حذف"
                                         style={{ position: 'absolute', top: 6, insetInlineEnd: 6, background: 'rgba(232,80,91,.9)', color: '#fff', border: 0, borderRadius: 8, width: 26, height: 26, cursor: 'pointer' }}>✕</button>
                                 </div>
-                            ))}
-                        </div>
+                            )} />
                     ) : (
                         list.map((i) => (
                             <div key={i.id} style={{ padding: '13px 0', borderBottom: '1px solid var(--line)' }}>

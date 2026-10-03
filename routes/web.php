@@ -263,6 +263,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::delete('/games/{classActivity}', [\App\Http\Controllers\Teacher\GameController::class, 'destroy'])->name('games.destroy');
     Route::get('/gradebook', [\App\Http\Controllers\Teacher\GradebookController::class, 'index'])->name('gradebook');
     Route::post('/gradebook/activities', [\App\Http\Controllers\Teacher\GradebookController::class, 'storeActivity'])->name('gradebook.activities');
+    Route::post('/gradebook/columns/{gradeColumn}', [\App\Http\Controllers\Teacher\GradebookController::class, 'updateActivity'])->name('gradebook.columns.update');
     Route::post('/gradebook/columns/{gradeColumn}/grades', [\App\Http\Controllers\Teacher\GradebookController::class, 'saveGrades'])->name('gradebook.grades');
     Route::delete('/gradebook/columns/{gradeColumn}', [\App\Http\Controllers\Teacher\GradebookController::class, 'destroyColumn'])->name('gradebook.columns.destroy');
     Route::get('/discipline', [DisciplineController::class, 'index'])->name('discipline');

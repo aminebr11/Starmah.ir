@@ -1,0 +1,34 @@
+/* گالری: انتخابِ چند عکس + گروه‌بندی بر اساسِ تاریخِ آپلود */
+.gl-drop { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 18px 12px; border: 2px dashed #e6c26a; border-radius: 14px; background: #fffaf0; cursor: pointer; text-align: center; transition: background .15s, border-color .15s; }
+.gl-drop.on, .gl-drop:hover { background: #fff3d6; border-color: var(--gold); }
+.gl-drop-ic { font-size: 30px; }
+.gl-drop small { color: var(--muted); font-size: 12px; }
+.gl-picked-h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0 6px; font-size: 12.5px; color: var(--navy-800); }
+.gl-picked-h span { flex: 1; min-width: 160px; }
+.gl-picked { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; max-height: 260px; overflow-y: auto; }
+.gl-thumb { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: #eef1f6; }
+.gl-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gl-thumb button { position: absolute; top: 3px; inset-inline-end: 3px; width: 22px; height: 22px; border: 0; border-radius: 7px; background: rgba(232, 80, 91, .92); color: #fff; font-size: 11px; cursor: pointer; line-height: 1; }
+.gl-prog { margin-top: 10px; font-size: 12.5px; color: var(--navy-800); }
+.gl-prog-bar { height: 7px; background: var(--line); border-radius: 7px; overflow: hidden; margin-bottom: 4px; }
+.gl-prog-bar div { height: 100%; background: var(--gold); transition: width .25s; }
+
+.gl-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.gl-bar label { font-weight: 800; font-size: 13px; }
+.gl-select { width: auto !important; min-width: 200px; flex: 1; max-width: 340px; }
+.gl-day { margin-bottom: 16px; }
+.gl-day h4 { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; font-size: 14px; color: var(--navy-800); border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.gl-day h4 small { font-weight: 600; color: var(--muted); font-size: 12px; }
+.gl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+
+/* سمتِ دانش‌آموز (تمِ تیره) */
+.gl-wrap.dark { margin-top: 12px; }
+.gl-wrap.dark .gl-bar label, .gl-wrap.dark .gl-day h4 { color: #fff; }
+.gl-wrap.dark .gl-day h4 { border-color: rgba(255, 255, 255, .18); }
+.gl-wrap.dark .gl-day h4 small { color: rgba(255, 255, 255, .7); }
+.gl-wrap.dark .gl-grid { grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+@media (max-width: 520px) {
+    .gl-select { max-width: none; min-width: 0; }
+    .gl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .gl-wrap.dark .gl-grid { grid-template-columns: 1fr; }
+}

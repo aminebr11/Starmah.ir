@@ -91,19 +91,78 @@ class MasteryService
         Cache::forget("mastery:v1:$studentId");
     }
 
+    /**
+     * اثرِ هر فعالیتِ دفترِ کلاسی بر تسلطِ دانش‌آموزان.
+     *
+     * برای هر فعالیت و هر دانش‌آموز، تسلطِ درسِ آن فعالیت یک‌بار با همه‌ی
+     * شواهد و یک‌بار بدونِ نمره‌ی همین فعالیت برآورد می‌شود؛ تفاوتِ این دو
+     * «سهمِ این نمره» در تسلط است. چون شواهدِ فعالیت‌های بعدی هم در عددِ
+     * فعلی هست، این مقایسه منصفانه‌تر از «قبل/بعدِ زمانی» است.
+     *
+     * @param  array<int>  $studentIds
+     * @param  array<int, array{id:int, lesson:?string, title:?string, topic:?string}>  $columns
+     * @return array<int, array{subject:string, students: array<int, array>, avg_delta:?float}>
+     */
+    public function gradeImpact(array $studentIds, array $columns): array
+    {
+        $studentIds = array_values(array_unique(array_filter($studentIds)));
+        if (! $studentIds || ! $columns) return [];
+        $ev = $this->evidence($studentIds);
+
+        $out = [];
+        foreach ($columns as $col) {
+            $subject = self::subject($col['lesson'] ?: self::guessSubject($col['title'] ?? null));
+            $topic = self::clean($col['topic'] ?? null);
+            $rows = []; $deltas = [];
+            foreach ($studentIds as $sid) {
+                $list = array_values(array_filter($ev[$sid] ?? [], fn ($o) => $o['s'] === $subject));
+                $mine = array_filter($list, fn ($o) => ($o['ref'] ?? null) === (int) $col['id']);
+                if (! $mine) continue; // این دانش‌آموز در این فعالیت نمره‌ای ندارد
+                $without = array_values(array_filter($list, fn ($o) => ($o['ref'] ?? null) !== (int) $col['id']));
+                $after = $this->estimate($list);
+                $before = $this->estimate($without);
+                $delta = ($after['mastery'] !== null && $before['mastery'] !== null) ? $after['mastery'] - $before['mastery'] : null;
+                $topicNow = null;
+                if ($topic) {
+                    $tl = array_values(array_filter($list, fn ($o) => $o['t'] === $topic));
+                    $topicNow = $this->estimate($tl)['mastery'];
+                }
+                $rows[$sid] = [
+                    'after' => $after['mastery'], 'before' => $before['mastery'], 'delta' => $delta,
+                    'n' => $after['n'], 'need' => max(0, self::MIN_OBS - $after['n']),
+                    'level' => self::level($after['mastery']), 'topic' => $topicNow,
+                ];
+                if ($delta !== null) $deltas[] = $delta;
+            }
+            $out[(int) $col['id']] = [
+                'subject' => $subject,
+                'students' => $rows,
+                'avg_delta' => $deltas ? round(array_sum($deltas) / count($deltas), 1) : null,
+            ];
+        }
+
+        return $out;
+    }
+
+    /** پاک‌کردنِ کشِ تسلطِ چند دانش‌آموز (پس از ثبت/ویرایشِ نمره). */
+    public static function forgetMany(array $ids): void
+    {
+        foreach (array_unique($ids) as $id) self::forget((int) $id);
+    }
+
     /* ================= جمع‌آوریِ شواهد ================= */
 
     /** @return array<int, array<int, array{s:string,t:?string,c:float,w:float,at:Carbon,src:string}>> */
     private function evidence(array $ids): array
     {
         $E = [];
-        $push = function ($sid, $subject, $topic, float $c, float $w, $at, string $src, ?string $diff = null) use (&$E) {
+        $push = function ($sid, $subject, $topic, float $c, float $w, $at, string $src, ?string $diff = null, ?int $ref = null) use (&$E) {
             $c = max(0.0, min(1.0, $c));
             $w *= self::SOURCE_W[$src] ?? 1.0;
             // دشواری: درستِ سخت سنگین‌تر، غلطِ آسان سنگین‌تر
             if ($diff === 'hard') $w *= $c >= 0.5 ? 1.25 : 0.8;
             elseif ($diff === 'easy') $w *= $c >= 0.5 ? 0.85 : 1.2;
-            $E[$sid][] = ['s' => self::subject($subject), 't' => self::clean($topic), 'c' => $c, 'w' => $w, 'at' => Carbon::parse($at ?: now()), 'src' => $src];
+            $E[$sid][] = ['s' => self::subject($subject), 't' => self::clean($topic), 'c' => $c, 'w' => $w, 'at' => Carbon::parse($at ?: now()), 'src' => $src, 'ref' => $ref];
         };
 
         // ۱) آزمونِ هوشمند — هر سؤال یک مشاهده
@@ -155,7 +214,7 @@ class MasteryService
         $desc = ['خیلی خوب' => 1.0, 'خوب' => 0.8, 'قابل قبول' => 0.6, 'نیاز به تلاش' => 0.35];
         DB::table('grades as g')->join('grade_columns as c', 'c.id', '=', 'g.grade_column_id')
             ->whereIn('g.student_id', $ids)
-            ->select('g.student_id', 'g.score', 'g.text', 'g.created_at', 'c.max', 'c.type', 'c.score_type', 'c.lesson', 'c.topic', 'c.title', 'c.graded_at')->get()
+            ->select('g.student_id', 'g.score', 'g.text', 'g.created_at', 'c.id as col_id', 'c.max', 'c.type', 'c.score_type', 'c.lesson', 'c.topic', 'c.title', 'c.graded_at')->get()
             ->each(function ($r) use ($push, $desc) {
                 $type = $r->score_type ?: $r->type;
                 if ($type === 'numeric') {
@@ -165,7 +224,7 @@ class MasteryService
                     if (! isset($desc[$r->text])) return; // «غایب» یا خالی شاهدِ یادگیری نیست
                     $c = $desc[$r->text];
                 }
-                $push($r->student_id, $r->lesson ?: self::guessSubject($r->title), $r->topic, $c, 1.0, $r->graded_at ?: $r->created_at, 'grade');
+                $push($r->student_id, $r->lesson ?: self::guessSubject($r->title), $r->topic, $c, 1.0, $r->graded_at ?: $r->created_at, 'grade', null, (int) $r->col_id);
             });
 
         // ۵) تکلیف و آزمونِ کلاسی
