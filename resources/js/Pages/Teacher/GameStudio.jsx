@@ -1,5 +1,5 @@
 import { usePage, useForm, router, Link } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
@@ -68,12 +68,38 @@ export default function GameStudio() {
     const rmQ = (i) => form.data.questions.length > 1 && form.setData('questions', form.data.questions.filter((_, j) => j !== i));
     const moveQ = (i, d) => { const j = i + d; if (j < 0 || j >= form.data.questions.length) return; const qs = [...form.data.questions]; [qs[i], qs[j]] = [qs[j], qs[i]]; form.setData('questions', qs); };
 
+    /**
+     * ذخیره/انتشار با خودِ فرم (نه router) تا خطاهای سرور به form.errors برسد و
+     * دکمه هنگامِ ارسال قفل شود. پیش از این خطاها به صفحه نمی‌رسید و دکمه‌ی
+     * «انتشار» بی‌واکنش به نظر می‌آمد.
+     */
+    const isBlankQ = (q) => !(q.prompt || '').trim() && !(q.choices || []).some((c) => (c.value || '').trim());
+    const errBox = useRef(null);
     const save = (status) => {
-        form.setData('status', status);
-        const payload = { ...form.data, status };
-        const opts = { preserveScroll: false };
-        if (editId) router.put(route('teacher.studio.update', editId), payload, opts);
-        else router.post(route('teacher.studio.store'), payload, opts);
+        // سؤال‌های کاملاً خالیِ جامانده فرستاده نمی‌شوند (سرور هم همین کار را می‌کند)
+        const qs = form.data.questions.filter((q) => !isBlankQ(q));
+        if (qs.length && qs.length !== form.data.questions.length) form.setData('questions', qs);
+        form.transform((d) => ({ ...d, status, questions: qs.length ? qs : d.questions }));
+        const opts = {
+            preserveScroll: true,
+            onError: () => setTimeout(() => errBox.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60),
+        };
+        if (editId) form.put(route('teacher.studio.update', editId), opts);
+        else form.post(route('teacher.studio.store'), opts);
+    };
+
+    // خلاصه‌ی خطاها با شماره‌ی سؤال و گامِ مربوط
+    const STEP_OF = (k) => (k.startsWith('questions') ? 3 : ['template_key', 'theme_id'].includes(k) ? 2 : k.startsWith('rules') ? 4 : 1);
+    const errorList = Object.entries(form.errors || {}).map(([k, msg]) => {
+        const m = k.match(/^questions\.(\d+)\./);
+        const qn = m ? Number(m[1]) : null;
+        const text = qn !== null && !/^سؤالِ/.test(msg) ? `سؤالِ ${fa(qn + 1)}: ${msg}` : msg;
+        return { k, text, step: STEP_OF(k), qn };
+    });
+    const qErr = (qi) => Object.entries(form.errors || {}).filter(([k]) => k.startsWith(`questions.${qi}.`)).map(([, v]) => v);
+    const goTo = (e) => {
+        setStep(e.step);
+        if (e.qn !== null) setTimeout(() => document.getElementById(`gq-${e.qn}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80);
     };
     const startNew = () => { router.visit(route('teacher.studio.create')); };
 
@@ -110,6 +136,22 @@ export default function GameStudio() {
                         </button>
                     ))}
                 </div>
+
+                {errorList.length > 0 && (
+                    <div ref={errBox} className="gs-errors" role="alert">
+                        <b>⚠️ بازی هنوز ذخیره/منتشر نشد — این موارد را درست کن:</b>
+                        <ul>
+                            {errorList.map((e) => (
+                                <li key={e.k}>
+                                    <span>{e.text}</span>
+                                    {step !== e.step || e.qn !== null
+                                        ? <button type="button" onClick={() => goTo(e)}>برو به {e.qn !== null ? `سؤالِ ${fa(e.qn + 1)}` : `گامِ ${fa(e.step)}`} ←</button>
+                                        : null}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
 
                 {/* گام ۱ — اطلاعات پایه */}
                 {step === 1 && (
@@ -194,7 +236,8 @@ export default function GameStudio() {
                                 onAdd={(rows) => addQuestions(rows, 'bank')} />
                         )}
                         {form.data.questions.map((q, qi) => (
-                            <div key={qi} style={{ border: '1px solid var(--line)', borderRadius: 14, padding: 12, marginBottom: 10, background: 'var(--cream)' }}>
+                            <div key={qi} id={`gq-${qi}`} style={{ border: qErr(qi).length ? '2px solid #e8505b' : '1px solid var(--line)', borderRadius: 14, padding: 12, marginBottom: 10, background: qErr(qi).length ? '#fff5f5' : 'var(--cream)' }}>
+                                {qErr(qi).map((m, k) => <div key={k} style={{ color: '#c0392b', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>⚠️ {m}</div>)}
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
                                     <span className="tag tag-info">{fa(qi + 1)}</span>
                                     <select className="input" value={q.type} onChange={(e) => setType(qi, e.target.value)} style={{ width: 'auto', padding: '6px 9px' }}>
@@ -271,8 +314,8 @@ export default function GameStudio() {
                         </div>
 
                         <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
-                            <button onClick={() => save('draft')} disabled={form.processing} className="btn btn-ghost">💾 ذخیره‌ی پیش‌نویس</button>
-                            <button onClick={() => save('published')} disabled={form.processing} className="btn">🚀 انتشار بازی</button>
+                            <button onClick={() => save('draft')} disabled={form.processing} className="btn btn-ghost">{form.processing && form.data.status !== 'published' ? 'در حالِ ذخیره…' : '💾 ذخیره‌ی پیش‌نویس'}</button>
+                            <button onClick={() => { form.setData('status', 'published'); save('published'); }} disabled={form.processing} className="btn">{form.processing ? 'در حالِ انتشار…' : '🚀 انتشار بازی'}</button>
                         </div>
                         <p style={{ color: 'var(--muted)', fontSize: 12.5, marginTop: 10 }}>در صورت ویرایشِ بازیِ دارای نتیجه، نسخه‌ی جدید ساخته می‌شود تا گزارش‌های قبلی حفظ شوند.</p>
                     </div>

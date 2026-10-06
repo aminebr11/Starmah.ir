@@ -89,3 +89,11 @@
   .ch-bucket-t small{display:none}
   .ch-bucket-n{font-size:19px}
 }
+
+/* خلاصه‌ی خطاهای استودیوی بازی */
+.gs-errors { background: #fff1f1; border: 1.5px solid #f3b4b4; border-radius: 14px; padding: 12px 14px; margin: 4px 0 14px; color: #8a1f1f; }
+.gs-errors b { display: block; margin-bottom: 6px; }
+.gs-errors ul { margin: 0; padding-inline-start: 18px; display: grid; gap: 6px; }
+.gs-errors li { font-size: 13px; line-height: 1.9; }
+.gs-errors li span { margin-inline-end: 8px; }
+.gs-errors button { font-family: inherit; font-size: 12px; font-weight: 800; border: 0; border-radius: 9px; padding: 3px 10px; background: #e8505b; color: #fff; cursor: pointer; }

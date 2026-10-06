@@ -466,9 +466,60 @@ class EduGameController extends Controller
         }
     }
 
+    /**
+     * پاک‌سازیِ ورودی پیش از اعتبارسنجی.
+     *
+     * پیش از این، هر ایرادِ کوچک (سؤالِ خالیِ جامانده، راهنما یا توضیحِ بلندِ
+     * هوش مصنوعی، سطحِ بلومِ ناشناخته) کلِ «انتشار» را رد می‌کرد و چون پیام به صفحه
+     * نمی‌رسید، دکمه «کار نمی‌کرد». حالا ایرادهای بی‌خطر خودکار اصلاح می‌شوند و فقط
+     * مشکلِ واقعی (سؤالِ بی‌گزینه، بی‌پاسخِ درست، بی‌عنوان) با پیامِ روشن برمی‌گردد.
+     */
+    private function normalize(Request $request): void
+    {
+        $cut = fn ($v, $n) => is_string($v) ? mb_substr(trim($v), 0, $n) : $v;
+        $qs = [];
+        foreach ((array) $request->input('questions', []) as $q) {
+            if (! is_array($q)) continue;
+            $prompt = trim((string) ($q['prompt'] ?? ''));
+            $choices = array_values(array_filter((array) ($q['choices'] ?? []), fn ($c) => is_array($c) && trim((string) ($c['value'] ?? '')) !== ''));
+            // سؤالِ کاملاً خالی (بدونِ متن و بدونِ گزینه) جامانده است، نه خطا
+            if ($prompt === '' && ! $choices) continue;
+            $type = in_array($q['type'] ?? null, ['mc', 'tf', 'short'], true) ? $q['type'] : 'mc';
+            $diff = strtolower(trim((string) ($q['difficulty'] ?? '')));
+            $bloom = strtolower(trim((string) ($q['bloom'] ?? '')));
+            $qs[] = array_merge($q, [
+                'type' => $type,
+                'prompt' => $cut($prompt, 400),
+                'choices' => $choices,
+                'points' => max(1, min(100, (int) ($q['points'] ?? 10) ?: 10)),
+                'hint1' => $cut($q['hint1'] ?? null, 255),
+                'hint2' => $cut($q['hint2'] ?? null, 255),
+                'explanation' => $cut($q['explanation'] ?? null, 1500),
+                'topic' => $cut($q['topic'] ?? null, 160),
+                'source' => $cut($q['source'] ?? null, 20),
+                'media_url' => $cut($q['media_url'] ?? null, 500),
+                'difficulty' => in_array($diff, ['easy', 'medium', 'hard'], true) ? $diff : null,
+                // سطوحِ بالاترِ بلوم (ارزشیابی/آفرینش) در این فهرست نیستند؛ نزدیک‌ترین سطح
+                'bloom' => in_array($bloom, ['remember', 'understand', 'apply', 'analyze'], true) ? $bloom
+                    : (in_array($bloom, ['evaluate', 'create'], true) ? 'analyze' : null),
+            ]);
+        }
+        $request->merge([
+            'questions' => $qs,
+            'title' => $cut($request->input('title'), 120),
+            'description' => $cut($request->input('description'), 500),
+            'topic' => $cut($request->input('topic'), 160),
+            'chapter' => $cut($request->input('chapter'), 160),
+            'goal' => $cut($request->input('goal'), 300),
+            'difficulty' => in_array($request->input('difficulty'), ['easy', 'medium', 'hard'], true) ? $request->input('difficulty') : 'medium',
+        ]);
+    }
+
     private function validated(Request $request): array
     {
-        return $request->validate([
+        $this->normalize($request);
+
+        $data = $request->validate([
             'title' => ['required', 'string', 'max:120'],
             'description' => ['nullable', 'string', 'max:500'],
             'template_key' => ['required', 'exists:game_templates,key'],
@@ -505,6 +556,35 @@ class EduGameController extends Controller
             'questions.*.bloom' => ['nullable', 'in:remember,understand,apply,analyze'],
             'questions.*.bank_id' => ['nullable', 'integer'],
             'questions.*.source' => ['nullable', 'string', 'max:20'],
+        ], [
+            'title.required' => 'عنوانِ بازی را بنویسید (گامِ ۱).',
+            'template_key.required' => 'قالبِ بازی را انتخاب کنید (گامِ ۲).',
+            'template_key.exists' => 'قالبِ انتخاب‌شده در دسترس نیست؛ قالبِ دیگری انتخاب کنید (گامِ ۲).',
+            'questions.required' => 'دستِ‌کم یک سؤال بنویسید (گامِ ۳).',
+            'questions.min' => 'دستِ‌کم یک سؤال بنویسید (گامِ ۳).',
+            'questions.max' => 'هر بازی حداکثر ۵۰ سؤال دارد.',
+            'questions.*.prompt.required' => 'متنِ این سؤال خالی است.',
+            'publish_at.date' => 'تاریخِ انتشار معتبر نیست (گامِ ۱).',
+            'close_at.date' => 'تاریخِ بسته‌شدن معتبر نیست (گامِ ۱).',
         ]);
+
+        // بررسیِ معنایی هر سؤال — با شماره‌ی سؤال تا معلم بداند کجا را درست کند
+        $errors = [];
+        foreach ($data['questions'] as $i => $q) {
+            $n = \App\Support\Jalali::fa((string) ($i + 1));
+            $choices = $q['choices'] ?? [];
+            if ($q['type'] === 'short') {
+                if (! $choices) $errors["questions.$i.choices"] = "سؤالِ {$n}: پاسخِ درست را بنویسید.";
+            } elseif (count($choices) < 2) {
+                $errors["questions.$i.choices"] = "سؤالِ {$n}: دستِ‌کم دو گزینه بنویسید.";
+            } elseif (! collect($choices)->contains(fn ($c) => ! empty($c['correct']))) {
+                $errors["questions.$i.choices"] = "سؤالِ {$n}: گزینه‌ی درست را مشخص کنید (✓).";
+            }
+        }
+        if ($errors) {
+            throw \Illuminate\Validation\ValidationException::withMessages($errors);
+        }
+
+        return $data;
     }
 }
