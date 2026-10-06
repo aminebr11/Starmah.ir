@@ -1,5 +1,5 @@
 import { usePage, useForm, router, Link } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
@@ -59,11 +59,39 @@ export default function SmartExamLab() {
         setPanel(null);
     };
 
+    /**
+     * ذخیره/انتشار با خودِ فرم (نه router) تا خطاهای سرور در form.errors بنشیند و
+     * روی صفحه دیده شود. پیش از این هر ایرادی بی‌صدا رد می‌شد و دکمه‌ی «انتشار»
+     * بی‌واکنش به نظر می‌آمد.
+     */
+    const isBlankQ = (q) => !(q.prompt || '').trim() && !(q.choices || []).some((c) => (c.value || '').trim()) && !String(q.answer || '').trim();
+    const errBox = useRef(null);
+    const [saving, setSaving] = useState(null);
     const save = (status) => {
-        const payload = { ...form.data, status };
-        const opts = { preserveScroll: false };
-        if (editId) router.put(route('teacher.smart.update', editId), payload, opts);
-        else router.post(route('teacher.smart.store'), payload, opts);
+        const qs = form.data.questions.filter((q) => !isBlankQ(q));
+        if (qs.length && qs.length !== form.data.questions.length) form.setData('questions', qs);
+        form.transform((d) => ({ ...d, status, questions: qs.length ? qs : d.questions }));
+        setSaving(status);
+        const opts = {
+            preserveScroll: true,
+            onFinish: () => setSaving(null),
+            onError: () => setTimeout(() => errBox.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60),
+        };
+        if (editId) form.put(route('teacher.smart.update', editId), opts);
+        else form.post(route('teacher.smart.store'), opts);
+    };
+
+    // خلاصه‌ی خطاها با شماره‌ی سؤال و گامِ مربوط
+    const STEP_OF = (k) => (k.startsWith('questions') ? 3 : k.startsWith('target') ? 2 : (k.startsWith('rules') || ['opens_at', 'closes_at'].includes(k)) ? 4 : 1);
+    const errorList = Object.entries(form.errors || {}).map(([k, msg]) => {
+        const m = k.match(/^questions\.(\d+)\./);
+        const qn = m ? Number(m[1]) : null;
+        return { k, text: qn !== null && !/^سؤالِ/.test(msg) ? `سؤالِ ${fa(qn + 1)}: ${msg}` : msg, step: STEP_OF(k), qn };
+    });
+    const qErr = (qi) => Object.entries(form.errors || {}).filter(([k]) => k.startsWith(`questions.${qi}.`)).map(([, v]) => v);
+    const goTo = (e) => {
+        setStep(e.step);
+        if (e.qn !== null) setTimeout(() => document.getElementById(`sq-${e.qn}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80);
     };
 
     const STEPS = ['اطلاعات پایه', 'مخاطب', 'سؤال‌ها', 'قوانین', 'انتشار'];
@@ -87,6 +115,22 @@ export default function SmartExamLab() {
                     <div className="smart-steps">
                         {STEPS.map((s, i) => <button key={i} onClick={() => setStep(i + 1)} className={`smart-step ${step === i + 1 ? 'on' : ''}`}>{fa(i + 1)}. {s}</button>)}
                     </div>
+
+                    {errorList.length > 0 && (
+                        <div ref={errBox} className="gs-errors" role="alert">
+                            <b>⚠️ آزمون هنوز ذخیره/منتشر نشد — این موارد را درست کن:</b>
+                            <ul>
+                                {errorList.map((e) => (
+                                    <li key={e.k}>
+                                        <span>{e.text}</span>
+                                        {(step !== e.step || e.qn !== null) && (
+                                            <button type="button" onClick={() => goTo(e)}>برو به {e.qn !== null ? `سؤالِ ${fa(e.qn + 1)}` : `گامِ ${fa(e.step)}`} ←</button>
+                                        )}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
 
                     {/* گام ۱ */}
                     {step === 1 && (
@@ -150,7 +194,8 @@ export default function SmartExamLab() {
                             )}
 
                             {form.data.questions.map((q, qi) => (
-                                <div key={qi} className="smart-qcard">
+                                <div key={qi} id={`sq-${qi}`} className="smart-qcard" style={qErr(qi).length ? { border: '2px solid #e8505b', background: '#fff5f5' } : undefined}>
+                                    {qErr(qi).map((m, k) => <div key={k} style={{ color: '#c0392b', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>⚠️ {m}</div>)}
                                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
                                         <span className="smart-tag man" style={{ background: q.source === 'ai' ? '#ede9fe' : q.source === 'sample' ? '#fef3c7' : '#e0f2fe', color: q.source === 'ai' ? '#6d28d9' : q.source === 'sample' ? '#b45309' : '#0369a1' }}>{fa(qi + 1)} · {q.source === 'ai' ? 'AI' : q.source === 'sample' ? 'نمونه' : q.source === 'bank' ? 'بانک' : 'دستی'}</span>
                                         <select className="smart-input" style={{ width: 'auto', padding: '5px 8px' }} value={q.type} onChange={(e) => setType(qi, e.target.value)}>
@@ -225,8 +270,8 @@ export default function SmartExamLab() {
                             </div>
 
                             <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
-                                <button onClick={() => save('draft')} disabled={form.processing} className="smart-btn ghost">💾 ذخیره‌ی پیش‌نویس</button>
-                                <button onClick={() => save('published')} disabled={form.processing} className="smart-btn">🚀 انتشار آزمون</button>
+                                <button onClick={() => save('draft')} disabled={form.processing} className="smart-btn ghost">{saving === 'draft' ? 'در حالِ ذخیره…' : '💾 ذخیره‌ی پیش‌نویس'}</button>
+                                <button onClick={() => save('published')} disabled={form.processing} className="smart-btn">{saving === 'published' ? 'در حالِ انتشار…' : '🚀 انتشار آزمون'}</button>
                             </div>
                         </div>
                     )}

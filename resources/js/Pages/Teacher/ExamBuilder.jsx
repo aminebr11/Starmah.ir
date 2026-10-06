@@ -161,6 +161,12 @@ export default function ExamBuilder() {
                     );
                 })}
 
+                {Object.keys(form.errors || {}).length > 0 && (
+                    <div className="gs-errors" role="alert" style={{ marginTop: 12 }}>
+                        <b>⚠️ آزمون هنوز ذخیره نشد:</b>
+                        <ul>{Object.entries(form.errors).map(([k, v]) => <li key={k}>{v}</li>)}</ul>
+                    </div>
+                )}
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' }}>
                     <button type="button" onClick={() => addQ('mc')} className="btn btn-ghost btn-sm">➕ چهارگزینه‌ای</button>
                     <button type="button" onClick={() => addQ('tf')} className="btn btn-ghost btn-sm">➕ درست/نادرست</button>

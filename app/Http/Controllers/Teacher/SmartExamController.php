@@ -518,9 +518,66 @@ class SmartExamController extends Controller
         }
     }
 
+    /**
+     * پاک‌سازیِ ورودی پیش از اعتبارسنجی (همان راه‌حلِ استودیوی بازی).
+     *
+     * پیش از این، ایرادهای کوچک (سؤالِ خالیِ جامانده، متنِ بلندِ هوش مصنوعی، نوعِ
+     * «short» به‌جای «blank»، بلومِ «evaluate») کلِ ذخیره/انتشار را رد می‌کرد و پیامش
+     * به صفحه نمی‌رسید. حالا این‌ها خودکار اصلاح می‌شوند.
+     */
+    private function normalize(Request $request): void
+    {
+        $cut = fn ($v, $n) => is_string($v) ? mb_substr(trim($v), 0, $n) : $v;
+        $qs = [];
+        foreach ((array) $request->input('questions', []) as $q) {
+            if (! is_array($q)) continue;
+            $type = $q['type'] ?? 'mc';
+            $type = match ($type) { 'short', 'fill', 'fill_blank' => 'blank', 'essay', 'long', 'open' => 'desc', default => $type };
+            if (! in_array($type, ['mc', 'tf', 'desc', 'blank'], true)) $type = 'mc';
+            $prompt = trim((string) ($q['prompt'] ?? ''));
+            $choices = in_array($type, ['mc', 'tf'], true)
+                ? array_values(array_filter((array) ($q['choices'] ?? []), fn ($c) => is_array($c) && trim((string) ($c['value'] ?? '')) !== ''))
+                : [];
+            $answer = is_string($q['answer'] ?? null) ? trim($q['answer']) : ($q['answer'] ?? null);
+            // پاسخِ جای خالی اگر در گزینه‌ی اول آمده باشد (خروجیِ برخی دستیارها)
+            if ($type === 'blank' && ($answer === null || $answer === '') && ! empty($q['choices'][0]['value'])) {
+                $answer = trim((string) $q['choices'][0]['value']);
+            }
+            if ($prompt === '' && ! $choices && ($answer === null || $answer === '')) continue; // سؤالِ خالیِ جامانده
+            $diff = strtolower(trim((string) ($q['difficulty'] ?? '')));
+            $bloom = strtolower(trim((string) ($q['bloom'] ?? '')));
+            $qs[] = array_merge($q, [
+                'type' => $type,
+                'prompt' => $cut($prompt, 600),
+                'choices' => $choices,
+                'answer' => $answer,
+                'points' => max(1, min(20, (int) ($q['points'] ?? 1) ?: 1)),
+                'explanation' => $cut($q['explanation'] ?? null, 1500),
+                'topic' => $cut($q['topic'] ?? null, 160),
+                'goal' => $cut($q['goal'] ?? null, 300),
+                'source' => $cut($q['source'] ?? null, 20),
+                'difficulty' => in_array($diff, ['easy', 'medium', 'hard'], true) ? $diff : 'medium',
+                'bloom' => in_array($bloom, ['remember', 'understand', 'apply', 'analyze'], true) ? $bloom
+                    : (in_array($bloom, ['evaluate', 'create'], true) ? 'analyze' : null),
+            ]);
+        }
+        $request->merge([
+            'questions' => $qs,
+            'title' => $cut($request->input('title'), 150),
+            'description' => $cut($request->input('description'), 600),
+            'topic' => $cut($request->input('topic'), 120),
+            'chapter' => $cut($request->input('chapter'), 160),
+            'book' => $cut($request->input('book'), 120),
+            'goal' => $cut($request->input('goal'), 300),
+            'kind' => in_array($request->input('kind'), ['diagnostic', 'practice', 'class', 'formal', 'remedial', 'game'], true) ? $request->input('kind') : 'practice',
+        ]);
+    }
+
     private function validated(Request $request): array
     {
-        return $request->validate([
+        $this->normalize($request);
+
+        $data = $request->validate([
             'title' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:600'],
             'classroom_id' => ['nullable', 'integer'],
@@ -559,6 +616,38 @@ class SmartExamController extends Controller
             'questions.*.bloom' => ['nullable', 'in:remember,understand,apply,analyze'],
             'questions.*.bank_id' => ['nullable', 'integer'],
             'questions.*.source' => ['nullable', 'string', 'max:20'],
+        ], [
+            'title.required' => 'عنوانِ آزمون را بنویسید (گامِ ۱).',
+            'questions.required' => 'دستِ‌کم یک سؤال بنویسید (گامِ ۳).',
+            'questions.min' => 'دستِ‌کم یک سؤال بنویسید (گامِ ۳).',
+            'questions.max' => 'هر آزمون حداکثر ۶۰ سؤال دارد.',
+            'questions.*.prompt.required' => 'متنِ این سؤال خالی است.',
+            'opens_at.date' => 'تاریخِ شروع معتبر نیست (گامِ ۴).',
+            'closes_at.date' => 'تاریخِ پایان معتبر نیست (گامِ ۴).',
         ]);
+
+        $errors = [];
+        foreach ($data['questions'] as $i => $q) {
+            $n = \App\Support\Jalali::fa((string) ($i + 1));
+            $choices = $q['choices'] ?? [];
+            if (in_array($q['type'], ['mc', 'tf'], true)) {
+                if (count($choices) < 2) {
+                    $errors["questions.$i.choices"] = "سؤالِ {$n}: دستِ‌کم دو گزینه بنویسید.";
+                } elseif (! collect($choices)->contains(fn ($c) => ! empty($c['correct']))) {
+                    $errors["questions.$i.choices"] = "سؤالِ {$n}: گزینه‌ی درست را مشخص کنید (✓).";
+                }
+            } elseif ($q['type'] === 'blank' && (($q['answer'] ?? '') === '' || $q['answer'] === null)) {
+                $errors["questions.$i.answer"] = "سؤالِ {$n}: پاسخِ درستِ جای خالی را بنویسید.";
+            }
+        }
+        if (! empty($data['opens_at']) && ! empty($data['closes_at'])
+            && strtotime($data['closes_at']) <= strtotime($data['opens_at'])) {
+            $errors['closes_at'] = 'تاریخِ پایان باید بعد از تاریخِ شروع باشد (گامِ ۴).';
+        }
+        if ($errors) {
+            throw \Illuminate\Validation\ValidationException::withMessages($errors);
+        }
+
+        return $data;
     }
 }

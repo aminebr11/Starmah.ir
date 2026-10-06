@@ -54,3 +54,7 @@
   background:linear-gradient(135deg,var(--wt),var(--wt2));border-inline-start:6px solid rgba(255,255,255,.55);
   box-shadow:0 10px 24px -14px rgba(0,0,0,.55)}
 .wrong-tpl::after{content:"";position:absolute;top:-40%;inset-inline-end:-16%;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.10)}
+
+/* عنوان/مبحثِ خیلی بلندِ بی‌فاصله (مثلاً لینک) صفحه را در موبایل افقی نکند */
+.smart-wrap, .smart-panel, .smart-card, .ch-card, .hub-card { overflow-wrap: anywhere; }
+.k3-card { overflow-wrap: anywhere; min-width: 0; }
