@@ -19,6 +19,7 @@ use App\Support\SmartLab;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -244,31 +245,64 @@ class SmartExamController extends Controller
      * «آزادسازیِ آزمون» — حذفِ تلاش‌ها (و پاسخ‌ها) تا دانش‌آموزان بتوانند دوباره در آزمون شرکت کنند.
      * بدون student_ids → همه؛ با آرایه‌ای از شناسه‌ها → فقط همان دانش‌آموزان.
      */
+    /**
+     * راه‌اندازیِ مجددِ آزمون برای چند دانش‌آموز یا همه.
+     *
+     * تلاش‌ها، پاسخ‌ها و «امتیازِ» آزمونِ قبلی (ردیف‌های دفترکلِ XP) پاک می‌شوند تا
+     * دانش‌آموز با امتیازِ تازه از نو شرکت کند — پیش از این XP قبلی می‌ماند و در تلاشِ
+     * دوباره هم داده می‌شد (امتیازِ دوبرابر). آزمونِ بسته یا مهلت‌گذشته باز می‌شود و
+     * دانش‌آموزان اعلانِ «دوباره فعال شد» می‌گیرند.
+     */
     public function release(Request $request, SmartExam $smartExam): RedirectResponse
     {
         abort_unless($smartExam->teacher_id === $request->user()->id, 403);
         $data = $request->validate([
             'student_ids' => ['nullable', 'array'],
             'student_ids.*' => ['integer'],
-        ]);
+            'closes_at' => ['nullable', 'date', 'after:now'],
+        ], ['closes_at.after' => 'مهلتِ تازه باید بعد از همین حالا باشد.']);
 
-        $q = $smartExam->attempts();
-        if (! empty($data['student_ids'])) {
-            $q->whereIn('student_id', $data['student_ids']);
+        $audience = \App\Support\ActivityNotifier::examAudience($smartExam);
+        $attemptStudents = $smartExam->attempts()->pluck('student_id')->map(fn ($v) => (int) $v)->all();
+        $mine = array_values(array_unique(array_merge($audience, $attemptStudents)));
+        $ids = empty($data['student_ids'])
+            ? $mine
+            : array_values(array_intersect(array_map('intval', $data['student_ids']), $mine));
+        if (! $ids) {
+            return back()->with('flash', 'دانش‌آموزی برای راه‌اندازیِ مجدد پیدا نشد.');
         }
-        $attemptIds = $q->pluck('id');
-        if ($attemptIds->isEmpty()) {
-            return back()->with('flash', 'تلاشی برای حذف پیدا نشد.');
-        }
 
-        \App\Models\SmartExamAnswer::whereIn('attempt_id', $attemptIds)->delete();
-        SmartExamAttempt::whereIn('id', $attemptIds)->delete();
+        $removedXp = 0;
+        $attemptIds = collect();
+        DB::transaction(function () use ($smartExam, $ids, &$removedXp, &$attemptIds, $data) {
+            $attemptIds = $smartExam->attempts()->whereIn('student_id', $ids)->pluck('id');
+            if ($attemptIds->isNotEmpty()) {
+                $xp = \App\Models\XpEntry::where('source_type', \App\Models\SmartExamReward::class)->whereIn('source_id', $attemptIds);
+                $removedXp = (int) (clone $xp)->sum('amount');
+                $xp->delete();
+                \App\Models\SmartExamReward::whereIn('attempt_id', $attemptIds)->delete();
+                \App\Models\SmartExamAnswer::whereIn('attempt_id', $attemptIds)->delete();
+                SmartExamAttempt::whereIn('id', $attemptIds)->delete();
+            }
+            // آزمون باید واقعاً قابلِ شرکت باشد
+            $patch = [];
+            if ($smartExam->status !== 'published') $patch['status'] = 'published';
+            if (! empty($data['closes_at'])) $patch['closes_at'] = $data['closes_at'];
+            elseif ($smartExam->closes_at && $smartExam->closes_at->isPast()) $patch['closes_at'] = now()->addDays(7);
+            if ($smartExam->opens_at && $smartExam->opens_at->isFuture()) $patch['opens_at'] = null;
+            if ($patch) $smartExam->update($patch);
+        });
 
-        $n = $attemptIds->count();
-        $who = empty($data['student_ids'])
-            ? 'همه‌ی دانش‌آموزان'
-            : count($data['student_ids']) . ' دانش‌آموز';
-        return back()->with('flash', "آزمون آزاد شد؛ {$n} تلاش پاک شد و {$who} می‌توانند دوباره در آزمون شرکت کنند.");
+        \App\Services\MasteryService::forgetMany($ids);
+        $sent = \App\Support\ActivityNotifier::reopened($smartExam->fresh(), $ids);
+
+        $who = empty($data['student_ids']) ? 'همه‌ی دانش‌آموزان' : \App\Support\Jalali::fa((string) count($ids)) . ' دانش‌آموز';
+        $msg = "🔁 آزمون برای {$who} دوباره فعال شد";
+        if ($attemptIds->isNotEmpty()) $msg .= '؛ ' . \App\Support\Jalali::fa((string) $attemptIds->count()) . ' تلاش' . ($removedXp ? ' و ' . \App\Support\Jalali::fa((string) $removedXp) . ' امتیازِ قبلی' : '') . ' پاک شد';
+        $msg .= '. ' . \App\Support\Jalali::fa((string) $sent) . ' اعلان فرستاده شد.';
+        if ($smartExam->fresh()->closes_at) $msg .= ' مهلت: ' . \App\Support\Jalali::format($smartExam->fresh()->closes_at) . '.';
+
+        return back()->with('flash', $msg);
     }
 
     /** دستیار هوشمند طراحی سؤال. */
@@ -343,7 +377,9 @@ class SmartExamController extends Controller
     {
         abort_unless($smartExam->teacher_id === $request->user()->id, 403);
         return Inertia::render('Teacher/SmartExamReport', [
-            'exam' => ['id' => $smartExam->id, 'title' => $smartExam->title, 'subject' => $smartExam->subject, 'kind' => $smartExam->kind],
+            'exam' => ['id' => $smartExam->id, 'title' => $smartExam->title, 'subject' => $smartExam->subject, 'kind' => $smartExam->kind,
+                'closed' => $smartExam->status !== 'published' || ($smartExam->closes_at && $smartExam->closes_at->isPast()),
+                'closes' => $smartExam->closes_at ? \App\Support\Jalali::format($smartExam->closes_at) : null],
             ...$analytics->examReport($smartExam),
             'printedAt' => Jalali::format(now(), true),
             'gamesEnabled' => SmartLab::flag('smart_games_enabled'),

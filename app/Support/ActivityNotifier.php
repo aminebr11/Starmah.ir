@@ -198,6 +198,33 @@ class ActivityNotifier
     }
 
     /**
+     * راه‌اندازیِ مجدد برای چند دانش‌آموز: همیشه اعلانِ تازه (حتی اگر قبلاً اعلانِ
+     * «جدید» گرفته باشند)، چون نتیجه و امتیازِ قبلی پاک شده و فرصتِ تازه‌ای دارند.
+     */
+    public static function reopened(EduGame|SmartExam $item, array $ids): int
+    {
+        try {
+            $ids = array_values(array_unique(array_map('intval', $ids)));
+            if (! $ids) return 0;
+            $isGame = $item instanceof EduGame;
+            $title = $isGame ? '🔁 بازی دوباره فعال شد: ' . $item->title : '🔁 آزمون دوباره فعال شد — ' . $item->title;
+            $deadline = $isGame ? $item->close_at : $item->closes_at;
+            $when = $deadline ? "\n⏰ مهلت: " . Jalali::format($deadline, true) . ' ساعت ' . Jalali::fa($deadline->format('H:i')) : '';
+            $body = ($isGame
+                ? "معلمت بازیِ «{$item->title}» را دوباره برایت باز کرد."
+                : "معلمت آزمونِ «{$item->title}» را دوباره برایت باز کرد.")
+                . " نتیجه و امتیازِ قبلی پاک شد؛ از نو شرکت کن و امتیازِ تازه بگیر ⚡{$when}";
+
+            return self::send($item->school_id, $item->teacher_id, $title, $body,
+                $isGame ? self::gameLink($item->id) : self::examLink($item->id), $ids);
+        } catch (\Throwable $e) {
+            Log::warning('reopen notify failed: ' . $e->getMessage());
+
+            return 0;
+        }
+    }
+
+    /**
      * بازی/آزمونِ زمان‌داری که وقتش رسیده را اعلان می‌کند. حداکثر دقیقه‌ای یک‌بار
      * و فقط روی موردهای ۳۰ روزِ اخیر اجرا می‌شود؛ تکراری‌بودن را خودِ game()/exam() مهار می‌کنند.
      */

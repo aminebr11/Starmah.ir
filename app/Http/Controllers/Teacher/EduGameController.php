@@ -264,6 +264,60 @@ class EduGameController extends Controller
         return back()->with('flash', "وضعیت بازی: {$label}");
     }
 
+    /**
+     * راه‌اندازیِ مجددِ بازی برای چند دانش‌آموز یا همه: تلاش‌ها و امتیازِ قبلیِ این بازی
+     * پاک، بازی (در صورتِ بسته‌بودن) باز و اعلانِ «دوباره فعال شد» فرستاده می‌شود.
+     */
+    public function release(Request $request, EduGame $eduGame): RedirectResponse
+    {
+        abort_unless($eduGame->teacher_id === $request->user()->id, 403);
+        $data = $request->validate([
+            'student_ids' => ['nullable', 'array'],
+            'student_ids.*' => ['integer'],
+            'close_at' => ['nullable', 'date', 'after:now'],
+        ], ['close_at.after' => 'مهلتِ تازه باید بعد از همین حالا باشد.']);
+
+        $audience = \App\Support\ActivityNotifier::gameAudience($eduGame);
+        $played = $eduGame->attempts()->pluck('student_id')->map(fn ($v) => (int) $v)->all();
+        $mine = array_values(array_unique(array_merge($audience, $played)));
+        $ids = empty($data['student_ids'])
+            ? $mine
+            : array_values(array_intersect(array_map('intval', $data['student_ids']), $mine));
+        if (! $ids) {
+            return back()->with('flash', 'دانش‌آموزی برای راه‌اندازیِ مجدد پیدا نشد.');
+        }
+
+        $removedXp = 0;
+        $attemptIds = collect();
+        \Illuminate\Support\Facades\DB::transaction(function () use ($eduGame, $ids, &$removedXp, &$attemptIds, $data) {
+            $attemptIds = $eduGame->attempts()->whereIn('student_id', $ids)->pluck('id');
+            if ($attemptIds->isNotEmpty()) {
+                $xp = \App\Models\XpEntry::where('source_type', \App\Models\EduGameAttempt::class)->whereIn('source_id', $attemptIds);
+                $removedXp = (int) (clone $xp)->sum('amount');
+                $xp->delete();
+                \App\Models\EduGameAttempt::whereIn('id', $attemptIds)->delete();
+            }
+            $patch = [];
+            if ($eduGame->status !== 'published') $patch['status'] = 'published';
+            if (! empty($data['close_at'])) $patch['close_at'] = $data['close_at'];
+            elseif ($eduGame->close_at && $eduGame->close_at->isPast()) $patch['close_at'] = now()->addDays(7);
+            if ($eduGame->publish_at && $eduGame->publish_at->isFuture()) $patch['publish_at'] = null;
+            if ($patch) $eduGame->update($patch);
+        });
+
+        \App\Services\MasteryService::forgetMany($ids);
+        $sent = \App\Support\ActivityNotifier::reopened($eduGame->fresh(), $ids);
+        AuditLog::record($request->user(), 'راه‌اندازیِ مجددِ بازی', "بازی «{$eduGame->title}» برای " . count($ids) . " دانش‌آموز دوباره فعال شد");
+
+        $fa = fn ($n) => \App\Support\Jalali::fa((string) $n);
+        $who = empty($data['student_ids']) ? 'همه‌ی دانش‌آموزان' : $fa(count($ids)) . ' دانش‌آموز';
+        $msg = "🔁 بازی برای {$who} دوباره فعال شد";
+        if ($attemptIds->isNotEmpty()) $msg .= '؛ ' . $fa($attemptIds->count()) . ' نتیجه' . ($removedXp ? ' و ' . $fa($removedXp) . ' امتیازِ قبلی' : '') . ' پاک شد';
+        $msg .= '. ' . $fa($sent) . ' اعلان فرستاده شد.';
+
+        return back()->with('flash', $msg);
+    }
+
     public function duplicate(Request $request, EduGame $eduGame): RedirectResponse
     {
         abort_unless($eduGame->teacher_id === $request->user()->id, 403);
@@ -295,6 +349,7 @@ class EduGameController extends Controller
         $completed = $attempts->where('status', 'completed');
 
         $rows = $attempts->map(fn ($a) => [
+            'student_id' => $a->student_id,
             'name' => $a->student?->name, 'score' => $a->score, 'max' => $a->max_score,
             'percent' => $a->max_score ? (int) round($a->score / $a->max_score * 100) : 0,
             'status' => $a->status, 'hints' => $a->hints_used,
@@ -318,7 +373,8 @@ class EduGameController extends Controller
         ])->values();
 
         return [
-            'game' => ['id' => $eduGame->id, 'title' => $eduGame->title, 'template' => optional($eduGame->template)->name],
+            'game' => ['id' => $eduGame->id, 'title' => $eduGame->title, 'template' => optional($eduGame->template)->name,
+                'closed' => $eduGame->status !== 'published' || ($eduGame->close_at && $eduGame->close_at->isPast())],
             'summary' => [
                 'started' => $attempts->count(),
                 'completed' => $completed->count(),

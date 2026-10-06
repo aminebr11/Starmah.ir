@@ -97,3 +97,16 @@
 .gs-errors li { font-size: 13px; line-height: 1.9; }
 .gs-errors li span { margin-inline-end: 8px; }
 .gs-errors button { font-family: inherit; font-size: 12px; font-weight: 800; border: 0; border-radius: 9px; padding: 3px 10px; background: #e8505b; color: #fff; cursor: pointer; }
+
+/* راه‌اندازیِ مجددِ آزمون/بازی */
+.rs-bar { background: #f7f5ff; border: 1px solid #e2dcfb; border-radius: 14px; padding: 12px 14px; margin: 8px 0 12px; }
+.rs-note { font-size: 12.5px; line-height: 2; color: #3d3566; }
+.rs-warn { display: block; color: #a04413; font-weight: 700; }
+.rs-row { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.rs-dl { display: flex; align-items: flex-end; gap: 6px; flex: 1 1 240px; max-width: 360px; }
+.rs-dl label { display: block; font-size: 12px; font-weight: 700; color: #5a5280; margin-bottom: 4px; white-space: nowrap; }
+.rs-dl > div { flex: 1; }
+.rs-one { font-family: inherit; font-size: 11.5px; font-weight: 800; border: 1px solid #f3c2c2; background: #fff5f5; color: #b0333f; border-radius: 9px; padding: 4px 9px; cursor: pointer; white-space: nowrap; }
+.rs-one:disabled { opacity: .5; }
+.rs-msg { display: flex; align-items: center; gap: 8px; background: #e3f7ec; color: #177a45; border: 1px solid #b5e6cb; border-radius: 11px; padding: 8px 12px; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+.rs-msg button { margin-inline-start: auto; border: 0; background: none; color: inherit; cursor: pointer; font-size: 14px; }

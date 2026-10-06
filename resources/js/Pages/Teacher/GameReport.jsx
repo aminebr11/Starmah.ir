@@ -1,4 +1,6 @@
 import { usePage, Link } from '@inertiajs/react';
+import { useState } from 'react';
+import { useRestart, RestartBar } from '@/Components/RestartTools';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
 
@@ -10,6 +12,10 @@ export default function GameReport() {
     const D = 'desc';
     const rs = useSort(rows, { name: (r) => firstName(r.name), family: (r) => lastName(r.name), score: 'score', percent: 'percent', status: (r) => (r.status === 'completed' ? 1 : 0), hints: 'hints', duration: 'duration' },
         { id: 'teacher-game-report', firstDir: { score: D, percent: D, status: D, hints: D, duration: D } });
+    const restart = useRestart('teacher.studio.release', game.id, 'game');
+    const [sel, setSel] = useState([]);
+    const toggle = (id) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+    const allSel = rows.length > 0 && sel.length === rows.length;
 
     return (
         <DashLayout title={`گزارش: ${game.title}`} roleLabel="معلم" menu={teacherMenu} active="studio">
@@ -45,15 +51,17 @@ export default function GameReport() {
 
             <div className="panel">
                 <h3 style={{ fontSize: 15 }}>👥 عملکرد دانش‌آموزان</h3>
+                <RestartBar r={restart} closed={game.closed} selected={sel} onSelectedDone={() => setSel([])} />
                 {rows.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز کسی این بازی را انجام نداده.</p>}
                 {rows.length > 0 && (
                     <div style={{ overflowX: 'auto' }}>
                         {rows.length > 1 && <SortBar s={rs} options={[['name', 'نام'], ['family', 'نام خانوادگی'], ['score', 'امتیاز'], ['percent', 'دقت']]} />}
                         <table className="tbl">
-                            <thead><tr><th>#</th><SortTh s={rs} k="family">نام</SortTh><SortTh s={rs} k="score">امتیاز</SortTh><SortTh s={rs} k="percent">دقت</SortTh><SortTh s={rs} k="status">وضعیت</SortTh><SortTh s={rs} k="hints">راهنما</SortTh><SortTh s={rs} k="duration">زمان</SortTh></tr></thead>
+                            <thead><tr><th className="no-print"><input type="checkbox" checked={allSel} onChange={(e) => setSel(e.target.checked ? rows.map((r) => r.student_id) : [])} /></th><th>#</th><SortTh s={rs} k="family">نام</SortTh><SortTh s={rs} k="score">امتیاز</SortTh><SortTh s={rs} k="percent">دقت</SortTh><SortTh s={rs} k="status">وضعیت</SortTh><SortTh s={rs} k="hints">راهنما</SortTh><SortTh s={rs} k="duration">زمان</SortTh><th className="no-print">راه‌اندازیِ مجدد</th></tr></thead>
                             <tbody>
                                 {rs.sorted.map((r, i) => (
                                     <tr key={i}>
+                                        <td className="no-print"><input type="checkbox" checked={sel.includes(r.student_id)} onChange={() => toggle(r.student_id)} /></td>
                                         <td>{fa(i + 1)}</td>
                                         <td style={{ fontWeight: 700 }}>{r.name}</td>
                                         <td style={{ color: 'var(--gold-2)', fontWeight: 800 }}>{fa(r.score)}/{fa(r.max)}</td>
@@ -61,6 +69,7 @@ export default function GameReport() {
                                         <td>{r.status === 'completed' ? '✅ تکمیل' : '⏳ ناتمام'}</td>
                                         <td>{fa(r.hints)}</td>
                                         <td>{mins(r.duration || 0)}</td>
+                                        <td className="no-print"><button type="button" className="rs-one" disabled={restart.busy} onClick={() => restart.restart([r.student_id], `«${r.name}»`)}>🔁 دوباره</button></td>
                                     </tr>
                                 ))}
                             </tbody>
