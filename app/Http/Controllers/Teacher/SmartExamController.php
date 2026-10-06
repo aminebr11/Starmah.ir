@@ -195,9 +195,8 @@ class SmartExamController extends Controller
         $this->syncQuestions($exam, $data['questions']);
         $this->syncTargets($exam, $data);
 
-        if ($exam->status === 'published') {
-            $this->notifyTargets($exam);
-        }
+        // اعلان به مخاطبان (اگر زمان‌دار باشد، سرِ ساعتِ شروع)
+        \App\Support\ActivityNotifier::exam($exam);
 
         AuditLog::record($teacher, 'ساخت آزمون هوشمند', "آزمون «{$exam->title}» ساخته شد");
         return redirect()->route('teacher.smart.lab')->with('flash', 'آزمون هوشمند ساخته شد 🧪');
@@ -209,7 +208,7 @@ class SmartExamController extends Controller
         $data = $this->validated($request);
         $this->assertTargetsOwned($request->user(), $data);
 
-        $wasPublished = $smartExam->status === 'published';
+        $before = \App\Support\ActivityNotifier::fingerprint($smartExam->questions()->get());
 
         // ویرایش روی همان آزمون ذخیره می‌شود (بدون ساختِ نسخه‌ی جدید).
         $smartExam->update($this->attributes($request->user(), $data));
@@ -217,9 +216,9 @@ class SmartExamController extends Controller
         $this->syncQuestions($smartExam, $data['questions']);
         $this->syncTargets($smartExam, $data);
 
-        if ($smartExam->status === 'published' && ! $wasPublished) {
-            $this->notifyTargets($smartExam);
-        }
+        // دانش‌آموزانِ تازه (انتشارِ تازه یا تغییرِ گروه) اعلان می‌گیرند؛ تغییرِ سؤال‌ها خبرِ «به‌روز شد» دارد
+        $changed = $before !== \App\Support\ActivityNotifier::fingerprint($smartExam->questions()->get());
+        \App\Support\ActivityNotifier::exam($smartExam->fresh(), $changed);
 
         return redirect()->route('teacher.smart.lab')->with('flash', 'تغییرات روی همین آزمون ذخیره شد ✅');
     }
@@ -228,49 +227,10 @@ class SmartExamController extends Controller
     {
         abort_unless($smartExam->teacher_id === $request->user()->id, 403);
         $data = $request->validate(['status' => ['required', 'in:draft,review,scheduled,published,closed,archived']]);
-        $wasPublished = $smartExam->status === 'published';
         $smartExam->update(['status' => $data['status']]);
-        // فقط هنگامِ انتشارِ تازه اعلان بده
-        if ($data['status'] === 'published' && ! $wasPublished) {
-            $this->notifyTargets($smartExam);
-        }
+        // اعلان فقط به کسانی که هنوز نگرفته‌اند
+        \App\Support\ActivityNotifier::exam($smartExam->fresh());
         return back()->with('flash', 'وضعیت آزمون به‌روزرسانی شد');
-    }
-
-    /** اعلانِ انتشارِ آزمونِ هوشمند به دانش‌آموزانِ هدف (زنگوله/اعلان‌ها). */
-    private function notifyTargets(SmartExam $exam): void
-    {
-        $exam->loadMissing('targets');
-        $classroomIds = Classroom::where('teacher_id', $exam->teacher_id)->pluck('id');
-
-        if ($exam->targets->isEmpty()) {
-            // بدون هدفِ صریح → همه‌ی دانش‌آموزانِ کلاس‌های معلم
-            $ids = \App\Models\User::whereHas('classrooms', fn ($q) => $q->whereIn('classrooms.id', $classroomIds))->pluck('id');
-        } else {
-            $ids = collect();
-            $tClass = $exam->targets->pluck('classroom_id')->filter();
-            $tTheme = $exam->targets->pluck('theme_id')->filter();
-            $tStud = $exam->targets->pluck('student_id')->filter();
-            if ($tClass->isNotEmpty()) {
-                $ids = $ids->merge(\App\Models\User::whereHas('classrooms', fn ($q) => $q->whereIn('classrooms.id', $tClass))->pluck('id'));
-            }
-            if ($tTheme->isNotEmpty()) {
-                $ids = $ids->merge(\App\Models\User::whereIn('theme_id', $tTheme)
-                    ->whereHas('classrooms', fn ($q) => $q->whereIn('classrooms.id', $classroomIds))->pluck('id'));
-            }
-            $ids = $ids->merge($tStud)->unique()->values();
-        }
-        if ($ids->isEmpty()) {
-            return;
-        }
-        $ann = Announcement::create([
-            'school_id' => $exam->school_id, 'sender_id' => $exam->teacher_id,
-            'title' => '🧠 آزمون هوشمند جدید — ' . $exam->title,
-            'audience' => 'personal',
-            'body' => "یک آزمون هوشمندِ جدید برای شما منتشر شد: «{$exam->title}».\nبرای شرکت، روی همین اعلان بزنید.",
-            'link' => '/student/smart-exams',
-        ]);
-        $ann->recipients()->sync($ids->all());
     }
 
     public function destroy(Request $request, SmartExam $smartExam): RedirectResponse

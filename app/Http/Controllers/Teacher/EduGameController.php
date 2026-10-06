@@ -213,9 +213,8 @@ class EduGameController extends Controller
         $game = EduGame::create($this->attributes($teacher, $classroom, $data));
         $this->syncQuestions($game, $data['questions']);
         $this->syncTargets($game, $data);
-        if ($game->status === 'published') {
-            $this->announcePublish($game, $classroom);
-        }
+        // اعلان به مخاطبان (اگر زمان‌دار باشد، سرِ ساعتِ انتشار)
+        \App\Support\ActivityNotifier::game($game);
 
         AuditLog::record($teacher, 'ساخت بازی آموزشی', "بازی «{$game->title}» ({$game->template_key}) ساخته شد");
         return redirect()->route('teacher.studio')->with('flash', 'بازی ساخته شد 🎮');
@@ -238,17 +237,19 @@ class EduGameController extends Controller
             $this->syncQuestions($new, $data['questions']);
             $this->syncTargets($new, $data);
             $eduGame->update(['status' => 'archived']);
+            // نسخه‌ی تازه: مخاطبانِ تازه «بازی جدید» و دیدگانِ قبلی «به‌روز شد» می‌گیرند
+            \App\Support\ActivityNotifier::game($new->fresh(), [$eduGame->id], true);
             AuditLog::record($request->user(), 'ویرایش اساسی بازی', "نسخه‌ی {$new->version} بازی «{$new->title}» ساخته شد (نسخه‌ی قبلی آرشیو شد)");
             return redirect()->route('teacher.studio')->with('flash', 'به‌دلیل وجود نتایج قبلی، نسخه‌ی جدید ساخته و نسخه‌ی قدیمی آرشیو شد ✅');
         }
 
-        $wasPublished = $eduGame->status === 'published';
+        $before = \App\Support\ActivityNotifier::fingerprint($eduGame->questions()->get());
         $eduGame->update($this->attributes($request->user(), $classroom, $data));
         $this->syncQuestions($eduGame, $data['questions']);
         $this->syncTargets($eduGame, $data);
-        if (! $wasPublished && $eduGame->status === 'published') {
-            $this->announcePublish($eduGame, $classroom);
-        }
+        // دانش‌آموزانِ تازه (انتشارِ تازه یا تغییرِ گروه) اعلان می‌گیرند؛ تغییرِ سؤال‌ها خبرِ «به‌روز شد» دارد
+        $changed = $before !== \App\Support\ActivityNotifier::fingerprint($eduGame->questions()->get());
+        \App\Support\ActivityNotifier::game($eduGame->fresh(), [], $changed);
         return redirect()->route('teacher.studio')->with('flash', 'بازی به‌روزرسانی شد ✅');
     }
 
@@ -256,44 +257,11 @@ class EduGameController extends Controller
     {
         abort_unless($eduGame->teacher_id === $request->user()->id, 403);
         $data = $request->validate(['status' => ['required', 'in:draft,published,archived,disabled']]);
-        $wasPublished = $eduGame->status === 'published';
         $eduGame->update(['status' => $data['status']]);
-        if (! $wasPublished && $eduGame->status === 'published') {
-            $classroom = Classroom::where('teacher_id', $request->user()->id)->first();
-            $this->announcePublish($eduGame, $classroom);
-        }
+        // اعلان فقط به کسانی که هنوز نگرفته‌اند
+        \App\Support\ActivityNotifier::game($eduGame->fresh());
         $label = ['draft' => 'پیش‌نویس', 'published' => 'منتشر', 'archived' => 'آرشیو', 'disabled' => 'غیرفعال'][$data['status']];
         return back()->with('flash', "وضعیت بازی: {$label}");
-    }
-
-    /** اعلانِ «بازی جدید» برای دانش‌آموزانِ هدف — در زنگوله و منوی اعلان‌ها. */
-    private function announcePublish(EduGame $game, ?Classroom $classroom): void
-    {
-        if (! $classroom) {
-            return;
-        }
-        $game->loadMissing('targets', 'template');
-
-        $students = $classroom->students()->get(['users.id', 'theme_id']);
-        if ($game->targets->isNotEmpty()) {
-            $themeIds = $game->targets->pluck('theme_id')->filter();
-            $studentIds = $game->targets->pluck('student_id')->filter();
-            $students = $students->filter(fn ($s) => $studentIds->contains($s->id) || $themeIds->contains($s->theme_id));
-        }
-        if ($students->isEmpty()) {
-            return;
-        }
-
-        $tName = optional($game->template)->name ?? 'بازی';
-        $ann = \App\Models\Announcement::create([
-            'school_id' => $game->school_id,
-            'sender_id' => $game->teacher_id,
-            'title' => '🎮 بازی جدید: ' . $game->title,
-            'body' => "یک {$tName} جدید برایت منتشر شد! روی همین اعلان بزن و امتیاز بگیر ⚡",
-            'audience' => 'personal',
-            'link' => '/game-world',
-        ]);
-        $ann->recipients()->sync($students->pluck('id')->all());
     }
 
     public function duplicate(Request $request, EduGame $eduGame): RedirectResponse

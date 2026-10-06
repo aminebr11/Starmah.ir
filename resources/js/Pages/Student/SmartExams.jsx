@@ -1,5 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import ThemedDash from '@/Layouts/ThemedDash';
+import { useHighlightFromQuery } from '@/lib/highlight';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const KIND = { diagnostic: 'تشخیصی', practice: 'تمرینی', class: 'کلاسی', formal: 'رسمی', remedial: 'جبرانی', game: 'بازی‌محور' };
@@ -15,6 +16,7 @@ const PAL = [['#6d28d9', '#4c1d95'], ['#0ea5b7', '#0a7d8a'], ['#e8862e', '#c0671
 
 export default function SmartExams() {
     const { exams = [] } = usePage().props;
+    useHighlightFromQuery('exam');
     return (
         <ThemedDash title="آزمون هوشمند" active="smart">
             <div className="k3-card" style={{ background: 'linear-gradient(135deg,#6d28d9,#4c1d95)' }}>
@@ -34,7 +36,7 @@ export default function SmartExams() {
                     const pal = PAL[i % PAL.length];
                     const playable = e.status === 'new' || e.status === 'in_progress' || (e.status === 'done' && e.attemptsLeft > 0);
                     return (
-                        <div key={e.id} className="k3-card" style={{ opacity: playable ? 1 : .9 }}>
+                        <div key={e.id} data-hl={e.id} className="k3-card" style={{ opacity: playable ? 1 : .9 }}>
                             <div style={{ height: 70, borderRadius: 14, marginBottom: 10, display: 'grid', placeItems: 'center', fontSize: 34, background: `linear-gradient(135deg,${pal[0]},${pal[1]})`, position: 'relative' }}>
                                 🧪<span style={{ position: 'absolute', top: 8, insetInlineEnd: 8, background: s.c, color: '#fff', borderRadius: 20, padding: '2px 9px', fontSize: 11, fontWeight: 800 }}>{s.t}</span>
                             </div>

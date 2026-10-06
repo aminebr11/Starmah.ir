@@ -58,3 +58,7 @@
 /* عنوان/مبحثِ خیلی بلندِ بی‌فاصله (مثلاً لینک) صفحه را در موبایل افقی نکند */
 .smart-wrap, .smart-panel, .smart-card, .ch-card, .hub-card { overflow-wrap: anywhere; }
 .k3-card { overflow-wrap: anywhere; min-width: 0; }
+
+/* کارتی که دانش‌آموز از اعلانش آمده */
+.hl-pulse { outline: 3px solid #ffd25a; outline-offset: 3px; animation: hlPulse 1.1s ease-in-out 3; }
+@keyframes hlPulse { 50% { box-shadow: 0 0 0 10px rgba(255, 210, 90, .28); } }
