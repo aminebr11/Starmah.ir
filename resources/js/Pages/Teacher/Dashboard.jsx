@@ -26,7 +26,7 @@ export default function Dashboard() {
 
     // ابزارهای معلم — مطابق امکانات وبسایت قبلی + امکانات فعلی
     const tools = [
-        { href: route('teacher.activities'), ic: '🏅', t: 'امتیازدهی گروهی', d: 'دادن امتیاز به تیم‌ها و دانش‌آموزان', c: '#fff3d6' },
+        { href: route('teacher.points'), ic: '⚡', t: 'مرکزِ امتیاز', d: 'امتیاز به یک نفر، چند نفر، تیم‌ها یا کلِ کلاس', c: '#fff3d6' },
         { href: route('teacher.studio'), ic: '🎮', t: 'استودیوی بازی', d: 'ساخت بازی آموزشی با AI و بانک سؤال', c: '#e9e4ff' },
         { href: route('teacher.gradebook'), ic: '📔', t: 'دفتر نمره', d: 'نمرات و تسلط دانش‌آموزان', c: '#dcebff' },
         { href: route('teacher.discipline'), ic: '⭐', t: 'انضباط', d: 'ثبت ستاره‌ی تشویقی و تذکر', c: '#d4f5ef' },

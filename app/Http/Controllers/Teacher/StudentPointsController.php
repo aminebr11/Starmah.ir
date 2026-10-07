@@ -29,20 +29,33 @@ class StudentPointsController extends Controller
             ->flatMap(fn ($c) => $c->students->pluck('id'))->unique()->values()->all();
     }
 
-    public function index(Request $request, PointsAnalytics $points): Response
+    public function index(Request $request, PointsAnalytics $points, \App\Services\TeamScoreService $teamSvc): Response
     {
         $teacher = $request->user();
-        $ids = $this->myStudentIds($teacher);
+        $rooms = Classroom::where('teacher_id', $teacher->id)
+            ->with(['students' => fn ($q) => $q->with('theme:id,name,emoji,skin')->orderBy('name')])->orderBy('id')->get();
+        $ids = $rooms->flatMap(fn ($c) => $c->students->pluck('id'))->unique()->values()->all();
 
         // بازه‌ی گزارش: هفته (پیش‌فرض) / ماه / روز / سالِ تحصیلی / دلخواه
         $preset = $request->query('range', 'week');
         $range = $points->resolveRange($preset, $request->query('from'), $request->query('to'));
 
-        $students = User::whereIn('id', $ids)->orderBy('name')->get(['id', 'name'])
-            ->map(fn ($s) => [
-                'id' => $s->id, 'name' => $s->name,
-                'total' => (int) XpEntry::where('student_id', $s->id)->sum('amount'),
-            ]);
+        $totals = XpEntry::whereIn('student_id', $ids)->selectRaw('student_id, SUM(amount) s')->groupBy('student_id')->pluck('s', 'student_id');
+        $weekFrom = \App\Support\SchoolCalendar::weekStart(now());
+        $week = XpEntry::whereIn('student_id', $ids)->where('created_at', '>=', $weekFrom)
+            ->selectRaw('student_id, SUM(amount) s')->groupBy('student_id')->pluck('s', 'student_id');
+
+        $students = $rooms->flatMap(fn ($c) => $c->students->map(fn ($s) => [
+            'id' => $s->id, 'name' => $s->name, 'avatar' => $s->avatar_url,
+            'classroom_id' => $c->id,
+            'theme_id' => $s->theme_id, 'team' => $s->theme?->name, 'emoji' => $s->theme?->emoji,
+            'team_key' => $s->theme_id ? $c->id . ':' . $s->theme_id : null,
+            'total' => (int) ($totals[$s->id] ?? 0), 'week' => (int) ($week[$s->id] ?? 0),
+        ]))->unique('id')->values();
+
+        $teams = $rooms->flatMap(fn ($c) => collect($teamSvc->teams($c))->map(fn ($t) => $t + [
+            'key' => $c->id . ':' . $t['theme_id'], 'classroom_id' => $c->id, 'classroom' => $c->name,
+        ]))->values();
 
         $selectedId = (int) $request->query('student');
         $ledger = [];
@@ -55,15 +68,58 @@ class StudentPointsController extends Controller
                     'date' => Jalali::format($e->created_at, true),
                     'date_raw' => $e->created_at?->timestamp,
                     'kind' => $e->amount >= 0 ? 'plus' : 'minus',
+                    'batch' => $e->source_type === \App\Models\PointBatch::class ? $e->source_id : null,
                 ]);
         }
 
+        // دفترِ تیمِ انتخاب‌شده
+        $teamKey = (string) $request->query('team', '');
+        $teamLedger = [];
+        if (preg_match('/^(\d+):(\d+)$/', $teamKey, $m) && ($room = $rooms->firstWhere('id', (int) $m[1]))) {
+            $teamLedger = $teamSvc->ledger((int) $m[2], $room, 120);
+        }
+
+        // نوبت‌های امتیازدهی (سوابق)
+        $batches = \App\Models\PointBatch::where('teacher_id', $teacher->id)->latest('id')->limit(120)->get();
+        $recips = XpEntry::where('source_type', \App\Models\PointBatch::class)->whereIn('source_id', $batches->pluck('id'))
+            ->get(['source_id', 'student_id'])->groupBy('source_id');
+        $teamRecips = \App\Models\TeamPoint::whereIn('batch_id', $batches->pluck('id'))->with('theme:id,name,emoji')->get()->groupBy('batch_id');
+        $names = $students->keyBy('id');
+        $batchRows = $batches->map(fn ($b) => [
+            'id' => $b->id, 'amount' => $b->amount, 'reason' => $b->reason, 'category' => $b->category,
+            'mode' => $b->team_mode, 'label' => $b->target_label,
+            'students' => ($recips[$b->id] ?? collect())->map(fn ($r) => ['id' => $r->student_id, 'name' => $names[$r->student_id]['name'] ?? '—'])->values(),
+            'teams' => ($teamRecips[$b->id] ?? collect())->map(fn ($t) => ['id' => $t->id, 'name' => $t->theme?->name, 'emoji' => $t->theme?->emoji])->values(),
+            'activity' => $b->class_activity_id,
+            'date' => Jalali::format($b->created_at, true), 'ts' => $b->created_at?->timestamp,
+        ]);
+
+        // فعالیت‌های آماده (الگوهای امتیاز)
+        $acts = \App\Models\ClassActivity::whereIn('classroom_id', $rooms->pluck('id'))->withCount('awards')->latest()->limit(60)->get();
+        $awardMap = \App\Models\ActivityAward::whereIn('class_activity_id', $acts->pluck('id'))->get(['class_activity_id', 'student_id'])->groupBy('class_activity_id');
+        $activities = $acts->map(fn ($a) => [
+                'id' => $a->id, 'type' => $a->type, 'type_label' => \App\Models\ClassActivity::typeLabel($a->type),
+                'title' => $a->title, 'points' => $a->points, 'description' => $a->description,
+                'awarded' => $a->awards_count, 'scheduled' => $a->scheduledJalali(),
+                'scheduled_raw' => $a->scheduled_at?->timestamp, 'created_raw' => $a->created_at?->timestamp,
+                'awarded_ids' => ($awardMap[$a->id] ?? collect())->pluck('student_id')->values(),
+            ]);
+
         $jy = \App\Support\SchoolCalendar::schoolYearOf();
 
-        return Inertia::render('Teacher/StudentPoints', [
-            'students' => $students->values(),
+        return Inertia::render('Teacher/PointsCenter', [
+            'classrooms' => $rooms->map(fn ($c) => ['id' => $c->id, 'name' => $c->name, 'count' => $c->students->count()])->values(),
+            'students' => $students,
+            'teams' => $teams,
+            'batches' => $batchRows,
+            'activities' => $activities,
+            'lastBatch' => $request->session()->get('lastBatch'),
+            'tab' => $request->query('tab'),
+            'teamKey' => $teamKey ?: null,
+            'teamLedger' => $teamLedger,
             'selected' => $selected,
             'ledger'   => $ledger,
+            'weekLabel' => \App\Support\SchoolCalendar::week(now())['short'] ?? 'این هفته',
             // رتبه‌بندیِ بازه‌ی انتخابی + ابزارهای انتخابِ بازه
             'rank'     => $points->rankTable($ids, $range['from'], $range['to']),
             'range'    => [
@@ -77,7 +133,7 @@ class StudentPointsController extends Controller
             'months'   => collect(\App\Support\SchoolCalendar::months($jy))->filter(fn ($m) => $m['from']->lte(now()))
                 ->reverse()->values()->map(fn ($m) => ['key' => $m['from']->toDateString(), 'label' => $m['label']])->all(),
             'yearLabel' => \App\Support\SchoolCalendar::yearLabel($jy),
-            'classroom' => Classroom::where('teacher_id', $teacher->id)->value('name'),
+            'classroom' => $rooms->first()?->name,
             // نمودارِ روندِ دانش‌آموزِ انتخاب‌شده
             'trend'    => $selected ? $points->studentTrend(User::find($selectedId)) : null,
         ]);

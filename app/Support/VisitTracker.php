@@ -91,7 +91,7 @@ class VisitTracker
         if ($request->expectsJson() && ! $request->header('X-Inertia')) return false;
         if (preg_match('/bot|crawl|spider|slurp|facebookexternalhit|curl|wget|python-requests/i', (string) $request->userAgent())) return false;
         $path = $request->path();
-        foreach (['up', 'presence', 'build/', 'storage/', 'sw.js', 'manifest', 'api/', 'favicon'] as $p) {
+        foreach (['up', 'presence', 'notices/pulse', 'build/', 'storage/', 'sw.js', 'manifest', 'api/', 'favicon'] as $p) {
             if (str_starts_with($path, $p)) return false;
         }
 

@@ -247,7 +247,8 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/birthdays/{user}', [\App\Http\Controllers\Teacher\BirthdayController::class, 'send'])->name('birthdays.send');
     Route::post('/students/{user}/team', [TeacherDashboardController::class, 'setTeam'])->name('students.team');
     Route::post('/students', [\App\Http\Controllers\Teacher\StudentController::class, 'store'])->name('students.store');
-    Route::get('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'index'])->name('activities');
+    // «امتیازدهیِ گروهی» و «امتیازِ تیم‌ها» در «مرکزِ امتیاز» ادغام شدند
+    Route::get('/activities', fn () => redirect('/teacher/points?tab=activities'))->name('activities');
     Route::post('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'store'])->name('activities.store');
     Route::post('/activities/{classActivity}/award', [\App\Http\Controllers\Teacher\ActivityController::class, 'award'])->name('activities.award');
     Route::put('/activities/{classActivity}', [\App\Http\Controllers\Teacher\ActivityController::class, 'update'])->name('activities.update');
@@ -259,6 +260,13 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::delete('/points/entry/{xpEntry}', [\App\Http\Controllers\Teacher\StudentPointsController::class, 'destroyEntry'])->name('points.entry.destroy');
     Route::post('/points/destroy-many', [\App\Http\Controllers\Teacher\StudentPointsController::class, 'destroyMany'])->name('points.destroyMany');
     Route::post('/points/clear', [\App\Http\Controllers\Teacher\StudentPointsController::class, 'clear'])->name('points.clear');
+    // مرکزِ امتیاز: نوبت‌های امتیازدهی (یک/چند نفر، یک/چند تیم، کلِ کلاس) + ویرایش/حذف
+    Route::post('/points/give', [\App\Http\Controllers\Teacher\PointBatchController::class, 'store'])->name('points.give');
+    Route::put('/points/batch/{batch}', [\App\Http\Controllers\Teacher\PointBatchController::class, 'update'])->name('points.batch.update');
+    Route::delete('/points/batch/{batch}', [\App\Http\Controllers\Teacher\PointBatchController::class, 'destroy'])->name('points.batch.destroy');
+    Route::delete('/points/batch/{batch}/student/{student}', [\App\Http\Controllers\Teacher\PointBatchController::class, 'removeStudent'])->name('points.batch.student');
+    Route::put('/points/entry/{xpEntry}', [\App\Http\Controllers\Teacher\PointBatchController::class, 'updateEntry'])->name('points.entry.update');
+    Route::put('/groups/entry/{teamPoint}', [\App\Http\Controllers\Teacher\PointBatchController::class, 'updateTeamPoint'])->name('groups.entry.update');
     // بازی‌ساز (بانک بازی، انتشار، XP)
     Route::get('/games', [\App\Http\Controllers\Teacher\GameController::class, 'index'])->name('games');
     Route::post('/games/ai', [\App\Http\Controllers\Teacher\GameController::class, 'aiGenerate'])->name('games.ai');
@@ -296,7 +304,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::delete('/gallery/albums/{album}', [\App\Http\Controllers\Teacher\GalleryController::class, 'destroy'])->name('gallery.albums.destroy');
     Route::post('/gallery/photos/{photo}', [\App\Http\Controllers\Teacher\GalleryController::class, 'updatePhoto'])->name('gallery.photos.update');
     // مدیریتِ امتیازِ گروه‌ها (تیم‌های تم‌دار)
-    Route::get('/groups', [\App\Http\Controllers\Teacher\GroupPointsController::class, 'index'])->name('groups');
+    Route::get('/groups', fn (\Illuminate\Http\Request $r) => redirect('/teacher/points?tab=teams'))->name('groups');
     Route::post('/groups/adjust', [\App\Http\Controllers\Teacher\GroupPointsController::class, 'adjust'])->name('groups.adjust');
     Route::delete('/groups/entry/{teamPoint}', [\App\Http\Controllers\Teacher\GroupPointsController::class, 'destroyEntry'])->name('groups.entry.destroy');
     // تنظیماتِ مأموریت‌های روزانه
@@ -421,6 +429,7 @@ Route::middleware('auth')->group(function () {
     // کارتابل اعلان‌ها/پیام‌ها (معلم و دانش‌آموز)
     Route::get('/notices', \App\Http\Controllers\NoticeController::class)->name('notices');
     // مسیرهای ثابت پیش از مسیرِ پارامتری ثبت می‌شوند تا بلعیده نشوند
+    Route::get('/notices/pulse', [\App\Http\Controllers\NoticeController::class, 'pulse'])->name('notices.pulse');
     Route::post('/notices/read-all', [\App\Http\Controllers\NoticeController::class, 'readAll'])->name('notices.read-all');
     Route::post('/notices/read/{key}', [\App\Http\Controllers\NoticeController::class, 'read'])
         ->where('key', '[A-Za-z0-9_:.\-]{1,60}')->name('notices.read');

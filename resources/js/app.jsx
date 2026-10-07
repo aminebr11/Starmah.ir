@@ -12,6 +12,7 @@ import '../css/sort.css';
 import '../css/points-trend.css';
 import '../css/gallery.css';
 import '../css/ai-center.css';
+import '../css/points-center.css';
 import './bootstrap';
 // پیش از Inertia: «بازگشت» گوشی اول پنجره‌های باز را می‌بندد
 import './lib/overlayBack';

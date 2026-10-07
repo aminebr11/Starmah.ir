@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
+import { startLiveNotices, syncUnread } from '@/lib/liveNotices';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -14,9 +15,22 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
  * معلم/مدیر.
  */
 export default function BellMenu({ tone = 'light' }) {
-    const { notifications = [], unreadNotices = 0 } = usePage().props;
+    const page = usePage();
+    const { notifications = [], unreadNotices = 0 } = page.props;
     const [open, setOpen] = useState(false);
     const box = useRef(null);
+
+    // اعلانِ زنده: بدونِ رفرشِ دستی زنگوله به‌روز می‌شود (یک حلقه برای کلِ برگه)
+    useEffect(() => { startLiveNotices(unreadNotices || 0); }, []);
+    useEffect(() => { syncUnread(unreadNotices || 0); }, [unreadNotices, page.url]);
+    // تکانِ کوتاهِ زنگوله وقتی شمار بالا می‌رود
+    const prev = useRef(unreadNotices || 0);
+    const [ring, setRing] = useState(false);
+    useEffect(() => {
+        if ((unreadNotices || 0) > prev.current) { setRing(true); const t = setTimeout(() => setRing(false), 1200); prev.current = unreadNotices || 0; return () => clearTimeout(t); }
+        prev.current = unreadNotices || 0;
+        return undefined;
+    }, [unreadNotices]);
 
     // کلیک بیرون یا Esc → بسته شود
     useEffect(() => {
@@ -50,7 +64,7 @@ export default function BellMenu({ tone = 'light' }) {
 
     return (
         <div style={{ position: 'relative' }} ref={box}>
-            <button onClick={() => setOpen(!open)} className={unread > 0 ? 'bell-live' : ''}
+            <button onClick={() => setOpen(!open)} className={`${unread > 0 ? 'bell-live' : ''} ${ring ? 'bell-ring' : ''}`}
                 aria-label="اعلان‌ها" title="اعلان‌ها و پیام‌ها"
                 style={{ ...btnStyle, position: 'relative', width: 40, height: 40, borderRadius: 12, cursor: 'pointer', fontSize: 18 }}>
                 🔔

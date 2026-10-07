@@ -8,46 +8,10 @@ use App\Models\Classroom;
 use App\Services\GamificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
-use Inertia\Response;
 
 /** فعالیت‌های کلاسی + امتیازدهی (بازی/آزمون/تکلیف/پادکست...). */
 class ActivityController extends Controller
 {
-    public function index(Request $request): Response
-    {
-        $teacher = $request->user();
-        $classroom = Classroom::where('teacher_id', $teacher->id)->first();
-
-        $students = $classroom
-            ? $classroom->students()->with('theme')->get()
-                ->map(fn ($s) => ['id' => $s->id, 'name' => $s->name, 'group' => $s->theme?->name, 'emoji' => $s->theme?->emoji])
-                ->values()
-            : collect();
-
-        // تیم‌ها (گروه‌ها) برای امتیازدهی گروهی — دانش‌آموزانِ بدون تیم هم یک گروهِ «بدون تیم» می‌شوند
-        $groups = $students->groupBy(fn ($s) => $s['group'] ?: 'بدون تیم')->map(fn ($g, $name) => [
-            'name' => $name, 'emoji' => $g->first()['emoji'] ?: '👤', 'ids' => $g->pluck('id')->values(),
-        ])->values();
-
-        $activities = ClassActivity::where('classroom_id', $classroom?->id)
-            ->withCount('awards')->latest()->limit(50)->get()
-            ->map(fn ($a) => [
-                'id' => $a->id, 'type' => $a->type, 'type_label' => ClassActivity::typeLabel($a->type),
-                'title' => $a->title, 'points' => $a->points, 'status' => $a->status,
-                'description' => $a->description,
-                'awarded' => $a->awards_count, 'scheduled' => $a->scheduledJalali(),
-                'scheduled_raw' => $a->scheduled_at?->timestamp, 'created_raw' => $a->created_at?->timestamp,
-            ]);
-
-        return Inertia::render('Teacher/Activities', [
-            'classroom'  => $classroom?->only('id', 'name'),
-            'students'   => $students,
-            'groups'     => $groups,
-            'activities' => $activities,
-        ]);
-    }
-
     public function store(Request $request): RedirectResponse
     {
         $teacher = $request->user();
@@ -97,6 +61,12 @@ class ActivityController extends Controller
             \App\Models\XpEntry::where('source_type', \App\Models\ActivityAward::class)
                 ->whereIn('source_id', $awardIds)->delete();
             \App\Models\ActivityAward::whereIn('id', $awardIds)->delete();
+        }
+        // نوبت‌هایی که از «مرکزِ امتیاز» با این فعالیت داده شده‌اند
+        foreach (\App\Models\PointBatch::where('class_activity_id', $classActivity->id)->pluck('id') as $bid) {
+            \App\Models\XpEntry::where('source_type', \App\Models\PointBatch::class)->where('source_id', $bid)->delete();
+            \App\Models\TeamPoint::where('batch_id', $bid)->delete();
+            \App\Models\PointBatch::whereKey($bid)->delete();
         }
         $classActivity->delete();
 

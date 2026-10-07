@@ -136,3 +136,19 @@
 .dg-env { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
 .dg-env > div { background: #f6f8fc; border-radius: 10px; padding: 8px 10px; font-size: 12.5px; display: flex; flex-direction: column; gap: 2px; }
 .dg-env span { color: var(--muted); font-size: 11.5px; }
+
+/* اعلانِ زنده */
+.live-toast { position: fixed; z-index: 10050; top: calc(env(safe-area-inset-top, 0px) + 12px); inset-inline: 12px; margin: 0 auto; max-width: 460px;
+  display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 0; border-radius: 18px; cursor: pointer; text-align: start; font-family: inherit;
+  background: rgba(255, 255, 255, .97); color: #1d2b4f; box-shadow: 0 14px 40px rgba(30, 50, 110, .22), 0 0 0 1px rgba(61, 123, 240, .18);
+  transform: translateY(-140%); opacity: 0; transition: transform .35s cubic-bezier(.2, .9, .3, 1.2), opacity .25s; }
+.live-toast.in { transform: none; opacity: 1; }
+.live-toast.out { transform: translateY(-140%); opacity: 0; }
+.live-toast .lt-ic { font-size: 26px; width: 42px; height: 42px; display: grid; place-items: center; border-radius: 14px; background: linear-gradient(135deg, #eaf1ff, #fff3d6); flex: none; animation: bell-swing 1s ease-in-out 2; }
+.live-toast .lt-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.live-toast .lt-tx b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-toast .lt-tx small { font-size: 12px; color: #5b6785; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-toast .lt-more { font-style: normal; font-size: 11.5px; font-weight: 800; color: #fff; background: #e8505b; border-radius: 20px; padding: 3px 9px; flex: none; }
+.live-toast .lt-x { font-size: 20px; color: #9aa3b8; padding: 0 4px; flex: none; }
+.bell-ring { animation: bell-ring .9s ease-in-out 1 !important; }
+@keyframes bell-ring { 0%, 100% { transform: rotate(0) } 15% { transform: rotate(18deg) } 30% { transform: rotate(-16deg) } 45% { transform: rotate(12deg) } 60% { transform: rotate(-8deg) } 75% { transform: rotate(4deg) } }

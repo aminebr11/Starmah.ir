@@ -5,11 +5,8 @@ namespace App\Http\Controllers\Teacher;
 use App\Http\Controllers\Controller;
 use App\Models\Classroom;
 use App\Models\TeamPoint;
-use App\Services\TeamScoreService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
-use Inertia\Response;
 
 /**
  * مدیریتِ امتیازِ گروه‌ها (تیم‌های تم‌دار) — معلم می‌تواند به کلِ یک تیم امتیاز اضافه/کم کند
@@ -17,34 +14,6 @@ use Inertia\Response;
  */
 class GroupPointsController extends Controller
 {
-    public function index(Request $request, TeamScoreService $svc): Response
-    {
-        $teacher = $request->user();
-        $classroom = Classroom::where('teacher_id', $teacher->id)->first();
-
-        $teams = $classroom ? $svc->teams($classroom) : [];
-        $selectedId = (int) $request->query('team');
-        $selectedTeam = collect($teams)->firstWhere('theme_id', $selectedId);
-
-        // فیلترِ تک‌نفره: فقط ریزِ همان دانش‌آموز (اگر عضوِ همین تیم باشد)
-        $studentId = (int) $request->query('student');
-        if ($studentId && $selectedTeam && ! collect($selectedTeam['members'])->firstWhere('id', $studentId)) {
-            $studentId = 0; // دانش‌آموز عضوِ این تیم نیست → نادیده
-        }
-
-        $ledger = ($classroom && $selectedId && $selectedTeam)
-            ? $svc->ledger($selectedId, $classroom, 80, $studentId ?: null) : [];
-
-        return Inertia::render('Teacher/GroupPoints', [
-            'classroom' => $classroom?->only('id', 'name'),
-            'teams' => $teams,
-            'selectedId' => $selectedId ?: null,
-            'studentId' => $studentId ?: null,
-            'members' => $selectedTeam['members'] ?? [],
-            'ledger' => $ledger,
-        ]);
-    }
-
     /** افزودن/کسرِ امتیاز برای کلِ یک تیم (amount مثبت = افزودن، منفی = کسر). */
     public function adjust(Request $request): RedirectResponse
     {

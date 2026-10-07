@@ -315,9 +315,7 @@ export const teacherMenu = [
     { key: 'smart', label: 'آزمون هوشمند 🧪', icon: '🧠', href: '/teacher/smart-exams', flag: 'smart' },
 
     { divider: 'امتیاز و انضباط' },
-    { key: 'points', label: 'امتیازِ دانش‌آموزان', icon: '⚡', href: '/teacher/points' },
-    { key: 'activities', label: 'امتیازدهیِ گروهی', icon: '🏅', href: '/teacher/activities' },
-    { key: 'groups', label: 'امتیازِ تیم‌ها', icon: '🏆', href: '/teacher/groups' },
+    { key: 'points', label: 'مرکزِ امتیاز', icon: '⚡', href: '/teacher/points' },
     { key: 'discipline', label: 'دفترِ انضباط', icon: '⭐', href: '/teacher/discipline' },
 
     { divider: 'تنظیمات و گزارش' },
