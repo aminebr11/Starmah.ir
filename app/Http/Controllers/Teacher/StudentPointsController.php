@@ -79,11 +79,12 @@ class StudentPointsController extends Controller
             $teamLedger = $teamSvc->ledger((int) $m[2], $room, 120);
         }
 
-        // نوبت‌های امتیازدهی (سوابق)
-        $batches = \App\Models\PointBatch::where('teacher_id', $teacher->id)->latest('id')->limit(120)->get();
+        // نوبت‌های امتیازدهی (سوابق) — اگر پایگاه‌داده هنوز آماده نیست، صفحه بدونِ سوابق باز می‌شود
+        $ready = \App\Models\PointBatch::ready();
+        $batches = $ready ? \App\Models\PointBatch::where('teacher_id', $teacher->id)->latest('id')->limit(120)->get() : collect();
         $recips = XpEntry::where('source_type', \App\Models\PointBatch::class)->whereIn('source_id', $batches->pluck('id'))
             ->get(['source_id', 'student_id'])->groupBy('source_id');
-        $teamRecips = \App\Models\TeamPoint::whereIn('batch_id', $batches->pluck('id'))->with('theme:id,name,emoji')->get()->groupBy('batch_id');
+        $teamRecips = $batches->isEmpty() ? collect() : \App\Models\TeamPoint::whereIn('batch_id', $batches->pluck('id'))->with('theme:id,name,emoji')->get()->groupBy('batch_id');
         $names = $students->keyBy('id');
         $batchRows = $batches->map(fn ($b) => [
             'id' => $b->id, 'amount' => $b->amount, 'reason' => $b->reason, 'category' => $b->category,
@@ -114,6 +115,7 @@ class StudentPointsController extends Controller
             'batches' => $batchRows,
             'activities' => $activities,
             'lastBatch' => $request->session()->get('lastBatch'),
+            'needsMigration' => ! $ready,
             'tab' => $request->query('tab'),
             'teamKey' => $teamKey ?: null,
             'teamLedger' => $teamLedger,

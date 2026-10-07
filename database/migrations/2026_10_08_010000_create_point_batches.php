@@ -32,7 +32,9 @@ return new class extends Migration
         }
         foreach (['team_points', 'activity_awards'] as $t) {
             if (Schema::hasTable($t) && ! Schema::hasColumn($t, 'batch_id')) {
-                Schema::table($t, fn (Blueprint $table) => $table->unsignedBigInteger('batch_id')->nullable()->index());
+                Schema::table($t, fn (Blueprint $table) => $table->unsignedBigInteger('batch_id')->nullable());
+                // ایندکس جدا ساخته می‌شود تا اگر از تلاشِ نیمه‌کاره‌ی قبلی مانده باشد، مایگریشن نشکند
+                rescue(fn () => Schema::table($t, fn (Blueprint $table) => $table->index('batch_id')), null, false);
             }
         }
     }

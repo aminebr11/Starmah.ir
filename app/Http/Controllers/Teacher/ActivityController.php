@@ -63,7 +63,7 @@ class ActivityController extends Controller
             \App\Models\ActivityAward::whereIn('id', $awardIds)->delete();
         }
         // نوبت‌هایی که از «مرکزِ امتیاز» با این فعالیت داده شده‌اند
-        foreach (\App\Models\PointBatch::where('class_activity_id', $classActivity->id)->pluck('id') as $bid) {
+        foreach ((\App\Models\PointBatch::ready() ? \App\Models\PointBatch::where('class_activity_id', $classActivity->id)->pluck('id') : []) as $bid) {
             \App\Models\XpEntry::where('source_type', \App\Models\PointBatch::class)->where('source_id', $bid)->delete();
             \App\Models\TeamPoint::where('batch_id', $bid)->delete();
             \App\Models\PointBatch::whereKey($bid)->delete();

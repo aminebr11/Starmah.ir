@@ -35,8 +35,17 @@ class PointBatchController extends Controller
         return Classroom::where('teacher_id', $teacher->id)->with('students:id,name,theme_id,school_id')->get();
     }
 
+    /** اگر پایگاه‌داده آماده نباشد، به‌جای ۵۰۰ پیامِ روشن برمی‌گردد. */
+    private function guard(): void
+    {
+        if (! PointBatch::ready()) {
+            throw ValidationException::withMessages(['targets' => 'پایگاه‌داده‌ی سامانه برای «مرکزِ امتیاز» هنوز به‌روز نشده است. ادمینِ کل ← «🩺 سلامتِ سیستم» ← «اجرای مایگریشن‌ها» را بزند.']);
+        }
+    }
+
     public function store(Request $request, GamificationService $game): RedirectResponse
     {
+        $this->guard();
         $teacher = $request->user();
         $data = $request->validate([
             'student_ids'   => ['nullable', 'array'],

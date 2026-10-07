@@ -77,6 +77,11 @@ export default function PointsCenter() {
                     </div>
                 </div>
 
+                {P.needsMigration && (
+                    <div className="pc-banner" style={{ background: '#fff1f1', borderColor: '#f3b4b4' }}>
+                        <b>⚠️ پایگاه‌داده‌ی سامانه برای «مرکزِ امتیاز» هنوز به‌روز نشده؛ امتیازدهی و سوابق تا آن موقع کار نمی‌کنند. ادمینِ کل ← «🩺 سلامتِ سیستم» ← «🛠️ اجرای مایگریشن‌ها».</b>
+                    </div>
+                )}
                 {banner && (
                     <div className="pc-banner" key={banner.at}>
                         <b>{banner.text}</b>
