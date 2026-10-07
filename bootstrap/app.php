@@ -15,6 +15,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // پیش از همه (بیرونی‌ترین لایه): ریدایرکتِ درخواست‌های JSON را به پاسخِ JSON تبدیل کن
         $middleware->web(prepend: [
             \App\Http\Middleware\JsonRedirectsForAjax::class,
+            // به‌روزرسانیِ تازه با مایگریشنِ اجرانشده → یک‌بار خودکار اجرا شود (جلوی ۵۰۰ را می‌گیرد)
+            \App\Http\Middleware\ApplyPendingMigrations::class,
         ]);
         $middleware->web(append: [
             \App\Http\Middleware\HandleInertiaRequests::class,
@@ -34,6 +36,14 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // «جدول/ستون وجود ندارد» → دفعه‌ی بعد مایگریشن‌ها دوباره بررسی شوند
+        $exceptions->report(function (\Illuminate\Database\QueryException $e) {
+            if (preg_match('/1146|42S02|1054|42S22|no such table|no such column/i', $e->getMessage())) {
+                \App\Support\AutoMigrate::forget();
+            }
+            // چیزی برنمی‌گردانیم تا گزارشِ عادیِ خطا هم انجام شود
+        });
+
         // خطاها برای درخواست‌هایی که JSON می‌خواهند (axios، نه Inertia) هم JSON باشد.
         // قبلاً فقط api/* بود؛ پس خطای اعتبارسنجی یا نشستِ منقضی در /teacher/... به
         // «ریدایرکت» تبدیل می‌شد، مرورگر صفحه‌ی HTML می‌گرفت و طراحیِ سؤال می‌شکست.
