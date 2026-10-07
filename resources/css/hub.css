@@ -110,3 +110,29 @@
 .rs-one:disabled { opacity: .5; }
 .rs-msg { display: flex; align-items: center; gap: 8px; background: #e3f7ec; color: #177a45; border: 1px solid #b5e6cb; border-radius: 11px; padding: 8px 12px; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
 .rs-msg button { margin-inline-start: auto; border: 0; background: none; color: inherit; cursor: pointer; font-size: 14px; }
+
+/* سلامتِ سیستم */
+.dg-hero { display: flex; gap: 14px; align-items: center; }
+.dg-hero.ok { background: linear-gradient(135deg, #e3f7ec, #fff); border-color: #b5e6cb; }
+.dg-hero.bad { background: linear-gradient(135deg, #fff1f1, #fff); border-color: #f3b4b4; }
+.dg-hero h3 { margin: 0 0 4px; }
+.dg-hero p { margin: 0; color: var(--muted); font-size: 13px; }
+.dg-ic { font-size: 38px; }
+.dg-muted { color: var(--muted); font-size: 13px; line-height: 2; }
+.dg-list { margin: 6px 0 12px; padding-inline-start: 18px; font-size: 12.5px; font-family: monospace; }
+.dg-test { margin-top: 12px; border-radius: 12px; padding: 12px; }
+.dg-test.ok { background: #e3f7ec; }
+.dg-test.bad { background: #fff1f1; }
+.dg-step { padding: 6px 0; border-bottom: 1px dashed rgba(0, 0, 0, .08); font-size: 13px; }
+.dg-step.ok span { color: #177a45; }
+.dg-step.bad span { color: #b0333f; font-weight: 800; }
+.dg-err { margin-top: 4px; color: #8a1f1f; font-size: 12.5px; line-height: 1.9; }
+.dg-err pre, .dg-out pre { white-space: pre-wrap; word-break: break-word; background: rgba(0, 0, 0, .05); border-radius: 8px; padding: 8px; font-size: 11.5px; margin: 6px 0 0; direction: ltr; text-align: left; }
+.dg-out.ok { border-color: #b5e6cb; }
+.dg-out.bad { border-color: #f3b4b4; }
+.dg-errors { display: grid; gap: 6px; max-height: 420px; overflow-y: auto; }
+.dg-errrow { background: #fff5f5; border-radius: 10px; padding: 7px 10px; font-size: 12.5px; overflow-wrap: anywhere; }
+.dg-errrow small { color: var(--muted); }
+.dg-env { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.dg-env > div { background: #f6f8fc; border-radius: 10px; padding: 8px 10px; font-size: 12.5px; display: flex; flex-direction: column; gap: 2px; }
+.dg-env span { color: var(--muted); font-size: 11.5px; }

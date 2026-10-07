@@ -267,6 +267,7 @@ export const adminMenu = [
     { key: 'sms', label: 'سامانه‌ی پیامک', icon: '📩', href: '/admin/sms' },
     { key: 'integrations', label: 'درگاه‌ها (پیامک/پرداخت)', icon: '🔌', href: '/admin/integrations' },
     { key: 'settings', label: 'تنظیمات پلتفرم', icon: '⚙️', href: '/admin/settings' },
+    { key: 'diagnostics', label: 'سلامتِ سیستم', icon: '🩺', href: '/admin/diagnostics' },
 ];
 
 export const schoolMenu = [

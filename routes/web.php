@@ -107,6 +107,11 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::get('/reports', [PlatformController::class, 'reports'])->name('reports');
     Route::get('/visits', [\App\Http\Controllers\Admin\VisitReportController::class, 'index'])->name('visits');
     // مرکزِ هوش مصنوعی
+    // سلامتِ سیستم: مایگریشن‌ها، ستون‌ها، charset، خطاهای اخیر و آزمایشِ ذخیره
+    Route::get('/diagnostics', [\App\Http\Controllers\Admin\DiagnosticsController::class, 'index'])->name('diagnostics');
+    Route::post('/diagnostics/migrate', [\App\Http\Controllers\Admin\DiagnosticsController::class, 'migrate'])->name('diagnostics.migrate');
+    Route::post('/diagnostics/clear', [\App\Http\Controllers\Admin\DiagnosticsController::class, 'clearCaches'])->name('diagnostics.clear');
+    Route::post('/diagnostics/test-save', [\App\Http\Controllers\Admin\DiagnosticsController::class, 'testSave'])->name('diagnostics.test');
     Route::get('/ai', [\App\Http\Controllers\Admin\AiCenterController::class, 'index'])->name('ai');
     Route::post('/ai', [\App\Http\Controllers\Admin\AiCenterController::class, 'save'])->name('ai.save');
     Route::post('/ai/test', [\App\Http\Controllers\Admin\AiCenterController::class, 'test'])->middleware('throttle:15,1')->name('ai.test');

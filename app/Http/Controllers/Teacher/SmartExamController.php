@@ -26,6 +26,8 @@ use Inertia\Response;
 /** آزمایشگاه هوشمند آزمون — سمت معلم (ماژول آزمایشی، جدا از آزمون‌ساز فعلی). */
 class SmartExamController extends Controller
 {
+    use \App\Http\Controllers\Concerns\FriendlySaveErrors;
+
     use \App\Http\Controllers\Concerns\BuildsAiQuestions;
     /** صفحه‌ی اصلیِ آزمون‌ها: دسته‌بندی‌شده (منتشر، در انتظار، آرشیو) و به تفکیکِ درس. */
     public function lab(Request $request): Response
@@ -192,14 +194,22 @@ class SmartExamController extends Controller
         $data = $this->validated($request);
         $this->assertTargetsOwned($teacher, $data);
 
-        $exam = SmartExam::create($this->attributes($teacher, $data));
-        $this->syncQuestions($exam, $data['questions']);
-        $this->syncTargets($exam, $data);
+        try {
+            // خودِ آزمون، سؤال‌ها و مخاطبان یک‌جا: یا همه ذخیره می‌شوند یا هیچ‌کدام
+            $exam = DB::transaction(function () use ($teacher, $data) {
+                $exam = SmartExam::create($this->attributes($teacher, $data));
+                $this->syncQuestions($exam, $data['questions']);
+                $this->syncTargets($exam, $data);
 
-        // اعلان به مخاطبان (اگر زمان‌دار باشد، سرِ ساعتِ شروع)
+                return $exam;
+            });
+        } catch (\Throwable $e) {
+            return $this->saveFailed($e, 'آزمون');
+        }
+
+        // کارهای جانبی هرگز نباید ذخیره‌ی آزمون را خراب کنند
         \App\Support\ActivityNotifier::exam($exam);
-
-        AuditLog::record($teacher, 'ساخت آزمون هوشمند', "آزمون «{$exam->title}» ساخته شد");
+        rescue(fn () => AuditLog::record($teacher, 'ساخت آزمون هوشمند', "آزمون «{$exam->title}» ساخته شد"), null, true);
         return redirect()->route('teacher.smart.lab')->with('flash', 'آزمون هوشمند ساخته شد 🧪');
     }
 
@@ -211,11 +221,17 @@ class SmartExamController extends Controller
 
         $before = \App\Support\ActivityNotifier::fingerprint($smartExam->questions()->get());
 
-        // ویرایش روی همان آزمون ذخیره می‌شود (بدون ساختِ نسخه‌ی جدید).
-        $smartExam->update($this->attributes($request->user(), $data));
-        $smartExam->increment('version');
-        $this->syncQuestions($smartExam, $data['questions']);
-        $this->syncTargets($smartExam, $data);
+        try {
+            // ویرایش روی همان آزمون ذخیره می‌شود (بدون ساختِ نسخه‌ی جدید) — یک‌جا و اتمی
+            DB::transaction(function () use ($smartExam, $request, $data) {
+                $smartExam->update($this->attributes($request->user(), $data));
+                $smartExam->increment('version');
+                $this->syncQuestions($smartExam, $data['questions']);
+                $this->syncTargets($smartExam, $data);
+            });
+        } catch (\Throwable $e) {
+            return $this->saveFailed($e, 'آزمون');
+        }
 
         // دانش‌آموزانِ تازه (انتشارِ تازه یا تغییرِ گروه) اعلان می‌گیرند؛ تغییرِ سؤال‌ها خبرِ «به‌روز شد» دارد
         $changed = $before !== \App\Support\ActivityNotifier::fingerprint($smartExam->questions()->get());
@@ -473,8 +489,9 @@ class SmartExamController extends Controller
         ];
         foreach (array_values($questions) as $i => $q) {
             // ثبت/پیوند در بانک سؤالات با دسته‌بندیِ کامل (پایه، درس، فصل، مبحث)
-            $bankId = $exam->teacher ? \App\Support\BankAccess::autosave($exam->teacher, $q,
-                $meta + ['count_use' => ! in_array($q['bank_id'] ?? null, $linked, false)]) : null;
+            // ثبت در بانک «کارِ جانبی» است: اگر شکست بخورد، سؤالِ آزمون باز هم ذخیره می‌شود
+            $bankId = $exam->teacher ? rescue(fn () => \App\Support\BankAccess::autosave($exam->teacher, $q,
+                $meta + ['count_use' => ! in_array($q['bank_id'] ?? null, $linked, false)]), null, true) : null;
             SmartExamQuestion::create([
                 'smart_exam_id' => $exam->id, 'bank_id' => $bankId, 'type' => $q['type'] ?? 'mc', 'prompt' => $q['prompt'],
                 'choices' => \App\Support\BankAccess::cleanChoices($q['choices'] ?? []), 'answer' => $q['answer'] ?? null,

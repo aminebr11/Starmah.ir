@@ -123,7 +123,7 @@ export default function SmartExamLab() {
                                 {errorList.map((e) => (
                                     <li key={e.k}>
                                         <span>{e.text}</span>
-                                        {(step !== e.step || e.qn !== null) && (
+                                        {e.k !== '_server' && (step !== e.step || e.qn !== null) && (
                                             <button type="button" onClick={() => goTo(e)}>برو به {e.qn !== null ? `سؤالِ ${fa(e.qn + 1)}` : `گامِ ${fa(e.step)}`} ←</button>
                                         )}
                                     </li>

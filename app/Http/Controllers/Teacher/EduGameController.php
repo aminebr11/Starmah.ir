@@ -19,6 +19,8 @@ use Inertia\Response;
 /** استودیوی ساخت بازی (معلم) — قالب + تم + سؤال + قوانین + انتشار. */
 class EduGameController extends Controller
 {
+    use \App\Http\Controllers\Concerns\FriendlySaveErrors;
+
     use \App\Http\Controllers\Concerns\BuildsAiQuestions;
     /** صفحه‌ی اصلیِ استودیو: بازی‌ها دسته‌بندی‌شده (منتشر، در انتظار، آرشیو) و به تفکیکِ درس. */
     public function index(Request $request): Response
@@ -210,9 +212,17 @@ class EduGameController extends Controller
         $classroom = Classroom::where('teacher_id', $teacher->id)->firstOrFail();
         $data = $this->validated($request);
 
-        $game = EduGame::create($this->attributes($teacher, $classroom, $data));
-        $this->syncQuestions($game, $data['questions']);
-        $this->syncTargets($game, $data);
+        try {
+            $game = \Illuminate\Support\Facades\DB::transaction(function () use ($teacher, $classroom, $data) {
+                $game = EduGame::create($this->attributes($teacher, $classroom, $data));
+                $this->syncQuestions($game, $data['questions']);
+                $this->syncTargets($game, $data);
+
+                return $game;
+            });
+        } catch (\Throwable $e) {
+            return $this->saveFailed($e, 'بازی');
+        }
         // اعلان به مخاطبان (اگر زمان‌دار باشد، سرِ ساعتِ انتشار)
         \App\Support\ActivityNotifier::game($game);
 
@@ -244,9 +254,15 @@ class EduGameController extends Controller
         }
 
         $before = \App\Support\ActivityNotifier::fingerprint($eduGame->questions()->get());
-        $eduGame->update($this->attributes($request->user(), $classroom, $data));
-        $this->syncQuestions($eduGame, $data['questions']);
-        $this->syncTargets($eduGame, $data);
+        try {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($eduGame, $request, $classroom, $data) {
+                $eduGame->update($this->attributes($request->user(), $classroom, $data));
+                $this->syncQuestions($eduGame, $data['questions']);
+                $this->syncTargets($eduGame, $data);
+            });
+        } catch (\Throwable $e) {
+            return $this->saveFailed($e, 'بازی');
+        }
         // دانش‌آموزانِ تازه (انتشارِ تازه یا تغییرِ گروه) اعلان می‌گیرند؛ تغییرِ سؤال‌ها خبرِ «به‌روز شد» دارد
         $changed = $before !== \App\Support\ActivityNotifier::fingerprint($eduGame->questions()->get());
         \App\Support\ActivityNotifier::game($eduGame->fresh(), [], $changed);
@@ -455,9 +471,10 @@ class EduGameController extends Controller
         foreach (array_values($questions) as $i => $q) {
             $type = $q['type'] ?? 'mc';
             // سؤالِ بازی هم در بانک ثبت/پیوند می‌شود — با همان پایه، درس و فصل
+            // ثبت در بانک «کارِ جانبی» است: اگر شکست بخورد، سؤالِ بازی باز هم ذخیره می‌شود
             $bankId = $game->teacher && in_array($type, ['mc', 'tf', 'short'], true)
-                ? \App\Support\BankAccess::autosave($game->teacher, $q + ['hint' => $q['hint1'] ?? null],
-                    $meta + ['count_use' => ! in_array($q['bank_id'] ?? null, $linked, false)])
+                ? rescue(fn () => \App\Support\BankAccess::autosave($game->teacher, $q + ['hint' => $q['hint1'] ?? null],
+                    $meta + ['count_use' => ! in_array($q['bank_id'] ?? null, $linked, false)]), null, true)
                 : null;
             EduGameQuestion::create([
                 'edu_game_id' => $game->id,
