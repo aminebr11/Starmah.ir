@@ -2,6 +2,7 @@ import { usePage, useForm, router, Link } from '@inertiajs/react';
 import { useState, useEffect, useRef } from 'react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
+import AlbumGallery from '@/Components/AlbumGallery';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -21,8 +22,11 @@ const TABS = [
 ];
 
 export default function Materials() {
-    const { items = [], classrooms = [], worksheets = [], flash } = usePage().props;
-    const [tab, setTab] = useState('material');
+    const { items = [], classrooms = [], worksheets = [], albums = [], openAlbum = null, flash } = usePage().props;
+    const [tab, setTab] = useState(() => {
+        const t = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tab') : null;
+        return openAlbum ? 'gallery' : (TABS.some((x) => x.v === t) ? t : 'material');
+    });
     const [banner, setBanner] = useState(null);
     const fileRef = useRef(null);
     useEffect(() => { if (flash?.flash) setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); }, [flash]);
@@ -99,18 +103,21 @@ export default function Materials() {
             <div className="dash-cards content-tabs" style={{ marginBottom: 4 }}>
                 {TABS.map((t) => {
                     const count = t.worksheet ? worksheets.length : items.filter((i) => i.type === t.v).length;
+                    const unit = t.v === 'gallery' ? `${fa(albums.length)} آلبوم · ${fa(count)} عکس` : `${fa(count)} مورد`;
                     return (
                         <button key={t.v} onClick={() => setTab(t.v)}
                             className="dcard" style={{ cursor: 'pointer', textAlign: 'center', border: tab === t.v ? '2px solid var(--gold)' : '1px solid var(--line)', background: tab === t.v ? '#fff8e8' : '#fff', fontFamily: 'inherit' }}>
                             <div style={{ fontSize: 30 }}>{t.ic}</div>
                             <div style={{ fontWeight: 800, marginTop: 6, color: 'var(--navy-800)' }}>{t.t}</div>
-                            <div style={{ color: 'var(--muted)', fontSize: 12 }}>{fa(count)} مورد</div>
+                            <div style={{ color: 'var(--muted)', fontSize: 12 }}>{unit}</div>
                         </button>
                     );
                 })}
             </div>
 
-            {tab === 'worksheet' ? <WorksheetPanel worksheets={worksheets} /> : (
+            {tab === 'gallery' ? (
+                <div className="panel"><AlbumGallery albums={albums} mode="teacher" classrooms={classrooms} openAlbum={openAlbum} /></div>
+            ) : tab === 'worksheet' ? <WorksheetPanel worksheets={worksheets} /> : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 20, alignItems: 'start' }} className="themes-grid">
                 {/* فرم بارگذاری */}
                 <form onSubmit={submit} className="panel">

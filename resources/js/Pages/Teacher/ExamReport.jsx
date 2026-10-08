@@ -1,6 +1,7 @@
 import { usePage, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
+import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const pctColor = (p) => p === null ? 'var(--muted)' : p >= 75 ? '#16a34a' : p >= 50 ? '#d97706' : '#dc2626';
@@ -11,13 +12,17 @@ export default function ExamReport() {
     const { exam, classroom, rows = [], summary = {}, buckets = {}, questionStats = [], hasDesc = false, printedAt } = usePage().props;
     const maxBucket = Math.max(1, ...Object.values(buckets));
     const descStudents = rows.filter((r) => r.done && (r.descAnswers || []).length > 0);
+    const rs = useSort(rows, { name: (r) => firstName(r.name), family: (r) => lastName(r.name), score: (r) => (r.done ? r.score : null), percent: (r) => (r.done ? r.percent : null),
+        status: (r) => (!r.done ? null : r.percent >= 50 ? 1 : 0), date: 'date_raw' }, { id: 'teacher-exam-report', firstDir: { score: 'desc', percent: 'desc', status: 'desc', date: 'desc' } });
+    const qs = useSort(questionStats, { num: 'i', pct: 'pct', wrong: 'wrong', correct: 'correct' }, { id: 'teacher-exam-report-q', firstDir: { wrong: 'desc', correct: 'desc', pct: 'desc' } });
+    const rank = (r) => rows.indexOf(r) + 1; // رتبه بر اساسِ درصد (ترتیبِ سرور)، مستقل از مرتب‌سازیِ نمایش
 
     return (
         <DashLayout title="نتایج آزمون" roleLabel="معلم" menu={teacherMenu} active="exams"
             actions={<><Link href={route('teacher.exams')} className="btn btn-ghost btn-sm no-print">← بازگشت</Link><button onClick={() => window.print()} className="btn btn-sm no-print">🖨️ چاپ</button></>}>
 
             <div className="report-print-head">
-                <img src="/brand/logo-emblem.png" alt="" />
+                <img src="/brand/logo-mark-240.webp" alt="" />
                 <div style={{ flex: 1, textAlign: 'center' }}>
                     <div className="rph-title">کارنامه‌ی آزمون</div>
                     <div className="rph-school">{exam?.title}</div>
@@ -58,13 +63,14 @@ export default function ExamReport() {
             {/* جدول مقایسه */}
             <div className="panel printable">
                 <h3 className="no-print" style={{ marginTop: 0 }}>📋 نمرات دانش‌آموزان (مرتب‌شده)</h3>
+                {rows.length > 1 && <SortBar s={rs} options={[['name', 'نام'], ['family', 'نام خانوادگی'], ['percent', 'درصد'], ['date', 'زمان ارسال']]} />}
                 <div style={{ overflowX: 'auto' }}>
                     <table className="tbl">
-                        <thead><tr><th>رتبه</th><th>دانش‌آموز</th><th style={{ textAlign: 'center' }}>نمره</th><th style={{ textAlign: 'center' }}>درصد</th><th style={{ textAlign: 'center' }}>وضعیت</th><th>زمان ارسال</th></tr></thead>
+                        <thead><tr><SortTh s={rs} k="percent">رتبه</SortTh><SortTh s={rs} k="family">دانش‌آموز</SortTh><SortTh s={rs} k="score" style={{ textAlign: 'center' }}>نمره</SortTh><SortTh s={rs} k="percent" style={{ textAlign: 'center' }}>درصد</SortTh><SortTh s={rs} k="status" style={{ textAlign: 'center' }}>وضعیت</SortTh><SortTh s={rs} k="date">زمان ارسال</SortTh></tr></thead>
                         <tbody>
-                            {rows.map((r, i) => (
+                            {rs.sorted.map((r) => (
                                 <tr key={r.id}>
-                                    <td>{r.done ? fa(i + 1) : '—'}</td>
+                                    <td>{r.done ? fa(rank(r)) : '—'}</td>
                                     <td style={{ fontWeight: 700 }}>{r.name}</td>
                                     <td style={{ textAlign: 'center' }}>{r.done ? `${fa(r.score)} از ${fa(r.max)}` : '—'}</td>
                                     <td style={{ textAlign: 'center', fontWeight: 800, color: pctColor(r.percent) }}>{r.done ? `${fa(r.percent)}٪` : '—'}</td>
@@ -86,8 +92,9 @@ export default function ExamReport() {
                 <div className="panel">
                     <h3 style={{ marginTop: 0 }}>🔍 تحلیل سؤال‌به‌سؤال (نقاط ضعف کلاس)</h3>
                     <p style={{ color: 'var(--muted)', fontSize: 13 }}>سؤال‌هایی که بیشترین اشتباه را داشته‌اند، ضعفِ مشترکِ کلاس‌اند و برای مرور مناسب‌اند.</p>
+                    {questionStats.length > 1 && <SortBar s={qs} options={[['num', 'شماره سؤال'], ['pct', 'درصد درست'], ['wrong', 'تعداد اشتباه']]} />}
                     <div style={{ display: 'grid', gap: 8 }}>
-                        {questionStats.map((q) => <QStat key={q.i} q={q} />)}
+                        {qs.sorted.map((q) => <QStat key={q.i} q={q} />)}
                     </div>
                 </div>
             )}

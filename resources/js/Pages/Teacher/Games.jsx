@@ -1,13 +1,17 @@
 import { usePage, useForm, router } from '@inertiajs/react';
+import { aiErrorText, aiResultText, salvageAiPayload } from '@/lib/aiErrors';
+import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
+import { useSort, SortBar } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const blankQ = () => ({ prompt: '', choices: [{ value: '', correct: true }, { value: '', correct: false }] });
 
 export default function Games() {
     const { classroom, games = [], subjects = [], flash } = usePage().props;
+    const gs = useSort(games, { title: 'title', subject: 'subject', count: 'count', points: 'points', plays: 'plays', live: (g) => (g.live ? 1 : 0) }, { id: 'teacher-games', firstDir: { count: 'desc', points: 'desc', plays: 'desc', live: 'desc' } });
     const [banner, setBanner] = useState(null);
     const [editId, setEditId] = useState(null);
     useEffect(() => { if (flash?.flash) { setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); window.scrollTo({ top: 0, behavior: 'smooth' }); } }, [flash]);
@@ -46,10 +50,12 @@ export default function Games() {
         setAiBusy(true); setAiMsg(null); setAiRes([]);
         try {
             const topic = (ai.topic || '').trim() || form.data.title?.trim() || form.data.subject;
-            const { data } = await axios.post(route('teacher.games.ai'), { ...ai, subject: form.data.subject, topic });
-            setAiMsg({ ok: data.ok, mode: data.mode, text: data.message });
-            if (data.ok) setAiRes((data.questions || []).map((q) => ({ ...q, _pick: true })));
-        } catch (e) { setAiMsg({ ok: false, text: e.response?.data?.message || 'خطا' }); }
+            const { data: raw } = await axios.post(route('teacher.games.ai'), { ...ai, subject: form.data.subject, topic });
+            const data = salvageAiPayload(raw) || raw;
+            const good = !!data?.ok && Array.isArray(data.questions);
+            setAiMsg({ ok: good, mode: data?.mode, text: good ? data.message : aiResultText(data) });
+            if (good) setAiRes(data.questions.map((q) => ({ ...q, _pick: true })));
+        } catch (e) { setAiMsg({ ok: false, text: aiErrorText(e) }); }
         setAiBusy(false);
     };
     const addAi = () => {
@@ -91,7 +97,7 @@ export default function Games() {
                             {subjects.map((s, i) => { const nm = typeof s === 'string' ? s : s.name; return <option key={i} value={nm}>{typeof s === 'string' ? s : `${s.icon || ''} ${s.name}`}</option>; })}
                         </select></Field>
                         <Field label="امتیاز (XP) کل بازی" err={form.errors.points}><input type="number" min={1} max={500} className="input" value={form.data.points} onChange={(e) => form.setData('points', e.target.value)} dir="ltr" /></Field>
-                        <Field label="زمان انتشار (اختیاری)"><input type="datetime-local" className="input" value={form.data.scheduled_at} onChange={(e) => form.setData('scheduled_at', e.target.value)} dir="ltr" /></Field>
+                        <Field label="زمان انتشار (اختیاری)"><JalaliDatePicker withTime value={form.data.scheduled_at || ''} onChange={(v) => form.setData('scheduled_at', v)} placeholder="بلافاصله" /></Field>
                     </div>
 
                     <div style={{ marginTop: 16 }}>
@@ -171,8 +177,9 @@ export default function Games() {
             <div className="panel">
                 <h3>🗄️ بانک بازی‌ها ({fa(games.length)})</h3>
                 {games.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز بازی‌ای نساخته‌ای.</p>}
+                {games.length > 1 && <SortBar s={gs} options={[['title', 'عنوان'], ['subject', 'درس'], ['points', 'امتیاز'], ['plays', 'تعداد بازی'], ['count', 'تعداد سؤال'], ['live', 'منتشر']]} />}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12, marginTop: 8 }}>
-                    {games.map((g) => (
+                    {gs.sorted.map((g) => (
                         <div key={g.id} style={{ border: '1px solid var(--line)', borderRadius: 14, padding: 14, borderTop: `4px solid ${g.live ? '#2bb673' : '#c4ccda'}` }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <span style={{ fontSize: 22 }}>🎮</span>

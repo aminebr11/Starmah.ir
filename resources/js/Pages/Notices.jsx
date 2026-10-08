@@ -1,8 +1,8 @@
 import { usePage } from '@inertiajs/react';
-import DashLayout, { adminMenu, schoolMenu, teacherMenu } from '@/Layouts/DashLayout';
+import DashLayout, { adminMenu, schoolMenu, teacherMenu, parentMenu } from '@/Layouts/DashLayout';
 import NotificationCenter from '@/Components/NotificationCenter';
 
-const MENUS = { super_admin: adminMenu, school_admin: schoolMenu, teacher: teacherMenu };
+const MENUS = { super_admin: adminMenu, school_admin: schoolMenu, teacher: teacherMenu, parent: parentMenu };
 const LABELS = { super_admin: 'ادمین کل', school_admin: 'مدیر مدرسه', teacher: 'معلم', parent: 'والد' };
 
 /**

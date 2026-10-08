@@ -44,11 +44,20 @@ class StudentGradesController extends Controller
         })->values();
 
         // گروه‌بندی بر اساس درس
-        $bySubject = $items->groupBy('lesson')->map(fn ($g, $lesson) => [
-            'lesson' => $lesson,
-            'count' => $g->count(),
-            'items' => $g->values(),
-        ])->values();
+        // تسلطِ هر درس از موتورِ تسلط (نمره‌های همین‌جا هم جزوِ شواهدش هستند)
+        $mastery = collect(app(\App\Services\MasteryService::class)->forStudent($user->id)['subjects'] ?? [])->keyBy('name');
+        $bySubject = $items->groupBy('lesson')->map(function ($g, $lesson) use ($mastery) {
+            $m = $mastery->get(\App\Services\MasteryService::subject($lesson === 'سایر' ? null : $lesson));
+            return [
+                'lesson' => $lesson,
+                'count' => $g->count(),
+                'items' => $g->values(),
+                'mastery' => $m['mastery'] ?? null,
+                'level' => $m['level'] ?? null,
+                'need' => $m['need'] ?? null,
+                'mastery_n' => $m['n'] ?? 0,
+            ];
+        })->values();
 
         $totalXp = (int) $xpByGrade->sum();
 

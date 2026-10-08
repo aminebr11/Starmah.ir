@@ -14,7 +14,7 @@ class EduGame extends Model
 
     protected $fillable = [
         'school_id', 'teacher_id', 'template_key', 'theme_id', 'title', 'description',
-        'subject', 'grade', 'difficulty', 'cover_path', 'status', 'publish_at', 'close_at', 'rules', 'version',
+        'level', 'subject', 'grade', 'chapter_id', 'chapter', 'topic', 'goal', 'difficulty', 'cover_path', 'status', 'publish_at', 'close_at', 'rules', 'version',
     ];
 
     protected $casts = [

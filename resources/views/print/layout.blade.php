@@ -38,6 +38,12 @@
         .toolbar{ position:sticky; top:0; background:var(--navy); color:#fff; padding:10px 16px; display:flex; gap:10px; align-items:center; z-index:5; }
         .toolbar button{ font-family:inherit; font-weight:800; font-size:13px; border:0; border-radius:10px; padding:8px 18px; cursor:pointer; background:#f5b53f; color:#221503; }
         .toolbar a{ color:#c4d2f0; font-size:12px; text-decoration:none; }
+        /* نمایش در گوشی: برگه تمام‌عرض و جدول‌ها داخلِ خودشان اسکرول می‌خورند (چاپ دست‌نخورده است) */
+        @media screen and (max-width:760px){
+            .sheet{ margin:8px; padding:14px 10px; min-height:0; max-width:none; }
+            table{ display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+            th, td{ white-space:nowrap; }
+        }
         @media print{
             body{ background:#fff; }
             .sheet{ margin:0; box-shadow:none; padding:8mm 10mm; min-height:auto; max-width:none; }
@@ -52,12 +58,21 @@
 </head>
 <body>
     <div class="toolbar">
-        <button onclick="window.print()">🖨️ چاپ / ذخیره به PDF</button>
+        <button onclick="doPrint()">🖨️ چاپ / ذخیره به PDF</button>
         <a href="{{ $back ?? url('/') }}">← بازگشت</a>
         <button type="button" onclick="tryClose()" style="background:#33405e;color:#fff">✕ بستن</button>
         <span style="margin-inline-start:auto;font-size:12px;opacity:.8">برای PDF: در پنجره‌ی چاپ، «Save as PDF» را انتخاب کنید</span>
     </div>
     <script>
+        // داخلِ اپِ اندروید window.print کاری نمی‌کند؛ اپ پلِ StarmahApp.print را دارد
+        function doPrint(){ if (window.StarmahApp && window.StarmahApp.print) { window.StarmahApp.print(document.title); } else { window.print(); } }
+        // ?autoprint=1 → وقتی فونت‌ها و تصویرها آماده شدند، پنجره‌ی چاپ خودکار باز شود
+        if (/[?&]autoprint=1/.test(location.search)) {
+            window.addEventListener('load', function () {
+                var go = function () { setTimeout(doPrint, 350); };
+                (document.fonts && document.fonts.ready) ? document.fonts.ready.then(go) : go();
+            });
+        }
         function tryClose(){ window.close(); setTimeout(function(){ if(!window.closed){ window.location.href = @json($back ?? url('/')); } }, 120); }
     </script>
     <div class="sheet">
@@ -67,7 +82,7 @@
                 <h1>{{ $title }}</h1>
                 <div class="sub">{{ $school_name ?? 'ستاره ماه' }}@if(!empty($school_city)) · {{ $school_city }}@endif</div>
             </div>
-            <div class="brand"><img src="/brand/logo-emblem.png" alt="">ستاره ماه</div>
+            <div class="brand"><img src="/brand/logo-mark-240.webp" alt="">ستاره ماه</div>
         </div>
         <div class="meta"><span>تاریخِ صدور: {{ $today }}</span><span>starmah.ir</span></div>
         @yield('content')

@@ -21,7 +21,7 @@ export default function PhoneReset() {
                 <div className="stars-bg" />
                 <span className="floatemoji" style={{ top: 50, insetInlineStart: 50, fontSize: 28 }}>🔑</span>
                 <div className="brandrow">
-                    <img src="/brand/logo-emblem.png" alt="ستاره ماه" />
+                    <img src="/brand/logo-mark-240.webp" alt="ستاره ماه" />
                     <span style={{ fontWeight: 800, fontSize: 22 }}>ستاره ماه</span>
                 </div>
                 <h2>رمزت را فراموش کردی؟<br />با پیامک بازیابی کن 📱</h2>
@@ -30,7 +30,7 @@ export default function PhoneReset() {
 
             <div className="auth-form">
                 <div className="auth-form-inner">
-                    <Link href="/" className="logo-sm"><img src="/brand/logo-emblem.png" alt="" /> ستاره ماه</Link>
+                    <Link href="/" className="logo-sm"><img src="/brand/logo-mark-240.webp" alt="" /> ستاره ماه</Link>
                     <h1 className="auth-h">بازیابیِ رمز با پیامک</h1>
                     <p className="auth-sub">{step === 1 ? 'شماره‌ی موبایلِ حسابت را وارد کن' : 'کدِ پیامک‌شده و رمزِ جدید را وارد کن'}</p>
 

@@ -88,36 +88,8 @@ class SchoolDashboardController extends Controller
         // تا مدیرِ مدرسه بتواند ببیند، ویرایش کند و چاپ بگیرد.
         $students = User::role(Roles::STUDENT)->where('school_id', $schoolId)
             ->with('theme:id,name,emoji')->get()
-            ->map(function ($s) {
-                $class = $s->classrooms()->with('teacher:id,name')->first();
-                $settings = $s->settings ?? [];
-                $g = $settings['guardian'] ?? [];
-                $parts = preg_split('/\s+/', trim((string) $s->name), 2);
-
-                return [
-                    'id' => $s->id, 'name' => $s->name,
-                    'first_name' => $parts[0] ?? '', 'last_name' => $parts[1] ?? '',
-                    'avatar' => $s->avatar_url, 'has_avatar' => (bool) $s->avatar,
-                    'phone' => $s->phone, 'national_id' => $s->national_id,
-                    'gender' => $settings['gender'] ?? null,
-                    'grade' => $s->grade,
-                    'birth_date' => $s->birth_date?->toDateString(),
-                    'jbirth' => $s->birth_date ? Jalali::format($s->birth_date) : null,
-                    'father_name' => $g['father_name'] ?? null,
-                    'mother_name' => $g['mother_name'] ?? null,
-                    'parent_relation' => $g['relation'] ?? null,
-                    'address' => $g['address'] ?? ($settings['address'] ?? null),
-                    // سازگاری با داده‌های قدیمی که guardian_name مستقیم در settings بود
-                    'guardian_name' => $g['father_name'] ?? $g['mother_name'] ?? ($settings['guardian_name'] ?? null),
-                    'guardian_phone' => $g['phone'] ?? ($settings['guardian_phone'] ?? null),
-                    'parent_pin' => $g['pin'] ?? null,
-                    'theme_id' => $s->theme_id,
-                    'team' => $s->theme ? "{$s->theme->emoji} {$s->theme->name}" : null,
-                    'classroom_id' => $class?->id, 'class' => $class?->name, 'teacher' => $class?->teacher?->name,
-                    'joined' => Jalali::format($s->created_at),
-                    'xp' => $s->totalXp(),
-                ];
-            })->sortBy('name', SORT_NATURAL)->values();
+            ->map(fn ($s) => \App\Support\StudentRecordData::row($s))
+            ->sortBy('name', SORT_NATURAL)->values();
 
         $classrooms = Classroom::with('teacher:id,name')->get()
             ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name, 'grade' => $c->grade,
@@ -130,6 +102,7 @@ class SchoolDashboardController extends Controller
             ->map(fn ($a) => [
                 'actor' => $a->actor_name, 'role' => $a->actor_role, 'action' => $a->action,
                 'summary' => $a->summary, 'when' => Jalali::format($a->created_at, true),
+                'when_raw' => $a->created_at?->timestamp,
             ]);
 
         return Inertia::render('SchoolAdmin/Students', [
@@ -270,7 +243,12 @@ class SchoolDashboardController extends Controller
             $text = $ai->generate('یک اطلاعیه‌ی مدرسه‌ی کوتاه و رسمی درباره‌ی این موضوع بنویس: ' . $data['topic'], $data['topic']);
             return back()->with('flash', ['type' => 'ai', 'message' => $text]);
         } catch (\Throwable $e) {
-            return back()->with('flash', ['type' => 'error', 'message' => $e->getMessage()]);
+            \Illuminate\Support\Facades\Log::warning('ai announcement failed: ' . $e->getMessage());
+            // متنِ خامِ خطا (مثلاً cURL error 28) به کاربر نشان داده نشود
+            $msg = preg_match('/[\x{0600}-\x{06FF}]/u', $e->getMessage())
+                ? $e->getMessage()
+                : 'اتصال به هوش مصنوعی برقرار نشد. چند لحظه بعد دوباره امتحان کنید.';
+            return back()->with('flash', ['type' => 'error', 'message' => $msg]);
         }
     }
 
@@ -281,8 +259,11 @@ class SchoolDashboardController extends Controller
             ? User::role(Roles::STUDENT)->where('school_id', $school->id)->pluck('id')
             : collect();
 
+        $days = \App\Services\VisitAnalytics::period($request->query('days', 30));
+
         return Inertia::render('SchoolAdmin/Reports', [
-            'report' => $school ? $analytics->schoolReport($school) : null,
+            'days'   => $days, 'periods' => \App\Services\VisitAnalytics::PERIODS,
+            'report' => $school ? $analytics->schoolReport($school, $days) : null,
             'trend'  => $studentIds->isNotEmpty() ? $analytics->dailyXpSeries($studentIds, 28) : [],
         ]);
     }

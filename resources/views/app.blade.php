@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="fa" dir="rtl">
+@php $ui = \App\Support\Ui::current(); @endphp
+<html lang="fa" dir="rtl" data-ui="{{ $ui }}">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-        <meta name="theme-color" content="#0b1224">
+        <meta name="theme-color" content="{{ $ui === 'clay' ? '#eaf0ff' : '#0b1224' }}">
 
         <title inertia>{{ config('app.name', 'ستاره ماه') }}</title>
 
@@ -18,7 +19,8 @@
         {{-- نصب روی آیفون: iOS از manifest برای حالتِ اپ استفاده نمی‌کند
              و به این متاتگ‌ها نیاز دارد («افزودن به صفحه‌ی اصلی» در سافاری). --}}
         <meta name="apple-mobile-web-app-capable" content="yes">
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        {{-- «خمیرماه»: نوارِ وضعیتِ معمولی (نه شیشه‌ایِ روی صفحه) تا دکمه‌های بالا زیرش نروند --}}
+        <meta name="apple-mobile-web-app-status-bar-style" content="{{ $ui === 'clay' ? 'default' : 'black-translucent' }}">
         <meta name="apple-mobile-web-app-title" content="ستاره ماه">
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="application-name" content="ستاره ماه">
@@ -34,6 +36,11 @@
              مرورگر هر فایل را فقط وقتی می‌گیرد که عنصری از آن استفاده کند،
              پس روی صفحه‌ی اول هیچ هزینه‌ای ندارد. --}}
         <link rel="stylesheet" href="/fonts/team/team-fonts.css">
+        @if ($ui === 'clay')
+            {{-- فونتِ سرتیترِ «خمیرماه» — فقط وقتی همین طرح فعال است --}}
+            <link rel="preload" href="/fonts/baloo/BalooBhaijaan2-arabic.woff2" as="font" type="font/woff2" crossorigin>
+            <link rel="stylesheet" href="/fonts/baloo/baloo.css">
+        @endif
 
         {{-- پیش‌بارگذاریِ تکه‌های صفحه‌ی ورود/ثبت‌نام — فقط روی صفحه‌ی اول.
              روی موبایل، نخستین کلیکِ «ورود» باید منتظرِ دانلودِ تکه‌ی آن صفحه

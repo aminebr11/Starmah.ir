@@ -143,6 +143,8 @@ class Notifications
         $limit = 200;
         // محتوای زمان‌دارِ سررسیده را همین‌جا منتشر می‌کنیم (میزبان cron ندارد)
         ContentRelease::releaseDue();
+        // بازی/آزمونِ زمان‌دارِ سررسیده هم سرِ ساعتش اعلان شود
+        ActivityNotifier::releaseDue();
 
         $seen = self::seenAt($user);
         $read = self::readKeys($user);

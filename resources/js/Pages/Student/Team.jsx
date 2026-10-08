@@ -1,5 +1,6 @@
 import { usePage, Link } from '@inertiajs/react';
 import ThemedDash from '@/Layouts/ThemedDash';
+import { useSort, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const card = { background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 18, padding: 16, color: '#fff' };
@@ -8,6 +9,9 @@ const MEDAL = ['🥇', '🥈', '🥉'];
 /** «تیمِ ما» — مجموعِ امتیازِ تیم، اعضا و دفترِ ریزِ اخیر (امتیاز از کجا آمده). */
 export default function Team() {
     const { teams = [], mine, rank, ledger = [] } = usePage().props;
+    const members = mine?.members || [];
+    const ms = useSort(members, { xp: 'xp', name: (r) => firstName(r.name), family: (r) => lastName(r.name) }, { id: 'student-team-members', firstDir: { xp: 'desc' } });
+    const ls = useSort(ledger, { date: 'ts', amount: 'amount', reason: 'reason' }, { id: 'student-team-ledger', firstDir: { date: 'desc', amount: 'desc' } });
 
     return (
         <ThemedDash title="تیمِ ما" active="team">
@@ -49,8 +53,9 @@ export default function Team() {
                 <div className="k3-card" style={{ marginTop: 14 }}>
                     <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 4 }}>⭐ اعضای تیمِ ما ({fa(mine.count)})</div>
                     <div style={{ opacity: .7, fontSize: 11.5, marginBottom: 10 }}>فقط مجموعِ امتیازِ هر هم‌تیمی نمایش داده می‌شود.</div>
+                    {members.length > 1 && <SortBar s={ms} options={[['xp', 'امتیاز'], ['name', 'نام'], ['family', 'نام خانوادگی']]} />}
                     <div style={{ display: 'grid', gap: 6 }}>
-                        {mine.members.map((m, i) => (
+                        {ms.sorted.map((m) => [m, members.indexOf(m)]).map(([m, i]) => (
                             <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 12, background: m.me ? 'rgba(245,181,63,.16)' : 'rgba(255,255,255,.05)' }}>
                                 <span style={{ width: 26, textAlign: 'center', fontWeight: 900 }}>{MEDAL[i] || fa(i + 1)}</span>
                                 <span style={{ flex: 1, fontWeight: m.me ? 900 : 700 }}>{m.name}{m.me ? ' (تو)' : ''}</span>
@@ -66,8 +71,9 @@ export default function Team() {
                 <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 4 }}>📜 ریزِ امتیازهای من</div>
                 <div style={{ opacity: .7, fontSize: 12, marginBottom: 10 }}>امتیازهایی که خودت از بازی، مأموریت، آزمون و… آورده‌ای و به تیمت اضافه شده — این‌ها فقط برای خودت دیده می‌شوند.</div>
                 {ledger.length === 0 && <div style={{ opacity: .75, fontSize: 13 }}>هنوز امتیازی نگرفته‌ای — با انجامِ مأموریت و بازی، تیمت را بالا ببر! 💪</div>}
+                {ledger.length > 1 && <SortBar s={ls} options={[['date', 'تاریخ'], ['amount', 'مقدار'], ['reason', 'علت']]} />}
                 <div style={{ display: 'grid', gap: 6 }}>
-                    {ledger.map((e, i) => (
+                    {ls.sorted.map((e, i) => (
                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 12, background: 'rgba(255,255,255,.05)' }}>
                             <span style={{ fontWeight: 900, minWidth: 44, color: e.amount >= 0 ? '#7be0b0' : '#ffb3b3' }}>{e.amount >= 0 ? '+' : ''}{fa(e.amount)}</span>
                             <span style={{ flex: 1, fontSize: 12.5 }}>{e.reason}</span>

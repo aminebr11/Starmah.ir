@@ -203,6 +203,12 @@ class AssistantService
                 . "• درباره‌ی وضعیتِ کلی، درس‌های ضعیفِ مدرسه، مشارکتِ معلم‌ها و ارتباط با اولیا راهنمایی کن.\n"
                 . '• خلاق باش: پیشنهادِ اقدامِ مدیریتی بده (اطلاعیه، پیامک به اولیا، جلسه‌ی گروهِ درسی).',
 
+            $user->hasRole(Roles::PARENT) => "تو «دستیارِ ستاره‌ماه» برای ولیِّ یک دانش‌آموز هستی.\n"
+                . "• لحن: محترمانه، آرام و اطمینان‌بخش؛ «شما» خطاب کن.\n"
+                . "• وقتی از وضعیتِ فرزند می‌پرسد: اول یک جمله‌ی کلی، بعد عددهای دقیق از پرونده، بعد ۲ تا ۳ کاری که\n"
+                . "  در خانه می‌شود کرد (نه سرزنشِ کودک).\n"
+                . '• برای ارتباط با معلم، بخشِ «ارتباط با معلم» را پیشنهاد بده.',
+
             default => 'تو «دستیارِ ستاره‌ماه» هستی؛ راهنمای مهربانِ این سامانه‌ی آموزشی.',
         };
 
@@ -275,11 +281,50 @@ class AssistantService
                     ->whereNotNull('file_path')->where('updated_at', '>=', now()->subDays(14))->count();
                 $lines[] = "پیامِ خوانده‌نشده‌ی والدین: {$pending} · کاربرگِ ارسالیِ دو هفته‌ی اخیر: {$subs}";
             }, 'پیام و کاربرگ');
+        } elseif ($user->hasRole(Roles::SCHOOL_ADMIN)) {
+            // پیش از این مدیر هیچ داده‌ای در زمینه نداشت و دستیار با اینکه
+            // «عدد بده» گفته شده بود، عددی برای گفتن نداشت.
+            $studentIds = collect();
+            $add(function () use ($user, &$lines, &$studentIds) {
+                $studentIds = User::role(Roles::STUDENT)->where('school_id', $user->school_id)->pluck('id');
+                $teachers = User::role(Roles::TEACHER)->where('school_id', $user->school_id)->count();
+                $classes = \App\Models\Classroom::where('school_id', $user->school_id)->count();
+                $lines[] = "مدرسه: " . ($user->school?->name ?? '—')
+                    . " · دانش‌آموز: {$studentIds->count()} · معلم: {$teachers} · کلاس: {$classes}";
+            }, 'آمارِ مدرسه');
+
+            $add(function () use (&$lines, $studentIds) {
+                if ($studentIds->isEmpty()) {
+                    return;
+                }
+                $data = $this->cross->forStudents($studentIds);
+                $rows = collect($data['subjects'] ?? [])->filter(fn ($r) => $r['pct'] !== null);
+                if ($rows->isNotEmpty()) {
+                    $lines[] = 'میانگینِ کلِ مدرسه: ' . ($data['overall'] ?? (int) round($rows->avg('pct'))) . '٪';
+                    $lines[] = 'درس‌ها (از ضعیف به قوی): ' . $rows->sortBy('pct')->take(6)
+                        ->map(fn ($r) => $r['subject'] . ' ' . $r['pct'] . '٪')->implode('، ');
+                } else {
+                    $lines[] = 'هنوز فعالیتِ نمره‌داری در مدرسه ثبت نشده.';
+                }
+            }, 'درصدِ درس‌های مدرسه');
         } elseif ($user->hasRole(Roles::PARENT)) {
+            // والد درباره‌ی «فرزندش» می‌پرسد؛ پیش از این فقط نامِ فرزند در
+            // زمینه بود و دستیار هیچ پاسخِ واقعی‌ای نداشت.
             $add(function () use ($user, &$lines) {
-                $children = $user->children()->pluck('name')->implode('، ');
-                if ($children) {
-                    $lines[] = "فرزند(ان): {$children}";
+                $children = $user->children()->get()->take(3);
+                if ($children->isEmpty()) {
+                    $lines[] = 'هنوز فرزندی به این حساب وصل نشده.';
+                    return;
+                }
+                foreach ($children as $child) {
+                    try {
+                        $p = $this->insight->profile($child);
+                        $a = $this->insight->analysis($p);
+                        $lines[] = "── فرزند: {$child->name} ──\n" . mb_substr($this->insight->asText($p, $a), 0, 1800);
+                    } catch (\Throwable $e) {
+                        $lines[] = "فرزند: {$child->name}";
+                        $this->skipped[] = 'پرونده‌ی فرزند';
+                    }
                 }
             }, 'فرزندان');
         }
@@ -553,19 +598,17 @@ class AssistantService
     /** فراخوانیِ LLM با system + تاریخچه + پیامِ جدید. */
     private function llm(string $system, array $history, string $message): string
     {
-        $turns = collect($history)->filter(fn ($h) => in_array($h['role'] ?? '', ['user', 'assistant'], true))
-            ->map(fn ($h) => ['role' => $h['role'], 'content' => mb_substr((string) $h['content'], 0, 1500)])
-            ->take(-8)->values()->all();
-        $turns[] = ['role' => 'user', 'content' => $message];
+        $turns = $this->turns($history, $message);
 
         if ($this->ai->provider() === 'openai' && $this->ai->openaiKey()) {
-            $res = Http::withToken($this->ai->openaiKey())->timeout(40)->post('https://api.openai.com/v1/chat/completions', [
-                'model' => Setting::get('openai_model') ?: 'gpt-4o-mini',
-                'max_tokens' => 600,
+            $res = \App\Support\AiConfig::postChat($this->ai->openaiKey(), [
+                'model' => \App\Support\AiConfig::model(),
+                'max_tokens' => self::MAX_TOKENS,
                 'messages' => array_merge([['role' => 'system', 'content' => $system]], $turns),
             ]);
             if (! $res->successful()) throw new \RuntimeException('openai ' . $res->status());
-            return trim((string) data_get($res->json(), 'choices.0.message.content', ''));
+            return $this->finish((string) data_get($res->json(), 'choices.0.message.content', ''),
+                data_get($res->json(), 'choices.0.finish_reason') === 'length');
         }
 
         $res = Http::withHeaders([
@@ -573,13 +616,62 @@ class AssistantService
             'anthropic-version' => '2023-06-01',
             'content-type' => 'application/json',
         ])->timeout(40)->post('https://api.anthropic.com/v1/messages', [
-            'model' => Setting::get('anthropic_model') ?: env('ANTHROPIC_MODEL', 'claude-haiku-4-5-20251001'),
-            'max_tokens' => 600,
+            'model' => \App\Support\AiConfig::model('anthropic'),
+            'max_tokens' => self::MAX_TOKENS,
             'system' => $system,
             'messages' => $turns,
         ]);
         if (! $res->successful()) throw new \RuntimeException('anthropic ' . $res->status());
-        return trim((string) data_get($res->json(), 'content.0.text', ''));
+        $text = collect(data_get($res->json(), 'content', []))->where('type', 'text')->pluck('text')->implode("\n");
+        return $this->finish($text, data_get($res->json(), 'stop_reason') === 'max_tokens');
+    }
+
+    /** فارسی توکنِ زیادی می‌خورد؛ ۶۰۰ توکن گزارشِ کامل را وسطِ جمله می‌برید. */
+    private const MAX_TOKENS = 1200;
+
+    /**
+     * تاریخچه را برای API آماده می‌کند.
+     *
+     * ویجت پیامِ خوش‌آمد (نقشِ assistant) را اولِ تاریخچه دارد و پیامِ خطا
+     * هم ممکن است پشتِ سرِ هم بیاید؛ Anthropic گفت‌وگویی که با assistant
+     * شروع شود یا دو پیامِ هم‌نقشِ پیاپی داشته باشد را رد می‌کرد و دستیار
+     * بی‌صدا به پاسخِ آماده می‌افتاد.
+     *
+     * @return array<int,array{role:string,content:string}>
+     */
+    private function turns(array $history, string $message): array
+    {
+        $rows = collect($history)
+            ->filter(fn ($h) => in_array($h['role'] ?? '', ['user', 'assistant'], true) && trim((string) ($h['content'] ?? '')) !== '')
+            ->map(fn ($h) => ['role' => $h['role'], 'content' => mb_substr(trim((string) $h['content']), 0, 1500)])
+            ->take(-8)->values()->all();
+        $rows[] = ['role' => 'user', 'content' => $message];
+
+        $out = [];
+        foreach ($rows as $r) {
+            if (! $out && $r['role'] !== 'user') {
+                continue;
+            }
+            $last = count($out) - 1;
+            if ($last >= 0 && $out[$last]['role'] === $r['role']) {
+                $out[$last]['content'] .= "\n\n" . $r['content'];
+            } else {
+                $out[] = $r;
+            }
+        }
+
+        return $out;
+    }
+
+    /** اگر پاسخ به سقف رسید، تا آخرین سطرِ کامل نگه‌دار تا جمله‌ی نیمه نماند. */
+    private function finish(string $text, bool $truncated): string
+    {
+        $text = trim($text);
+        if ($truncated && ($cut = mb_strrpos($text, "\n")) !== false && $cut > mb_strlen($text) / 2) {
+            $text = rtrim(mb_substr($text, 0, $cut)) . "\n…";
+        }
+
+        return $text;
     }
 
     private function roleLabel(User $u): string

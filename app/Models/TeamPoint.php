@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /** امتیازِ دستیِ گروهی که معلم به کلِ یک تیم می‌دهد یا کم می‌کند. */
 class TeamPoint extends Model
 {
-    protected $fillable = ['school_id', 'classroom_id', 'theme_id', 'amount', 'reason', 'awarded_by'];
+    protected $fillable = ['school_id', 'classroom_id', 'theme_id', 'amount', 'reason', 'awarded_by', 'batch_id'];
 
     protected $casts = ['amount' => 'integer'];
 

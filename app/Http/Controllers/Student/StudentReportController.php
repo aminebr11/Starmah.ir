@@ -38,17 +38,12 @@ class StudentReportController extends Controller
         $levelXp = LevelConfig::xpPerLevel($user->school_id);
         $level = LevelConfig::levelOf($xp, $levelXp);
 
-        // ---- تسلط بر مهارت‌ها (نقاط قوت/ضعف) ----
-        $skills = $user->skillMastery()->with('skill')->get()
-            ->map(fn ($m) => [
-                'name' => $m->skill?->name ?? 'مهارت',
-                'mastery' => (int) $m->mastery,
-                'attempts' => (int) $m->attempts,
-            ])->filter(fn ($s) => $s['attempts'] > 0)->sortByDesc('mastery')->values();
-
-        $strengths = $skills->take(4)->values();
-        $weaknesses = $skills->reverse()->take(4)->filter(fn ($s) => $s['mastery'] < 70)->values();
-        $avgMastery = $skills->count() ? (int) round($skills->avg('mastery')) : 0;
+        // ---- تسلط بر درس‌ها و مبحث‌ها (از همه‌ی فعالیت‌ها) ----
+        $masteryDetail = app(\App\Services\MasteryService::class)->forStudent($user->id);
+        $short = fn ($s) => ['name' => $s['name'], 'mastery' => $s['mastery'], 'n' => $s['n'], 'level' => $s['level']];
+        $strengths = collect($masteryDetail['strengths'])->take(4)->map($short)->values();
+        $weaknesses = collect($masteryDetail['weaknesses'])->take(4)->map($short)->values();
+        $avgMastery = $masteryDetail['overall'];
 
         // ---- امتیاز بر اساس نوع فعالیت (بازی/آزمون/تکلیف/پادکست) ----
         $summary = $analytics->studentSummary($user);
@@ -95,7 +90,9 @@ class StudentReportController extends Controller
                 'weekPoints' => $summary['week_points'] ?? 0,
                 'examCount' => $exams->count(),
             ],
-            'skills'     => $skills,
+            'skills'     => collect($masteryDetail['subjects'])->map($short)->values(),
+            'mastery'    => $masteryDetail,
+            'masteryLevels' => \App\Services\MasteryService::LEVELS,
             'strengths'  => $strengths,
             'weaknesses' => $weaknesses,
             'byType'     => $summary['by_type'] ?? [],
@@ -106,21 +103,23 @@ class StudentReportController extends Controller
         ];
     }
 
-    private function parentTips(int $avgMastery, ?int $examAvg, int $warns, int $weekPoints, $weaknesses): array
+    private function parentTips(?int $avgMastery, ?int $examAvg, int $warns, int $weekPoints, $weaknesses): array
     {
         $tips = [];
 
-        if ($avgMastery >= 80) {
-            $tips[] = ['icon' => '🌟', 'tone' => 'good', 'text' => 'تسلط فرزند شما بر مهارت‌ها بسیار خوب است. با تشویق و هدف‌گذاری تازه، این روند را حفظ کنید.'];
+        if ($avgMastery === null) {
+            $tips[] = ['icon' => '🧭', 'tone' => 'mid', 'text' => 'برای برآوردِ دقیقِ تسلط هنوز فعالیتِ کافی ثبت نشده؛ با انجامِ چند آزمون، بازی و مأموریت، تسلطِ هر درس محاسبه می‌شود.'];
+        } elseif ($avgMastery >= 85) {
+            $tips[] = ['icon' => '🌟', 'tone' => 'good', 'text' => 'فرزند شما بر درس‌هایش مسلط است. با تشویق و هدف‌گذاری تازه، این روند را حفظ کنید.'];
         } elseif ($avgMastery >= 50) {
-            $tips[] = ['icon' => '📈', 'tone' => 'mid', 'text' => 'تسلط در سطح متوسط است. تمرین منظم روزانه (۱۵ دقیقه) به پیشرفت محسوس کمک می‌کند.'];
-        } elseif ($avgMastery > 0) {
+            $tips[] = ['icon' => '📈', 'tone' => 'mid', 'text' => 'تسلط در حالِ شکل‌گیری است. تمرینِ منظمِ روزانه (۱۵ دقیقه) روی مبحث‌های ضعیف‌تر پیشرفتِ محسوسی می‌آورد.'];
+        } else {
             $tips[] = ['icon' => '🤝', 'tone' => 'low', 'text' => 'فرزند شما به همراهی بیشتر نیاز دارد. کنارش بنشینید و تمرین‌ها را با هم مرور کنید.'];
         }
 
         if ($weaknesses->isNotEmpty()) {
             $names = $weaknesses->pluck('name')->take(3)->implode('، ');
-            $tips[] = ['icon' => '🎯', 'tone' => 'mid', 'text' => "تمرکز این هفته روی این مهارت‌ها مفید است: {$names}."];
+            $tips[] = ['icon' => '🎯', 'tone' => 'mid', 'text' => "تمرکزِ این هفته روی این درس‌ها مفید است: {$names}."];
         }
 
         if ($examAvg !== null && $examAvg < 50) {

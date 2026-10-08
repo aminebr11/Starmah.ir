@@ -15,7 +15,7 @@ export default function ChooseWorld() {
 
             <div style={{ maxWidth: 760, margin: '0 auto', padding: '30px 18px 50px', position: 'relative' }}>
                 <div style={{ textAlign: 'center', marginBottom: 8 }}>
-                    <img src="/brand/logo-emblem.png" width="64" height="64" alt="ستاره ماه" style={{ margin: '0 auto', borderRadius: 16 }} />
+                    <img src="/brand/logo-mark-240.webp" width="64" height="64" alt="ستاره ماه" style={{ margin: '0 auto', borderRadius: 16 }} />
                 </div>
                 <div style={{ textAlign: 'center', marginBottom: 22 }}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(245,181,63,.16)', border: '1px solid rgba(245,181,63,.4)', color: '#ffd87a', padding: '7px 18px', borderRadius: 30, fontWeight: 700, fontSize: 14 }}>

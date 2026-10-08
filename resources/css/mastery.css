@@ -1,0 +1,51 @@
+/* پنلِ تسلط — کارت‌های سفید تا روی هر زمینه‌ای خوانا باشد */
+.mp{color:#1b2742}
+.mp-hero{display:flex;gap:18px;align-items:center;flex-wrap:wrap;background:#fff;border-radius:24px;padding:18px;box-shadow:0 6px 0 #dfe5f0,0 18px 30px -20px rgba(20,30,70,.5)}
+.mp-ring{position:relative;flex:none}
+.mp-ring svg{width:100%;height:100%}
+.mp-ring-v{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.mp-ring-v b{font-size:28px;font-weight:900;line-height:1.1}
+.mp-ring-v small{font-size:11px;color:#6b7794}
+.mp-hero-b{flex:1;min-width:220px}
+.mp-hero-b h3{margin:8px 0 4px;font-size:17px;font-weight:900;line-height:1.7;color:#1b2742}
+.mp-hero-b p{margin:0;font-size:13px;color:#56607a;line-height:2}
+.mp-badge{display:inline-block;color:#fff;font-weight:900;font-size:13px;border-radius:999px;padding:4px 14px;box-shadow:0 3px 0 rgba(0,0,0,.15)}
+.mp-help-btn{margin-top:8px;border:0;background:#eef2fb;color:#3a67c8;font:inherit;font-weight:800;font-size:12.5px;border-radius:12px;padding:7px 12px;cursor:pointer}
+.mp-help{background:#fff;border-radius:20px;padding:14px 16px;margin-top:12px;box-shadow:0 4px 0 #dfe5f0}
+.mp-help ul{margin:0;padding:0;list-style:none;display:grid;gap:8px}
+.mp-help li{font-size:13px;line-height:2;color:#3b4560}
+.mp-levels{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.mp-levels span{color:#fff;font-weight:800;font-size:12px;border-radius:999px;padding:4px 11px}
+.mp-levels small{opacity:.85;font-weight:600}
+.mp-conf{display:inline-flex;align-items:center;gap:3px;margin-inline-start:6px;vertical-align:middle}
+.mp-conf i{width:7px;height:7px;border-radius:50%;background:#dfe4ee}
+.mp-conf i.on{background:#3d7bf0}
+.mp-conf small{font-size:11px;color:#6b7794;margin-inline-start:3px}
+.mp-grid{align-items:start;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,290px),1fr));gap:12px;margin-top:14px}
+.mp-subj{background:#fff;border-radius:20px;padding:12px 14px;box-shadow:0 5px 0 color-mix(in srgb,var(--sa) 30%,#dfe5f0),0 14px 24px -18px rgba(20,30,70,.5)}
+.mp-subj.pending{opacity:.85}
+.mp-subj-top{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;font:inherit;text-align:right;cursor:pointer;padding:0;color:inherit}
+.mp-subj-ic{width:42px;height:42px;flex:none;border-radius:14px;display:grid;place-items:center;font-size:22px;box-shadow:0 3px 0 rgba(0,0,0,.14)}
+.mp-subj-n{flex:1;min-width:0;line-height:1.5}
+.mp-subj-n b{display:block;font-size:15px;font-weight:900}
+.mp-subj-n small{font-size:11.5px;color:#6b7794}
+.mp-subj-v{font-size:22px;font-weight:900;text-align:center;line-height:1.1}
+.mp-subj-v em{display:block;font-style:normal;font-size:10.5px;font-weight:800}
+.mp-subj-v em.up{color:#1fa463}.mp-subj-v em.down{color:#e8505b}
+.mp-bar{position:relative;height:10px;border-radius:6px;background:#eef1f7;margin:10px 0 8px;overflow:hidden}
+.mp-bar i{display:block;height:100%;border-radius:6px;transition:width .8s}
+.mp-bar u{position:absolute;top:0;bottom:0;width:2px;background:rgba(255,255,255,.85)}
+.mp-subj-meta{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.mp-subj-meta>span:not(.mp-conf){font-size:11px;background:#f3f5fa;border-radius:8px;padding:2px 7px;color:#45506a}
+.mp-topics{margin-top:10px;border-top:1px dashed #e3e8f2;padding-top:8px}
+.mp-topic{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:5px 0;border-bottom:1px dotted #edf0f6}
+.mp-topic small{color:#7a8499}
+.mp-raw{font-size:12px;color:#6b7794;padding:3px 0}
+.mp-kid{margin-top:8px;font-size:12.5px;background:#f6f8ff;border-radius:12px;padding:8px 10px;line-height:1.9}
+.mp-empty{background:#fff;border-radius:20px;padding:20px;text-align:center;color:#6b7794}
+.mp-two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:12px;margin-top:14px}
+.mp-box{background:#fff;border-radius:20px;padding:14px}
+.mp-box h4{margin:0 0 6px;font-size:14px}
+.mp-box.warn{background:linear-gradient(160deg,#fff4ea,#fff 70%)}
+.mp-box.good{background:linear-gradient(160deg,#eafbf2,#fff 70%)}
+.tag-bad{background:#fde4e6;color:#b0303c}

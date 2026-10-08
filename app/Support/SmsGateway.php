@@ -27,6 +27,7 @@ class SmsGateway
 
     /** رویدادهایی که می‌توانند پیامک شوند. */
     public const EVENTS = [
+        'welcome'      => ['label' => '👋 خوش‌آمدِ ثبت‌نام', 'hint' => 'بلافاصله پس از ثبت‌نامِ دانش‌آموز (خودش یا توسطِ معلم) — با اطلاعاتِ ورود'],
         'grade'        => ['label' => '📔 نمره‌ی کلاسی', 'hint' => 'وقتی معلم نمره‌ای ثبت می‌کند'],
         'discipline'   => ['label' => '⭐ تشویق و تذکر', 'hint' => 'ثبتِ موردِ انضباطی'],
         'absence'      => ['label' => '🗓️ غیبت و تأخیر', 'hint' => 'ثبتِ غیبت یا تأخیر در حضوروغیاب'],
@@ -234,9 +235,11 @@ class SmsGateway
         $raw = is_array($school?->sms_events) ? $school->sms_events : [];
         $out = [];
         foreach (array_keys(self::EVENTS) as $key) {
+            // خوش‌آمد تا وقتی مدیر صریحاً خاموشش نکرده روشن است؛ بقیه پیش‌فرض خاموش‌اند
+            $default = $key === 'welcome';
             $out[$key] = [
-                'parent'  => (bool) ($raw[$key]['parent'] ?? false),
-                'student' => (bool) ($raw[$key]['student'] ?? false),
+                'parent'  => (bool) ($raw[$key]['parent'] ?? $default),
+                'student' => (bool) ($raw[$key]['student'] ?? $default),
             ];
         }
 
@@ -297,6 +300,87 @@ class SmsGateway
     }
 
     /**
+     * متنِ پیامکِ خوش‌آمد — یکی برای دانش‌آموز، یکی برای ولی.
+     *
+     * امضا سه‌لایه است: نامِ مدرسه، نامِ معلمِ کلاس و «ستاره ماه»؛ تا خانواده
+     * بداند پیام از طرفِ مدرسه‌ی خودش است، نه یک سرویسِ ناشناس.
+     *
+     * @param array{teacher?:?User, classroom?:?\App\Models\Classroom, password?:?string, pin?:?string} $o
+     */
+    public static function welcomeTexts(User $student, array $o = []): array
+    {
+        $first = trim(explode(' ', trim($student->name))[0] ?? $student->name);
+        $school = $student->school?->name ?: 'مدرسه';
+        $class = $o['classroom']?->name ?? null;
+        $teacher = $o['teacher']?->name ?? null;
+        $fa = fn ($x) => Jalali::fa((string) $x);
+        $user = $fa($student->phone ?: '');
+        $pass = ! empty($o['password']) ? $fa($o['password']) : null;
+        $pin = ! empty($o['pin']) ? $fa($o['pin']) : null;
+        $where = trim(($class ? "کلاسِ {$class}" : '') . ($teacher ? " با {$teacher}" : ''));
+
+        $studentText = "{$first} عزیز، به ستاره ماه خوش آمدی!\n"
+            . ($where ? "از امروز عضوِ {$where} در {$school} هستی.\n" : "از امروز عضوِ {$school} در ستاره ماه هستی.\n")
+            . "ورود: starmah.ir\nنام کاربری: {$user}"
+            . ($pass ? "\nرمزِ موقت: {$pass} (بعد از ورود عوضش کن)" : '')
+            . "\nبا آرزوی موفقیت\n{$school}";
+
+        $parentText = "ولیِّ گرامیِ {$student->name}، سلام.\n"
+            . "ثبت‌نامِ فرزندتان در سامانه‌ی آموزشیِ ستاره ماه"
+            . ($where ? " برای {$where}" : '') . " در {$school} انجام شد.\n"
+            . "ورودِ دانش‌آموز: starmah.ir\nنام کاربری: {$user}"
+            . ($pass ? " | رمزِ موقت: {$pass}" : '')
+            . ($pin ? "\nرمزِ «بخشِ والدین»: {$pin} — این رمز را فقط نزدِ خودتان نگه دارید." : '')
+            . "\nپیامِ نمره، غیبت و تکلیف به همین شماره می‌آید.\n"
+            . ($teacher ? "{$teacher} — " : '') . $school;
+
+        return ['student' => $studentText, 'parent' => $parentText];
+    }
+
+    /**
+     * پیامکِ خوش‌آمدِ ثبت‌نام به دانش‌آموز و ولی.
+     *
+     * همان قواعدِ بقیه‌ی رویدادها را دارد (درگاه، اجازه‌ی مدرسه، ماتریسِ
+     * رویدادها، سهمیه) ولی متنِ دانش‌آموز و ولی جداست. اگر شماره‌ی دانش‌آموز
+     * همان شماره‌ی ولی باشد، فقط نسخه‌ی ولی فرستاده می‌شود. هیچ خطایی به
+     * ثبت‌نام سرایت نمی‌کند.
+     *
+     * @return array{sent:int, message:?string}
+     */
+    public static function welcome(User $student, array $o = []): array
+    {
+        try {
+            if (! self::gatewayReady()) {
+                return ['sent' => 0, 'message' => null];
+            }
+            $school = $student->school;
+            if (! self::schoolEnabled($school)) {
+                return ['sent' => 0, 'message' => null];
+            }
+            $cfg = self::events($school)['welcome'];
+            $texts = self::welcomeTexts($student, $o);
+            $sms = app(SmsService::class);
+
+            $parents = $cfg['parent'] ? array_map(fn ($p) => $sms->normalize($p), self::parentPhones($student)) : [];
+            $parents = array_values(array_filter(array_unique($parents)));
+            $mine = $cfg['student'] ? $sms->normalize((string) $student->phone) : '';
+
+            $sent = 0;
+            if ($mine !== '' && ! in_array($mine, $parents, true)) {
+                $sent += self::sendMany(null, $school, [['user' => $student, 'phone' => $mine]], $texts['student'], 'welcome')['sent'];
+            }
+            if ($parents) {
+                $sent += self::sendMany(null, $school, array_map(fn ($p) => ['user' => null, 'phone' => $p], $parents), $texts['parent'], 'welcome')['sent'];
+            }
+
+            return ['sent' => $sent, 'message' => $sent ? 'پیامکِ خوش‌آمد برای ' . Jalali::fa((string) $sent) . ' شماره فرستاده شد 📩' : null];
+        } catch (\Throwable $e) {
+            Log::warning('SMS welcome failed: ' . $e->getMessage());
+            return ['sent' => 0, 'message' => null];
+        }
+    }
+
+    /**
      * تنظیمِ پیامکِ اختصاصیِ یک دانش‌آموز — یا null اگر پیش‌فرضِ مدرسه باشد.
      *
      * در هر درخواست یک‌بار خوانده می‌شود؛ ثبتِ گروهیِ نمره برای یک کلاس
@@ -332,6 +416,11 @@ class SmsGateway
         $phones = [];
         if ($student->parent_phone) {
             $phones[] = $student->parent_phone;
+        }
+        // فرمِ ثبت‌نام شماره‌ی ولی را در settings.guardian نگه می‌دارد
+        $g = is_array($student->settings) ? ($student->settings['guardian']['phone'] ?? null) : null;
+        if ($g) {
+            $phones[] = $g;
         }
         try {
             foreach ($student->parents()->pluck('phone') as $p) {

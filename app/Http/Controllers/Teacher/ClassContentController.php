@@ -23,6 +23,8 @@ class ClassContentController extends Controller
     public function index(Request $request): Response
     {
         $teacher = $request->user();
+        // عکس‌های قدیمیِ بی‌آلبوم یک‌بار دسته‌بندی می‌شوند
+        \App\Support\GalleryAlbums::adopt($teacher->id);
 
         $contents = ClassContent::where('teacher_id', $teacher->id)->latest()->get();
 
@@ -45,6 +47,9 @@ class ClassContentController extends Controller
                 'is_file' => (bool) $c->file_path,
                 'due_at'  => $c->due_at ? Jalali::format($c->due_at) : null,
                 'date'    => Jalali::format($c->created_at),
+                // روزِ آپلود (میلادی) برای گروه‌بندی و فیلترِ تاریخ در گالری
+                'day'     => $c->created_at?->toDateString(),
+                'time'    => $c->created_at ? Jalali::fa($c->created_at->format('H:i')) : null,
                 // زمان‌بندیِ انتشار و وضعیتِ نمایش
                 'publish_at_raw' => $c->publish_at ? $c->publish_at->format('Y-m-d H:i') : null,
                 // Jalali::format پارامترِ دومش «روزِ هفته» است، نه ساعت؛ ساعت را جدا می‌چسبانیم
@@ -86,7 +91,15 @@ class ClassContentController extends Controller
                 'date' => Jalali::format($w->created_at),
             ]);
 
+        // آلبوم‌های گالری با آمارِ بازدیدِ هر عکس
+        $albums = \App\Support\GalleryAlbums::present(
+            $contents->where('type', 'gallery')->values(),
+            fn ($p) => ['views' => ($views->get($p->id) ?? collect())->count()]
+        );
+
         return Inertia::render('Teacher/Materials', [
+            'albums'     => $albums,
+            'openAlbum'  => $request->integer('album') ?: null,
             'items'      => $items->values(),
             'classrooms' => $classrooms->values(),
             'worksheets' => $worksheets->values(),
@@ -165,6 +178,10 @@ class ClassContentController extends Controller
             'xp_reward'    => $data['xp_reward'] ?? null,
         ]);
 
+        if ($content->type === 'gallery') {
+            \App\Support\GalleryAlbums::adopt($content->teacher_id);
+        }
+
         // زمان‌دار؟ اعلان سرِ همان ساعت فرستاده می‌شود (releaseDue)، نه حالا.
         if ($content->isLive()) {
             $this->notifyStudents($content);
@@ -234,7 +251,12 @@ class ClassContentController extends Controller
         if ($classContent->file_path) {
             Storage::disk('public')->delete($classContent->file_path);
         }
+        $albumId = $classContent->album_id;
         $classContent->delete();
+        // کاورِ حذف‌شده جایگزین می‌شود و آلبومِ خالی برداشته می‌شود
+        if ($albumId && ($album = \App\Models\GalleryAlbum::find($albumId))) {
+            \App\Support\GalleryAlbums::repair($album);
+        }
 
         return back()->with('flash', 'محتوا حذف شد ✅');
     }

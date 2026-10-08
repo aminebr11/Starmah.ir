@@ -1,23 +1,32 @@
 import { usePage, Link, router } from '@inertiajs/react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
+import Icon from '@/Components/Icon';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const ALARM_C = [['#3d7bf0', '#2555c0'], ['#a24cf0', '#6f2fb0'], ['#2bb673', '#1a8a52'], ['#e8862e', '#c06712'], ['#e8505b', '#b0333f']];
 
 export default function Dashboard() {
-    const { auth, classrooms = [], totals = {}, announcements = [], alarms = [], smartLab = false, unreadNotices = 0 } = usePage().props;
+    const { auth, classrooms = [], totals = {}, announcements = [], alarms = [], smartLab = false, unreadNotices = 0, ui = 'classic', birthdaysToday = [] } = usePage().props;
+    const clay = ui === 'clay';
+    // «امروز چه بسازیم؟» — چهار کارِ اصلیِ معلم، فقط در طرحِ خمیرماه
+    const makers = [
+        { href: route('teacher.studio'), ic: 'game', t: 'بازیِ آموزشی', c: 'gold' },
+        { href: '/teacher/missions', ic: 'target', t: 'مأموریتِ روزانه', c: 'sky' },
+        ...(smartLab ? [{ href: '/teacher/smart-exams', ic: 'spark', t: 'آزمونِ هوشمند', c: 'pink' }] : []),
+        { href: '/teacher/worksheets/create', ic: 'file', t: 'کاربرگ', c: 'mint' },
+    ];
     const name = auth?.user?.name || 'معلم عزیز';
     const dismiss = (id) => router.post(route('teacher.dismiss-alarm'), { id }, { preserveScroll: true });
 
     const cards = [
-        { ic: '🏛️', lbl: 'کلاس‌ها', val: totals.classrooms, c: '#fff3d6' },
-        { ic: '🎓', lbl: 'دانش‌آموزان', val: totals.students, c: '#dcebff' },
-        { ic: '📝', lbl: 'تکالیف', val: totals.assignments, c: '#e9e4ff' },
-        { ic: '⭐', lbl: 'ستاره‌های داده‌شده', val: totals.stars, c: '#d4f5ef' },
+        { ic: '🏛️', lbl: 'کلاس‌ها', val: totals.classrooms, c: '#fff3d6', href: '/teacher/students' },
+        { ic: '🎓', lbl: 'دانش‌آموزان', val: totals.students, c: '#dcebff', href: '/teacher/students' },
+        { ic: '📝', lbl: 'تکالیف', val: totals.assignments, c: '#e9e4ff', href: route('teacher.materials') },
+        { ic: '⭐', lbl: 'ستاره‌های داده‌شده', val: totals.stars, c: '#d4f5ef', href: route('teacher.discipline') },
     ];
 
     // ابزارهای معلم — مطابق امکانات وبسایت قبلی + امکانات فعلی
     const tools = [
-        { href: route('teacher.activities'), ic: '🏅', t: 'امتیازدهی گروهی', d: 'دادن امتیاز به تیم‌ها و دانش‌آموزان', c: '#fff3d6' },
+        { href: route('teacher.points'), ic: '⚡', t: 'مرکزِ امتیاز', d: 'امتیاز به یک نفر، چند نفر، تیم‌ها یا کلِ کلاس', c: '#fff3d6' },
         { href: route('teacher.studio'), ic: '🎮', t: 'استودیوی بازی', d: 'ساخت بازی آموزشی با AI و بانک سؤال', c: '#e9e4ff' },
         { href: route('teacher.gradebook'), ic: '📔', t: 'دفتر نمره', d: 'نمرات و تسلط دانش‌آموزان', c: '#dcebff' },
         { href: route('teacher.discipline'), ic: '⭐', t: 'انضباط', d: 'ثبت ستاره‌ی تشویقی و تذکر', c: '#d4f5ef' },
@@ -34,8 +43,34 @@ export default function Dashboard() {
                 <Link href={route('teacher.materials')} className="btn btn-ghost btn-sm">➕ مطالب و محتوی</Link>
             </>}>
 
+            {clay && (
+                <div className="clay-hello">
+                    <img src="/brand/hero-emblem-560.webp" alt="" width="560" height="560" />
+                    <div>
+                        <h2>سلام {name}!</h2>
+                        <p>به پیشخوانِ کلاس خوش آمدی. امروز چه چیزی برای بچه‌ها بسازیم؟</p>
+                        <div className="clay-make">
+                            {makers.map((m) => (
+                                <Link key={m.t} href={m.href} className={`clay-maker ${m.c}`}><Icon name={m.ic} size={30} /><span>{m.t}</span></Link>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {birthdaysToday.length > 0 && (
+                <div className="bd-today-card">
+                    <span className="bd-cake" aria-hidden="true">🎂</span>
+                    <div>
+                        <b>امروز تولدِ {birthdaysToday.map((b) => b.name).join('، ')} است!</b>
+                        <div style={{ fontSize: 13, color: 'var(--muted)' }}>با یک لمس از قالب‌های آماده برایش تبریک بفرست.</div>
+                    </div>
+                    <Link href={route('teacher.birthdays')} className="btn btn-sm">🎁 تبریک بفرست</Link>
+                </div>
+            )}
+
             {/* خوش‌آمد */}
-            <div className="panel" style={{ background: 'linear-gradient(135deg,#16264f,#0a1836)', border: 0, color: '#fff' }}>
+            {!clay && <div className="panel" style={{ background: 'linear-gradient(135deg,#16264f,#0a1836)', border: 0, color: '#fff' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
                     <div style={{ fontSize: 40, flex: 'none' }}>👋</div>
                     <div style={{ flex: '1 1 190px', minWidth: 0 }}>
@@ -43,7 +78,7 @@ export default function Dashboard() {
                         <div style={{ color: '#c4d2f0', fontSize: 14 }}>به پیشخوان کلاس خوش آمدی — همه‌ی ابزارهای تدریس این‌جاست.</div>
                     </div>
                 </div>
-            </div>
+            </div>}
 
             {/* آلارمِ پیام‌های ۲۴ ساعت اخیر — با دیدن/حذف از پیشخوان می‌رود */}
             {alarms.length > 0 && (
@@ -70,9 +105,10 @@ export default function Dashboard() {
 
             {/* آمار */}
             <div className="dash-cards" style={{ marginTop: 20 }}>
+                {/* هر کارت به صفحه‌ی خودش می‌رود — پیش از این «دانش‌آموزان» فقط عدد بود و لمسش کاری نمی‌کرد */}
                 {cards.map((c) => (
-                    <div key={c.lbl} className="dcard"><div className="ic" style={{ background: c.c }}>{c.ic}</div>
-                        <div className="lbl">{c.lbl}</div><div className="val">{fa(c.val ?? 0)}</div></div>
+                    <Link key={c.lbl} href={c.href} className="dcard dcard-link"><div className="ic" style={{ background: c.c }}>{c.ic}</div>
+                        <div className="lbl">{c.lbl}</div><div className="val">{fa(c.val ?? 0)}</div></Link>
                 ))}
             </div>
 

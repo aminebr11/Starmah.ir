@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { usePage, useForm, router } from '@inertiajs/react';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
+import { useSort, SortTh, SortBar } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 /** پنلِ پیامکِ ادمینِ کل: درگاه + دسترسیِ مدرسه‌ها + مصرف + سابقه. */
 export default function Sms() {
-    const { gateway = {}, schools = [], stats = {}, log = [], flash } = usePage().props;
+    const { gateway = {}, schools = [], stats = {}, log = [], alerts = null, flash } = usePage().props;
     const [tab, setTab] = useState('gateway');
+    const scs = useSort(schools, { name: 'name', city: 'city', used: 'used', quota: 'quota', enabled: (r) => (r.enabled ? 1 : 0) }, { id: 'admin-sms-schools', firstDir: { used: 'desc', quota: 'desc', enabled: 'desc' } });
 
     const g = useForm({
         sms_enabled: gateway.enabled ?? false,
@@ -27,6 +29,7 @@ export default function Sms() {
     const TABS = [
         { v: 'gateway', t: '🔌 درگاهِ پیامک' },
         { v: 'schools', t: `🏫 دسترسیِ مدرسه‌ها (${fa(schools.length)})` },
+        { v: 'alerts', t: '🔔 پیامکِ اعلان‌های من' },
         { v: 'log', t: `📜 سابقه (${fa(log.length)})` },
     ];
 
@@ -129,13 +132,15 @@ export default function Sms() {
                     <p style={{ color: 'var(--muted)', fontSize: 13 }}>
                         سهمیه بر حسبِ «قطعه‌ی پیامک» در {fa(stats.window ?? 30)} روزِ اخیر است. خالی گذاشتنِ سهمیه یعنی بدونِ سقف.
                     </p>
+                    {schools.length > 1 && <SortBar s={scs} options={[['name', 'نام مدرسه'], ['city', 'شهر'], ['used', 'مصرف'], ['quota', 'سهمیه'], ['enabled', 'فعال']]} />}
                     <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
-                        {schools.map((s) => <SchoolRow key={s.id} s={s} />)}
+                        {scs.sorted.map((s) => <SchoolRow key={s.id} s={s} />)}
                         {schools.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز مدرسه‌ای ثبت نشده.</p>}
                     </div>
                 </div>
             )}
 
+            {tab === 'alerts' && alerts && <AdminAlerts alerts={alerts} ready={gateway.ready} />}
             {tab === 'log' && <LogTable log={log} showSchool />}
         </DashLayout>
     );
@@ -177,6 +182,7 @@ function SchoolRow({ s }) {
 }
 
 export function LogTable({ log = [], showSchool = false }) {
+    const ls = useSort(log, { date: 'date_raw', school: 'school', sender: 'sender', to: (r) => r.to || r.phone, kind: 'kind', body: 'body', status: 'status' }, { id: 'sms-log' + (showSchool ? '-admin' : ''), firstDir: { date: 'desc' } });
     if (log.length === 0) {
         return <div className="panel"><p style={{ color: 'var(--muted)', margin: 0 }}>هنوز پیامکی ارسال نشده.</p></div>;
     }
@@ -187,17 +193,17 @@ export function LogTable({ log = [], showSchool = false }) {
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
                     <thead>
                         <tr style={{ background: '#f6f8fc' }}>
-                            <th style={th}>تاریخ</th>
-                            {showSchool && <th style={th}>مدرسه</th>}
-                            <th style={th}>فرستنده</th>
-                            <th style={th}>گیرنده</th>
-                            <th style={th}>نوع</th>
-                            <th style={th}>متن</th>
-                            <th style={th}>وضعیت</th>
+                            <SortTh s={ls} k="date" style={th}>تاریخ</SortTh>
+                            {showSchool && <SortTh s={ls} k="school" style={th}>مدرسه</SortTh>}
+                            <SortTh s={ls} k="sender" style={th}>فرستنده</SortTh>
+                            <SortTh s={ls} k="to" style={th}>گیرنده</SortTh>
+                            <SortTh s={ls} k="kind" style={th}>نوع</SortTh>
+                            <SortTh s={ls} k="body" style={th}>متن</SortTh>
+                            <SortTh s={ls} k="status" style={th}>وضعیت</SortTh>
                         </tr>
                     </thead>
                     <tbody>
-                        {log.map((m) => (
+                        {ls.sorted.map((m) => (
                             <tr key={m.id} style={{ borderTop: '1px solid var(--line)' }}>
                                 <td style={td}>{fa(m.date)}</td>
                                 {showSchool && <td style={td}>{m.school || '—'}</td>}
@@ -225,3 +231,38 @@ function Field({ label, err, children }) {
 
 const th = { textAlign: 'start', padding: '9px 10px', fontSize: 12.5, color: 'var(--muted)', fontWeight: 700 };
 const td = { padding: '9px 10px', fontSize: 12.5 };
+
+
+/** پیامکِ هر اعلانی که در زنگوله‌ی ادمینِ کل می‌نشیند — به شماره‌ی خودِ ادمین. */
+function AdminAlerts({ alerts, ready }) {
+    const [on, setOn] = useState(alerts.on || {});
+    const [busy, setBusy] = useState(false);
+    const save = () => { setBusy(true); router.post(route('admin.sms.alerts'), { on }, { preserveScroll: true, onFinish: () => setBusy(false) }); };
+    const noPhone = (alerts.admins || []).filter((a) => !a.phone);
+    return (
+        <div className="panel">
+            <h3>🔔 پیامکِ اعلان‌ها برای ادمینِ کل</h3>
+            <p style={{ color: 'var(--muted)', fontSize: 13.5, marginTop: 0 }}>
+                هر اعلانی که برای شما در زنگوله می‌آید، به‌صورتِ پیامک هم به موبایلِ شما فرستاده می‌شود. هر نوع را می‌توانید جداگانه روشن یا خاموش کنید.
+            </p>
+            {!ready && <div className="tag tag-warn" style={{ marginBottom: 10 }}>درگاهِ پیامک هنوز فعال نیست؛ تا فعال نشود پیامکی فرستاده نمی‌شود.</div>}
+            <div style={{ display: 'grid', gap: 8 }}>
+                {Object.entries(alerts.types).map(([k, t]) => (
+                    <label key={k} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 14, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={!!on[k]} onChange={(e) => setOn({ ...on, [k]: e.target.checked })} style={{ marginTop: 5 }} />
+                        <span><b>{t.label}</b><br /><small style={{ color: 'var(--muted)' }}>{t.hint}</small></span>
+                    </label>
+                ))}
+            </div>
+            <div style={{ marginTop: 14, fontSize: 13.5 }}>
+                <b>گیرنده‌ها:</b>{' '}
+                {(alerts.admins || []).map((a) => <span key={a.id} className="tag" style={{ marginInlineEnd: 6 }}>{a.name} — <span dir="ltr">{a.phone || 'بدونِ شماره'}</span></span>)}
+                {noPhone.length > 0 && <div style={{ color: '#b0333f', marginTop: 6 }}>برای ادمینی که شماره ندارد پیامکی نمی‌رود؛ شماره را از «کاربران و شماره‌ها» اضافه کنید.</div>}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+                <button type="button" className="btn btn-sm" disabled={busy} onClick={save}>{busy ? 'در حال ذخیره…' : '💾 ذخیره'}</button>
+                <a href="/admin/users" className="btn btn-ghost btn-sm">📱 ویرایشِ شماره‌ی من و بقیه</a>
+            </div>
+        </div>
+    );
+}

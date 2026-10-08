@@ -1,8 +1,10 @@
 import { usePage, useForm, router, Link } from '@inertiajs/react';
+import { aiErrorText, aiResultText, salvageAiPayload } from '@/lib/aiErrors';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
+import { useSort, SortBar } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const DIFF = { easy: 'آسان', medium: 'متوسط', hard: 'دشوار' };
@@ -33,6 +35,7 @@ const TEMPLATES = [
 
 export default function Missions() {
     const { missions = [], facets = [], classrooms = [], themes = [], resources = {}, stats = {}, bankTotal = 0, smartLab = false, flash } = usePage().props;
+    const mst = useSort(missions, { title: 'title', subject: 'subject', lesson: 'lesson_no', count: 'question_count', active: (m) => (m.is_active ? 1 : 0) }, { id: 'teacher-missions', firstDir: { count: 'desc', active: 'desc' } });
     const [banner, setBanner] = useState(null);
     const [editId, setEditId] = useState(null);
     const formRef = useRef(null);
@@ -226,8 +229,9 @@ export default function Missions() {
             <div className="panel">
                 <h3>🗄️ مأموریت‌های من ({fa(missions.length)})</h3>
                 {missions.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز مأموریتی نساخته‌ای. از «شروعِ سریع» بالا یک الگو را بزن.</p>}
+                {missions.length > 1 && <SortBar s={mst} options={[['title', 'عنوان'], ['subject', 'درس'], ['lesson', 'شماره درس'], ['count', 'تعداد سؤال'], ['active', 'فعال']]} />}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 12, marginTop: 8 }}>
-                    {missions.map((m) => (
+                    {mst.sorted.map((m) => (
                         <MissionCard key={m.id} m={m} themes={themes} onEdit={() => edit(m)} onToggle={() => toggle(m)} onDup={() => dup(m)} onDel={() => del(m)} />
                     ))}
                 </div>
@@ -400,13 +404,14 @@ function QuestionMaker({ form, onSaved }) {
     const suggest = async (sample = false) => {
         setBusy(true); setMsg(null);
         try {
-            const { data } = await axios.post(route('teacher.missions.ai'), {
+            const { data: raw } = await axios.post(route('teacher.missions.ai'), {
                 subject: form.data.subject, lesson_no: form.data.lesson_no,
                 difficulty: form.data.difficulty || 'medium', count: 4, sample,
             });
-            if (data.ok) { setAi(data.questions || []); setMsg(data.message ? { t: 'info', m: data.message } : null); }
-            else setMsg({ t: 'err', m: data.message || 'تولید نشد.' });
-        } catch { setMsg({ t: 'err', m: 'خطا در ارتباط با سرور.' }); } finally { setBusy(false); }
+            const data = salvageAiPayload(raw) || raw;
+            if (data?.ok && Array.isArray(data.questions)) { setAi(data.questions); setMsg(data.message ? { t: 'info', m: data.message } : null); }
+            else setMsg({ t: 'err', m: aiResultText(data) });
+        } catch (e) { setMsg({ t: 'err', m: aiErrorText(e) }); } finally { setBusy(false); }
     };
 
     return (

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ActivityAward extends Model
 {
-    protected $fillable = ['class_activity_id', 'student_id', 'points', 'awarded_by'];
+    protected $fillable = ['class_activity_id', 'student_id', 'points', 'awarded_by', 'batch_id'];
 
     public function activity(): BelongsTo { return $this->belongsTo(ClassActivity::class, 'class_activity_id'); }
     public function student(): BelongsTo { return $this->belongsTo(User::class, 'student_id'); }

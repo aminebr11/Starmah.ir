@@ -7,6 +7,7 @@ use App\Models\Classroom;
 use App\Models\Grade;
 use App\Models\GradeColumn;
 use App\Services\GamificationService;
+use App\Services\MasteryService;
 use App\Support\Jalali;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,7 @@ use Inertia\Response;
  */
 class GradebookController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request, MasteryService $mastery): Response
     {
         $teacher = $request->user();
         $classroom = Classroom::where('teacher_id', $teacher->id)->first();
@@ -30,8 +31,21 @@ class GradebookController extends Controller
             ? $classroom->students()->get(['users.id', 'name'])->map(fn ($s) => ['id' => $s->id, 'name' => $s->name])->values()
             : collect();
 
-        $activities = GradeColumn::where('classroom_id', $classroom?->id)
-            ->with('grades')->orderByDesc('graded_at')->orderByDesc('id')->get()
+        $columns = GradeColumn::where('classroom_id', $classroom?->id)
+            ->with('grades')->orderByDesc('graded_at')->orderByDesc('id')->get();
+
+        // اثرِ هر فعالیت بر تسلطِ درسیِ دانش‌آموزان (یک‌بار جمع‌آوریِ شواهد برای کلِ کلاس)
+        $impact = [];
+        try {
+            $impact = $mastery->gradeImpact(
+                $students->pluck('id')->all(),
+                $columns->map(fn ($c) => $c->only('id', 'lesson', 'title', 'topic'))->all()
+            );
+        } catch (\Throwable $e) {
+            report($e); // نبودِ تحلیلِ تسلط نباید دفترِ نمره را از کار بیندازد
+        }
+
+        $activities = $columns
             ->map(fn ($c) => [
                 'id' => $c->id, 'title' => $c->title,
                 'score_type' => $c->score_type ?: $c->type,
@@ -42,6 +56,7 @@ class GradebookController extends Controller
                 'grades' => $c->grades->mapWithKeys(fn ($g) => [$g->student_id => [
                     'score' => $g->score, 'text' => $g->text, 'feedback' => $g->feedback,
                 ]]),
+                'mastery' => $impact[$c->id] ?? null,
             ]);
 
         return Inertia::render('Teacher/Gradebook', [
@@ -51,6 +66,7 @@ class GradebookController extends Controller
             'activities'=> $activities,
             'descriptiveOptions' => array_keys(GamificationService::GRADE_XP['descriptive']),
             'homeworkOptions'    => array_keys(GamificationService::GRADE_XP['homework']),
+            'highlight' => $request->session()->get('gradebook_highlight'),
         ]);
     }
 
@@ -88,9 +104,12 @@ class GradebookController extends Controller
                 'graded_at'    => $data['date'] ?? now(),
             ]);
             $this->persistGrades($col, $data['grades'] ?? [], $game, $teacher);
+            $this->colId = $col->id;
         });
+        MasteryService::forgetMany(collect($data['grades'] ?? [])->pluck('student_id')->all());
 
-        return back()->with('flash', 'فعالیت و نمرات ثبت شد ✅');
+        return back()->with('flash', 'فعالیت و نمرات ثبت شد ✅ اثرِ آن در تسلطِ هر دانش‌آموز در «سوابق نمرات» دیده می‌شود.')
+            ->with('gradebook_highlight', $this->colId);
     }
 
     /** ذخیره/ویرایش نمرات یک فعالیتِ موجود. */
@@ -106,9 +125,99 @@ class GradebookController extends Controller
         ]);
 
         DB::transaction(fn () => $this->persistGrades($gradeColumn, $data['grades'], $game, $request->user()));
+        MasteryService::forgetMany(collect($data['grades'])->pluck('student_id')->all());
 
-        return back()->with('flash', 'نمرات ذخیره شد ✅');
+        return back()->with('flash', 'نمرات ذخیره شد ✅')->with('gradebook_highlight', $gradeColumn->id);
     }
+
+    /**
+     * ویرایشِ کاملِ یک فعالیت: مشخصات (عنوان، درس، موضوع، نوعِ نمره، بارم، تاریخ)
+     * به‌همراهِ نمرات. اگر نمره‌ی دانش‌آموزی در ویرایش پاک شود، نمره و امتیازش
+     * هم حذف می‌شود؛ با عوضِ نوعِ نمره، ارزیابی‌های ناسازگارِ قبلی کنار می‌روند.
+     */
+    public function updateActivity(Request $request, GradeColumn $gradeColumn, GamificationService $game): RedirectResponse
+    {
+        $teacher = $request->user();
+        abort_unless($gradeColumn->teacher_id === $teacher->id, 403);
+
+        $data = $request->validate([
+            'title'                => ['required', 'string', 'max:100'],
+            'score_type'           => ['required', 'in:numeric,descriptive,homework'],
+            'lesson'               => ['nullable', 'string', 'max:80'],
+            'topic'                => ['nullable', 'string', 'max:120'],
+            'max'                  => ['nullable', 'numeric', 'min:1', 'max:100'],
+            'date'                 => ['nullable', 'date'],
+            'grades'               => ['array'],
+            'grades.*.student_id'  => ['required', 'integer'],
+            'grades.*.score'       => ['nullable', 'numeric'],
+            'grades.*.text'        => ['nullable', 'string', 'max:40'],
+            'grades.*.feedback'    => ['nullable', 'string', 'max:255'],
+        ], [
+            'title.required' => 'عنوانِ فعالیت را بنویسید.',
+        ]);
+
+        $grades = $data['grades'] ?? [];
+        $type = $data['score_type'];
+        $allowed = $type === 'numeric' ? null : array_keys(GamificationService::GRADE_XP[$type]);
+        foreach ($grades as &$g) {
+            // مقدارِ ناسازگار با نوعِ تازه دور ریخته می‌شود
+            if ($type === 'numeric') {
+                $g['text'] = null;
+            } else {
+                $g['score'] = null;
+                if (! in_array($g['text'] ?? null, $allowed, true)) $g['text'] = null;
+            }
+        }
+        unset($g);
+
+        DB::transaction(function () use ($gradeColumn, $data, $grades, $type, $allowed, $game, $teacher) {
+            $gradeColumn->fill([
+                'title'      => $data['title'],
+                'type'       => $type === 'numeric' ? 'numeric' : 'descriptive',
+                'score_type' => $type,
+                'lesson'     => $data['lesson'] ?? null,
+                'topic'      => $data['topic'] ?? null,
+                'max'        => $type === 'numeric' ? ($data['max'] ?? $gradeColumn->max ?? 20) : ($gradeColumn->max ?: 20),
+                'graded_at'  => $data['date'] ?? $gradeColumn->graded_at ?? now(),
+            ])->save();
+
+            // نمره‌هایی که در ویرایش خالی شدند حذف می‌شوند
+            $empty = collect($grades)->filter(fn ($g) => ($g['score'] ?? null) === null && empty($g['text']) && empty($g['feedback']))
+                ->pluck('student_id')->all();
+            if ($empty) {
+                foreach (Grade::where('grade_column_id', $gradeColumn->id)->whereIn('student_id', $empty)->get() as $old) {
+                    \App\Models\XpEntry::where('source_type', Grade::class)->where('source_id', $old->id)->delete();
+                    $old->delete();
+                }
+            }
+
+            $this->persistGrades($gradeColumn, $grades, $game, $teacher);
+
+            // با عوض‌شدنِ نوع، نمره‌های ناسازگارِ باقی‌مانده (که در فرم نبودند) کنار می‌روند
+            foreach ($gradeColumn->grades()->get() as $gr) {
+                $ok = $type === 'numeric' ? $gr->score !== null : in_array($gr->text, $allowed, true);
+                if (! $ok && empty($gr->feedback)) {
+                    \App\Models\XpEntry::where('source_type', Grade::class)->where('source_id', $gr->id)->delete();
+                    $gr->delete();
+                } elseif (! $ok) {
+                    $gr->forceFill(['score' => null, 'text' => null])->save();
+                }
+            }
+
+            // تغییرِ بارم/درس/عنوان روی امتیازِ نمره‌های بی‌تغییر هم اثر دارد
+            foreach ($gradeColumn->grades()->get() as $gr) {
+                $game->awardForGrade($gr, $gradeColumn, $teacher);
+            }
+        });
+
+        MasteryService::forgetMany($gradeColumn->grades()->pluck('student_id')->merge(collect($grades)->pluck('student_id'))->all());
+
+        return back()->with('flash', 'فعالیت ویرایش شد ✅ تسلطِ دانش‌آموزان با مشخصاتِ تازه دوباره حساب شد.')
+            ->with('gradebook_highlight', $gradeColumn->id);
+    }
+
+    /** شناسه‌ی فعالیتِ تازه‌ساخته (برای برجسته‌کردن در سوابق). */
+    private ?int $colId = null;
 
     private function persistGrades(GradeColumn $col, array $grades, GamificationService $game, $teacher): void
     {
@@ -172,7 +281,9 @@ class GradebookController extends Controller
         foreach ($gradeColumn->grades as $g) {
             \App\Models\XpEntry::where('source_type', Grade::class)->where('source_id', $g->id)->delete();
         }
+        $ids = $gradeColumn->grades->pluck('student_id')->all();
         $gradeColumn->delete();
+        MasteryService::forgetMany($ids);
         return back()->with('flash', 'فعالیت حذف شد 🗑️');
     }
 }

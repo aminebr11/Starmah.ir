@@ -4,6 +4,7 @@ import DateObjectImport from 'react-date-object';
 import persianImport from 'react-date-object/calendars/persian';
 import persianFaImport from 'react-date-object/locales/persian_fa';
 import DashLayout, { teacherMenu, schoolMenu } from '@/Layouts/DashLayout';
+import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const unwrap = (m) => (m && m.default) ? m.default : m;
 const DateObject = unwrap(DateObjectImport);
@@ -17,6 +18,7 @@ export default function MonthlySheet() {
     const { role, routes, classrooms = [], classroomId, classroom, students = [], meta = {} } = usePage().props;
     const menu = role === 'teacher' ? teacherMenu : schoolMenu;
     const [offset, setOffset] = useState(0); // جابه‌جایی ماه نسبت به ماه جاری
+    const ns = useSort(students, { name: (n) => firstName(n), family: (n) => lastName(n) }, { id: 'attendance-monthly-sheet' });
 
     // ماه شمسی هدف
     const base = new DateObject({ calendar: persian, locale: persian_fa });
@@ -54,13 +56,14 @@ export default function MonthlySheet() {
                     </select>
                 )}
                 <span style={{ color: 'var(--muted)', fontSize: 13 }}>این فرم را چاپ کنید، دستی پر کنید و سپس در سامانه وارد کنید.</span>
+                {students.length > 1 && <div style={{ flexBasis: '100%' }}><SortBar s={ns} options={[['name', 'نام'], ['family', 'نام خانوادگی']]} label="ترتیبِ ردیف‌ها:" /></div>}
             </div>
 
             {!classroom ? <div className="panel">کلاسی یافت نشد.</div> : (
                 <div className="panel printable msheet-wrap">
                     {/* سربرگ */}
                     <div className="msheet-head">
-                        <img src="/brand/logo-emblem.png" alt="" />
+                        <img src="/brand/logo-mark-240.webp" alt="" />
                         <div style={{ flex: 1, textAlign: 'center' }}>
                             <div className="msheet-title">فرم حضور و غیاب ماهانه</div>
                             <div className="msheet-sub">{meta.school || ''} — کلاس {classroom.name}{classroom.grade ? ` (پایه ${classroom.grade})` : ''}</div>
@@ -75,7 +78,7 @@ export default function MonthlySheet() {
                         <table className="msheet-tbl">
                             <thead>
                                 <tr>
-                                    <th className="msheet-name">نام دانش‌آموز</th>
+                                    <SortTh s={ns} k="family" className="msheet-name">نام دانش‌آموز</SortTh>
                                     {days.map((d) => (
                                         <th key={d.n} className={d.isFri ? 'msheet-fri' : ''}>
                                             <div className="msheet-wd">{d.wd}</div>{fa(d.n)}
@@ -84,7 +87,7 @@ export default function MonthlySheet() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {students.map((name, i) => (
+                                {ns.sorted.map((name, i) => (
                                     <tr key={i}>
                                         <td className="msheet-name">{fa(i + 1)}. {name}</td>
                                         {days.map((d) => <td key={d.n} className={d.isFri ? 'msheet-fri' : ''} />)}

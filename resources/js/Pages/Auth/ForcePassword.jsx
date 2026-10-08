@@ -19,7 +19,7 @@ export default function ForcePassword() {
             <Head title="انتخاب رمز جدید" />
             <div className="card" style={{ width: '100%', maxWidth: 440, background: '#fff', padding: 32 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, fontWeight: 800, color: 'var(--navy-800)', fontSize: 20 }}>
-                    <img src="/brand/logo-emblem.png" alt="" style={{ width: 44, height: 44, borderRadius: 12 }} /> ستاره ماه
+                    <img src="/brand/logo-mark-240.webp" alt="" style={{ width: 44, height: 44, borderRadius: 12 }} /> ستاره ماه
                 </div>
                 <h1 className="auth-h" style={{ margin: '0 0 6px' }}>یک رمز جدید انتخاب کن 🔒</h1>
                 <p className="auth-sub" style={{ margin: '0 0 22px' }}>برای امنیت حساب، در اولین ورود باید رمز موقت را تغییر دهی.</p>

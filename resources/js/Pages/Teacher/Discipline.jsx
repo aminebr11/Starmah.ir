@@ -1,6 +1,7 @@
 import { usePage, useForm, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
+import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -24,6 +25,9 @@ export default function Discipline() {
         });
     };
 
+    const ss = useSort(students, { name: (r) => firstName(r.name), family: (r) => lastName(r.name), group: 'group' }, { id: 'teacher-discipline-students' });
+    const rs = useSort(records, { name: (r) => firstName(r.student), family: (r) => lastName(r.student), title: 'title', points: 'points', date: 'date_raw' }, { id: 'teacher-discipline-records', firstDir: { points: 'desc', date: 'desc' } });
+
     const pos = topics.filter((t) => t.kind === 'positive');
     const neg = topics.filter((t) => t.kind === 'negative');
 
@@ -46,11 +50,12 @@ export default function Discipline() {
                 </div>
 
                 <div style={{ fontWeight: 700, fontSize: 13, margin: '6px 0 8px' }}>۲) دانش‌آموز(ان) را انتخاب کن:</div>
+                {students.length > 1 && <SortBar s={ss} options={[['name', 'نام'], ['family', 'نام خانوادگی'], ['group', 'تیم']]} />}
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
                     <button onClick={() => setSelStudents(selStudents.length === students.length ? [] : students.map((s) => s.id))} className="tag tag-info" style={{ cursor: 'pointer', border: 0, fontFamily: 'inherit', padding: '7px 13px' }}>
                         {selStudents.length === students.length ? 'لغو همه' : '✓ کل کلاس'}
                     </button>
-                    {students.map((s) => (
+                    {ss.sorted.map((s) => (
                         <button key={s.id} onClick={() => toggle(selStudents, setSelStudents, s.id)} className={`tag ${selStudents.includes(s.id) ? 'tag-warn' : 'tag-info'}`} style={{ cursor: 'pointer', border: 0, fontFamily: 'inherit', padding: '7px 11px' }}>
                             {s.emoji} {s.name}
                         </button>
@@ -81,10 +86,11 @@ export default function Discipline() {
                 <div className="panel">
                     <h3>📋 سوابق ثبت‌شده</h3>
                     {records.length === 0 && <p style={{ color: 'var(--muted)' }}>هنوز موردی ثبت نشده.</p>}
+                    {records.length > 1 && <SortBar s={rs} options={[['name', 'نام'], ['family', 'نام خانوادگی'], ['points', 'امتیاز'], ['date', 'تاریخ']]} />}
                     {records.length > 0 && (
                         <table className="tbl">
-                            <thead><tr><th>دانش‌آموز</th><th>موضوع</th><th>امتیاز</th><th>تاریخ</th></tr></thead>
-                            <tbody>{records.map((r, i) => (
+                            <thead><tr><SortTh s={rs} k="family">دانش‌آموز</SortTh><SortTh s={rs} k="title">موضوع</SortTh><SortTh s={rs} k="points">امتیاز</SortTh><SortTh s={rs} k="date">تاریخ</SortTh></tr></thead>
+                            <tbody>{rs.sorted.map((r, i) => (
                                 <tr key={i}>
                                     <td style={{ fontWeight: 700 }}>{r.student}</td>
                                     <td>{r.kind === 'positive' ? '🌟' : '⚠️'} {r.title}</td>

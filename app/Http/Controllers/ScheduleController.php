@@ -181,6 +181,33 @@ class ScheduleController extends Controller
      * جدولِ هفته می‌شدند و معلم/دانش‌آموز نمی‌فهمید کدام زنگ برای همیشه
      * است و کدام فقط یک روزِ مشخص. آن‌ها را specialFor() جدا می‌دهد.
      */
+    /**
+     * شماره‌ی زنگ از ترتیبِ خودِ روز: درس‌های پیش از اولین زنگِ تفریح «زنگ ۱»،
+     * بعد از آن «زنگ ۲» و همین‌طور تا آخر. قبلاً عددِ ذخیره‌شده نشان داده می‌شد
+     * که فرم همیشه ۱ می‌فرستاد و برای همه «زنگ ۱» می‌نوشت.
+     * ردیف‌ها باید به ترتیبِ ساعت مرتب باشند.
+     */
+    private function numberPeriods($entries)
+    {
+        $period = 1;
+        $seenLesson = false;
+        foreach ($entries as $e) {
+            if (($e->kind ?? 'class') === 'recess') {
+                $e->display_period = null;
+                // فقط زنگِ تفریحی که بعد از درس آمده زنگ را جلو می‌برد
+                if ($seenLesson) {
+                    $period++;
+                    $seenLesson = false;
+                }
+                continue;
+            }
+            $e->display_period = $period;
+            $seenLesson = true;
+        }
+
+        return $entries;
+    }
+
     private function entriesFor(?int $classroomId): array
     {
         if (! $classroomId) {
@@ -193,8 +220,8 @@ class ScheduleController extends Controller
             ->orderBy('period')
             ->get()
             ->groupBy('day_of_week')
-            ->map(fn ($g) => $g->map(fn ($e) => [
-                'id' => $e->id, 'title' => $e->title, 'time' => $e->time_range, 'period' => $e->period,
+            ->map(fn ($g) => $this->numberPeriods($g)->map(fn ($e) => [
+                'id' => $e->id, 'title' => $e->title, 'time' => $e->time_range, 'period' => $e->display_period,
                 'kind' => $e->kind ?? 'class', 'start' => $e->start_time, 'end' => $e->end_time,
                 'specific_date' => $e->specific_date?->toDateString(),
                 'jdate' => $e->specific_date ? Jalali::format($e->specific_date) : null,
@@ -215,19 +242,23 @@ class ScheduleController extends Controller
         $names = Jalali::weekdays();
         $today = now()->startOfDay();
 
-        return ScheduleEntry::where('classroom_id', $classroomId)
+        $rows = ScheduleEntry::where('classroom_id', $classroomId)
             ->whereNotNull('specific_date')
             ->when($upcomingOnly, fn ($q) => $q->whereDate('specific_date', '>=', $today->toDateString()))
             ->orderBy('specific_date')
             ->orderByRaw('start_time IS NULL, start_time')
-            ->get()
+            ->get();
+        // زنگ‌ها جدا برای هر تاریخ شمرده می‌شوند
+        $rows->groupBy(fn ($e) => $e->specific_date->toDateString())->each(fn ($g) => $this->numberPeriods($g));
+
+        return $rows
             ->map(function ($e) use ($names, $today) {
                 $d = $e->specific_date;
                 // نامِ روز را از خودِ تاریخ درمی‌آوریم؛ هفته‌ی ایرانی از شنبه آغاز می‌شود
                 $idx = ((int) $d->format('w') + 1) % 7;
                 return [
                     'id' => $e->id, 'title' => $e->title, 'time' => $e->time_range,
-                    'period' => $e->period, 'kind' => $e->kind ?? 'class',
+                    'period' => $e->display_period, 'kind' => $e->kind ?? 'class',
                     'start' => $e->start_time, 'end' => $e->end_time,
                     'date' => $d->toDateString(),
                     'jdate' => Jalali::format($d),

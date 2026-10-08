@@ -20,12 +20,14 @@ class AnalyticsService
     public function classroomReport(Classroom $classroom): array
     {
         $students = $classroom->students()->with('theme')->get();
+        $masteryMap = app(MasteryService::class)->forStudents($students->pluck('id')->all());
 
         $perStudent = $students->map(fn ($s) => [
             'id' => $s->id, 'name' => $s->name, 'theme_id' => $s->theme_id,
             'group' => $s->theme?->name, 'emoji' => $s->theme?->emoji,
             'xp' => $s->totalXp(),
-            'mastery' => (int) round($s->skillMastery()->avg('mastery') ?? 0),
+            'mastery' => $masteryMap[$s->id]['overall'] ?? null,
+            'mastery_level' => $masteryMap[$s->id]['level']['label'] ?? null,
             'activities' => ActivityAward::where('student_id', $s->id)->count(),
         ])->sortByDesc('xp')->values();
 
@@ -58,7 +60,7 @@ class AnalyticsService
                 'points'     => $perStudent->sum('xp'),
                 'activities' => ClassActivity::where('classroom_id', $classroom->id)->count(),
                 'engagement' => $students->count() ? (int) round($activeWeek / $students->count() * 100) : 0,
-                'avg_mastery'=> (int) round($perStudent->avg('mastery') ?? 0),
+                'avg_mastery'=> ($m = $perStudent->pluck('mastery')->filter(fn ($v) => $v !== null))->isNotEmpty() ? (int) round($m->avg()) : null,
             ],
             'by_group'    => $byGroup,
             'by_type'     => $byType,
@@ -69,29 +71,15 @@ class AnalyticsService
     }
 
     /* ---------------- مدرسه (گزارش مدیر + تحلیل هر معلم) ---------------- */
-    public function schoolReport(School $school): array
+    /**
+     * تحلیلِ هر معلم حالا از کارهای واقعی ساخته می‌شود: همه‌ی کلاس‌هایش (نه فقط اولی)،
+     * محتوا/بازی/آزمون/مأموریت/کاربرگ، نمره و حضور و غیاب، پیام، حضورِ خودش در سایت
+     * و مشارکت و انجامِ وظایفِ شاگردانش. نسخه‌ی قبلی فقط جدولِ activity_awards را
+     * می‌شمرد که عملاً همیشه خالی بود و برای همه صفر نشان می‌داد.
+     */
+    public function schoolReport(School $school, int $days = 30): array
     {
-        $teachers = User::role(Roles::TEACHER)->where('school_id', $school->id)->get();
-
-        $perTeacher = $teachers->map(function ($t) {
-            $class = Classroom::where('teacher_id', $t->id)->first();
-            $studentIds = $class ? $class->students()->pluck('users.id') : collect();
-            $points = ActivityAward::whereIn('student_id', $studentIds)->sum('points');
-            $activities = ClassActivity::where('teacher_id', $t->id)->count();
-            $activeWeek = ActivityAward::whereIn('student_id', $studentIds)
-                ->where('created_at', '>=', now()->subDays(7))->distinct('student_id')->count('student_id');
-            $count = $studentIds->count();
-
-            return [
-                'id' => $t->id, 'name' => $t->name,
-                'class' => $class?->name, 'students' => $count,
-                'activities' => $activities,
-                'points' => (int) $points,
-                'engagement' => $count ? (int) round($activeWeek / $count * 100) : 0,
-                // امتیاز عملکرد ساده: ترکیب فعالیت + درگیری
-                'score' => min(100, $activities * 5 + ($count ? (int) round($activeWeek / $count * 60) : 0)),
-            ];
-        })->sortByDesc('score')->values();
+        $teachers = app(VisitAnalytics::class)->teacherRows($school, $days);
 
         return [
             'totals' => [
@@ -101,7 +89,7 @@ class AnalyticsService
                 'points'   => (int) DB::table('xp_ledger')->join('users', 'users.id', '=', 'xp_ledger.student_id')
                     ->where('users.school_id', $school->id)->sum('amount'),
             ],
-            'per_teacher' => $perTeacher,
+            'per_teacher' => $teachers,
         ];
     }
 
@@ -224,7 +212,8 @@ class AnalyticsService
             ->selectRaw("SUM(CASE WHEN points >= 0 THEN 1 ELSE 0 END) as pos, SUM(CASE WHEN points < 0 THEN 1 ELSE 0 END) as neg")
             ->first();
 
-        $mastery = (int) round($student->skillMastery()->avg('mastery') ?? 0);
+        $masteryDetail = app(MasteryService::class)->forStudent($student->id);
+        $mastery = $masteryDetail['overall'];
         $weekXp = (int) $summary['week_points'];
         $prevWeekXp = (int) DB::table('xp_ledger')->where('student_id', $student->id)
             ->whereBetween('created_at', [now()->subDays(14), now()->subDays(7)])->sum('amount');
@@ -242,6 +231,8 @@ class AnalyticsService
             'rank'      => $rank,
             'class_size'=> $classSize,
             'mastery'   => $mastery,
+            'mastery_detail' => $masteryDetail,
+            'mastery_levels' => MasteryService::LEVELS,
             'by_type'   => $summary['by_type'],
             'trend'     => $trend,
             'heatmap'   => $heat,
@@ -255,7 +246,7 @@ class AnalyticsService
     }
 
     /** توصیه‌ی خودکارِ قابل‌فهم برای والد — قاعده‌محور، بدونِ نیاز به AI. */
-    private function childAdvice(int $weekXp, int $prevWeekXp, ?int $classAvgWeek, int $mastery, int $absents, int $negDiscipline): array
+    private function childAdvice(int $weekXp, int $prevWeekXp, ?int $classAvgWeek, ?int $mastery, int $absents, int $negDiscipline): array
     {
         $advice = [];
         if ($weekXp > $prevWeekXp && $weekXp > 0) {
@@ -268,8 +259,10 @@ class AnalyticsService
         } elseif ($classAvgWeek !== null && $weekXp >= $classAvgWeek && $weekXp > 0) {
             $advice[] = ['tone' => 'ok', 'text' => 'فرزندتان بالاتر از میانگینِ کلاس فعالیت می‌کند — عالی است! 👏'];
         }
-        if ($mastery > 0 && $mastery < 50) {
-            $advice[] = ['tone' => 'warn', 'text' => 'تسلطِ مهارتی هنوز جای رشد دارد؛ تکرارِ بازی‌های درسی (حتی تمرینی) به تثبیتِ یادگیری کمک می‌کند.'];
+        if ($mastery !== null && $mastery < 50) {
+            $advice[] = ['tone' => 'warn', 'text' => 'تسلط بر درس‌ها هنوز جای رشد دارد؛ تکرارِ بازی‌ها و مأموریت‌های درس‌های ضعیف‌تر به تثبیتِ یادگیری کمک می‌کند.'];
+        } elseif ($mastery !== null && $mastery >= 85) {
+            $advice[] = ['tone' => 'ok', 'text' => 'فرزندتان بر درس‌هایش مسلط است 🏆 — برای نگه‌داشتنِ این سطح، تمرینِ منظم را ادامه دهد.'];
         }
         if ($absents >= 2) {
             $advice[] = ['tone' => 'warn', 'text' => "در ۳۰ روزِ اخیر {$absents} غیبت ثبت شده — در صورتِ ابهام با معلم در میان بگذارید."];

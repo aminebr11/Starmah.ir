@@ -1,6 +1,9 @@
 import { usePage, router } from '@inertiajs/react';
 import { useState } from 'react';
 import ThemedDash from '@/Layouts/ThemedDash';
+import MasteryPanel from '@/Components/MasteryPanel';
+import PointsTrend from '@/Components/PointsTrend';
+import { openPrint } from '@/lib/print';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const hue = (p) => p == null ? '#8896ad' : p >= 70 ? '#2bb673' : p >= 50 ? '#f0952e' : '#e8505b';
@@ -8,6 +11,8 @@ const card = { background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,
 
 const TABS = [
     { v: 'overview', t: 'خلاصه و تحلیل', ic: '📊' },
+    { v: 'mastery', t: 'تسلطِ من', ic: '🎯' },
+    { v: 'trend', t: 'روندِ امتیاز و رتبه', ic: '📊' },
     { v: 'cross', t: 'درس‌به‌درس', ic: '📚' },
     { v: 'grades', t: 'نمرات کلاسی', ic: '📔' },
     { v: 'smart', t: 'آزمون هوشمند', ic: '🧠' },
@@ -15,13 +20,13 @@ const TABS = [
 
 /** کارنامه‌ی یکپارچه — چهار بخش در یک صفحه‌ی تب‌دار. */
 export default function Report() {
-    const { tab: initialTab = 'overview', report = {}, crossSubject = {}, grades = {}, smart = {}, auth } = usePage().props;
+    const { tab: initialTab = 'overview', report = {}, crossSubject = {}, grades = {}, smart = {}, pointsTrend = null, auth } = usePage().props;
     const [tab, setTab] = useState(TABS.some((t) => t.v === initialTab) ? initialTab : 'overview');
     const go = (v) => { setTab(v); window.history.replaceState(null, '', `/report?tab=${v}`); };
 
     return (
         <ThemedDash title="کارنامه‌ی من" active="report"
-            actions={<a href={`/print/student/${auth?.user?.id}`} target="_blank" rel="noopener" className="k3-btn ghost" style={{ fontSize: 12.5, flex: 'none' }}>🖨️ چاپ</a>}>
+            actions={<button type="button" onClick={() => openPrint(`/print/student/${auth?.user?.id}`)} className="k3-btn ghost" style={{ fontSize: 12.5, flex: 'none' }}>🖨️ چاپ</button>}>
             <div className="k3-card" style={{ background: 'linear-gradient(135deg,#6d28d9,#4c1d95)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 38 }}>📊</span>
@@ -29,7 +34,7 @@ export default function Report() {
                         <div style={{ fontWeight: 900, fontSize: 19 }}>کارنامه‌ی {report.student?.name || 'من'}</div>
                         <div style={{ opacity: .85, fontSize: 12.5 }}>همه‌ی عملکردِ تو در یک نگاه — خلاصه، درس‌به‌درس، نمرات و آزمون هوشمند</div>
                     </div>
-                    <button onClick={() => window.print()} className="k3-btn ghost" style={{ fontSize: 12.5 }}>🖨️ چاپ / PDF</button>
+                    <button type="button" onClick={() => openPrint(`/print/student/${auth?.user?.id}`)} className="k3-btn ghost" style={{ fontSize: 12.5 }}>🖨️ چاپ / PDF کارنامه</button>
                 </div>
             </div>
 
@@ -45,9 +50,11 @@ export default function Report() {
             </div>
 
             <div style={{ marginTop: 14 }}>
-                {tab === 'overview' && <Overview report={report} />}
+                {tab === 'overview' && <Overview report={report} onMastery={() => go('mastery')} />}
+                {tab === 'mastery' && <MasteryPanel data={report.mastery} levels={report.masteryLevels} who="kid" />}
+                {tab === 'trend' && <div className="pt-dark"><PointsTrend data={pointsTrend} title="📊 روندِ امتیاز و رتبه‌ی من" /></div>}
                 {tab === 'cross' && <CrossSubject data={crossSubject} />}
-                {tab === 'grades' && <Grades grades={grades} />}
+                {tab === 'grades' && <Grades grades={grades} onMastery={() => go('mastery')} />}
                 {tab === 'smart' && <Smart smart={smart} />}
             </div>
         </ThemedDash>
@@ -55,7 +62,7 @@ export default function Report() {
 }
 
 /* ---------- تب خلاصه و تحلیل ---------- */
-function Overview({ report }) {
+function Overview({ report, onMastery }) {
     const o = report.overview || {};
     const trend = report.trend || [];
     const maxTrend = Math.max(1, ...trend.map((t) => t.value));
@@ -64,7 +71,9 @@ function Overview({ report }) {
         <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: 12 }}>
                 <Kpi ic="⚡" l="امتیاز کل" v={fa(o.xp)} c1="#f5b53f" c2="#d98f0f" />
-                <Kpi ic="🎯" l="میانگین تسلط" v={`${fa(o.avgMastery)}٪`} c1="#2bb673" c2="#1a8a52" />
+                <button type="button" onClick={onMastery} style={{ border: 0, padding: 0, background: 'none', cursor: 'pointer', font: 'inherit', textAlign: 'inherit' }}>
+                    <Kpi ic="🎯" l={o.avgMastery == null ? 'تسلط (داده کافی نیست)' : `تسلط · ${report.mastery?.level?.label || ''}`} v={o.avgMastery == null ? '—' : `${fa(o.avgMastery)}٪`} c1="#2bb673" c2="#1a8a52" />
+                </button>
                 <Kpi ic="💻" l="میانگین آزمون" v={o.examAvg == null ? '—' : `${fa(o.examAvg)}٪`} c1="#7c5cf0" c2="#4c2fb0" />
                 <Kpi ic="⭐" l="ستاره‌ها" v={fa(o.stars)} c1="#0ea5b7" c2="#0a7d8a" />
                 <Kpi ic="🏅" l="نشان‌ها" v={fa(o.badges)} c1="#e8862e" c2="#a5570f" />
@@ -73,12 +82,12 @@ function Overview({ report }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 14, marginTop: 14 }}>
                 <div style={card}>
                     <ST>💪 نقاط قوت</ST>
-                    {(report.strengths || []).length === 0 && <Empty>هنوز داده‌ای نداریم.</Empty>}
+                    {(report.strengths || []).length === 0 && <Empty>هنوز درسی به سطحِ «نزدیک به تسلط» (۷۰٪) نرسیده؛ با تمرین می‌رسد 💪</Empty>}
                     {(report.strengths || []).map((s, i) => <Bar key={i} name={s.name} pct={s.mastery} color="#2bb673" />)}
                 </div>
                 <div style={card}>
                     <ST>🔧 نیاز به تمرین</ST>
-                    {(report.weaknesses || []).length === 0 && <Empty>ضعف مشخصی دیده نمی‌شود 🎉</Empty>}
+                    {(report.weaknesses || []).length === 0 && <Empty>{report.overview?.avgMastery == null ? 'هنوز داده‌ی کافی نیست.' : 'ضعف مشخصی دیده نمی‌شود 🎉'}</Empty>}
                     {(report.weaknesses || []).map((s, i) => <Bar key={i} name={s.name} pct={s.mastery} color="#e8505b" />)}
                 </div>
             </div>
@@ -116,8 +125,8 @@ function Overview({ report }) {
 }
 
 /* ---------- تب درس‌به‌درس ---------- */
-const SEC_ICON = { smart: '🧠', game: '🎮', mission: '🎯', worksheet: '🎨' };
-const SEC_LABEL = { smart: 'آزمون هوشمند', game: 'بازی', mission: 'مأموریت', worksheet: 'کاربرگ' };
+const SEC_ICON = { smart: '🧠', game: '🎮', mission: '🎯', grade: '📔', worksheet: '🎨' };
+const SEC_LABEL = { smart: 'آزمون هوشمند', game: 'بازی', mission: 'مأموریت', grade: 'نمره‌ی کلاسی', worksheet: 'کاربرگ' };
 function CrossSubject({ data }) {
     const subjects = data?.subjects || [];
     return (
@@ -133,8 +142,13 @@ function CrossSubject({ data }) {
                                 <span style={{ width: 42, height: 42, borderRadius: 12, display: 'grid', placeItems: 'center', fontWeight: 900, color: '#fff', background: hue(s.pct), flex: 'none' }}>{s.pct == null ? '—' : `${fa(s.pct)}٪`}</span>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ fontWeight: 900, fontSize: 15 }}>{s.subject}</div>
-                                    <div style={{ fontSize: 11, opacity: .7 }}>{fa(s.activities)} فعالیت · {s.status === 'good' ? 'مسلط 🌟' : s.status === 'mid' ? 'در حال پیشرفت 📈' : s.status === 'low' ? 'نیاز به تمرین 💪' : 'مشارکتی'}</div>
+                                    <div style={{ fontSize: 11, opacity: .7 }}>{fa(s.activities)} فعالیت · {s.status === 'good' ? 'عملکردِ عالی 🌟' : s.status === 'mid' ? 'در حال پیشرفت 📈' : s.status === 'low' ? 'نیاز به تمرین 💪' : 'مشارکتی'}</div>
                                 </div>
+                                {s.mastery != null && (
+                                    <span title="تسلط: برآوردِ وزن‌دار از همه‌ی شواهد (نمره‌ی معلم سنگین‌تر، کارهای تازه مهم‌تر)" style={{ flex: 'none', fontSize: 11.5, fontWeight: 800, borderRadius: 20, padding: '4px 10px', color: '#fff', background: s.level?.color || '#3d7bf0' }}>
+                                        🎯 تسلط {fa(s.mastery)}٪
+                                    </span>
+                                )}
                             </div>
                             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                                 {Object.entries(s.sections || {}).map(([k, v]) => (
@@ -154,7 +168,7 @@ function CrossSubject({ data }) {
 /* ---------- تب نمرات کلاسی ---------- */
 const RATING = { 'خیلی خوب': ['#1f7a45', '#7be05a'], 'خوب': ['#1b4b8a', '#8fc9ff'], 'قابل قبول': ['#8a5a00', '#ffcf6b'], 'نیاز به تلاش': ['#a04413', '#ffab7a'], 'غایب': ['#8a1f1f', '#ff8d8d'], 'کامل': ['#1f7a45', '#7be05a'], 'ناقص': ['#8a5a00', '#ffcf6b'], 'انجام نداده': ['#8a1f1f', '#ff8d8d'] };
 const GICON = { 'غایب': '🚫', 'کامل': '✅', 'ناقص': '⚠️', 'انجام نداده': '❌' };
-function Grades({ grades }) {
+function Grades({ grades, onMastery }) {
     const subjects = grades?.subjects || [];
     const stats = grades?.stats || {};
     return (
@@ -174,6 +188,14 @@ function Grades({ grades }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 4px 8px', fontWeight: 800, fontSize: 15, color: '#fff' }}>
                         <span style={{ width: 5, height: 18, borderRadius: 6, background: 'linear-gradient(var(--p1),var(--acc))' }} />
                         📚 {s.lesson} <span style={{ opacity: .6, fontSize: 12, fontWeight: 500 }}>({fa(s.count)} نمره)</span>
+                        {s.mastery != null ? (
+                            <button type="button" onClick={onMastery} title="تسلطِ این درس — از نمره‌های معلم، آزمون‌ها، بازی‌ها و مأموریت‌ها"
+                                style={{ marginInlineStart: 'auto', border: 0, cursor: 'pointer', font: 'inherit', fontSize: 12, fontWeight: 800, borderRadius: 20, padding: '4px 12px', color: '#fff', background: s.level?.color || '#3d7bf0' }}>
+                                🎯 تسلط {fa(s.mastery)}٪ · {s.level?.label}
+                            </button>
+                        ) : s.mastery_n > 0 ? (
+                            <span style={{ marginInlineStart: 'auto', fontSize: 11.5, opacity: .75, fontWeight: 600 }}>🎯 تسلط: {fa(s.need)} نشانه‌ی دیگر لازم است</span>
+                        ) : null}
                     </div>
                     <div style={card}>
                         {s.items.map((g, i) => {

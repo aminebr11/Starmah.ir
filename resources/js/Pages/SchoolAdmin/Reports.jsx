@@ -1,13 +1,18 @@
-import { usePage } from '@inertiajs/react';
+import { usePage, Link } from '@inertiajs/react';
 import DashLayout, { schoolMenu } from '@/Layouts/DashLayout';
-import { AreaTrend, PAL } from '@/Components/Charts';
+import { AreaTrend, HBars, PAL } from '@/Components/Charts';
+import { PeriodPicker, PeopleTable, teacherColumns, teacherDetail, tone } from '@/Components/VisitKit';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 function Card({ ic, lbl, v }) { return <div className="dcard"><div className="ic">{ic}</div><div className="lbl">{lbl}</div><div className="val">{fa(v)}</div></div>; }
 
 export default function Reports() {
-    const { report, trend = [] } = usePage().props;
+    const { report, trend = [], days = 30, periods } = usePage().props;
     if (!report) return <DashLayout title="گزارش‌ها" roleLabel="مدیر مدرسه" menu={schoolMenu} active="reports"><div className="panel">داده‌ای نیست.</div></DashLayout>;
     const t = report.totals;
+    const teachers = report.per_teacher || [];
+    const bars = teachers.map((tt) => ({ label: tt.name, value: tt.score, sub: tt.classes || 'بدونِ کلاس', color: tone(tt.score) }));
+    const top = teachers[0];
+
     return (
         <DashLayout title="گزارش‌ها و تحلیل عملکرد" roleLabel="مدیر مدرسه" menu={schoolMenu} active="reports"
             actions={<a href="/print/roster" target="_blank" rel="noopener" className="btn btn-sm">🖨️ چاپِ فهرستِ دانش‌آموزان</a>}>
@@ -21,28 +26,28 @@ export default function Reports() {
                 <h3>📈 نبضِ مدرسه — امتیازِ روزانه‌ی کلِ دانش‌آموزان (۲۸ روز)</h3>
                 <AreaTrend data={trend} color={PAL[0]} />
             </div>
+
             <div className="panel">
-                <h3>📈 تحلیل عملکرد هر معلم</h3>
-                <p style={{ color: 'var(--muted)', marginTop: -6 }}>بر اساس فعالیت‌سازی و درگیری دانش‌آموزان</p>
-                <table className="tbl">
-                    <thead><tr><th>#</th><th>معلم</th><th>کلاس</th><th>دانش‌آموز</th><th>فعالیت</th><th>امتیاز</th><th>درگیری</th><th>عملکرد</th></tr></thead>
-                    <tbody>
-                        {report.per_teacher.map((tt, i) => (
-                            <tr key={tt.id}>
-                                <td>{fa(i + 1)}</td><td style={{ fontWeight: 700 }}>{tt.name}</td>
-                                <td>{tt.class ?? '—'}</td><td>{fa(tt.students)}</td><td>{fa(tt.activities)}</td>
-                                <td style={{ color: 'var(--gold-2)', fontWeight: 700 }}>{fa(tt.points)}</td>
-                                <td>{fa(tt.engagement)}٪</td>
-                                <td><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <div style={{ flex: 1, height: 8, borderRadius: 6, background: '#eef2f8', overflow: 'hidden', minWidth: 60 }}>
-                                        <div style={{ width: `${tt.score}%`, height: '100%', background: tt.score >= 60 ? 'linear-gradient(90deg,#2bb673,#7be05a)' : 'linear-gradient(90deg,var(--gold),var(--gold-2))' }} />
-                                    </div><span style={{ fontSize: 12, fontWeight: 700 }}>{fa(tt.score)}</span>
-                                </div></td>
-                            </tr>
-                        ))}
-                        {report.per_teacher.length === 0 && <tr><td colSpan="8" style={{ color: 'var(--muted)' }}>هنوز معلمی ثبت نشده.</td></tr>}
-                    </tbody>
-                </table>
+                <div className="vk-head">
+                    <h3 style={{ margin: 0 }}>👩‍🏫 تحلیلِ عملکردِ هر معلم</h3>
+                    <PeriodPicker days={days} periods={periods} />
+                </div>
+                <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+                    از کارهای واقعیِ هر معلم در {fa(days)} روزِ اخیر: محتوا، بازی، آزمون، مأموریت و کاربرگی که ساخته، نمره و حضور و غیابی که ثبت کرده،
+                    پیام‌هایش، حضورِ خودش در سایت، و این‌که شاگردانش چقدر سر زده‌اند و کارهایشان را انجام داده‌اند.
+                </p>
+                {top?.score > 0 && (
+                    <div className="vk-spot-card good" style={{ marginBottom: 14 }}>
+                        <b>🏅 بیشترین عملکرد: {top.name}</b>
+                        <span style={{ color: 'var(--muted)', fontSize: 12.5 }}> — {fa(top.score)} از ۱۰۰ · {fa(top.produced)} محتوا/بازی/آزمون · حضورِ شاگردان {fa(top.student_rate)}٪</span>
+                    </div>
+                )}
+                {teachers.length > 1 && <div style={{ marginBottom: 16 }}><HBars items={bars} unit=" از ۱۰۰" /></div>}
+                <PeopleTable rows={teachers} columns={teacherColumns()} subOf={teacherDetail} emptyText="هنوز معلمی ثبت نشده." />
+                <div className="vk-note">
+                    روی نامِ هر معلم بزنید تا ریزِ کارهایش را ببینید. «عملکرد» = حضورِ معلم (۲۵٪) + محتوا و کارهای کلاسی (۳۵٪) + حضورِ شاگردان (۲۰٪) + انجامِ وظایفِ شاگردان (۲۰٪).
+                    {' '}<Link href="/school/visits">👁️ گزارشِ کاملِ بازدید و مشارکت ←</Link>
+                </div>
             </div>
         </DashLayout>
     );

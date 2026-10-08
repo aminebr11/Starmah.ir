@@ -56,6 +56,29 @@ class NoticeController extends Controller
         return back(303);
     }
 
+    /**
+     * نبضِ اعلان‌ها — هر چند ثانیه از همه‌ی صفحه‌ها خوانده می‌شود تا زنگوله بدونِ
+     * رفرشِ دستی به‌روز شود. سبک است: فقط شمار و تازه‌ترین موردِ خوانده‌نشده.
+     */
+    public function pulse(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $user = $request->user();
+        $all = \App\Support\Notifications::all($user, 60);
+        $unread = array_values(array_filter($all, fn ($n) => empty($n['read'])));
+        $top = $unread[0] ?? null;
+
+        return response()->json([
+            'count' => count($unread),
+            // اثرانگشتِ فید: هر تغییری (اعلانِ تازه، خوانده‌شدن، حذف) آن را عوض می‌کند
+            'sig' => md5(implode('|', array_map(fn ($n) => $n['id'].(empty($n['read']) ? 'u' : 'r'), array_slice($all, 0, 30)))),
+            'top' => $top ? [
+                'id' => $top['id'], 'title' => $top['title'], 'icon' => $top['icon'] ?? '🔔',
+                'body' => \Illuminate\Support\Str::limit(strip_tags((string) ($top['body'] ?? '')), 120),
+                'href' => $top['href'] ?? '/notices', 'ts' => $top['ts'] ?? 0,
+            ] : null,
+        ])->header('Cache-Control', 'no-store');
+    }
+
     /** «همه را خواندم». */
     public function readAll(Request $request): \Illuminate\Http\RedirectResponse
     {

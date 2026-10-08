@@ -53,6 +53,7 @@ class StudentController extends Controller
             'address'        => ['nullable', 'string', 'max:300'],
             'parent_pin'     => ['nullable', 'digits_between:4,8'],
             'avatar'         => ['nullable', 'file', 'max:4096'],
+            'send_welcome'   => ['nullable', 'boolean'],
         ], [
             'national_id.digits' => 'کدِ ملی باید ۱۰ رقم باشد.',
             'avatar.max'         => 'حجمِ عکس بیش از حد است. دوباره عکس بگیرید تا خودکار فشرده شود.',
@@ -80,6 +81,7 @@ class StudentController extends Controller
                 'school_id'   => $classroom->school_id,
                 'name'        => $name,
                 'phone'       => $data['phone'],
+                'parent_phone' => $data['parent_phone'] ?? null,
                 'password'    => Hash::make($password),
                 'theme_id'    => $data['theme_id'] ?? null,
                 'national_id' => $data['national_id'] ?? null,
@@ -113,9 +115,15 @@ class StudentController extends Controller
 
         AuditLog::record($teacher, 'ثبتِ دانش‌آموز', "«{$name}» به کلاسِ «{$classroom->name}» اضافه شد");
 
+        // پیامکِ خوش‌آمد با اطلاعاتِ ورود — رمز موقت است و در نخستین ورود عوض می‌شود
+        $sms = ($data['send_welcome'] ?? true)
+            ? \App\Support\SmsGateway::welcome($student, ['classroom' => $classroom, 'teacher' => $teacher, 'password' => $password, 'pin' => $pin])
+            : ['message' => null];
+
         return back()->with('flash', [
             'type' => 'credentials',
-            'message' => "دانش‌آموز «{$name}» ساخته شد. موبایل: {$data['phone']} | رمزِ ورود: {$password} | رمزِ بخشِ والدین: {$pin}",
+            'message' => "دانش‌آموز «{$name}» ساخته شد. موبایل: {$data['phone']} | رمزِ ورود: {$password} | رمزِ بخشِ والدین: {$pin}"
+                . ($sms['message'] ? ' — ' . $sms['message'] : ''),
         ]);
     }
 

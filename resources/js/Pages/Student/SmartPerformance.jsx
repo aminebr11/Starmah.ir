@@ -1,4 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
+import { openPrint } from '@/lib/print';
 import ThemedDash from '@/Layouts/ThemedDash';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
@@ -127,7 +128,7 @@ export default function SmartPerformance() {
                         ))}
                     </div>
                     <div style={{ textAlign: 'center', marginTop: 12 }}>
-                        <button onClick={() => window.print()} className="k3-btn ghost" style={{ fontSize: 13 }}>🖨️ چاپ برای والدین</button>
+                        <button onClick={() => openPrint("/print/me")} className="k3-btn ghost" style={{ fontSize: 13 }}>🖨️ چاپ برای والدین</button>
                     </div>
                 </div>
             )}

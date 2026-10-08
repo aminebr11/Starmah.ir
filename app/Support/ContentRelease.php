@@ -35,17 +35,43 @@ class ContentRelease
     }
 
     /** اعلانِ «محتوای جدید». هرگز جریانِ اصلی را نمی‌شکند. */
-    public static function notify(ClassContent $content): void
+    /**
+     * اعلانِ آلبوم: یک اعلان برای کلِ آلبوم یا عکس‌های تازه‌اش.
+     * کلیک روی اعلان مستقیم همان آلبوم را باز می‌کند.
+     */
+    public static function notifyAlbum(\App\Models\GalleryAlbum $album, int $count, bool $added = false): void
+    {
+        $first = ClassContent::withoutGlobalScopes()->where('album_id', $album->id)->orderBy('id')->first();
+        if (! $first) return;
+        $title = $added
+            ? '🖼️ ' . Jalali::fa((string) $count) . ' عکسِ تازه در آلبومِ «' . $album->title . '»'
+            : '📸 آلبومِ تازه: ' . $album->title . ' (' . Jalali::fa((string) $count) . ' عکس)';
+        try {
+            self::doNotify($first, max(1, $count), [
+                'title' => $title,
+                'body' => "معلمت " . ($added ? 'عکس‌های تازه‌ای به آلبومِ' : 'آلبومِ تازه‌ای با') . " «{$album->title}» گذاشت. روی همین اعلان بزن تا ببینی 📷",
+                'link' => '/class-content?tab=gallery&album=' . $album->id,
+                'classroom_id' => $album->classroom_id,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('album notify failed: ' . $e->getMessage());
+        }
+    }
+
+    public static function notify(ClassContent $content, int $count = 1): void
     {
         try {
-            self::doNotify($content);
+            self::doNotify($content, max(1, $count));
         } catch (\Throwable $e) {
             Log::warning('content notify failed: ' . $e->getMessage());
         }
     }
 
-    private static function doNotify(ClassContent $content): void
+    private static function doNotify(ClassContent $content, int $count = 1, array $over = []): void
     {
+        if (array_key_exists('classroom_id', $over)) {
+            $content = (clone $content)->forceFill(['classroom_id' => $over['classroom_id']]);
+        }
         $teacher = $content->teacher ?: User::find($content->teacher_id);
 
         if ($content->classroom_id) {
@@ -59,16 +85,20 @@ class ContentRelease
             return;
         }
 
+        // دسته‌ای از عکس‌ها یک اعلان دارد، نه یک اعلان برای هر عکس
+        $label = ($content->type === 'gallery' && $count > 1)
+            ? '🖼️ ' . Jalali::fa((string) $count) . ' عکسِ جدید'
+            : (self::LABELS[$content->type] ?? '📚 محتوای جدید');
         $payload = [
             'school_id' => $content->school_id ?? optional($teacher)->school_id,
             'sender_id' => $content->teacher_id,
-            'title' => (self::LABELS[$content->type] ?? '📚 محتوای جدید') . ' — ' . $content->title,
+            'title' => $over['title'] ?? ($label . ' — ' . $content->title),
             'audience' => 'personal',
-            'body' => "معلمت محتوای جدیدی برایت گذاشت: «{$content->title}». روی همین اعلان بزن تا ببینی"
+            'body' => $over['body'] ?? "معلمت محتوای جدیدی برایت گذاشت: «{$content->title}». روی همین اعلان بزن تا ببینی"
                 . ($content->type === 'podcast' ? ' و با گوش‌دادن امتیاز بگیری ⚡' : '.'),
         ];
         if (\Illuminate\Support\Facades\Schema::hasColumn('announcements', 'link')) {
-            $payload['link'] = self::linkFor($content);
+            $payload['link'] = $over['link'] ?? self::linkFor($content);
         }
 
         $ann = Announcement::create($payload);
@@ -76,10 +106,11 @@ class ContentRelease
 
         // پیامک — تکلیف رویدادِ جداگانه دارد چون معمولاً مهم‌ترینِ آن‌هاست
         $event = $content->type === 'homework' ? 'homework' : 'content';
-        $label = self::LABELS[$content->type] ?? 'محتوای جدید';
         foreach (User::whereIn('id', $ids)->get() as $student) {
             SmsGateway::event($event, $student,
-                "{$label} — «{$content->title}» برای {$student->name} در سامانه‌ی ستاره ماه ثبت شد.", $teacher);
+                isset($over['title'])
+                    ? "{$over['title']} — برای {$student->name} در سامانه‌ی ستاره ماه."
+                    : "{$label} — «{$content->title}» برای {$student->name} در سامانه‌ی ستاره ماه ثبت شد.", $teacher);
         }
     }
 
@@ -99,7 +130,32 @@ class ContentRelease
                 ->where('is_visible', true)
                 ->limit(20)->get()
                 ->each(function (ClassContent $c) {
-                    self::notify($c);
+                    if ($c->fresh()?->notified_at) {
+                        return; // همراهِ دسته‌ی گالریِ خودش اعلان شده
+                    }
+                    $count = 1;
+                    if ($c->type === 'gallery' && $c->album_id && ($album = \App\Models\GalleryAlbum::withoutGlobalScopes()->find($c->album_id))) {
+                        // آلبوم: یک اعلان برای همه‌ی عکس‌های سررسیده‌اش
+                        $due = ClassContent::withoutGlobalScopes()->where('album_id', $album->id)->whereNull('notified_at');
+                        $count = max(1, (clone $due)->count());
+                        $due->update(['notified_at' => now()]);
+                        if ($album->is_visible) {
+                            self::notifyAlbum($album, $count, (bool) $album->notified_at);
+                        }
+                        $album->forceFill(['notified_at' => $album->notified_at ?? now()])->save();
+                        $c->forceFill(['notified_at' => now()])->save();
+                        return;
+                    }
+                    if ($c->type === 'gallery') {
+                        // عکس‌های هم‌دسته (همان معلم، عنوان، کلاس و زمانِ انتشار) یک اعلان می‌گیرند
+                        $siblings = ClassContent::where('type', 'gallery')
+                            ->where('teacher_id', $c->teacher_id)->where('title', $c->title)
+                            ->where('publish_at', $c->publish_at)->whereNull('notified_at')
+                            ->when($c->classroom_id, fn ($q) => $q->where('classroom_id', $c->classroom_id), fn ($q) => $q->whereNull('classroom_id'));
+                        $count = max(1, (clone $siblings)->count());
+                        $siblings->update(['notified_at' => now()]);
+                    }
+                    self::notify($c, $count);
                     $c->forceFill(['notified_at' => now()])->save();
                 });
         } catch (\Throwable $e) {

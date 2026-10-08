@@ -19,6 +19,18 @@ class Announcement extends Model
 
     protected $fillable = ['school_id', 'sender_id', 'title', 'body', 'link', 'audience', 'grade'];
 
+    protected static function booted(): void
+    {
+        // اطلاعیه‌ی عمومیِ مدرسه‌ها در زنگوله‌ی ادمینِ کل هم می‌نشیند ← پیامک
+        static::created(function (Announcement $a) {
+            if ($a->audience !== 'all') {
+                return;
+            }
+            $school = $a->school_id ? \App\Models\School::find($a->school_id)?->name : null;
+            \App\Support\AdminAlert::send('announcement', '📢 اطلاعیه' . ($school ? "‌ی {$school}" : '') . ":\n{$a->title}", $a->sender_id);
+        });
+    }
+
     public function sender(): BelongsTo { return $this->belongsTo(User::class, 'sender_id'); }
 
     public function recipients(): BelongsToMany

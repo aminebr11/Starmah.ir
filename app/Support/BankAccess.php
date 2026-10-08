@@ -7,6 +7,7 @@ use App\Models\Classroom;
 use App\Models\CurriculumBook;
 use App\Models\SmartQuestionBank;
 use App\Models\User;
+use App\Support\Curriculum;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -189,29 +190,208 @@ class BankAccess
         return $q->teacher_id === $user->id; // معلم فقط سؤال‌های خودش
     }
 
-    /** ثبتِ خودکارِ یک سؤال در بانک هنگام ساختِ آزمون/بازی (بدون تکرار). */
-    public static function autosave(User $teacher, array $q, array $meta = []): void
+    /**
+     * ثبتِ یک سؤال در بانک با دسته‌بندیِ کامل — هنگامِ ذخیره‌ی آزمون، بازی،
+     * کاربرگ یا مأموریت. شناسه‌ی ردیفِ بانک را برمی‌گرداند تا سؤالِ آزمون/بازی
+     * به همان ردیف پیوند بخورد.
+     *
+     *  - سؤالی که از خودِ بانک آمده (bank_id) دوباره ساخته نمی‌شود؛ فقط «تعدادِ
+     *    استفاده» بالا می‌رود.
+     *  - تکراری با اثرانگشتِ متن تشخیص داده می‌شود (نه برابریِ دقیقِ رشته)، در
+     *    کلِ بانکِ همان مدرسه و همان پایه/درس؛ اگر ردیفِ قبلی مالِ همین معلم است
+     *    و دسته‌بندیِ ناقص دارد، کامل می‌شود.
+     */
+    public static function autosave(User $teacher, array $q, array $meta = []): ?int
     {
-        $prompt = trim($q['prompt'] ?? '');
-        if ($prompt === '' || ! in_array(($q['type'] ?? 'mc'), ['mc', 'tf', 'desc', 'blank'], true)) {
-            return;
+        $prompt = trim((string) ($q['prompt'] ?? ''));
+        $type = $q['type'] ?? 'mc';
+        $type = $type === 'short' ? 'blank' : $type;
+        if ($prompt === '' || ! in_array($type, ['mc', 'tf', 'desc', 'blank'], true)) {
+            return null;
         }
-        $exists = SmartQuestionBank::where('teacher_id', $teacher->id)
-            ->where('prompt', $prompt)->exists();
-        if ($exists) {
-            return;
+        // سؤالِ «حالتِ نمونه» (بدونِ کلیدِ هوش مصنوعی) جای‌نگهدار است، نه سؤالِ واقعی — واردِ بانک نمی‌شود
+        if (($q['source'] ?? null) === 'sample') {
+            return null;
         }
-        SmartQuestionBank::create([
+
+        $choices = self::cleanChoices($q['choices'] ?? []);
+        $answer = $q['answer'] ?? null;
+        if ($type === 'blank' && ($answer === null || $answer === '')) {
+            // پاسخِ کوتاهِ بازی در گزینه‌ی اول نگه داشته می‌شود
+            $answer = $choices[0]['value'] ?? null;
+            $choices = [];
+        }
+        if (in_array($type, ['mc', 'tf'], true) && ! collect($choices)->contains('correct', true)) {
+            return null; // بدونِ پاسخِ درست به دردِ بانک نمی‌خورد
+        }
+
+        if (! empty($q['bank_id'])) {
+            $src = self::visibleQuery($teacher)->whereKey($q['bank_id'])->first();
+            if ($src && Curriculum::fingerprint($src->prompt) === Curriculum::fingerprint($prompt)) {
+                if ($meta['count_use'] ?? true) {
+                    $src->increment('used_count');
+                }
+                return $src->id;
+            }
+        }
+
+        $grade = $meta['grade'] ?? null;
+        $subject = $meta['subject'] ?? null;
+        $fp = Curriculum::fingerprint($prompt);
+        unset($meta['count_use']);
+        $cat = array_filter([
+            'level' => $meta['level'] ?? Curriculum::levelOf($grade),
+            'grade' => $grade, 'subject' => $subject,
+            'book' => $meta['book'] ?? $subject,
+            'chapter_id' => $meta['chapter_id'] ?? null,
+            'chapter' => $meta['chapter'] ?? null,
+            'lesson_no' => $meta['lesson_no'] ?? null,
+            'topic' => ($q['topic'] ?? null) ?: ($meta['topic'] ?? null),
+            'goal' => ($q['goal'] ?? null) ?: ($meta['goal'] ?? null),
+        ], fn ($v) => $v !== null && $v !== '');
+
+        $dup = self::visibleQuery($teacher)
+            ->where(fn ($w) => $w->where('fingerprint', $fp)->orWhere('prompt', $prompt))
+            ->when($grade, fn ($w) => $w->where(fn ($x) => $x->whereNull('grade')->orWhere('grade', $grade)))
+            ->first();
+        if ($dup) {
+            if ($dup->teacher_id === $teacher->id) {
+                // فقط جاهای خالیِ دسته‌بندی را پر کن؛ چیزی را بازنویسی نکن
+                $fill = [];
+                foreach ($cat as $k => $v) {
+                    if (empty($dup->{$k})) {
+                        $fill[$k] = $v;
+                    }
+                }
+                foreach (['bloom', 'hint', 'explanation'] as $k) {
+                    if (empty($dup->{$k}) && ! empty($q[$k])) {
+                        $fill[$k] = $q[$k];
+                    }
+                }
+                $fill['fingerprint'] = $fp;
+                $dup->update($fill);
+            }
+            if ($meta['count_use'] ?? true) {
+                $dup->increment('used_count');
+            }
+            return $dup->id;
+        }
+
+        $row = SmartQuestionBank::create($cat + [
             'school_id' => $teacher->school_id, 'teacher_id' => $teacher->id,
-            'scope' => 'school', 'type' => $q['type'] ?? 'mc', 'prompt' => $prompt,
-            'choices' => $q['choices'] ?? [], 'answer' => $q['answer'] ?? null,
+            'scope' => 'school', 'type' => $type, 'prompt' => $prompt,
+            'choices' => $choices, 'answer' => $answer,
             'explanation' => $q['explanation'] ?? null,
-            'level' => $meta['level'] ?? null, 'lesson_no' => $meta['lesson_no'] ?? null,
-            'subject' => $meta['subject'] ?? null, 'grade' => $meta['grade'] ?? null,
-            'book' => $meta['book'] ?? ($meta['subject'] ?? null), 'chapter' => $meta['chapter'] ?? null,
-            'topic' => $q['topic'] ?? ($meta['topic'] ?? null),
-            'difficulty' => $q['difficulty'] ?? 'medium',
+            'hint' => isset($q['hint']) ? mb_substr((string) $q['hint'], 0, 300) : (isset($q['hint1']) ? mb_substr((string) $q['hint1'], 0, 300) : null),
+            'difficulty' => in_array($q['difficulty'] ?? null, ['easy', 'medium', 'hard'], true) ? $q['difficulty'] : 'medium',
+            'bloom' => $q['bloom'] ?? null,
             'source' => $q['source'] ?? ($meta['source'] ?? 'manual'),
+            'fingerprint' => $fp,
+            'used_count' => 1,
         ]);
+        return $row->id;
+    }
+
+    /** گزینه‌ها به شکلِ یکسان: [{value, correct}] */
+    public static function cleanChoices($choices): array
+    {
+        return collect((array) $choices)
+            ->map(fn ($c) => is_array($c) ? ['value' => trim((string) ($c['value'] ?? $c['text'] ?? '')), 'correct' => (bool) ($c['correct'] ?? false)] : null)
+            ->filter(fn ($c) => $c && $c['value'] !== '')->values()->all();
+    }
+
+    /**
+     * جست‌وجوی بانک برای «بازخوانی» در آزمون‌ساز و بازی‌ساز.
+     * فیلترها: grade, subject, chapter_id, chapter, uncategorized, lesson_no, topic, types[], difficulty, source, search, exclude[]
+     */
+    public static function search(User $user, array $f): Builder
+    {
+        $types = array_values(array_intersect((array) ($f['types'] ?? []), ['mc', 'tf', 'desc', 'blank']));
+        return self::visibleQuery($user)
+            ->when($types, fn ($x) => $x->whereIn('type', $types))
+            // «بدونِ پایه» و «عمومی» برچسب‌های درختِ دسته‌بندی برای سؤال‌های قدیمیِ بی‌برچسب‌اند
+            ->when($f['grade'] ?? null, fn ($x, $g) => $g === 'بدونِ پایه' ? $x->whereNull('grade') : $x->where('grade', $g))
+            ->when($f['subject'] ?? null, fn ($x, $s) => $s === 'عمومی'
+                ? $x->whereNull('subject')->whereNull('book')
+                : $x->where(fn ($w) => $w->where('subject', $s)->orWhere('book', $s)))
+            ->when($f['uncategorized'] ?? false, fn ($x) => $x->whereNull('chapter_id')->where(fn ($w) => $w->whereNull('chapter')->orWhere('chapter', '')))
+            ->when($f['chapter_id'] ?? null, fn ($x, $c) => $x->where('chapter_id', $c))
+            ->when(! ($f['chapter_id'] ?? null) && ($f['chapter'] ?? null), fn ($x) => $x->where('chapter', $f['chapter']))
+            ->when($f['lesson_no'] ?? null, fn ($x, $l) => $x->where('lesson_no', $l))
+            ->when($f['topic'] ?? null, fn ($x, $t) => $x->where('topic', 'like', '%' . $t . '%'))
+            ->when($f['difficulty'] ?? null, fn ($x, $d) => $x->where('difficulty', $d))
+            ->when($f['source'] ?? null, fn ($x, $s) => $x->where('source', $s))
+            ->when($f['search'] ?? null, fn ($x, $q) => $x->where('prompt', 'like', '%' . $q . '%'))
+            ->when($f['exclude'] ?? null, fn ($x, $ids) => $x->whereNotIn('id', (array) $ids));
+    }
+
+    /**
+     * درختِ دسته‌بندیِ بانکِ قابل‌دسترس: پایه → درس → فصل، با تعداد.
+     * سؤال‌های قدیمی که فصل ندارند زیرِ «بدونِ فصل» می‌آیند.
+     */
+    public static function facetTree(User $user, array $types = []): array
+    {
+        $rows = self::visibleQuery($user)
+            ->when($types, fn ($x) => $x->whereIn('type', $types))
+            ->selectRaw('grade, COALESCE(subject, book) as subj, chapter_id, chapter, COUNT(*) as n')
+            ->groupBy('grade', 'subj', 'chapter_id', 'chapter')->get();
+
+        $labels = \App\Models\CurriculumChapter::whereIn('id', $rows->pluck('chapter_id')->filter()->unique())
+            ->get()->mapWithKeys(fn ($c) => [$c->id => [$c->number, $c->label()]]);
+
+        $tree = [];
+        foreach ($rows as $r) {
+            $g = $r->grade ?: 'بدونِ پایه';
+            $s = $r->subj ?: 'عمومی';
+            if ($r->chapter_id && isset($labels[$r->chapter_id])) {
+                [$num, $label] = $labels[$r->chapter_id];
+                $key = 'id:' . $r->chapter_id;
+            } else {
+                $num = 999;
+                $label = $r->chapter ?: 'بدونِ فصل';
+                $key = 'txt:' . ($r->chapter ?: '');
+            }
+            $tree[$g][$s][$key] = [
+                'id' => $r->chapter_id && isset($labels[$r->chapter_id]) ? $r->chapter_id : null,
+                'chapter' => $r->chapter_id ? null : ($r->chapter ?: null),
+                'label' => $label, 'number' => $num,
+                'count' => ($tree[$g][$s][$key]['count'] ?? 0) + (int) $r->n,
+            ];
+        }
+
+        $order = array_flip(Levels::allGrades());
+        $out = [];
+        foreach ($tree as $g => $subjects) {
+            $subs = [];
+            foreach ($subjects as $s => $chapters) {
+                $ch = array_values($chapters);
+                usort($ch, fn ($a, $b) => [$a['number'], $a['label']] <=> [$b['number'], $b['label']]);
+                $subs[] = ['subject' => $s, 'count' => array_sum(array_column($ch, 'count')), 'chapters' => $ch];
+            }
+            usort($subs, fn ($a, $b) => strcmp($a['subject'], $b['subject']));
+            $out[] = ['grade' => $g, 'count' => array_sum(array_column($subs, 'count')), 'subjects' => $subs];
+        }
+        usort($out, fn ($a, $b) => ($order[$a['grade']] ?? 99) <=> ($order[$b['grade']] ?? 99));
+        return $out;
+    }
+
+    /** یک ردیفِ بانک با همه‌ی جزئیات — تا هنگامِ افزودن به آزمون/بازی چیزی گم نشود. */
+    public static function row(SmartQuestionBank $b, ?User $viewer = null): array
+    {
+        $answer = $b->answer;
+        if (is_array($answer)) {
+            $answer = count($answer) === 1 ? (string) reset($answer) : implode('، ', $answer);
+        }
+        return [
+            'id' => $b->id, 'type' => $b->type, 'prompt' => $b->prompt,
+            'choices' => self::cleanChoices($b->choices ?? []), 'answer' => $answer,
+            'explanation' => $b->explanation, 'hint' => $b->hint,
+            'difficulty' => $b->difficulty, 'bloom' => $b->bloom,
+            'level' => $b->level, 'grade' => $b->grade, 'subject' => $b->subject ?: $b->book,
+            'chapter_id' => $b->chapter_id, 'chapter' => $b->chapter, 'lesson_no' => $b->lesson_no,
+            'topic' => $b->topic, 'source' => $b->source, 'used' => (int) $b->used_count,
+            'author' => $b->relationLoaded('teacher') ? $b->teacher?->name : null,
+            'mine' => $viewer ? $b->teacher_id === $viewer->id : false,
+        ];
     }
 }

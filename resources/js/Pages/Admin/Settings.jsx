@@ -1,4 +1,4 @@
-import { usePage, useForm } from '@inertiajs/react';
+import { usePage, useForm, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
@@ -31,10 +31,6 @@ export default function Settings() {
     };
 
     const form = useForm({
-        ai_provider: settings.ai_provider || 'anthropic',
-        anthropic_key: '', openai_key: '',
-        anthropic_model: settings.anthropic_model || 'claude-haiku-4-5-20251001',
-        openai_model: settings.openai_model || 'gpt-4o-mini',
         ws_image_provider: settings.ws_image_provider || 'auto',
         ws_image_model: settings.ws_image_model || 'gpt-image-1',
         gemini_image_model: settings.gemini_image_model || 'gemini-2.5-flash-image',
@@ -44,7 +40,7 @@ export default function Settings() {
         e.preventDefault();
         form.post(route('admin.settings.store'), {
             preserveScroll: true,
-            onSuccess: () => { ['anthropic_key', 'openai_key', 'openai_image_key', 'gemini_key'].forEach((k) => form.setData(k, '')); setTest(null); },
+            onSuccess: () => { ['openai_image_key', 'gemini_key'].forEach((k) => form.setData(k, '')); setTest(null); },
         });
     };
 
@@ -52,39 +48,32 @@ export default function Settings() {
         <DashLayout title="تنظیمات پلتفرم" roleLabel="ادمین کل" menu={adminMenu} active="settings">
             {banner && <div className="panel" style={{ borderColor: 'var(--gold)', background: '#fff8e8' }}><b>{banner}</b></div>}
 
-            <form onSubmit={submit} className="panel" style={{ maxWidth: 680 }}>
-                <h3>🤖 هوش مصنوعی (Claude و ChatGPT)</h3>
-                <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 0 }}>
-                    کلید API را وارد کنید تا «تولید اطلاعیه با هوش مصنوعی» و «آزمون‌ساز هوشمند» فعال شود.
-                    کلیدها امن ذخیره می‌شوند و کامل نمایش داده نمی‌شوند.
+            <div className="panel">
+                <h3>🎨 طرحِ ظاهریِ سایت</h3>
+                <p style={{ color: 'var(--muted)', marginTop: 0, fontSize: 13.5 }}>
+                    طرحِ صفحه‌ی عمومیِ سایت و مدرسه‌هایی که طرحِ جداگانه ندارند. طرحِ هر مدرسه را در
+                    «مدارس ← مدیریتِ مدرسه ← ویرایش» تعیین کنید. کاربرانِ مدرسه‌ها کلیدِ تغییرِ طرح ندارند؛ دکمه‌ی 🎨 / 🌙 فقط برای پیش‌نمایشِ شماست.
                 </p>
-
-                <div className="field"><label>سرویس پیش‌فرض</label>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button type="button" onClick={() => form.setData('ai_provider', 'anthropic')} className={`tag ${form.data.ai_provider === 'anthropic' ? 'tag-warn' : 'tag-info'}`} style={{ cursor: 'pointer', border: 0, fontFamily: 'inherit', padding: '10px 16px' }}>🟣 Claude (Anthropic)</button>
-                        <button type="button" onClick={() => form.setData('ai_provider', 'openai')} className={`tag ${form.data.ai_provider === 'openai' ? 'tag-warn' : 'tag-info'}`} style={{ cursor: 'pointer', border: 0, fontFamily: 'inherit', padding: '10px 16px' }}>🟢 ChatGPT (OpenAI)</button>
-                    </div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    {[['classic', '🌙 طرحِ فعلی (شب)'], ['clay', '🎨 خمیرماه (روشن و خمیری)']].map(([k, label]) => (
+                        <button key={k} type="button" onClick={() => router.post(route('admin.settings.ui-default'), { ui_default: k }, { preserveScroll: true })}
+                            className={`btn btn-sm ${settings.ui_default === k ? '' : 'btn-ghost'}`}>
+                            {settings.ui_default === k ? '✓ ' : ''}{label}
+                        </button>
+                    ))}
                 </div>
+            </div>
 
-                <div style={{ border: '1px solid var(--line)', borderRadius: 16, padding: 16, margin: '14px 0' }}>
-                    <div style={{ fontWeight: 800, marginBottom: 10 }}>🟣 Claude — Anthropic {settings.anthropic_set && <span className="tag tag-ok" style={{ marginInlineStart: 8 }}>تنظیم‌شده {settings.anthropic_hint}</span>}</div>
-                    <div className="field"><label>کلید API (خالی بگذارید تا تغییر نکند)</label>
-                        <PasswordInput value={form.data.anthropic_key} autoComplete="off" placeholder="sk-ant-..." onChange={(e) => form.setData('anthropic_key', e.target.value)} />
+            <form onSubmit={submit} className="panel" style={{ maxWidth: 680 }}>
+                <h3>🤖 هوش مصنوعی</h3>
+                <a href="/admin/ai" className="ai-link-card">
+                    <span>🧠</span>
+                    <div>
+                        <b>مرکزِ هوش مصنوعی</b>
+                        <small>انتخابِ سرویس (Claude، ChatGPT، DeepSeek، Gemini، OpenRouter یا سرویسِ سازگار)، مدل، آزمایشِ اتصال، مصرفِ توکن و هزینه‌ی هر مدرسه و معلم</small>
                     </div>
-                    <div className="field" style={{ marginBottom: 0 }}><label>مدل</label>
-                        <input className="input" value={form.data.anthropic_model} onChange={(e) => form.setData('anthropic_model', e.target.value)} dir="ltr" />
-                    </div>
-                </div>
-
-                <div style={{ border: '1px solid var(--line)', borderRadius: 16, padding: 16, margin: '14px 0' }}>
-                    <div style={{ fontWeight: 800, marginBottom: 10 }}>🟢 ChatGPT — OpenAI {settings.openai_set && <span className="tag tag-ok" style={{ marginInlineStart: 8 }}>تنظیم‌شده {settings.openai_hint}</span>}</div>
-                    <div className="field"><label>کلید API (خالی بگذارید تا تغییر نکند)</label>
-                        <PasswordInput value={form.data.openai_key} autoComplete="off" placeholder="sk-..." onChange={(e) => form.setData('openai_key', e.target.value)} />
-                    </div>
-                    <div className="field" style={{ marginBottom: 0 }}><label>مدل</label>
-                        <input className="input" value={form.data.openai_model} onChange={(e) => form.setData('openai_model', e.target.value)} dir="ltr" />
-                    </div>
-                </div>
+                    <em>←</em>
+                </a>
 
                 {/* ═══ تصویرسازِ کاربرگ ═══ */}
                 <div className="panel" style={{ background: '#f5f3ff', border: '1px solid #ddd6fe' }}>

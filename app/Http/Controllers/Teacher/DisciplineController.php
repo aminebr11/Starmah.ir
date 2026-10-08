@@ -38,6 +38,7 @@ class DisciplineController extends Controller
             ->map(fn ($r) => [
                 'student' => $r->student?->name, 'title' => $r->title ?? $r->note, 'points' => $r->points,
                 'kind' => $r->points >= 0 ? 'positive' : 'negative', 'date' => $r->jalaliDate(),
+                'date_raw' => $r->created_at?->timestamp,
             ]);
 
         return Inertia::render('Teacher/Discipline', [

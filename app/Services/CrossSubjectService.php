@@ -19,6 +19,7 @@ class CrossSubjectService
         'smart' => ['label' => 'آزمون هوشمند', 'icon' => '🧠'],
         'game'  => ['label' => 'بازی', 'icon' => '🎮'],
         'mission' => ['label' => 'مأموریت', 'icon' => '🎯'],
+        'grade' => ['label' => 'نمره‌ی کلاسی', 'icon' => '📔'],
         'worksheet' => ['label' => 'کاربرگ', 'icon' => '🎨'],
     ];
 
@@ -43,8 +44,9 @@ class CrossSubjectService
         // subject => ['smart'=>[pcts], 'game'=>[pcts], 'mission'=>[pcts], 'worksheet'=>count]
         $acc = [];
         $add = function ($subject, $section, $pct) use (&$acc) {
-            $subject = $subject ?: 'عمومی';
-            $acc[$subject] ??= ['smart' => [], 'game' => [], 'mission' => [], 'worksheet' => 0];
+            // نامِ درس یکسان‌سازی می‌شود تا «ریاضی» در آزمون و دفترِ نمره یکی باشد
+            $subject = $subject ? MasteryService::subject($subject) : 'عمومی';
+            $acc[$subject] ??= ['smart' => [], 'game' => [], 'mission' => [], 'grade' => [], 'worksheet' => 0];
             if ($section === 'worksheet') {
                 $acc[$subject]['worksheet']++;
             } elseif ($pct !== null) {
@@ -69,6 +71,15 @@ class CrossSubjectService
             ->where('total', '>', 0)->with('mission:id,subject')->get()
             ->each(fn ($c) => $add(optional($c->mission)->subject, 'mission', (int) round($c->score / max(1, $c->total) * 100)));
 
+        // نمره‌های دفترِ کلاسیِ معلم (عددی، توصیفی و تکلیف)
+        \Illuminate\Support\Facades\DB::table('grades as g')->join('grade_columns as c', 'c.id', '=', 'g.grade_column_id')
+            ->whereIn('g.student_id', $studentIds)
+            ->select('g.score', 'g.text', 'c.max', 'c.type', 'c.score_type', 'c.lesson', 'c.title')->get()
+            ->each(function ($r) use ($add) {
+                $f = MasteryService::gradeFraction($r->score_type ?: $r->type, $r->score, $r->text, $r->max);
+                if ($f !== null) $add($r->lesson ?: $r->title, 'grade', (int) round($f * 100));
+            });
+
         // کاربرگ (مشارکت — ارسالِ پرشده)
         WorksheetSubmission::whereIn('student_id', $studentIds)
             ->whereNotNull('file_path')->with('worksheet:id,subject')->get()
@@ -81,7 +92,7 @@ class CrossSubjectService
             $sections = [];
             $subjPcts = [];
             $acts = 0;
-            foreach (['smart', 'game', 'mission'] as $k) {
+            foreach (['smart', 'game', 'mission', 'grade'] as $k) {
                 $list = $secs[$k];
                 $acts += count($list);
                 if (count($list)) {
@@ -102,6 +113,17 @@ class CrossSubjectService
                 'sections' => $sections,
                 'status' => $pct === null ? 'na' : ($pct >= 70 ? 'good' : ($pct >= 50 ? 'mid' : 'low')),
             ];
+        }
+
+        // برای یک دانش‌آموز: تسلطِ هر درس از همان موتورِ تسلط کنارِ میانگینِ ساده
+        if (count($studentIds) === 1) {
+            $m = collect(app(MasteryService::class)->forStudent((int) $studentIds[0])['subjects'])->keyBy('name');
+            foreach ($subjects as &$row) {
+                $ms = $m->get($row['subject']);
+                $row['mastery'] = $ms['mastery'] ?? null;
+                $row['level'] = $ms['level'] ?? null;
+            }
+            unset($row);
         }
 
         // مرتب‌سازی: ضعیف‌ترین‌ها بالاتر (برای تمرکزِ تمرین)، درس‌های بدونِ نمره آخر

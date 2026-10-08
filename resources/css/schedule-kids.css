@@ -1,0 +1,83 @@
+/* برنامه‌ی کلاسیِ دانش‌آموز — رنگی، شاد و کودک‌پسند */
+.ks-hero{position:relative;overflow:hidden;display:flex;align-items:center;gap:16px;border-radius:26px;padding:20px 22px;margin-bottom:14px;color:#fff;
+  background:linear-gradient(120deg,#ff9f43 0%,#ff6ad5 45%,#8a7bff 100%);box-shadow:0 7px 0 rgba(90,40,160,.35),0 20px 36px -18px rgba(90,40,160,.6)}
+.ks-hero h2{margin:0;font-size:23px;font-weight:900;color:#fff}
+.ks-hero p{margin:4px 0 0;font-size:14px;opacity:.95}
+.ks-hero-ic{width:64px;height:64px;flex:none;border-radius:20px;display:grid;place-items:center;font-size:36px;background:rgba(255,255,255,.25);
+  box-shadow:inset 0 -5px 0 rgba(0,0,0,.12);animation:ksw 3.2s ease-in-out infinite;position:relative;z-index:1}
+.ks-hero>div:last-child{position:relative;z-index:1}
+.ks-hero-b{position:absolute;border-radius:50%;background:rgba(255,255,255,.18);pointer-events:none;animation:ksf 8s ease-in-out infinite}
+.ks-hero-b.b1{width:140px;height:140px;left:-30px;top:-50px}
+.ks-hero-b.b2{width:70px;height:70px;left:22%;bottom:-26px;animation-delay:-3s}
+.ks-hero-b.b3{width:34px;height:34px;left:40%;top:14px;animation-delay:-5s}
+@keyframes ksf{50%{transform:translate(12px,10px) scale(1.1)}}
+@keyframes ksw{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg) translateY(-3px)}}
+
+.ks-legend{display:flex;gap:7px;overflow-x:auto;padding:2px 2px 10px;margin-bottom:6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.ks-legend::-webkit-scrollbar{display:none}
+.ks-chip{flex:none;display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 12px 6px 8px;font-weight:800;font-size:12.5px;
+  box-shadow:0 3px 0 rgba(0,0,0,.14);white-space:nowrap}
+.ks-chip i{font-style:normal;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.85);font-size:14px}
+.ks-chip b{background:rgba(0,0,0,.16);border-radius:9px;padding:0 7px;font-size:11px}
+.ks-chip.sm{padding:3px 10px 3px 5px;font-size:12px}.ks-chip.sm i{width:20px;height:20px;font-size:12px}
+
+.ks-week{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+.ks-day{--day:#5b8cff;background:#fff;border-radius:24px;padding:0 10px 12px;overflow:hidden;
+  box-shadow:0 6px 0 color-mix(in srgb,var(--day) 30%,#d8deeb),0 18px 30px -20px rgba(20,30,70,.55)}
+.ks-day-h{display:flex;align-items:center;justify-content:center;gap:8px;margin:0 -10px 12px;padding:11px 10px;color:#fff;font-weight:900;font-size:16px;
+  background:linear-gradient(135deg,color-mix(in srgb,var(--day) 82%,#fff),var(--day));
+  background-image:radial-gradient(rgba(255,255,255,.22) 1.5px,transparent 1.6px),linear-gradient(135deg,color-mix(in srgb,var(--day) 82%,#fff),var(--day));background-size:12px 12px,auto}
+.ks-day-h em{font-style:normal;font-size:11.5px;background:#fff;color:var(--day);border-radius:999px;padding:2px 9px;box-shadow:0 2px 0 rgba(0,0,0,.12)}
+.ks-day.today{box-shadow:0 0 0 4px #ffd23f,0 6px 0 4px #e9b300,0 22px 36px -16px rgba(240,170,0,.7);animation:kst 2.6s ease-in-out infinite}
+@keyframes kst{50%{box-shadow:0 0 0 6px #ffe27a,0 6px 0 6px #e9b300,0 22px 40px -14px rgba(240,170,0,.8)}}
+
+.ks-lesson{position:relative;display:flex;align-items:center;gap:10px;border-radius:18px;padding:11px 11px;margin-bottom:9px;min-height:58px;
+  background-blend-mode:normal;box-shadow:0 4px 0 var(--sh,rgba(0,0,0,.25)),0 10px 16px -10px rgba(0,0,0,.4);
+  animation:ksin .45s cubic-bezier(.34,1.56,.64,1) both;transition:transform .15s}
+.ks-lesson::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(circle at 88% 18%,rgba(255,255,255,.35) 0 9px,transparent 10px),radial-gradient(circle at 70% 85%,rgba(255,255,255,.16) 0 5px,transparent 6px)}
+.ks-lesson:hover{transform:translateY(-2px) rotate(-.6deg)}
+@keyframes ksin{from{opacity:0;transform:scale(.85) translateY(8px)}}
+.ks-sticker{width:40px;height:40px;flex:none;border-radius:14px;display:grid;place-items:center;font-size:22px;background:#fff;transform:rotate(-7deg);
+  box-shadow:0 3px 0 rgba(0,0,0,.15)}
+.ks-lesson:nth-child(even) .ks-sticker{transform:rotate(6deg)}
+.ks-lesson-b{flex:1;min-width:0;line-height:1.5}
+.ks-lesson-b b{display:block;font-size:14.5px;font-weight:900;overflow-wrap:anywhere;text-shadow:0 1px 0 rgba(0,0,0,.12)}
+.ks-lesson-b small{font-size:11px;opacity:.95;font-weight:700}
+.ks-lesson-b small span{display:inline-block}
+.ks-period{flex:none;display:flex;flex-direction:column;align-items:center;font-size:9.5px;font-weight:800;background:rgba(255,255,255,.28);border-radius:12px;padding:3px 7px;line-height:1.3}
+.ks-period b{font-size:15px}
+.ks-flag{position:absolute;top:-9px;inset-inline-start:10px;font-size:10.5px;font-weight:900;border-radius:999px;padding:2px 9px;box-shadow:0 2px 0 rgba(0,0,0,.15)}
+.ks-flag.now{background:#ffd23f;color:#5a3d00;animation:ksp 1.2s ease-in-out infinite}
+.ks-flag.next{background:#fff;color:#1b2742}
+.ks-lesson.now{outline:3px solid #ffd23f;outline-offset:2px}
+.ks-lesson.done{filter:saturate(.55);opacity:.72}
+@keyframes ksp{50%{transform:scale(1.1)}}
+
+.ks-recess{text-align:center;font-weight:900;font-size:12.5px;color:#7a4a00;margin-bottom:9px;padding:9px 8px;border-radius:16px;
+  background:repeating-linear-gradient(-45deg,#fff1c2 0 10px,#ffe39a 10px 20px);box-shadow:0 3px 0 #f0c75a}
+.ks-recess span{display:inline-block;animation:ksw 2.4s ease-in-out infinite}
+.ks-recess small{display:block;font-size:10px;opacity:.85}
+.ks-free{text-align:center;padding:16px 0;color:#9aa4ba;font-size:12px;font-weight:700}
+.ks-free{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ks-free:first-letter{font-size:24px}
+@media (max-width:560px){
+  .ks-hero{padding:16px;gap:12px;border-radius:22px}.ks-hero h2{font-size:19px}.ks-hero-ic{width:52px;height:52px;font-size:30px}
+  .ks-week{grid-template-columns:1fr}
+  .ks-day.today{order:-1}
+}
+@media (prefers-reduced-motion:reduce){.ks-lesson,.ks-day.today,.ks-hero-b,.ks-hero-ic,.ks-flag.now,.ks-recess span{animation:none}}
+
+/* برنامه در پنلِ معلم و مدیر — همان رنگ‌ها، کم‌رنگ‌تر و جمع‌وجورتر */
+.sched-card.sc2{border:0!important;color:#1b2742!important;padding:9px 10px 8px 10px;border-inline-start:5px solid var(--sc-b)!important;
+  background:color-mix(in srgb,var(--sc-a) 16%,#fff)!important;box-shadow:0 3px 0 color-mix(in srgb,var(--sc-a) 35%,#e3e8f2)}
+.sched-card.sc2 .sc2-t{display:flex;align-items:center;gap:6px;font-weight:800;font-size:13.5px;color:color-mix(in srgb,var(--sc-b) 75%,#1b2742)}
+.sched-card.sc2 .sc2-e{width:24px;height:24px;flex:none;border-radius:8px;display:grid;place-items:center;font-size:14px;background:var(--sc-grad);box-shadow:0 2px 0 rgba(0,0,0,.12)}
+.sched-day-head.sc2{color:#fff!important;border:0!important;border-radius:10px;background:var(--day)!important}
+.ks-special{margin-top:22px;background:#fff;color:#1b2742;border-radius:24px;padding:16px;box-shadow:0 6px 0 #d8deeb,0 18px 30px -20px rgba(20,30,70,.55)}
+.ks-special-h{font-weight:900;font-size:16px;margin-bottom:2px}
+.ks-special-s{color:#6b7794;font-size:12px;margin-bottom:10px}
+.ks-special table tr{border-top:1px dashed #e3e8f2}
+.ks-special .ks-special-th{border-top:0;color:#6b7794;font-size:12px}
+.ks-special tr.today{background:#fff8dc}
+.ks-today-tag{margin-inline-start:6px;font-size:10px;font-weight:800;background:#ffd23f;color:#5a3d00;border-radius:999px;padding:1px 7px}

@@ -32,7 +32,8 @@ export default function PhotoField({
     const [camError, setCamError] = useState('');
     const [outSize, setOutSize] = useState(null);
 
-    const fileRef = useRef(null);
+    const fileRef = useRef(null);   // گالری (بدونِ capture)
+    const camRef = useRef(null);    // دوربینِ خودِ گوشی (capture)
     const videoRef = useRef(null);
     const streamRef = useRef(null);
 
@@ -57,10 +58,11 @@ export default function PhotoField({
 
     async function openCam() {
         setCamError('');
-        if (!navigator.mediaDevices?.getUserMedia) {
-            // مرورگرِ قدیمی یا بسترِ ناامن (http) — به ورودیِ فایل با capture برمی‌گردیم
-            setCamError('دوربینِ درون‌برنامه‌ای در این مرورگر در دسترس نیست؛ از «انتخاب از گالری» استفاده کن.');
-            fileRef.current?.click();
+        // روی گوشی و تبلت (و داخلِ اپِ اندروید) دوربینِ خودِ دستگاه باز می‌شود:
+        // کیفیتِ بهتر، بدونِ درخواستِ مجوزِ جدا، و در WebView هم کار می‌کند.
+        const touch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+        if (touch || !navigator.mediaDevices?.getUserMedia) {
+            camRef.current?.click();
             return;
         }
         try {
@@ -77,6 +79,7 @@ export default function PhotoField({
             setCamError(denied
                 ? 'اجازه‌ی دسترسی به دوربین داده نشد. می‌توانی از «انتخاب از گالری» استفاده کنی.'
                 : 'دوربین در دسترس نیست. از «انتخاب از گالری» استفاده کن.');
+            if (!denied) camRef.current?.click();
         }
     }
 
@@ -106,7 +109,14 @@ export default function PhotoField({
         e.target.value = '';
         if (!f) return;
         setBusy(true);
+        if (f.type && !f.type.startsWith('image/')) {
+            setCamError('فقط فایلِ تصویری (عکس) قابلِ انتخاب است.');
+            setBusy(false);
+            return;
+        }
+        setCamError('');
         try { onChange?.(await normalizeSquare(f)); }
+        catch { setCamError('این عکس خوانده نشد. عکسِ دیگری انتخاب کن یا دوباره عکس بگیر.'); }
         finally { setBusy(false); }
     }
 
@@ -135,7 +145,11 @@ export default function PhotoField({
                             حذفِ عکس
                         </button>
                     )}
-                    <input ref={fileRef} type="file" accept="image/*" capture="user"
+                    {/* گالری بدونِ capture — پیش از این هر دو دکمه ورودیِ capture داشتند و
+                        «انتخاب از گالری» روی گوشی مستقیم دوربین را باز می‌کرد */}
+                    <input ref={fileRef} type="file" accept="image/*"
+                        onChange={pickFile} style={{ display: 'none' }} />
+                    <input ref={camRef} type="file" accept="image/*" capture="user"
                         onChange={pickFile} style={{ display: 'none' }} />
                 </div>
             </div>

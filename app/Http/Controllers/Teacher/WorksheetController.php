@@ -28,6 +28,7 @@ use Inertia\Response;
  */
 class WorksheetController extends Controller
 {
+    use \App\Http\Controllers\Concerns\BuildsAiQuestions;
     use \App\Http\Controllers\Concerns\StoresUploads;
 
     public function __construct(private WorksheetSheetService $sheets)
@@ -83,8 +84,9 @@ class WorksheetController extends Controller
         return Inertia::render('Teacher/WorksheetCreate', [
             'themes' => $this->sheets->themeList(),
             'curriculum' => BankAccess::curriculumTree(),
-            'classrooms' => Classroom::where('teacher_id', $teacher->id)->get(['id', 'name'])
-                ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name]),
+            // پایه و مقطعِ کلاس‌ها — فرم پیش‌فرض روی کلاسِ خودِ معلم باز می‌شود
+            'classrooms' => collect(\App\Support\Curriculum::teacherClasses($teacher))
+                ->map(fn ($c) => ['id' => $c['id'], 'name' => $c['name'], 'grade' => $c['grade'], 'level' => $c['level']])->values(),
             // وضعیتِ صادقانه‌ی تصویرساز: کدام موتور، و اگر AI نیست چرا
             'image' => $img->status(),
             'imageAi' => $img->isAi(),   // سازگاری با نسخه‌های قدیمی‌ترِ صفحه
@@ -115,23 +117,11 @@ class WorksheetController extends Controller
     /** پیشنهادِ سؤال با هوش مصنوعی. */
     public function ai(Request $request, SmartExamAiService $ai): JsonResponse
     {
-        $data = $request->validate([
-            'subject' => ['nullable', 'string', 'max:120'], 'grade' => ['nullable', 'string', 'max:60'],
-            'topic' => ['nullable', 'string', 'max:160'], 'goal' => ['nullable', 'string', 'max:300'],
-            'theme' => ['nullable', 'string', 'max:30'], 'count' => ['nullable', 'integer', 'min:1', 'max:20'],
-            'difficulty' => ['nullable', 'in:easy,medium,hard'], 'type' => ['nullable', 'in:mc,tf,desc,blank'],
-            'sample' => ['nullable', 'boolean'],
-        ]);
-        $theme = $this->sheets->theme($data['theme'] ?? null);
-
-        return response()->json($ai->generate([
-            'subject' => $data['subject'] ?? '', 'topic' => $data['topic'] ?? ($data['subject'] ?? ''),
-            'grade' => $data['grade'] ?? 'چهارم', 'goal' => $data['goal'] ?? '',
-            'count' => $data['count'] ?? 6, 'difficulty' => $data['difficulty'] ?? 'medium',
-            'type' => $data['type'] ?? 'mc', 'flavor' => $theme['flavor'],
-            'sample' => (bool) ($data['sample'] ?? false),
-            'school_id' => $request->user()->school_id, 'teacher_id' => $request->user()->id,
-        ]));
+        // همان ورودی و پرامپتِ آزمون‌ساز و بازی‌ساز (پایه، درس، فصل، مبحث، هدف…) +
+        // فضای داستانیِ تمِ کاربرگ
+        $theme = $this->sheets->theme($request->input('theme'));
+        return $this->aiRespond($request, $ai, 'worksheet', ['mc', 'tf', 'desc', 'blank'], 20,
+            $request->filled('flavor') ? [] : ['flavor' => $theme['flavor'] ?? '']);
     }
 
     public function store(Request $request, WorksheetImageService $imageAi): RedirectResponse
@@ -143,6 +133,9 @@ class WorksheetController extends Controller
             'grade' => ['nullable', 'string', 'max:60'],
             'subject' => ['nullable', 'string', 'max:120'],
             'lesson_no' => ['nullable', 'string', 'max:40'],
+            'chapter_id' => ['nullable', 'integer'],
+            'topic' => ['nullable', 'string', 'max:160'],
+            'goal' => ['nullable', 'string', 'max:300'],
             'theme' => ['required', 'string', 'max:30'],
             'spec' => ['nullable', 'string', 'max:2000'],
             'classroom_id' => ['nullable', 'integer', 'exists:classrooms,id'],
@@ -162,6 +155,9 @@ class WorksheetController extends Controller
             'questions.*.difficulty' => ['nullable', 'in:easy,medium,hard'],
             'questions.*.topic' => ['nullable', 'string', 'max:160'],
             'questions.*.goal' => ['nullable', 'string', 'max:300'],
+            'questions.*.hint' => ['nullable', 'string', 'max:300'],
+            'questions.*.bloom' => ['nullable', 'in:remember,understand,apply,analyze'],
+            'questions.*.source' => ['nullable', 'string', 'max:20'],
             'questions.*.choices' => ['nullable', 'array', 'max:8'],
             'questions.*.choices.*.value' => ['nullable', 'string', 'max:400'],
             'questions.*.choices.*.correct' => ['nullable', 'boolean'],
@@ -249,10 +245,14 @@ class WorksheetController extends Controller
         // آزمون‌ساز و بازی‌ساز که همین کار را انجام می‌دهند.
         $banked = 0;
         if ($mode !== 'upload' && ($data['save_to_bank'] ?? true)) {
+            // مبحث از فیلدِ «موضوع» می‌آید، نه از متنِ بلندِ spec (که از ۲۵۵ نویسه‌ی ستونِ
+            // topic بیشتر می‌شد و روی MySQL کلِ ذخیره را با خطا متوقف می‌کرد)
+            $ctx = \App\Support\Curriculum::resolve($data, $user);
             $banked = $this->saveQuestionsToBank($user, $questions, [
-                'level' => $data['level'] ?? null, 'grade' => $data['grade'] ?? null,
+                'level' => $data['level'] ?? $ctx['level'], 'grade' => $data['grade'] ?? null,
                 'subject' => $data['subject'] ?? null, 'lesson_no' => $data['lesson_no'] ?? null,
-                'topic' => $data['spec'] ?? null, 'source' => 'worksheet',
+                'chapter_id' => $ctx['chapter_id'], 'chapter' => $ctx['chapter'],
+                'topic' => $ctx['topic'], 'goal' => $ctx['goal'], 'source' => 'worksheet',
                 'difficulty' => $data['difficulty'] ?? 'medium',
             ]);
         }
@@ -290,8 +290,8 @@ class WorksheetController extends Controller
             if (in_array($type, ['mc', 'tf'], true) && ! collect($choices)->contains(fn ($c) => ! empty($c['correct']))) {
                 continue;
             }
-            $before = \App\Models\SmartQuestionBank::withoutGlobalScopes()
-                ->where('teacher_id', $teacher->id)->where('prompt', trim((string) ($q['prompt'] ?? '')))->exists();
+            $before = \App\Models\SmartQuestionBank::withoutGlobalScopes()->where('teacher_id', $teacher->id)
+                ->where('fingerprint', \App\Support\Curriculum::fingerprint((string) ($q['prompt'] ?? '')))->exists();
             if ($before) {
                 continue;
             }
@@ -299,8 +299,9 @@ class WorksheetController extends Controller
                 'prompt' => $q['prompt'] ?? '', 'type' => $type,
                 'choices' => $choices, 'answer' => $q['answer'] ?? null,
                 'explanation' => $q['explanation'] ?? null,
+                'hint' => $q['hint'] ?? null, 'bloom' => $q['bloom'] ?? null, 'topic' => $q['topic'] ?? null,
                 'difficulty' => $q['difficulty'] ?? ($meta['difficulty'] ?? 'medium'),
-                'source' => 'worksheet',
+                'source' => ($q['source'] ?? null) === 'sample' ? 'sample' : 'worksheet',
             ], $meta);
             $added++;
         }

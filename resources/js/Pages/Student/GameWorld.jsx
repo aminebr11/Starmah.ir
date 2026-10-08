@@ -1,5 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import ThemedDash from '@/Layouts/ThemedDash';
+import { useHighlightFromQuery } from '@/lib/highlight';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const DIFF = { easy: '🟢 آسان', medium: '🟡 متوسط', hard: '🔴 سخت' };
@@ -13,6 +14,7 @@ const PAL = [['#e8505b', '#b0333f'], ['#3d7bf0', '#2555c0'], ['#2bb673', '#1a8a5
 
 export default function GameWorld() {
     const { me = {}, cards = [], stats = {} } = usePage().props;
+    useHighlightFromQuery('game');
     const active = cards.filter((c) => c.status === 'new' || c.status === 'in_progress');
     const done = cards.filter((c) => c.status === 'done');
     const locked = cards.filter((c) => c.status === 'locked');
@@ -110,8 +112,8 @@ function Card({ g, i, locked }) {
             </div>
         </>
     );
-    if (locked) return <div className="gw-card" style={{ opacity: .72 }}>{inner}</div>;
-    return <Link href={route('gameworld.play', g.id)} className={`gw-card ${g.status === 'new' ? 'is-new' : ''}`}>{inner}</Link>;
+    if (locked) return <div className="gw-card" data-hl={g.id} style={{ opacity: .72 }}>{inner}</div>;
+    return <Link href={route('gameworld.play', g.id)} data-hl={g.id} className={`gw-card ${g.status === 'new' ? 'is-new' : ''}`}>{inner}</Link>;
 }
 
 function Chip({ icon, v, l }) {

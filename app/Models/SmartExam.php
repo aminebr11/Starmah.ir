@@ -12,8 +12,8 @@ class SmartExam extends Model
     use BelongsToSchool;
 
     protected $fillable = [
-        'school_id', 'teacher_id', 'title', 'description', 'grade', 'subject', 'book',
-        'chapter', 'topic', 'goal', 'kind', 'status', 'adaptive', 'rules',
+        'school_id', 'teacher_id', 'title', 'description', 'level', 'grade', 'subject', 'book',
+        'chapter_id', 'chapter', 'topic', 'goal', 'kind', 'status', 'adaptive', 'rules',
         'opens_at', 'closes_at', 'version',
     ];
     protected $casts = ['rules' => 'array', 'adaptive' => 'boolean', 'opens_at' => 'datetime', 'closes_at' => 'datetime'];

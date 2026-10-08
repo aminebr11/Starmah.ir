@@ -36,6 +36,8 @@ class HandleInertiaRequests extends Middleware
 
         return [
             ...parent::share($request),
+            'ui' => \App\Support\Ui::current($request),
+            'toast' => fn () => $request->session()->get('toast'),
             'auth' => [
                 'user'  => $user,
                 'roles' => $user ? $user->getRoleNames() : [],

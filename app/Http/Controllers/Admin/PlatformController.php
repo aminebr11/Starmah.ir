@@ -173,10 +173,25 @@ class PlatformController extends Controller
                 'gemini_set'        => (bool) \App\Models\Setting::get('gemini_key'),
                 'gemini_hint'       => $mask(\App\Models\Setting::get('gemini_key')),
                 'gemini_image_model'=> \App\Models\Setting::get('gemini_image_model', 'gemini-2.5-flash-image'),
+                'ui_default'        => \App\Models\Setting::get('ui_default', 'clay'),
             ],
             // موتوری که واقعاً اجرا می‌شود، تا ادمین حدس نزند
             'imageStatus' => app(\App\Services\WorksheetImageService::class)->status(),
         ]);
+    }
+
+    /**
+     * طرحِ ظاهریِ پیش‌فرضِ کلِ سایت. کاربری که خودش طرحی را انتخاب کرده
+     * (کوکیِ sm_ui) همان را می‌بیند؛ بقیه این پیش‌فرض را.
+     */
+    public function storeUiDefault(Request $request): RedirectResponse
+    {
+        $data = $request->validate(['ui_default' => ['required', 'in:' . implode(',', \App\Support\Ui::SKINS)]]);
+        \App\Models\Setting::put('ui_default', $data['ui_default']);
+
+        return back()->with('flash', $data['ui_default'] === 'clay'
+            ? 'طرحِ «خمیرماه» پیش‌فرضِ کلِ سایت شد.'
+            : 'طرحِ قبلی پیش‌فرضِ کلِ سایت شد.');
     }
 
     /** آزمایشِ زنده‌ی تصویرسازِ کاربرگ — یک تصویرِ آزمایشی می‌سازد و پاک می‌کند. */
@@ -188,7 +203,8 @@ class PlatformController extends Controller
     public function storeSettings(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'ai_provider'     => ['required', 'in:anthropic,openai'],
+            // سرویس و مدلِ متنی از «مرکزِ هوش مصنوعی» تنظیم می‌شود؛ اینجا فقط اگر فرستاده شود
+            'ai_provider'     => ['nullable', 'in:off,' . implode(',', array_keys(\App\Support\AiConfig::PROVIDERS))],
             'anthropic_key'   => ['nullable', 'string', 'max:200'],
             'openai_key'      => ['nullable', 'string', 'max:200'],
             'anthropic_model' => ['nullable', 'string', 'max:80'],
@@ -200,9 +216,9 @@ class PlatformController extends Controller
             'gemini_image_model'=> ['nullable', 'string', 'max:80'],
         ]);
 
-        \App\Models\Setting::put('ai_provider', $data['ai_provider']);
-        \App\Models\Setting::put('anthropic_model', $data['anthropic_model'] ?: 'claude-haiku-4-5-20251001');
-        \App\Models\Setting::put('openai_model', $data['openai_model'] ?: 'gpt-4o-mini');
+        if (! empty($data['ai_provider'])) \App\Models\Setting::put('ai_provider', $data['ai_provider']);
+        if (! empty($data['anthropic_model'])) \App\Models\Setting::put('anthropic_model', $data['anthropic_model']);
+        if (! empty($data['openai_model'])) \App\Models\Setting::put('openai_model', $data['openai_model']);
         \App\Models\Setting::put('ws_image_provider', $data['ws_image_provider'] ?? 'auto');
         \App\Models\Setting::put('ws_image_model', $data['ws_image_model'] ?: 'gpt-image-1');
         \App\Models\Setting::put('gemini_image_model', $data['gemini_image_model'] ?: 'gemini-2.5-flash-image');

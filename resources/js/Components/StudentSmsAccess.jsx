@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { router } from '@inertiajs/react';
+import { useSort, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -22,8 +23,10 @@ export default function StudentSmsAccess({ students = [], events = {}, schoolEve
     const allowed = useMemo(() => Object.keys(events)
         .filter((k) => schoolEvents?.[k]?.parent || schoolEvents?.[k]?.student), [events, schoolEvents]);
 
-    const list = useMemo(() => students.filter((s) => !q.trim()
+    const matched = useMemo(() => students.filter((s) => !q.trim()
         || (s.name + ' ' + (s.classroom ?? '')).includes(q.trim())), [students, q]);
+    const srt = useSort(matched, { name: (r) => firstName(r.name), family: (r) => lastName(r.name), cls: 'classroom', enabled: (r) => (r.sms?.enabled ? 1 : 0) }, { id: 'student-sms-access', firstDir: { enabled: 'desc' } });
+    const list = srt.sorted;
 
     const edit = (s) => {
         setOpenId(openId === s.id ? null : s.id);
@@ -82,6 +85,7 @@ export default function StudentSmsAccess({ students = [], events = {}, schoolEve
                 </span>
             </div>
 
+            {students.length > 1 && <SortBar s={srt} options={[['name', 'نام'], ['family', 'نام خانوادگی'], ['cls', 'کلاس'], ['enabled', 'پیامکِ فعال']]} />}
             <div style={{ border: '1px solid var(--line)', borderRadius: 13, overflow: 'hidden', background: '#fff' }}>
                 {list.length === 0 && <div style={{ padding: 14, color: 'var(--muted)', fontSize: 13 }}>دانش‌آموزی پیدا نشد.</div>}
                 {list.map((s) => (

@@ -2,6 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import WebLayout from '@/Layouts/WebLayout';
 import CosmicScene from '@/Components/CosmicScene';
+import Icon from '@/Components/Icon';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -103,9 +104,269 @@ const BENTO = [
     { ic: '🖼️', cls: 'ic-gold', t: 'گالری', d: 'لحظه‌های کلاس', href: '/gallery' },
 ];
 
+/** فهرستِ ساده‌ی برترین‌ها (پوسته‌ی کلاسیک). */
+function ClassicBoard({ rows = [], gold = false }) {
+    if (!rows.length) return <div className="sm-lb"><div className="sm-lb-row" style={{ color: '#a9bade' }}>هنوز امتیازی ثبت نشده</div></div>;
+    return (
+        <div className="sm-lb">
+            {rows.map((s) => (
+                <div key={s.rank} className="sm-lb-row">
+                    <div className={`sm-rank ${s.rank === 1 ? 'g1' : s.rank === 2 ? 'g2' : s.rank === 3 ? 'g3' : ''}`}>{fa(s.rank)}</div>
+                    <div className="sm-lb-name">{s.rank === 1 && (gold ? '🏆 ' : '👑 ')}{s.name}{(s.school || s.class) && <div style={{ fontSize: 12, opacity: .7, fontWeight: 500 }}>{[s.school, s.class].filter(Boolean).join(' · ')}</div>}</div>
+                    <div className="sm-xp">⭐ {fa(s.xp)}</div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+/** تابلوی برترین‌ها: سه‌نفرِ اولِ سکو + بقیه در فهرست. */
+function StarBoard({ rows = [], empty, gold = false }) {
+    if (!rows.length) return <div className="cw-lb"><div className="cw-lb-row"><b>{empty}</b></div></div>;
+    return (
+        <div className={gold ? 'cw-board gold' : 'cw-board'}>
+            <div className="cw-podium sm-reveal">
+                {[rows[1], rows[0], rows[2]].filter(Boolean).map((s) => (
+                    <div key={s.rank} className={`cw-pod r${s.rank}`}>
+                        {s.rank === 1 && <span className="cw-crown" aria-hidden="true">{gold ? '🏆' : '👑'}</span>}
+                        <div className="cw-pod-av">
+                            {s.avatar ? <img src={s.avatar} alt="" /> : <span>{(s.name || '؟').trim().charAt(0)}</span>}
+                            <em>{fa(s.rank)}</em>
+                        </div>
+                        <b className="cw-pod-name">{s.name}</b>
+                        <small className="cw-pod-meta">{[s.school, s.class].filter(Boolean).join(' · ')}</small>
+                        {s.team && <span className="cw-pod-team">{s.team}</span>}
+                        <div className="cw-pod-xp">⭐ {fa(s.xp)} <small>امتیاز</small></div>
+                        <div className="cw-pod-base" />
+                    </div>
+                ))}
+            </div>
+            {rows.length > 3 && (
+                <div className="cw-lb sm-reveal">
+                    {rows.slice(3).map((s) => (
+                        <div key={s.rank} className="cw-lb-row">
+                            <span className="cw-rank r4">{fa(s.rank)}</span>
+                            <span className="cw-lb-av">{s.avatar ? <img src={s.avatar} alt="" /> : (s.name || '؟').trim().charAt(0)}</span>
+                            <div className="cw-lb-t"><b>{s.name}</b><small>{[s.school, s.class, s.team].filter(Boolean).join(' · ')}</small></div>
+                            <em>⭐ {fa(s.xp)}</em>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function Welcome() {
-    const { auth, weeklyTop = [], stats = {} } = usePage().props;
+    const { ui = 'classic' } = usePage().props;
+    return ui === 'clay' ? <WelcomeClay /> : <WelcomeClassic />;
+}
+
+const CLAY_FEATURES = [
+    { ic: 'game', c: 'gold', t: 'آزمون و بازی', d: 'یادگیری با بازی‌های جذاب و هیجان‌انگیز', href: '/games' },
+    { ic: 'trophy', c: 'pink', t: 'امتیاز و ستاره', d: 'رقابت و پیشرفتِ روزانه', href: '/leaderboard' },
+    { ic: 'target', c: 'sky', t: 'مأموریتِ روزانه', d: 'هر روز یک چالشِ تازه', href: '/missions' },
+    { ic: 'spark', c: 'lilac', t: 'آزمونِ هوشمند', d: 'سؤال بر اساسِ کلاس و فصل، با هوش مصنوعی', href: '/student/smart-exams' },
+    { ic: 'book', c: 'mint', t: 'مطالبِ درسی', d: 'جزوه، پادکست و گالریِ کلاس', href: '/class-content' },
+    { ic: 'heart', c: 'orange', t: 'ارتباط با والدین', d: 'گفت‌وگوی دوسویه‌ی خانه و مدرسه', href: '/messages' },
+];
+
+/* متنِ جذابِ هر دنیا (بر اساسِ کلیدِ تم در پایگاه‌داده) */
+const WORLD_COPY = {
+    'fire-strikers': { d: 'مثلِ شیرِ میدان بازی کن! هر پاسخِ درست یک شوتِ آتشین به دروازه است و تیمت را به صدرِ جدول می‌برد.', tags: ['⚽ گلِ طلایی', '🔥 شوتِ آتشین', '🏆 جامِ قهرمانی'] },
+    'blue-thunders': { d: 'سریع مثلِ صاعقه! کنارِ اژدهای آبی مأموریت‌ها را پشتِ سر بگذار و با هر تمرین نیروی رعد و برقِ تیمت را بیشتر کن.', tags: ['⚡ صاعقه', '🐉 اژدهای آبی', '🥇 لیگِ ستاره‌ها'] },
+    'creeper-warriors': { d: 'در دنیای بلوکی بساز، کشف کن و قهرمان شو! هر درس یک بلوکِ تازه است و با هر سؤال قلعه‌ی دانشِ تیمت بلندتر می‌شود.', tags: ['⛏️ ماجراجویی', '🧱 ساختن', '💎 گنجِ دانش'] },
+    'super-speed': { d: 'پشتِ فرمان بنشین و گاز بده! هر جوابِ درست نیتروی بیشتری می‌دهد تا در پیستِ یادگیری از همه جلو بزنی.', tags: ['🏁 گرنپری', '⚡ نیترو', '🏆 سکوی قهرمانی'] },
+};
+const WORLD_FALLBACK = { d: 'دنیایی پر از مأموریت، بازی و جایزه که با علاقه‌ی خودت ساخته می‌شود.', tags: ['🎯 مأموریت', '🎮 بازی', '⭐ جایزه'] };
+
+// حباب‌هایی که دورِ لوگو در مدار می‌چرخند
+const ORBIT = ['🧮', '📖', '🔬', '🎨', '🌍', '🏆', '✍️', '🚀'];
+const orbitPos = (i, n, offset) => {
+    const a = ((i / n) * 360 + offset - 90) * (Math.PI / 180);
+    return { left: `${(50 + 50 * Math.cos(a)).toFixed(2)}%`, top: `${(50 + 50 * Math.sin(a)).toFixed(2)}%`, '--k': i };
+};
+
+/**
+ * حرکتِ زنده‌ی صفحه: اسکرول و ماوس به‌صورتِ متغیرهای CSS (--sy, --mx, --my)
+ * روی ریشه‌ی صفحه نوشته می‌شوند و شکل‌ها با transform جابه‌جا می‌شوند؛
+ * فقط یک requestAnimationFrame در هر فریم، بدونِ رندرِ دوباره‌ی React.
+ */
+function useLiveMotion(ref) {
+    useEffect(() => {
+        const el = ref.current;
+        if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+        let raf = 0; let mx = 0; let my = 0;
+        const paint = () => {
+            raf = 0;
+            el.style.setProperty('--sy', String(Math.min(window.scrollY, 2400)));
+            el.style.setProperty('--mx', mx.toFixed(3));
+            el.style.setProperty('--my', my.toFixed(3));
+        };
+        const queue = () => { if (!raf) raf = requestAnimationFrame(paint); };
+        const onMove = (e) => {
+            if (e.pointerType !== 'mouse') return;
+            mx = e.clientX / window.innerWidth - 0.5;
+            my = e.clientY / window.innerHeight - 0.5;
+            queue();
+        };
+        window.addEventListener('scroll', queue, { passive: true });
+        window.addEventListener('pointermove', onMove, { passive: true });
+        paint();
+        return () => { window.removeEventListener('scroll', queue); window.removeEventListener('pointermove', onMove); cancelAnimationFrame(raf); };
+    }, [ref]);
+}
+
+/** صفحه‌ی اصلی در طرحِ «خمیرماه». همان محتوا و همان داده‌ی واقعی. */
+function WelcomeClay() {
+    const { auth, weeklyTop = [], weekInfo = null, yearTop = [], yearLabel = '', stats = {}, worlds = [] } = usePage().props;
+    const liveRef = useRef(null);
+    useLiveMotion(liveRef);
     const user = auth?.user;
+    // صفحه‌های امکانات مالِ دانش‌آموزند؛ بقیه به داشبوردِ خودشان و مهمان به ثبت‌نام می‌رود
+    const isStudent = (auth?.roles ?? []).includes('student');
+    const featHref = (h) => (isStudent ? h : user ? '/dashboard' : '/register');
+    useReveal();
+
+    return (
+        <WebLayout active="home">
+            <div className="cw" ref={liveRef}>
+                {/* شکل‌های خمیریِ شناورِ پس‌زمینه — با اسکرول آرام جابه‌جا می‌شوند */}
+                <div className="cw-bg" aria-hidden="true">
+                    <i className="s1" /><i className="s2" /><i className="s3" /><i className="s4" /><i className="s5" /><i className="s6" />
+                </div>
+                <header className="cw-hero cw-wrap">
+                    <div className="cw-hero-txt">
+                        <span className="cw-tag"><Icon name="spark" size={17} /> پلتفرمِ آموزشِ هوشمندِ مدارس · با هوش مصنوعی</span>
+                        <h1>درس خواندن این‌بار <span className="cw-hl">بازی است!</span></h1>
+                        <p>
+                            هر دانش‌آموز بر اساسِ علاقه‌اش (فوتبال، ماشین و…) دنیای خودش را می‌سازد؛ مأموریت می‌گیرد، بازی می‌کند،
+                            آزمونِ هوشمند می‌دهد و مثلِ یک ستاره رشد می‌کند. معلم هم با هوش مصنوعی در چند دقیقه سؤال و بازی می‌سازد.
+                        </p>
+                        <div className="cw-cta">
+                            {user ? (
+                                <Link href="/dashboard" className="btn btn-lg"><Icon name="home" /> ورود به داشبورد من</Link>
+                            ) : (
+                                <>
+                                    <Link href="/register/student" prefetch="mount" cacheFor="5m" className="btn btn-lg"><Icon name="rocket" /> ثبت‌نام دانش‌آموز</Link>
+                                    <Link href="/register/school" prefetch="mount" cacheFor="5m" className="btn btn-lg btn-sky"><Icon name="school" /> ثبت‌نام مدرسه</Link>
+                                </>
+                            )}
+                        </div>
+                        {!user && <Link href={route('login')} prefetch="mount" cacheFor="5m" className="cw-login">قبلاً ثبت‌نام کرده‌ای؟ ورود ←</Link>}
+                        <div className="cw-apps">
+                            <a href="/downloads/starmah.apk" className="cw-app" download><span>🤖</span><div><small>دانلودِ مستقیم</small><b>اپِ اندروید</b></div></a>
+                            <Link href="/install" className="cw-app"><span>🍎</span><div><small>بدونِ نصبِ فایل</small><b>نصب روی آیفون</b></div></Link>
+                        </div>
+                    </div>
+                    <div className="cw-stage" aria-hidden="true">
+                        <span className="cw-blob b1" /><span className="cw-blob b2" /><span className="cw-blob b3" />
+                        <div className="cw-orbit o1">{ORBIT.slice(0, 4).map((e, i) => <span key={e} style={orbitPos(i, 4, 0)}><b>{e}</b></span>)}</div>
+                        <div className="cw-orbit o2">{ORBIT.slice(4).map((e, i) => <span key={e} style={orbitPos(i, 4, 45)}><b>{e}</b></span>)}</div>
+                        <img className="cw-logo" src="/brand/logo-main-640.webp" srcSet="/brand/logo-main-320.webp 320w, /brand/logo-main-640.webp 640w"
+                            sizes="(max-width: 900px) 70vw, 440px" width="880" height="880" fetchPriority="high" decoding="async" alt="" />
+                        <span className="cw-sticker s1"><i className="mint"><Icon name="trophy" size={17} /></i> سطحِ بعدی نزدیک است!</span>
+                        <span className="cw-sticker s2"><i className="pink"><Icon name="star" size={17} /></i> +۲۰ ستاره</span>
+                    </div>
+                </header>
+
+                <div className="cw-wrap cw-subjects">
+                    {SUBJECTS.map((s) => <span key={s}>{s}</span>)}
+                </div>
+
+                <section className="cw-sec cw-wrap" id="worlds">
+                    <div className="cw-head sm-reveal"><h2>دنیای خودت را انتخاب کن</h2><p>درس‌ها، جایزه‌ها و حتی ظاهرِ برنامه بر اساسِ علاقه‌ی دانش‌آموز شکل می‌گیرد</p></div>
+                    <div className="cw-worlds sm-reveal" style={{ '--count': Math.max(1, worlds.length) }}>
+                        {worlds.map((w, i) => {
+                            const c = WORLD_COPY[w.key] || WORLD_FALLBACK;
+                            return (
+                                <div key={w.key} className="cw-world" style={{ '--w1': w.p1, '--w2': w.p2, '--wa': w.acc, '--d': `${i * -1.3}s` }}>
+                                    <span className="cw-world-hero" aria-hidden="true">{w.hero}</span>
+                                    <span className="cw-world-char" aria-hidden="true">{w.character}</span>
+                                    <h3>{w.emoji} {w.name}</h3>
+                                    <p>{c.d}</p>
+                                    <div className="cw-tags">{c.tags.map((t) => <span key={t}>{t}</span>)}</div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </section>
+
+                <section className="cw-sec cw-wrap" id="features">
+                    <div className="cw-head sm-reveal"><h2>هر چیزی که کلاس نیاز دارد</h2><p>همه‌ی ابزارهای آموزش، بازی و ارتباط در یک‌جا</p></div>
+                    <div className="cw-feats sm-reveal">
+                        {CLAY_FEATURES.map((f) => (
+                            <Link key={f.t} href={featHref(f.href)} className="cw-feat">
+                                <i className={f.c}><Icon name={f.ic} size={26} /></i>
+                                <h3>{f.t}</h3><p>{f.d}</p>
+                            </Link>
+                        ))}
+                    </div>
+                </section>
+
+                <section className="cw-sec cw-wrap">
+                    <div className="cw-stats sm-reveal">
+                        <div><Counter to={stats.students ?? 0} /><span>دانش‌آموزِ فعال</span></div>
+                        <div><Counter to={stats.activities ?? 0} /><span>تمرین و آزمون</span></div>
+                        <div><Counter to={stats.classrooms ?? 0} /><span>کلاس</span></div>
+                        <div><Counter to={2} /><span>دنیای علاقه</span></div>
+                    </div>
+                </section>
+
+                <section className="cw-sec cw-wrap" id="stars">
+                    <div className="cw-head sm-reveal">
+                        <h2>🌟 برترین‌های {weekInfo ? weekInfo.short : 'هفته'}</h2>
+                        <p>{weekInfo ? <>{weekInfo.range} — {weekInfo.title.replace(weekInfo.short + ' ', '')}</> : 'برترین‌های این هفته'}</p>
+                    </div>
+                    <StarBoard rows={weeklyTop} empty="این هفته هنوز امتیازی ثبت نشده — اولین ستاره تو باش! 🌟" />
+
+                    <div className="cw-head sm-reveal" style={{ marginTop: 34 }}>
+                        <h2>🏆 برترین‌های سالِ تحصیلی {yearLabel}</h2>
+                        <p>بیشترین امتیازِ جمع‌شده از ابتدای مهر تا امروز</p>
+                    </div>
+                    <StarBoard rows={yearTop} gold empty="امسال هنوز امتیازی ثبت نشده است." />
+                </section>
+
+                <section className="cw-sec cw-wrap" id="how">
+                    <div className="cw-head sm-reveal"><h2>راه‌اندازی در سه قدم</h2><p>از ثبت‌نامِ مدرسه تا ورودِ دانش‌آموز به دنیای دلخواهش</p></div>
+                    <ol className="cw-steps cw-steps-row sm-reveal">
+                        <li><b>ثبت‌نامِ مدرسه</b><span>مدیر درخواست می‌دهد و پس از تأیید، حسابِ مدرسه ساخته می‌شود</span></li>
+                        <li><b>ساختِ معلم‌ها و کلاس‌ها</b><span>برای هر کلاس یک معلم و کدِ کلاس ایجاد می‌شود</span></li>
+                        <li><b>ورودِ دانش‌آموز</b><span>مدرسه، معلم و دنیای دلخواهش را انتخاب می‌کند و شروع می‌کند</span></li>
+                    </ol>
+                </section>
+
+                <section className="cw-sec cw-wrap" id="mobile-app">
+                    <div className="cw-appband sm-reveal">
+                        <img src="/brand/icon-192.png" alt="" width="96" height="96" />
+                        <div className="cw-appband-t">
+                            <h2>ستاره ماه روی گوشیِ شما</h2>
+                            <p>اپِ اندروید را مستقیم دانلود کنید، یا روی آیفون با «افزودن به صفحه‌ی اصلی» مثلِ یک اپ نصبش کنید. همه‌ی امکاناتِ سایت، با یک لمس.</p>
+                        </div>
+                        <div className="cw-appband-b">
+                            <a href="/downloads/starmah.apk" className="btn btn-lg" download>🤖 دانلودِ اپِ اندروید</a>
+                            <Link href="/install" className="btn btn-lg btn-ghost">🍎 راهنمای نصب روی آیفون</Link>
+                        </div>
+                    </div>
+                </section>
+
+                <section className="cw-sec cw-wrap">
+                    <div className="cw-band sm-reveal">
+                        <img src="/brand/logo-mark-120.webp" alt="" width="120" height="120" />
+                        <div><h2>آماده‌ای ستاره‌ی کلاس شوی؟</h2><p>همین حالا شروع کن و دنیای یادگیریِ خودت را بساز.</p></div>
+                        <Link href={user ? '/dashboard' : '/register'} className="btn btn-lg">{user ? 'ادامه بده' : 'شروع کن'} <Icon name="arrow" /></Link>
+                    </div>
+                </section>
+            </div>
+        </WebLayout>
+    );
+}
+
+function WelcomeClassic() {
+    const { auth, weeklyTop = [], weekInfo = null, yearTop = [], yearLabel = '', stats = {} } = usePage().props;
+    const user = auth?.user;
+    const isStudent = (auth?.roles ?? []).includes('student');
+    const featHref = (h) => (isStudent ? h : user ? '/dashboard' : '/register');
     useReveal();
     const stageRef = useTilt();
 
@@ -231,7 +492,7 @@ export default function Welcome() {
                         </div>
                         <div className="sm-bento sm-reveal">
                             {BENTO.map((b) => (
-                                <Link key={b.t} href={b.href} className={`sm-b sm-tilt ${b.wide ? 'wide' : ''}`} {...tiltHandlers(8)}>
+                                <Link key={b.t} href={featHref(b.href)} className={`sm-b sm-tilt ${b.wide ? 'wide' : ''}`} {...tiltHandlers(8)}>
                                     <div className={`ic ${b.cls}`}>{b.ic}</div>
                                     <h3>{b.t}</h3><p>{b.d}</p>
                                 </Link>
@@ -261,20 +522,16 @@ export default function Welcome() {
                     <div className="sm-wrap">
                         <div className="sm-head sm-reveal">
                             <span className="sm-kicker">🏆 افتخارات</span>
-                            <h2>ستاره‌های درخشان این هفته</h2>
-                            <p>دانش‌آموزانی که بیشترین تلاش را داشتند</p>
+                            <h2>ستاره‌های درخشانِ {weekInfo ? weekInfo.short : 'این هفته'}</h2>
+                            <p>{weekInfo ? weekInfo.range : 'دانش‌آموزانی که بیشترین تلاش را داشتند'}</p>
                         </div>
-                        <div className="sm-reveal">
-                            <div className="sm-lb">
-                                {weeklyTop.length ? weeklyTop.map((s) => (
-                                    <div key={s.rank} className="sm-lb-row">
-                                        <div className={`sm-rank ${s.rank === 1 ? 'g1' : s.rank === 2 ? 'g2' : s.rank === 3 ? 'g3' : ''}`}>{fa(s.rank)}</div>
-                                        <div className="sm-lb-name">{s.rank === 1 && '👑 '}{s.name}</div>
-                                        <div className="sm-xp">⭐ {fa(s.xp)}</div>
-                                    </div>
-                                )) : <div className="sm-lb-row" style={{ color: '#a9bade' }}>هنوز امتیازی ثبت نشده</div>}
-                            </div>
+                        <div className="sm-reveal"><ClassicBoard rows={weeklyTop} /></div>
+                        <div className="sm-head sm-reveal" style={{ marginTop: 30 }}>
+                            <span className="sm-kicker">🏆 سالِ تحصیلی</span>
+                            <h2>بالاترین امتیازاتِ {yearLabel}</h2>
+                            <p>از ابتدای مهر تا امروز</p>
                         </div>
+                        <div className="sm-reveal"><ClassicBoard rows={yearTop} gold /></div>
                     </div>
                 </section>
 

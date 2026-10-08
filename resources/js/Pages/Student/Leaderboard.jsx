@@ -1,5 +1,6 @@
 import { usePage } from '@inertiajs/react';
 import ThemedDash from '@/Layouts/ThemedDash';
+import { useSort, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const card = { background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 18, padding: 18, color: '#fff' };
@@ -10,6 +11,7 @@ export default function Leaderboard() {
     const w = (k, d = '') => theme?.narrative?.[k] ?? d;
     const skin = theme?.skin ?? {};
     const top = leaderboard.slice(0, 3);
+    const ls = useSort(leaderboard, { xp: 'xp', name: (r) => firstName(r.name), family: (r) => lastName(r.name) }, { id: 'student-leaderboard', firstDir: { xp: 'desc' } });
 
     return (
         <ThemedDash title={w('leaderboard', 'رقابت تیم‌ها')} active="board">
@@ -34,8 +36,9 @@ export default function Leaderboard() {
                 })}
             </div>
 
+            {leaderboard.length > 1 && <SortBar s={ls} options={[['xp', 'امتیاز'], ['name', 'نام'], ['family', 'نام خانوادگی']]} />}
             <div style={{ ...card, padding: 8 }}>
-                {leaderboard.map((s) => (
+                {ls.sorted.map((s) => (
                     <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 12px', borderRadius: 12, marginBottom: 4,
                         background: s.is_me ? 'linear-gradient(135deg,rgba(255,255,255,.14),rgba(255,255,255,.04))' : 'transparent',
                         border: s.is_me ? '1px solid var(--acc)' : '1px solid transparent' }}>

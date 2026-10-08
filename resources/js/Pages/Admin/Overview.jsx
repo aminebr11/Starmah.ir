@@ -1,5 +1,6 @@
 import { usePage, Link } from '@inertiajs/react';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
+import { useSort, SortTh } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const faGroup = (n) => fa(Number(n ?? 0).toLocaleString('en-US'));
@@ -7,6 +8,7 @@ const faGroup = (n) => fa(Number(n ?? 0).toLocaleString('en-US'));
 export default function Overview() {
     const { auth, stats = {}, recent_schools = [], recent_requests = [] } = usePage().props;
     const name = auth?.user?.name || 'مدیر';
+    const rs = useSort(recent_schools, { name: 'name', city: 'city', plan: 'plan', status: 'status' }, { id: 'admin-overview-schools' });
 
     const cards = [
         { ic: '🏫', lbl: 'کل مدارس', val: fa(stats.schools ?? 0), sub: `${fa(stats.active_schools ?? 0)} فعال`, c: '#fff3d6' },
@@ -91,10 +93,10 @@ export default function Overview() {
                 <div className="panel" style={{ margin: 0 }}>
                     <h3>🏫 آخرین مدارس</h3>
                     <table className="tbl">
-                        <thead><tr><th>نام</th><th>شهر</th><th>پلن</th><th>وضعیت</th></tr></thead>
+                        <thead><tr><SortTh s={rs} k="name">نام</SortTh><SortTh s={rs} k="city">شهر</SortTh><SortTh s={rs} k="plan">پلن</SortTh><SortTh s={rs} k="status">وضعیت</SortTh></tr></thead>
                         <tbody>
                             {recent_schools.length === 0 && <tr><td colSpan="4" style={{ color: 'var(--muted)' }}>مدرسه‌ای ثبت نشده.</td></tr>}
-                            {recent_schools.map((s) => (
+                            {rs.sorted.map((s) => (
                                 <tr key={s.id}><td style={{ fontWeight: 700 }}>{s.name}</td><td>{s.city ?? '—'}</td><td>{s.plan}</td>
                                     <td><span className={`tag ${s.status === 'active' ? 'tag-ok' : 'tag-warn'}`}>{s.status === 'active' ? 'فعال' : s.status}</span></td></tr>
                             ))}

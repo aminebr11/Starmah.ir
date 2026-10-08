@@ -1,5 +1,6 @@
 import { Head, Link, usePage, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
+import UiSwitch from '@/Components/UiSwitch';
 
 /** ناوبری عمومی محصول (صفحه‌ی فرود). لینک‌ها به بخش‌های همان صفحه + ورود/ثبت‌نام. */
 export const NAV = [
@@ -33,7 +34,7 @@ export default function WebLayout({ title, active = '', variant = '', children }
             <header className={`nav ${cosmic ? 'nav-cosmic' : ''} ${scrolled ? 'scrolled' : ''}`}>
                 <div className="container nav-inner">
                     <Link href="/" className="nav-logo">
-                        <span className="emblem"><img src="/brand/emblem-120.webp" width="120" height="120" alt="ستاره ماه" /></span>
+                        <span className="emblem"><img src="/brand/logo-mark-120.webp" width="120" height="120" alt="ستاره ماه" /></span>
                         <span>ستاره<span style={{ color: 'var(--gold-2)' }}> ماه</span></span>
                     </Link>
 
@@ -43,14 +44,17 @@ export default function WebLayout({ title, active = '', variant = '', children }
                                 {m.label}
                             </Link>
                         ))}
+                        {/* روی موبایل دکمه‌های پروفایل و خروج در همین منو هستند تا نوارِ بالا جا شود */}
+                        {user && <Link href={route('profile.edit')} className="nav-menu-extra" onClick={() => setOpen(false)}>👤 پروفایلِ من</Link>}
+                        {user && <button type="button" className="nav-menu-extra nav-menu-out" onClick={() => router.post(route('logout'))}>🚪 خروج از حساب</button>}
                     </nav>
 
                     <div className="nav-cta">
                         {user ? (
                             <>
-                                <Link href={route('profile.edit')} className="btn btn-ghost btn-sm">👤 پروفایل</Link>
+                                <Link href={route('profile.edit')} className="btn btn-ghost btn-sm nav-cta-extra">👤 پروفایل</Link>
                                 <Link href="/dashboard" className="btn btn-sm">داشبورد من</Link>
-                                <button onClick={() => router.post(route('logout'))} className="btn btn-ghost btn-sm">خروج</button>
+                                <button onClick={() => router.post(route('logout'))} className="btn btn-ghost btn-sm nav-cta-extra">خروج</button>
                             </>
                         ) : (
                             <>
@@ -70,6 +74,7 @@ export default function WebLayout({ title, active = '', variant = '', children }
                                 </Link>
                             </>
                         )}
+                        <UiSwitch compact className="nav-ui" />
                         <button className="hamburger" onClick={() => setOpen(!open)} aria-label="منو">☰</button>
                     </div>
                 </div>
@@ -81,7 +86,7 @@ export default function WebLayout({ title, active = '', variant = '', children }
                 <div className="container">
                     <div className="footer-grid">
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12, maxWidth: 360 }}>
-                            <img src="/brand/emblem-120.webp" width="50" height="50" alt="" loading="lazy" style={{ borderRadius: 12 }} />
+                            <img src="/brand/logo-mark-120.webp" width="50" height="50" alt="" loading="lazy" style={{ borderRadius: 12 }} />
                             <div>
                                 <div style={{ fontWeight: 800, color: '#fff', fontSize: 17 }}>ستاره ماه</div>
                                 <div style={{ fontSize: 13 }}>پلتفرم آموزش هوشمند و شخصی‌سازی‌شده برای مدارس</div>
@@ -91,7 +96,10 @@ export default function WebLayout({ title, active = '', variant = '', children }
                             {NAV.map((m) => <Link key={m.key} href={m.href}>{m.label}</Link>)}
                             <Link href={route('login')}>ورود</Link>
                         </div>
-                        <a href="https://instagram.com/starmah.ir" target="_blank" rel="noreferrer" className="btn btn-sm">📸 starmah.ir</a>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                            <UiSwitch />
+                            <a href="https://instagram.com/starmah.ir" target="_blank" rel="noreferrer" className="btn btn-sm">📸 starmah.ir</a>
+                        </div>
                     </div>
                     <div className="footer-bottom">© ستاره ماه — طراحی و توسعه توسط گروه طراحی ستاره ماه</div>
                 </div>

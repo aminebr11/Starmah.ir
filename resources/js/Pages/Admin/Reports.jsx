@@ -1,11 +1,13 @@
 import { usePage } from '@inertiajs/react';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
 import { AreaTrend, PAL } from '@/Components/Charts';
+import { useSort, SortTh } from '@/lib/useSort';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 function Card({ ic, lbl, v }) { return <div className="dcard"><div className="ic">{ic}</div><div className="lbl">{lbl}</div><div className="val">{fa(v)}</div></div>; }
 
 export default function Reports() {
     const { report, trend = [] } = usePage().props;
+    const rs = useSort(report?.per_school, { name: 'name', city: 'city', plan: 'plan', students: 'students', teachers: 'teachers', classes: 'classes', points: 'points' }, { id: 'admin-reports-schools', firstDir: { students: 'desc', teachers: 'desc', classes: 'desc', points: 'desc' } });
     if (!report) return <DashLayout title="گزارش‌ها" roleLabel="ادمین کل" menu={adminMenu} active="reports"><div className="panel">داده‌ای نیست.</div></DashLayout>;
     const t = report.totals;
     return (
@@ -24,9 +26,9 @@ export default function Reports() {
             <div className="panel">
                 <h3>🏫 عملکرد مدارس</h3>
                 <table className="tbl">
-                    <thead><tr><th>#</th><th>مدرسه</th><th>شهر</th><th>پلن</th><th>دانش‌آموز</th><th>معلم</th><th>کلاس</th><th>مجموع امتیاز</th></tr></thead>
+                    <thead><tr><th>#</th><SortTh s={rs} k="name">مدرسه</SortTh><SortTh s={rs} k="city">شهر</SortTh><SortTh s={rs} k="plan">پلن</SortTh><SortTh s={rs} k="students">دانش‌آموز</SortTh><SortTh s={rs} k="teachers">معلم</SortTh><SortTh s={rs} k="classes">کلاس</SortTh><SortTh s={rs} k="points">مجموع امتیاز</SortTh></tr></thead>
                     <tbody>
-                        {report.per_school.map((s, i) => (
+                        {rs.sorted.map((s, i) => (
                             <tr key={s.id}>
                                 <td>{fa(i + 1)}</td><td style={{ fontWeight: 700 }}>{s.name}</td><td>{s.city ?? '—'}</td>
                                 <td><span className="tag tag-info">{s.plan}</span></td>

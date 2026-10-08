@@ -17,8 +17,14 @@ use Illuminate\View\View;
  */
 class PrintController extends Controller
 {
+    /** همان هدرِ مشترک برای برگه‌های چاپیِ بخش‌های دیگر (گزارشِ بازی و آزمون). */
+    public static function header(?int $schoolId, Request $request): array
+    {
+        return (new self)->head($schoolId, $request);
+    }
+
     /** هدرِ مشترک: مدرسه + تاریخ + لینکِ بازگشت + جهتِ صفحه. */
-    private function head(?int $schoolId, Request $request = null): array
+    private function head(?int $schoolId, ?Request $request = null): array
     {
         $school = $schoolId ? \App\Models\School::find($schoolId) : null;
         $orient = $request && $request->query('orient') === 'landscape' ? 'landscape' : 'portrait';
@@ -73,6 +79,8 @@ class PrintController extends Controller
                 'address'     => $guardian['address'] ?? null,
             ],
             'r' => $report,
+            // روندِ هفته‌به‌هفته‌ی امتیاز و رتبه در سالِ تحصیلی
+            'pt' => app(\App\Services\PointsAnalytics::class)->studentTrend($user),
         ]);
     }
 

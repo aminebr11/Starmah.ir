@@ -53,6 +53,9 @@ class RegistrationController extends Controller
         ]);
 
         $req = SchoolRequest::create($data);
+        \App\Support\AdminAlert::send('school_request', "🏫 درخواستِ ثبت‌نامِ مدرسه‌ی تازه:\n"
+            . ($data['school_name'] ?? '') . (! empty($data['city']) ? ' — ' . $data['city'] : '')
+            . "\nمدیر: " . ($data['manager_name'] ?? '') . ' ' . ($data['manager_phone'] ?? ''));
         $plan = $data['plan_key'] ? \App\Models\Plan::where('key', $data['plan_key'])->where('is_active', true)->first() : null;
 
         // اگر طرحِ رایگان/بدونِ قیمت است → مستقیم به تشکر (بررسیِ دستیِ ادمین)
@@ -164,6 +167,8 @@ class RegistrationController extends Controller
             'school_id'   => $classroom->school_id,
             'name'        => trim($data['first_name'] . ' ' . $data['last_name']),
             'phone'       => $data['phone'],
+            // شماره‌ی ولی در ستونِ خودش هم می‌نشیند — پیامک‌های خودکار از همین ستون می‌خوانند
+            'parent_phone' => $data['parent_phone'] ?? null,
             'password'    => Hash::make($data['password']),
             'theme_id'    => $data['theme_id'],
             'national_id' => $data['national_id'] ?? null,
@@ -193,6 +198,12 @@ class RegistrationController extends Controller
 
         $student->assignRole(Roles::STUDENT);
         $classroom->students()->syncWithoutDetaching([$student->id => ['joined_at' => now()]]);
+
+        // پیامکِ خوش‌آمد به دانش‌آموز و ولی (رمزی که خودش انتخاب کرده فرستاده نمی‌شود)
+        \App\Support\SmsGateway::welcome($student, [
+            'classroom' => $classroom, 'teacher' => $classroom->teacher,
+            'pin' => $student->settings['guardian']['pin'] ?? null,
+        ]);
 
         Auth::login($student);
 

@@ -3,6 +3,7 @@ import { useState, useEffect, Fragment } from 'react';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
 import PersonCell from '@/Components/PersonCell';
 import Avatar from '@/Components/Avatar';
+import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -12,8 +13,12 @@ export default function SchoolManage() {
     const [banner, setBanner] = useState(null);
     useEffect(() => { if (flash?.flash) setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); }, [flash]);
 
+    const NAME_KEYS = { name: (r) => firstName(r.name), family: (r) => lastName(r.name) };
+    const ts = useSort(teachers, { ...NAME_KEYS, cls: 'class_name', students: 'students' }, { id: 'admin-school-teachers', firstDir: { students: 'desc' } });
+    const ss = useSort(students, { ...NAME_KEYS, phone: 'phone', cls: 'class', xp: 'xp' }, { id: 'admin-school-students', firstDir: { xp: 'desc' } });
+
     const STATUS = { pending: 'در انتظار', active: 'فعال', suspended: 'معلق' };
-    const sch = useForm({ name: school?.name || '', city: school?.city || '', level: school?.level || '', status: school?.status || 'active' });
+    const sch = useForm({ name: school?.name || '', city: school?.city || '', level: school?.level || '', status: school?.status || 'active', ui: school?.ui || '' });
     const [editSchool, setEditSchool] = useState(false);
 
     // حذفِ کاملِ مدرسه — برای جلوگیری از اشتباه، نامِ مدرسه باید تایپ شود
@@ -57,6 +62,14 @@ export default function SchoolManage() {
                                 {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                             </select>
                         </div>
+                        <div className="field" style={{ margin: 0 }}><label>🎨 طرحِ ظاهریِ این مدرسه</label>
+                            <select className="input" value={sch.data.ui} onChange={(e) => sch.setData('ui', e.target.value)}>
+                                <option value="">پیش‌فرضِ سامانه (خمیرماه)</option>
+                                <option value="clay">خمیرماه — روشن و خمیری</option>
+                                <option value="classic">طرحِ قدیمی — سرمه‌ایِ شب</option>
+                            </select>
+                            {sch.errors.ui && <Err>{sch.errors.ui}</Err>}
+                        </div>
                         <div style={{ display: 'flex', gap: 8 }}>
                             <button type="submit" disabled={sch.processing} className="btn btn-sm">💾 ذخیره</button>
                             <button type="button" onClick={() => setEditSchool(false)} className="btn btn-ghost btn-sm">انصراف</button>
@@ -75,7 +88,8 @@ export default function SchoolManage() {
 
             {/* معلم‌ها */}
             <Section title={`👩‍🏫 معلم‌ها و کلاس‌ها (${fa(teachers.length)})`}>
-                {teachers.length === 0 ? <Empty>معلمی ثبت نشده.</Empty> : teachers.map((t) => (
+                {teachers.length > 1 && <SortBar s={ts} options={[['name', 'نام'], ['family', 'نام خانوادگی'], ['cls', 'کلاس'], ['students', 'تعداد دانش‌آموز']]} />}
+                {teachers.length === 0 ? <Empty>معلمی ثبت نشده.</Empty> : ts.sorted.map((t) => (
                     <PersonRow key={t.id} p={t} grades={grades} fields={['name', 'phone', 'national_id', 'class_name', 'grade', 'password']}
                         sub={`${t.class_name ?? 'بدون کلاس'}${t.grade ? ` · پایه ${t.grade}` : ''} · ${fa(t.students)} دانش‌آموز`} />
                 ))}
@@ -83,11 +97,12 @@ export default function SchoolManage() {
 
             {/* دانش‌آموزان */}
             <Section title={`🎓 دانش‌آموزان (${fa(students.length)})`}>
+                {students.length > 1 && <SortBar s={ss} options={[['name', 'نام'], ['family', 'نام خانوادگی'], ['xp', 'امتیاز'], ['cls', 'کلاس']]} />}
                 {students.length === 0 ? <Empty>دانش‌آموزی ثبت نشده.</Empty> : (
                     <div style={{ overflowX: 'auto' }}>
                         <table className="tbl">
-                            <thead><tr><th>#</th><th>نام</th><th>موبایل</th><th>کلاس</th><th>امتیاز</th><th style={{ textAlign: 'left' }}>عملیات</th></tr></thead>
-                            <tbody>{students.map((s, i) => <StudentRow key={s.id} s={s} i={i} />)}</tbody>
+                            <thead><tr><th>#</th><SortTh s={ss} k="family">نام</SortTh><SortTh s={ss} k="phone">موبایل</SortTh><SortTh s={ss} k="cls">کلاس</SortTh><SortTh s={ss} k="xp">امتیاز</SortTh><th style={{ textAlign: 'left' }}>عملیات</th></tr></thead>
+                            <tbody>{ss.sorted.map((s, i) => <StudentRow key={s.id} s={s} i={i} />)}</tbody>
                         </table>
                     </div>
                 )}

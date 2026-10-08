@@ -92,7 +92,7 @@ export default function About() {
                         <div className="about-profile sm-reveal">
                             <div className="about-avatar">
                                 {/* عکس معلم را می‌توانید جایگزین کنید: /brand/teacher.jpg */}
-                                <img src="/brand/logo-emblem.png" alt="نجمه محمودی" />
+                                <img src="/brand/logo-mark-240.webp" alt="نجمه محمودی" />
                                 <span className="about-avatar-glow" />
                             </div>
                             <div className="about-profile-body">

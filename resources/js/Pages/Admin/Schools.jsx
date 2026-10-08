@@ -1,6 +1,7 @@
 import { usePage, router, Link, useForm } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
+import { useSort, SortTh, SortBar } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const planSummary = (p) => {
@@ -16,6 +17,9 @@ export default function Schools() {
     const [banner, setBanner] = useState(null);
     const [cfg, setCfg] = useState({});
     useEffect(() => { if (flash?.flash) setBanner(flash.flash); }, [flash]);
+
+    const ps = useSort(pending, { name: 'school_name', city: 'city', manager: 'manager_name', classes: 'classes_count' }, { id: 'admin-schools-pending', firstDir: { classes: 'desc' } });
+    const ss = useSort(schools, { name: 'name', city: 'city', plan: 'plan', expires: 'expires', users: 'users', classrooms: 'classrooms' }, { id: 'admin-schools', firstDir: { users: 'desc', classrooms: 'desc' } });
 
     const defaultPlan = plans[0]?.id ?? '';
     const get = (id) => cfg[id] ?? { plan_id: defaultPlan, mode: 'auto', password: '' };
@@ -92,7 +96,8 @@ export default function Schools() {
             <div className="panel">
                 <h3>⏳ درخواست‌های در انتظار تأیید ({fa(pending.length)})</h3>
                 {pending.length === 0 && <p style={{ color: 'var(--muted)' }}>درخواست جدیدی نیست. 🎉</p>}
-                {pending.map((r) => {
+                {pending.length > 1 && <SortBar s={ps} options={[['name', 'نام مدرسه'], ['city', 'شهر'], ['manager', 'مدیر'], ['classes', 'تعداد کلاس']]} />}
+                {ps.sorted.map((r) => {
                     const c = get(r.id);
                     const selPlan = plans.find((p) => String(p.id) === String(c.plan_id));
                     return (
@@ -133,10 +138,10 @@ export default function Schools() {
             <div className="panel">
                 <h3>🏫 مدارس ({fa(schools.length)})</h3>
                 <table className="tbl">
-                    <thead><tr><th>نام</th><th>شهر</th><th>طرح</th><th>انقضا</th><th>کاربر</th><th>کلاس</th><th>تغییر طرح</th><th>مدیریت</th></tr></thead>
+                    <thead><tr><SortTh s={ss} k="name">نام</SortTh><SortTh s={ss} k="city">شهر</SortTh><SortTh s={ss} k="plan">طرح</SortTh><SortTh s={ss} k="expires">انقضا</SortTh><SortTh s={ss} k="users">کاربر</SortTh><SortTh s={ss} k="classrooms">کلاس</SortTh><th>تغییر طرح</th><th>مدیریت</th></tr></thead>
                     <tbody>
                         {schools.length === 0 && <tr><td colSpan="8" style={{ color: 'var(--muted)' }}>مدرسه‌ای ثبت نشده.</td></tr>}
-                        {schools.map((s) => (
+                        {ss.sorted.map((s) => (
                             <tr key={s.id}>
                                 <td style={{ fontWeight: 700 }}>{s.name}</td><td>{s.city ?? '—'}</td>
                                 <td><span className="tag tag-info">{s.plan}</span></td>

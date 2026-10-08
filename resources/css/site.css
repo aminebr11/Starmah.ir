@@ -242,7 +242,8 @@ img{max-width:100%;display:block}
 
 /* ---------- AUTH SPLIT (login / forgot) ---------- */
 .auth-split{min-height:100vh;display:grid;grid-template-columns:1fr 1fr}
-.auth-side{position:relative;overflow:hidden;background:linear-gradient(160deg,#16264f,#070f24);color:#fff;
+.auth-side{position:sticky;top:0;align-self:start;height:100vh;overflow:hidden;
+  background:linear-gradient(160deg,#16264f,#070f24);color:#fff;
   display:flex;flex-direction:column;justify-content:center;padding:54px}
 .auth-side .stars-bg{position:absolute;inset:0;opacity:.6}
 .auth-side .brandrow{display:flex;align-items:center;gap:12px;position:relative;z-index:2}
@@ -1466,3 +1467,161 @@ a, button, [role="button"], summary { -webkit-tap-highlight-color: transparent; 
   .panel .btn,.panel .btn-sm{white-space:normal;text-align:center}
 }
 @media(max-width:360px){.dash-cards{grid-template-columns:minmax(0,1fr)!important}}
+
+/* ═══════════ طراحیِ سؤال: زمینه‌ی درسی، دستیارِ هوشمند، بانک (qk-*) ═══════════ */
+.qk-ctx,.qk-panel{--qk-acc:#6d28d9;--qk-acc2:#ede9fe;--qk-line:#e3e8f2;--qk-ink:#1c2740;--qk-mut:#6b7794}
+.qk-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.qk-field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.qk-field>span{font-size:12.5px;font-weight:800;color:var(--qk-ink)}
+.qk-field>span small{font-weight:500;color:var(--qk-mut)}
+.qk-wide{grid-column:1/-1}
+.qk-req{color:#e8505b;font-style:normal}
+.qk-input{width:100%;min-width:0;padding:10px 12px;border:1px solid var(--qk-line);border-radius:11px;font-family:inherit;font-size:13.5px;background:#fff;color:var(--qk-ink)}
+.qk-input:focus{outline:none;border-color:var(--qk-acc);box-shadow:0 0 0 3px rgba(109,40,217,.12)}
+.qk-input:disabled{background:#f4f6fa;color:#98a2b8}
+.qk-inline{display:flex;gap:6px}
+.qk-err{color:#dc2626;font-size:12px;font-style:normal}
+.qk-note{margin-top:10px;font-size:12.5px;line-height:2;background:#fff8e8;border:1px solid #f6dfa6;border-radius:11px;padding:8px 12px;color:#7a5a12}
+.qk-note.soft{background:#f7f5ff;border-color:#e5ddff;color:#4c3a8a}
+.qk-chips{display:flex;flex-wrap:wrap;gap:6px}
+.qk-chip{border:1px solid var(--qk-line,#e3e8f2);background:#fff;color:#4b5670;border-radius:999px;padding:6px 13px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;margin:2px}
+.qk-chip.on{background:var(--qk-acc,#6d28d9);border-color:var(--qk-acc,#6d28d9);color:#fff}
+.qk-btn{border:0;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;font-family:inherit;font-weight:800;font-size:13.5px;padding:10px 18px;border-radius:12px;cursor:pointer;white-space:nowrap}
+.qk-btn:disabled{opacity:.5;cursor:not-allowed}
+.qk-btn.sm{padding:7px 12px;font-size:12.5px}
+.qk-btn.ghost{background:#fff;color:#5b21b6;border:1px solid #d9ccfb}
+.qk-link{border:0;background:none;color:var(--qk-acc);font-family:inherit;font-weight:700;font-size:12.5px;cursor:pointer;padding:6px 0}
+.qk-check{display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--qk-mut)}
+.qk-muted{color:var(--qk-mut);font-size:12.5px}
+.qk-panel{border:1px solid #e5ddff;background:linear-gradient(180deg,#faf8ff,#fff);border-radius:16px;padding:14px;margin-bottom:14px}
+.qk-bank{border-color:#cfe3f7;background:linear-gradient(180deg,#f5faff,#fff);--qk-acc:#0369a1;--qk-acc2:#e0f2fe}
+.qk-bank .qk-btn{background:linear-gradient(135deg,#0ea5e9,#0369a1)}
+.qk-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.qk-head b{font-size:15px;color:var(--qk-ink)}
+.qk-summary{background:#fff;border:1px dashed #d9ccfb;border-radius:11px;padding:8px 12px;font-size:13px;font-weight:700;color:#3b2d6b;margin-bottom:12px;line-height:1.9}
+.qk-summary em{font-weight:500;color:var(--qk-mut);font-style:normal}
+.qk-summary.warn{border-color:#f6c46b;color:#92400e;background:#fffbeb}
+.qk-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.qk-msg{margin-top:10px;font-size:13px;font-weight:700;border-radius:10px;padding:8px 12px;line-height:1.9}
+.qk-msg.ok{background:#ecfdf3;color:#166534}
+.qk-msg.bad{background:#fef2f2;color:#b91c1c}
+.qk-tag{display:inline-block;border:1px solid #d6dbe6;border-radius:999px;padding:1px 9px;font-size:11px;font-weight:700;color:#4b5670;background:#fff}
+.qk-tag.soft{background:#f4f6fa;border-color:transparent}
+.qk-tag.sample{background:#fef3c7;border-color:#fde68a;color:#92400e}
+.qk-tag.done{background:#dcfce7;border-color:#bbf7d0;color:#166534}
+.qk-results{margin-top:12px}
+.qk-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.qk-q{border:1.5px solid var(--qk-line,#e3e8f2);background:#fff;border-radius:13px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.qk-q:hover{border-color:#c7b8f5}
+.qk-q.on{border-color:var(--qk-acc,#6d28d9);box-shadow:0 0 0 3px rgba(109,40,217,.10)}
+.qk-q.off{opacity:.55;cursor:default}
+.qk-q-top{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.qk-box{width:20px;height:20px;border-radius:6px;border:1.5px solid #c9d1e0;display:grid;place-items:center;font-size:12px;font-weight:900;color:#fff;flex:none}
+.qk-q.on .qk-box{background:var(--qk-acc,#6d28d9);border-color:var(--qk-acc,#6d28d9)}
+.qk-q-prompt{font-weight:800;font-size:14px;color:var(--qk-ink,#1c2740);line-height:1.9}
+.qk-choices{margin:6px 0 0;padding-inline-start:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:2px 14px;font-size:13px;color:#4b5670}
+.qk-choices li.right{color:#15803d;font-weight:800}
+.qk-answer{font-size:13px;color:#4b5670;margin-top:4px}
+.qk-extra{margin-top:6px;font-size:12.5px;color:#5b6478;line-height:1.9;background:#f8fafc;border-radius:9px;padding:6px 10px}
+.qk-meta{margin-top:6px;font-size:11.5px;color:var(--qk-mut,#6b7794)}
+.qk-bank-body{display:grid;grid-template-columns:230px minmax(0,1fr);gap:12px}
+.qk-tree{border:1px solid var(--qk-line);border-radius:12px;background:#fff;padding:6px;max-height:520px;overflow:auto}
+.qk-node{display:flex;justify-content:space-between;gap:6px;width:100%;text-align:start;border:0;background:none;font-family:inherit;font-size:12.5px;color:#34405a;padding:6px 8px;border-radius:8px;cursor:pointer}
+.qk-node small{color:#98a2b8;font-weight:700;flex:none}
+.qk-node:hover{background:#f1f5fb}
+.qk-node.on{background:var(--qk-acc2);color:var(--qk-acc);font-weight:800}
+.qk-node.lvl1{font-weight:800}
+.qk-node.lvl2{padding-inline-start:18px}
+.qk-node.lvl3{padding-inline-start:32px;font-size:12px}
+.qk-filters{display:grid;grid-template-columns:minmax(0,2fr) repeat(3,minmax(0,1fr)) auto;gap:6px;margin-bottom:8px}
+.qk-scroll{max-height:460px;overflow:auto;padding-inline-end:2px}
+.qk-empty{padding:18px;text-align:center;color:var(--qk-mut);font-size:13px;border:1px dashed var(--qk-line);border-radius:12px;background:#fff}
+@media (max-width:760px){
+  .qk-bank-body{grid-template-columns:1fr}
+  .qk-tree{max-height:220px}
+  .qk-filters{grid-template-columns:1fr 1fr}
+  .qk-filters .qk-input:first-child{grid-column:1/-1}
+  .qk-actions .qk-btn{flex:1}
+}
+
+/* ═══ قابِ صفحه‌های کوچکِ احرازِ هویت ═══ */
+.auth-solo{min-height:100vh;min-height:100dvh;display:grid;place-items:center;
+  padding:calc(20px + var(--sat,0px)) 16px calc(20px + var(--sab,0px));
+  background:radial-gradient(circle at 80% 10%,#16264f,#0a1733)}
+.auth-solo-card{width:100%;max-width:430px;background:#fff;border-radius:24px;padding:26px 22px;
+  box-shadow:0 30px 70px -20px rgba(0,0,0,.55)}
+.auth-solo-brand{display:flex;align-items:center;justify-content:center;gap:8px;font-weight:800;color:var(--navy-800);font-size:16px;margin-bottom:14px}
+.auth-solo-brand img{width:34px;height:34px;border-radius:9px}
+.auth-solo-ic{width:70px;height:70px;margin:0 auto 12px;border-radius:50%;display:grid;place-items:center;font-size:32px;
+  background:linear-gradient(135deg,#fff3d6,#ffe0a0);box-shadow:0 12px 30px -12px rgba(245,181,63,.7)}
+.auth-solo-foot{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);text-align:center;font-size:14px;color:var(--muted)}
+.auth-ok{background:#e3f7ec;color:#176c45;padding:12px;border-radius:12px;margin-bottom:14px;font-size:13px;font-weight:700;text-align:center}
+.pass-wrap{position:relative}
+.pass-wrap .input{padding-left:44px}
+.pass-eye{position:absolute;top:50%;left:8px;transform:translateY(-50%);background:none;border:0;cursor:pointer;font-size:17px;padding:6px;line-height:1}
+
+/* ═══════════ موبایل — اصلاحاتِ سراسری ═══════════ */
+@media (max-width:900px){
+  /* iOS هر فیلدِ با فونتِ کمتر از ۱۶ پیکسل را هنگامِ لمس بزرگ‌نمایی می‌کند و صفحه از
+     عرضِ گوشی بیرون می‌زند (مثلاً صفحه‌های ورود و رمز). ۱۶ پیکسل این بزرگ‌نمایی را حذف می‌کند. */
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]),
+  select, textarea{font-size:16px !important}
+
+  /* جدول‌ها: به‌جای فشرده‌شدن و شکستنِ واژه به واژه، داخلِ کادرِ خودشان افقی اسکرول می‌خورند */
+  .tbl{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%;
+    background:linear-gradient(90deg,#fff 30%,rgba(255,255,255,0)) left center/40px 100% no-repeat local,
+      radial-gradient(farthest-side at 0 50%,rgba(15,23,42,.14),rgba(15,23,42,0)) left center/12px 100% no-repeat scroll}
+  .tbl th,.tbl td{white-space:nowrap;padding:10px 12px}
+  .tbl td.wrap{white-space:normal;min-width:180px}
+}
+/* سربرگِ سایت در گوشی‌های باریک: نامِ برند یک‌خطی بماند */
+.nav-logo>span:last-child{white-space:nowrap}
+@media (max-width:400px){
+  .nav-inner{gap:8px}
+  .nav-logo{gap:8px;font-size:16px}
+  .nav-cta{gap:5px}
+  .nav-cta .btn-sm{padding:9px 11px;font-size:13px}
+}
+/* صندوقِ پیام: دسکتاپ دوستونه؛ موبایل «فهرست ← گفت‌وگو» */
+.msg-grid{display:grid;grid-template-columns:minmax(200px,270px) minmax(0,1fr);gap:14px;align-items:start}
+.msg-back{display:none}
+@media (max-width:760px){
+  .msg-grid{grid-template-columns:1fr}
+  .msg-grid:not(.has-active) .msg-thread{display:none}
+  .msg-grid.has-active .msg-contacts{display:none}
+  .msg-back{display:inline-block}
+  .msg-thread{min-height:0 !important}
+  .msg-scroll{max-height:calc(100dvh - 330px) !important;min-height:240px}
+}
+/* نوارِ بالای داشبوردِ دانش‌آموز در موبایل: یک ردیف — منو، عنوان، ابزارها */
+@media (max-width:900px){
+  .dash-main.kids .dash-topbar{flex-wrap:nowrap;gap:8px;margin-bottom:14px}
+  .dash-main.kids .dash-topbar>div:first-child{min-width:0;flex:1 1 auto;gap:8px !important}
+  .dash-main.kids .dash-topbar h1{font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;margin:0}
+  .dash-main.kids .dash-topbar>div:last-child{flex:none;gap:6px !important}
+  .dash-main.kids .dash-topbar>div:last-child>button{padding:0 11px !important}
+  .dash-main.kids .dash-topbar>div:last-child .btn{padding:8px 11px;font-size:13px}
+}
+/* ستاره‌های تزئینیِ صفحه‌های معرفی در گوشی روی تیتر می‌افتادند */
+@media (max-width:480px){ .sm-spark{display:none} }
+
+/* کارت‌های آماری روی موبایل — آیکون یک طرف، «عنوان / عدد / توضیح» زیرِ هم کنارش.
+   قبلاً همه‌ی بچه‌ها در یک ردیف بودند و عدد آن‌قدر باریک می‌شد که رقم‌به‌رقم
+   می‌شکست (مثلاً «۱۷,۸۳۳» در چهار خط). عدد حالا هرگز نمی‌شکند و اندازه‌اش با
+   پهنای صفحه کوچک می‌شود. */
+@media(max-width:860px){
+  .dcard{display:grid!important;grid-template-columns:auto minmax(0,1fr);column-gap:12px;row-gap:0;align-items:center;align-content:center}
+  .dcard>.ic{grid-column:1;grid-row:1/span 4;align-self:center}
+  .dcard>:not(.ic){grid-column:2;min-width:0}
+  .dcard>*{overflow-wrap:normal!important;word-break:normal!important}
+  .dcard .lbl{line-height:1.6}
+  .dcard .val{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;font-size:clamp(17px,5.2vw,24px)!important;font-variant-numeric:tabular-nums}
+  .dcard .val *{white-space:nowrap}
+}
+@media(max-width:380px){
+  .dcard{grid-template-columns:minmax(0,1fr);text-align:center;justify-items:center;row-gap:2px}
+  .dcard>.ic{grid-row:auto}
+  .dcard>:not(.ic){grid-column:1}
+}
+.qk-inline-ctx{margin:10px 0 4px;padding:10px;border-radius:12px;background:#fffaf0;border:1px dashed #f0c96a}
+.qk-btn.wait{opacity:.75}

@@ -26,7 +26,7 @@ class SmartLabController extends Controller
             'pilotSchools' => SmartLab::pilotSchoolIds(),
             'schools' => $schools,
             'ai' => [
-                'provider' => Setting::get('ai_provider', 'anthropic'),
+                'provider' => \App\Support\AiConfig::provider(),
                 'requests' => (int) SmartExamAiRequest::count(),
                 'produced' => (int) SmartExamAiRequest::sum('produced'),
                 'errors' => (int) SmartExamAiRequest::where('ok', false)->count(),

@@ -22,6 +22,13 @@ class CurriculumController extends Controller
                     'id' => $b->id, 'level' => $b->level, 'grade' => $b->grade,
                     'name' => $b->name, 'icon' => $b->icon, 'is_active' => $b->is_active,
                 ]),
+            // فصل‌های سراسری، گروه‌بندی‌شده با «پایه|درس»
+            'chapters' => \App\Models\CurriculumChapter::whereNull('school_id')->orderBy('number')->get()
+                ->groupBy(fn ($c) => $c->grade . '|' . $c->subject)
+                ->map(fn ($g) => $g->map(fn ($c) => [
+                    'id' => $c->id, 'number' => $c->number, 'title' => $c->title,
+                    'lessons' => implode('، ', (array) ($c->lessons ?? [])),
+                ])->values()),
         ]);
     }
 

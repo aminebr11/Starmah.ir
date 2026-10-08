@@ -56,7 +56,7 @@ class ExamBuilderController extends Controller
             'subjects'  => $classroom ? $classroom->subjectNames() : [],
             'exams'     => $exams,
             'bank'      => $bank,
-            'aiEnabled' => (bool) (env('ANTHROPIC_API_KEY') || env('OPENAI_API_KEY')),
+            'aiEnabled' => \App\Support\AiConfig::configured(),
         ]);
     }
 
@@ -256,6 +256,7 @@ class ExamBuilderController extends Controller
                 'descAnswers' => $descAnswers,
                 'perQuestion' => $perQ,
                 'jdate' => $sub?->submitted_at ? Jalali::format($sub->submitted_at, true) : null,
+                'date_raw' => $sub?->submitted_at?->timestamp,
             ];
         })->sortByDesc(fn ($r) => $r['percent'] ?? -1)->values();
 
@@ -370,6 +371,10 @@ class ExamBuilderController extends Controller
 
     private function validated(Request $request): array
     {
+        // سؤال‌های کاملاً خالیِ جامانده رد نمی‌شوند، فقط کنار گذاشته می‌شوند
+        $request->merge(['questions' => array_values(array_filter((array) $request->input('questions', []),
+            fn ($q) => is_array($q) && trim((string) ($q['prompt'] ?? '')) !== ''))]);
+
         return $request->validate([
             'title'                 => ['required', 'string', 'max:120'],
             'type'                  => ['required', 'in:exam,quiz'],
@@ -382,6 +387,10 @@ class ExamBuilderController extends Controller
             'questions.*.prompt'    => ['required', 'string'],
             'questions.*.choices'   => ['nullable', 'array'],
             'publish'               => ['boolean'],
+        ], [
+            'title.required' => 'عنوانِ آزمون را بنویسید.',
+            'questions.required' => 'دستِ‌کم یک سؤال با متن بنویسید.',
+            'questions.min' => 'دستِ‌کم یک سؤال با متن بنویسید.',
         ]);
     }
 

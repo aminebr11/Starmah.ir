@@ -47,7 +47,16 @@ class TeacherDashboardController extends Controller
                 'sender' => $a->sender?->name, 'date' => Jalali::format($a->created_at, true),
             ]);
 
+        // تولدهای امروز که هنوز تبریک نگرفته‌اند — کارتِ بالای پیشخوان
+        try {
+            $birthdaysToday = collect(app(\App\Services\BirthdayService::class)->forTeacher($teacher))
+                ->where('offset', 0)->where('sent', false)->values();
+        } catch (\Throwable $e) {
+            $birthdaysToday = collect();
+        }
+
         return Inertia::render('Teacher/Dashboard', [
+            'birthdaysToday' => $birthdaysToday,
             'classrooms' => $classrooms,
             'announcements' => $announcements,
             'alarms' => $alarms,
@@ -79,10 +88,12 @@ class TeacherDashboardController extends Controller
 
         $rows = [];
         if ($classroom) {
-            $rows = $classroom->students()->get()->map(fn ($s) => [
+            $students = $classroom->students()->get();
+            $mastery = app(\App\Services\MasteryService::class)->forStudents($students->pluck('id')->all());
+            $rows = $students->map(fn ($s) => [
                 'id' => $s->id, 'name' => $s->name,
                 'xp' => $s->totalXp(),
-                'mastery' => (int) round($s->skillMastery()->avg('mastery') ?? 0),
+                'mastery' => $mastery[$s->id]['overall'] ?? null,
                 'stars' => DisciplineRecord::where('student_id', $s->id)->where('type', 'star')->sum('points'),
             ])->sortByDesc('xp')->values();
         }
@@ -134,6 +145,12 @@ class TeacherDashboardController extends Controller
             'crossSubject' => $cross->forStudents($studentIds),
             'studentCount' => $studentIds->count(),
             'trend'   => $classIds->isNotEmpty() ? $analytics->dailyXpSeries($classIds, 28) : [],
+            // روندِ هفتگیِ امتیاز و رتبه برای نمودارِ گزارشِ معلم (یک دانش‌آموزِ انتخابی)
+            'studentTrend' => ($sid = (int) $request->query('student'))
+                && $studentIds->contains($sid)
+                ? app(\App\Services\PointsAnalytics::class)->studentTrend(\App\Models\User::find($sid))
+                : null,
+            'trendStudent' => isset($sid) && $studentIds->contains($sid) ? \App\Models\User::find($sid)?->name : null,
             'heatmap' => $classIds->isNotEmpty() ? $analytics->activityHeatmap($classIds, 6) : null,
         ]);
     }
@@ -142,7 +159,9 @@ class TeacherDashboardController extends Controller
     {
         abort_unless($classroom->teacher_id === $request->user()->id, 403);
 
-        $students = $classroom->students()->with('theme:id,name,emoji')->get()->map(fn ($s) => [
+        $list = $classroom->students()->with('theme:id,name,emoji')->get();
+        $masteryMap = app(\App\Services\MasteryService::class)->forStudents($list->pluck('id')->all());
+        $students = $list->map(fn ($s) => \App\Support\StudentRecordData::row($s) + [
             'id'   => $s->id,
             'name' => $s->name,
             'phone' => $s->phone,
@@ -153,7 +172,8 @@ class TeacherDashboardController extends Controller
             'team_name'  => $s->theme?->name,
             'team_emoji' => $s->theme?->emoji,
             'xp'   => $s->totalXp(),
-            'avg'  => (int) round($s->skillMastery()->avg('mastery') ?? 0),
+            'avg'  => $masteryMap[$s->id]['overall'] ?? null,
+            'mastery_level' => $masteryMap[$s->id]['level']['label'] ?? null,
         ])->sortByDesc('xp')->values();
 
         $themes = \App\Models\Theme::where('is_active', true)->where('key', '!=', 'brand')

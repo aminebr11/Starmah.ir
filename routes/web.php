@@ -29,6 +29,12 @@ Route::get('/about', fn () => Inertia::render('About'))->name('about');
 Route::get('/install', fn () => Inertia::render('Install'))->name('install');
 
 // نقطه‌ی ورود مشترک — بر اساس نقش هدایت می‌شود
+// ضربانِ حضور: آنلاین‌بودن و زمانِ فعالِ کاربرانِ واردشده
+Route::post('/presence', function (\Illuminate\Http\Request $r) {
+    \App\Support\VisitTracker::hit($r, false);
+    return response()->noContent();
+})->middleware(['auth', 'throttle:10,1'])->name('presence');
+
 Route::get('/dashboard', HomeController::class)->middleware('auth')->name('dashboard');
 
 // صفحه‌ی قیمت (عمومی) + بازگشت از درگاهِ پرداخت
@@ -68,6 +74,10 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::post('/sms/gateway', [\App\Http\Controllers\Admin\SmsAdminController::class, 'storeGateway'])->name('sms.gateway');
     Route::post('/sms/test', [\App\Http\Controllers\Admin\SmsAdminController::class, 'test'])->name('sms.test');
     Route::post('/sms/school/{school}', [\App\Http\Controllers\Admin\SmsAdminController::class, 'updateSchool'])->name('sms.school');
+    Route::post('/sms/alerts', [\App\Http\Controllers\Admin\SmsAdminController::class, 'alerts'])->name('sms.alerts');
+    // فهرستِ همه‌ی کاربران — ویرایشِ نام و شماره‌ی موبایلِ هر کس (حتی خودِ ادمین)
+    Route::get('/users', [\App\Http\Controllers\Admin\UserDirectoryController::class, 'index'])->name('users');
+    Route::put('/users/{user}', [\App\Http\Controllers\Admin\UserDirectoryController::class, 'update'])->name('users.update');
     Route::get('/integrations', [PlatformController::class, 'integrations'])->name('integrations');
     Route::put('/integrations', [PlatformController::class, 'storeIntegrations'])->name('integrations.store');
     Route::post('/integrations/test-sms', [PlatformController::class, 'testSms'])->name('integrations.test-sms');
@@ -78,6 +88,9 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::post('/curriculum', [\App\Http\Controllers\Admin\CurriculumController::class, 'store'])->name('curriculum.store');
     Route::put('/curriculum/{curriculumBook}', [\App\Http\Controllers\Admin\CurriculumController::class, 'update'])->name('curriculum.update');
     Route::delete('/curriculum/{curriculumBook}', [\App\Http\Controllers\Admin\CurriculumController::class, 'destroy'])->name('curriculum.destroy');
+    Route::post('/curriculum/{curriculumBook}/chapters', [\App\Http\Controllers\Curriculum\ChapterController::class, 'adminStore'])->name('chapters.store');
+    Route::put('/chapters/{chapter}', [\App\Http\Controllers\Curriculum\ChapterController::class, 'adminUpdate'])->name('chapters.update');
+    Route::delete('/chapters/{chapter}', [\App\Http\Controllers\Curriculum\ChapterController::class, 'adminDestroy'])->name('chapters.destroy');
     Route::get('/themes', [PlatformController::class, 'themes'])->name('themes');
     Route::post('/themes', [PlatformController::class, 'storeTheme'])->name('themes.store');
     Route::post('/themes/{theme}/toggle', [PlatformController::class, 'toggleTheme'])->name('themes.toggle');
@@ -92,9 +105,22 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::get('/smart-lab', [\App\Http\Controllers\Admin\SmartLabController::class, 'index'])->name('smart-lab');
     Route::post('/smart-lab', [\App\Http\Controllers\Admin\SmartLabController::class, 'update'])->name('smart-lab.update');
     Route::get('/reports', [PlatformController::class, 'reports'])->name('reports');
+    Route::get('/visits', [\App\Http\Controllers\Admin\VisitReportController::class, 'index'])->name('visits');
+    // مرکزِ هوش مصنوعی
+    // سلامتِ سیستم: مایگریشن‌ها، ستون‌ها، charset، خطاهای اخیر و آزمایشِ ذخیره
+    Route::get('/diagnostics', [\App\Http\Controllers\Admin\DiagnosticsController::class, 'index'])->name('diagnostics');
+    Route::post('/diagnostics/migrate', [\App\Http\Controllers\Admin\DiagnosticsController::class, 'migrate'])->name('diagnostics.migrate');
+    Route::post('/diagnostics/clear', [\App\Http\Controllers\Admin\DiagnosticsController::class, 'clearCaches'])->name('diagnostics.clear');
+    Route::post('/diagnostics/test-save', [\App\Http\Controllers\Admin\DiagnosticsController::class, 'testSave'])->name('diagnostics.test');
+    Route::get('/ai', [\App\Http\Controllers\Admin\AiCenterController::class, 'index'])->name('ai');
+    Route::post('/ai', [\App\Http\Controllers\Admin\AiCenterController::class, 'save'])->name('ai.save');
+    Route::post('/ai/test', [\App\Http\Controllers\Admin\AiCenterController::class, 'test'])->middleware('throttle:15,1')->name('ai.test');
+    Route::post('/ai/test-questions', [\App\Http\Controllers\Admin\AiCenterController::class, 'testQuestions'])->middleware('throttle:6,1')->name('ai.testq');
+    Route::post('/ai/prices', [\App\Http\Controllers\Admin\AiCenterController::class, 'savePrices'])->name('ai.prices');
     Route::get('/settings', [PlatformController::class, 'settings'])->name('settings');
     Route::post('/settings', [PlatformController::class, 'storeSettings'])->name('settings.store');
     Route::post('/settings/test-image', [PlatformController::class, 'testImage'])->name('settings.test-image');
+    Route::post('/settings/ui-default', [PlatformController::class, 'storeUiDefault'])->name('settings.ui-default');
 });
 
 /* ---------------- مدیر مدرسه ---------------- */
@@ -114,6 +140,7 @@ Route::middleware(['auth', 'role:school_admin'])->prefix('school')->name('school
     Route::delete('/schedule/{scheduleEntry}', [\App\Http\Controllers\ScheduleController::class, 'destroy'])->name('schedule.destroy');
     Route::get('/schedule-overview', [\App\Http\Controllers\ScheduleController::class, 'schoolView'])->name('schedule.overview');
     Route::get('/reports', [SchoolDashboardController::class, 'reports'])->name('reports');
+    Route::get('/visits', [\App\Http\Controllers\SchoolAdmin\VisitReportController::class, 'index'])->name('visits');
     // ثبت حضور و غیاب توسط مدیر مدرسه (همه‌ی کلاس‌ها)
     Route::get('/attendance', [\App\Http\Controllers\AttendanceController::class, 'record'])->name('attendance');
     Route::post('/attendance', [\App\Http\Controllers\AttendanceController::class, 'store'])->name('attendance.store');
@@ -216,19 +243,30 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::get('/attendance-report', [\App\Http\Controllers\AttendanceReportController::class, 'index'])->name('attendance.report');
     Route::get('/class/{classroom}', [TeacherDashboardController::class, 'show'])->name('classroom');
     Route::get('/students', [TeacherDashboardController::class, 'myClass'])->name('students');
+    Route::get('/birthdays', [\App\Http\Controllers\Teacher\BirthdayController::class, 'index'])->name('birthdays');
+    Route::post('/birthdays/{user}', [\App\Http\Controllers\Teacher\BirthdayController::class, 'send'])->name('birthdays.send');
     Route::post('/students/{user}/team', [TeacherDashboardController::class, 'setTeam'])->name('students.team');
     Route::post('/students', [\App\Http\Controllers\Teacher\StudentController::class, 'store'])->name('students.store');
-    Route::get('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'index'])->name('activities');
+    // «امتیازدهیِ گروهی» و «امتیازِ تیم‌ها» در «مرکزِ امتیاز» ادغام شدند
+    Route::get('/activities', fn () => redirect('/teacher/points?tab=activities'))->name('activities');
     Route::post('/activities', [\App\Http\Controllers\Teacher\ActivityController::class, 'store'])->name('activities.store');
     Route::post('/activities/{classActivity}/award', [\App\Http\Controllers\Teacher\ActivityController::class, 'award'])->name('activities.award');
     Route::put('/activities/{classActivity}', [\App\Http\Controllers\Teacher\ActivityController::class, 'update'])->name('activities.update');
     Route::delete('/activities/{classActivity}', [\App\Http\Controllers\Teacher\ActivityController::class, 'destroy'])->name('activities.destroy');
     // مدیریت امتیازاتِ دانش‌آموز (افزودن/کسر/حذف سابقه)
     Route::get('/points', [\App\Http\Controllers\Teacher\StudentPointsController::class, 'index'])->name('points');
+    Route::get('/points/print', [\App\Http\Controllers\Teacher\StudentPointsController::class, 'print'])->name('points.print');
     Route::post('/points/adjust', [\App\Http\Controllers\Teacher\StudentPointsController::class, 'adjust'])->name('points.adjust');
     Route::delete('/points/entry/{xpEntry}', [\App\Http\Controllers\Teacher\StudentPointsController::class, 'destroyEntry'])->name('points.entry.destroy');
     Route::post('/points/destroy-many', [\App\Http\Controllers\Teacher\StudentPointsController::class, 'destroyMany'])->name('points.destroyMany');
     Route::post('/points/clear', [\App\Http\Controllers\Teacher\StudentPointsController::class, 'clear'])->name('points.clear');
+    // مرکزِ امتیاز: نوبت‌های امتیازدهی (یک/چند نفر، یک/چند تیم، کلِ کلاس) + ویرایش/حذف
+    Route::post('/points/give', [\App\Http\Controllers\Teacher\PointBatchController::class, 'store'])->name('points.give');
+    Route::put('/points/batch/{batch}', [\App\Http\Controllers\Teacher\PointBatchController::class, 'update'])->name('points.batch.update');
+    Route::delete('/points/batch/{batch}', [\App\Http\Controllers\Teacher\PointBatchController::class, 'destroy'])->name('points.batch.destroy');
+    Route::delete('/points/batch/{batch}/student/{student}', [\App\Http\Controllers\Teacher\PointBatchController::class, 'removeStudent'])->name('points.batch.student');
+    Route::put('/points/entry/{xpEntry}', [\App\Http\Controllers\Teacher\PointBatchController::class, 'updateEntry'])->name('points.entry.update');
+    Route::put('/groups/entry/{teamPoint}', [\App\Http\Controllers\Teacher\PointBatchController::class, 'updateTeamPoint'])->name('groups.entry.update');
     // بازی‌ساز (بانک بازی، انتشار، XP)
     Route::get('/games', [\App\Http\Controllers\Teacher\GameController::class, 'index'])->name('games');
     Route::post('/games/ai', [\App\Http\Controllers\Teacher\GameController::class, 'aiGenerate'])->name('games.ai');
@@ -239,6 +277,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::delete('/games/{classActivity}', [\App\Http\Controllers\Teacher\GameController::class, 'destroy'])->name('games.destroy');
     Route::get('/gradebook', [\App\Http\Controllers\Teacher\GradebookController::class, 'index'])->name('gradebook');
     Route::post('/gradebook/activities', [\App\Http\Controllers\Teacher\GradebookController::class, 'storeActivity'])->name('gradebook.activities');
+    Route::post('/gradebook/columns/{gradeColumn}', [\App\Http\Controllers\Teacher\GradebookController::class, 'updateActivity'])->name('gradebook.columns.update');
     Route::post('/gradebook/columns/{gradeColumn}/grades', [\App\Http\Controllers\Teacher\GradebookController::class, 'saveGrades'])->name('gradebook.grades');
     Route::delete('/gradebook/columns/{gradeColumn}', [\App\Http\Controllers\Teacher\GradebookController::class, 'destroyColumn'])->name('gradebook.columns.destroy');
     Route::get('/discipline', [DisciplineController::class, 'index'])->name('discipline');
@@ -256,8 +295,16 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/materials/{classContent}', [\App\Http\Controllers\Teacher\ClassContentController::class, 'update'])->name('materials.update');
     Route::post('/materials/{classContent}/visibility', [\App\Http\Controllers\Teacher\ClassContentController::class, 'toggleVisibility'])->name('materials.visibility');
     Route::delete('/materials/{classContent}', [\App\Http\Controllers\Teacher\ClassContentController::class, 'destroy'])->name('materials.destroy');
+    // گالریِ آلبومی
+    Route::post('/gallery/upload', [\App\Http\Controllers\Teacher\GalleryController::class, 'upload'])->name('gallery.upload');
+    Route::post('/gallery/albums/{album}', [\App\Http\Controllers\Teacher\GalleryController::class, 'update'])->name('gallery.albums.update');
+    Route::post('/gallery/albums/{album}/visibility', [\App\Http\Controllers\Teacher\GalleryController::class, 'visibility'])->name('gallery.albums.visibility');
+    Route::post('/gallery/albums/{album}/cover/{photo}', [\App\Http\Controllers\Teacher\GalleryController::class, 'cover'])->name('gallery.albums.cover');
+    Route::post('/gallery/albums/{album}/photos/delete', [\App\Http\Controllers\Teacher\GalleryController::class, 'destroyPhotos'])->name('gallery.albums.photos.destroy');
+    Route::delete('/gallery/albums/{album}', [\App\Http\Controllers\Teacher\GalleryController::class, 'destroy'])->name('gallery.albums.destroy');
+    Route::post('/gallery/photos/{photo}', [\App\Http\Controllers\Teacher\GalleryController::class, 'updatePhoto'])->name('gallery.photos.update');
     // مدیریتِ امتیازِ گروه‌ها (تیم‌های تم‌دار)
-    Route::get('/groups', [\App\Http\Controllers\Teacher\GroupPointsController::class, 'index'])->name('groups');
+    Route::get('/groups', fn (\Illuminate\Http\Request $r) => redirect('/teacher/points?tab=teams'))->name('groups');
     Route::post('/groups/adjust', [\App\Http\Controllers\Teacher\GroupPointsController::class, 'adjust'])->name('groups.adjust');
     Route::delete('/groups/entry/{teamPoint}', [\App\Http\Controllers\Teacher\GroupPointsController::class, 'destroyEntry'])->name('groups.entry.destroy');
     // تنظیماتِ مأموریت‌های روزانه
@@ -271,6 +318,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/missions/ai-questions', [\App\Http\Controllers\Teacher\MissionController::class, 'aiQuestions'])->name('missions.ai');
     Route::delete('/missions/{mission}', [\App\Http\Controllers\Teacher\MissionController::class, 'destroy'])->whereNumber('mission')->name('missions.destroy');
     Route::get('/reports', [TeacherDashboardController::class, 'reports'])->name('reports');
+    Route::get('/visits', [\App\Http\Controllers\Teacher\VisitReportController::class, 'index'])->name('visits');
     Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'manage'])->name('schedule');
     Route::post('/schedule', [\App\Http\Controllers\ScheduleController::class, 'store'])->name('schedule.store');
     Route::delete('/schedule/{scheduleEntry}', [\App\Http\Controllers\ScheduleController::class, 'destroy'])->name('schedule.destroy');
@@ -304,6 +352,8 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     // آزمایشگاه هوشمند آزمون (آزمایشی — پشتِ Feature Flag)
     Route::middleware('smartlab')->prefix('smart-exams')->name('smart.')->group(function () {
         Route::get('/', [\App\Http\Controllers\Teacher\SmartExamController::class, 'lab'])->name('lab');
+        Route::get('/new', [\App\Http\Controllers\Teacher\SmartExamController::class, 'create'])->name('create');
+        Route::get('/{smartExam}/report/print', [\App\Http\Controllers\Teacher\SmartExamController::class, 'reportPrint'])->name('report.print');
         Route::get('/{smartExam}/edit', [\App\Http\Controllers\Teacher\SmartExamController::class, 'edit'])->name('edit');
         Route::get('/{smartExam}/preview', [\App\Http\Controllers\Teacher\SmartExamController::class, 'preview'])->name('preview');
         Route::post('/', [\App\Http\Controllers\Teacher\SmartExamController::class, 'store'])->name('store');
@@ -319,8 +369,16 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
         Route::post('/bank', [\App\Http\Controllers\Teacher\SmartExamController::class, 'bankStore'])->name('bank.store');
         Route::delete('/bank/{question}', [\App\Http\Controllers\Teacher\SmartExamController::class, 'bankDestroy'])->name('bank.destroy');
     });
+    // بانکِ سؤالاتِ معلم (همیشه در دسترس؛ مستقل از آزمایشگاه هوشمند)
+    Route::get('/my-bank', [\App\Http\Controllers\Teacher\MyBankController::class, 'index'])->name('mybank');
+    Route::get('/my-bank/list', [\App\Http\Controllers\Teacher\MyBankController::class, 'list'])->name('mybank.list');
+    Route::post('/my-bank/move', [\App\Http\Controllers\Teacher\MyBankController::class, 'move'])->name('mybank.move');
+    Route::put('/my-bank/{question}', [\App\Http\Controllers\Teacher\MyBankController::class, 'update'])->name('mybank.update');
+    Route::delete('/my-bank/{question}', [\App\Http\Controllers\Teacher\MyBankController::class, 'destroy'])->name('mybank.destroy');
     // استودیوی ساخت بازی (دنیای بازی‌های آموزشی)
     Route::get('/studio', [\App\Http\Controllers\Teacher\EduGameController::class, 'index'])->name('studio');
+    Route::get('/studio/new', [\App\Http\Controllers\Teacher\EduGameController::class, 'create'])->name('studio.create');
+    Route::get('/studio/{eduGame}/report/print', [\App\Http\Controllers\Teacher\EduGameController::class, 'reportPrint'])->name('studio.report.print');
     Route::post('/studio/ai', [\App\Http\Controllers\Teacher\EduGameController::class, 'aiGenerate'])->name('studio.ai');
     Route::get('/studio/bank', [\App\Http\Controllers\Teacher\EduGameController::class, 'bankQuestions'])->name('studio.bank');
     Route::get('/studio/{eduGame}/edit', [\App\Http\Controllers\Teacher\EduGameController::class, 'show'])->name('studio.edit');
@@ -328,6 +386,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/studio', [\App\Http\Controllers\Teacher\EduGameController::class, 'store'])->name('studio.store');
     Route::put('/studio/{eduGame}', [\App\Http\Controllers\Teacher\EduGameController::class, 'update'])->name('studio.update');
     Route::post('/studio/{eduGame}/status', [\App\Http\Controllers\Teacher\EduGameController::class, 'status'])->name('studio.status');
+    Route::post('/studio/{eduGame}/release', [\App\Http\Controllers\Teacher\EduGameController::class, 'release'])->name('studio.release');
     Route::post('/studio/{eduGame}/duplicate', [\App\Http\Controllers\Teacher\EduGameController::class, 'duplicate'])->name('studio.duplicate');
     Route::delete('/studio/{eduGame}', [\App\Http\Controllers\Teacher\EduGameController::class, 'destroy'])->name('studio.destroy');
     Route::get('/studio/{eduGame}/report', [\App\Http\Controllers\Teacher\EduGameController::class, 'report'])->name('studio.report');
@@ -341,6 +400,12 @@ Route::middleware(['auth', 'role:parent'])->group(function () {
 /* ---------------- مشترک ---------------- */
 Route::middleware('auth')->group(function () {
     // سقفِ نرخ: هزینه‌ی کلیدِ هوش مصنوعی را از تکرارِ پرشتاب حفظ می‌کند
+    // برنامه‌ی درسی (کلاس‌ها، درس‌ها و فصل‌ها) برای فرم‌های ساختِ آزمون و بازی
+    Route::middleware('role:teacher|school_admin|super_admin')->prefix('curriculum')->name('curriculum.')->group(function () {
+        Route::get('/context', [\App\Http\Controllers\Curriculum\ChapterController::class, 'context'])->name('context');
+        Route::get('/chapters', [\App\Http\Controllers\Curriculum\ChapterController::class, 'index'])->name('chapters');
+        Route::post('/chapters', [\App\Http\Controllers\Curriculum\ChapterController::class, 'storeForSchool'])->name('chapters.store');
+    });
     Route::post('/assistant/chat', [\App\Http\Controllers\AssistantController::class, 'chat'])
         ->middleware('throttle:20,1')->name('assistant.chat');
 
@@ -350,6 +415,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/family-notes/{parentNote}', [\App\Http\Controllers\ParentNoteController::class, 'destroy'])->name('family.notes.destroy');
 
     // خروجی‌های چاپی (A4 / PDF از طریقِ چاپِ مرورگر)
+    Route::get('/print/me', fn (\Illuminate\Http\Request $r) => redirect()->route('print.student', [$r->user()->id] + $r->query()))->name('print.me');
     Route::get('/print/student/{user}', [\App\Http\Controllers\PrintController::class, 'student'])->name('print.student');
     Route::get('/print/student/{user}/card', [\App\Http\Controllers\PrintController::class, 'studentCard'])->name('print.student.card');
     Route::get('/print/class', [\App\Http\Controllers\PrintController::class, 'classroom'])->name('print.class');
@@ -363,6 +429,7 @@ Route::middleware('auth')->group(function () {
     // کارتابل اعلان‌ها/پیام‌ها (معلم و دانش‌آموز)
     Route::get('/notices', \App\Http\Controllers\NoticeController::class)->name('notices');
     // مسیرهای ثابت پیش از مسیرِ پارامتری ثبت می‌شوند تا بلعیده نشوند
+    Route::get('/notices/pulse', [\App\Http\Controllers\NoticeController::class, 'pulse'])->name('notices.pulse');
     Route::post('/notices/read-all', [\App\Http\Controllers\NoticeController::class, 'readAll'])->name('notices.read-all');
     Route::post('/notices/read/{key}', [\App\Http\Controllers\NoticeController::class, 'read'])
         ->where('key', '[A-Za-z0-9_:.\-]{1,60}')->name('notices.read');

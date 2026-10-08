@@ -1,5 +1,6 @@
 import { usePage } from '@inertiajs/react';
 import ThemedDash from '@/Layouts/ThemedDash';
+import { useSort, SortBar } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const TYPE_COLORS = ['#3d7bf0', '#a24cf0', '#18a97c', '#f0952e', '#e8505b', '#0ea5b7'];
@@ -7,6 +8,7 @@ const TYPE_COLORS = ['#3d7bf0', '#a24cf0', '#18a97c', '#f0952e', '#e8505b', '#0e
 export default function Activities() {
     const { entries = [], total = 0, week = 0, byType = [] } = usePage().props;
     const maxType = Math.max(1, ...byType.map((t) => Math.abs(t.points)));
+    const es = useSort(entries, { date: 'date_raw', amount: 'amount', reason: 'reason' }, { id: 'student-activities', firstDir: { date: 'desc', amount: 'desc' } });
 
     return (
         <ThemedDash title="فعالیت‌ها و امتیازها" active="activities">
@@ -39,8 +41,9 @@ export default function Activities() {
             <div className="k3-card" style={{ marginTop: 16 }}>
                 <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 10 }}>🧾 تاریخچه‌ی امتیازها</div>
                 {entries.length === 0 && <div style={{ opacity: .75, fontSize: 13 }}>هنوز امتیازی ثبت نشده.</div>}
+                {entries.length > 1 && <SortBar s={es} options={[['date', 'تاریخ'], ['amount', 'امتیاز'], ['reason', 'علت']]} />}
                 <div style={{ display: 'grid', gap: 8 }}>
-                    {entries.map((e) => (
+                    {es.sorted.map((e) => (
                         <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 12, background: 'rgba(255,255,255,.06)' }}>
                             <span style={{ fontSize: 18 }}>{e.kind === 'plus' ? '➕' : '➖'}</span>
                             <div style={{ flex: 1, minWidth: 0 }}>

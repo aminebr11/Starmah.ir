@@ -1,22 +1,18 @@
 import { usePage, useForm, router, Link } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { makeSubjectPalette, titlesOf, DAY_TINTS } from '@/lib/subjects';
 import DashLayout, { teacherMenu, schoolMenu } from '@/Layouts/DashLayout';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
-const PALETTE = [
-    ['#fff3d6', '#8a5a00'], ['#dcebff', '#1b4b8a'], ['#d4f5ef', '#0f766e'],
-    ['#ffe0ec', '#a01a4a'], ['#e9e4ff', '#4c2fb0'], ['#e6f7d9', '#3a6b12'],
-    ['#ffe4d1', '#a04413'], ['#d9f0ff', '#0b6ea8'],
-];
-const colorFor = (s) => { let h = 0; for (const c of (s || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0; return PALETTE[h % PALETTE.length]; };
 // وزن روز هفته از یک تاریخ میلادی: 0=شنبه .. 6=جمعه
 const weekdayOf = (iso) => { try { return (new Date(iso + 'T00:00:00').getDay() + 1) % 7; } catch (e) { return 0; } };
 
 export default function Manage() {
     const { role, routes, classrooms = [], classroomId, classroom, days = [], entries = {}, special = [], books = [], flash } = usePage().props;
     const menu = role === 'teacher' ? teacherMenu : schoolMenu;
+    const pal = useMemo(() => makeSubjectPalette(titlesOf(entries)), [entries]);
     const roleLabel = role === 'teacher' ? 'معلم' : 'مدیر مدرسه';
     const [banner, setBanner] = useState(null);
     useEffect(() => { if (flash?.flash) setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); }, [flash]);
@@ -117,22 +113,22 @@ export default function Manage() {
                 <div className="sched-board">
                     {days.map((d, i) => (
                         <div key={i} className="sched-day">
-                            <div className="sched-day-head">{d}</div>
+                            <div className="sched-day-head sc2" style={{ '--day': DAY_TINTS[i % 7] }}>{d}</div>
                             {(entries[i] ?? []).map((e) => {
                                 if (e.kind === 'recess') {
                                     return (
                                         <div key={e.id} className="sched-recess">
-                                            ☕ {e.title}
+                                            🍎 {e.title}
                                             {e.time && <span dir="ltr" style={{ opacity: .8, fontSize: 10, display: 'block' }}>{fa(e.time)}</span>}
                                             {e.jdate && <span className="sched-datebadge">📌 {e.jdate}</span>}
                                             <button onClick={() => del(e.id)} className="sched-del" title="حذف">✕</button>
                                         </div>
                                     );
                                 }
-                                const [bg, fg] = colorFor(e.title);
+                                const k = pal(e.title);
                                 return (
-                                    <div key={e.id} className="sched-card" style={{ background: bg, color: fg, borderColor: fg + '33' }}>
-                                        <div style={{ fontWeight: 800, fontSize: 13.5 }}>{e.title}</div>
+                                    <div key={e.id} className="sched-card sc2" style={{ '--sc-a': k.a, '--sc-b': k.b, '--sc-grad': k.grad }}>
+                                        <div className="sc2-t"><span className="sc2-e">{k.emoji}</span>{e.title}</div>
                                         {e.time && <div style={{ fontSize: 11, opacity: .85 }}>⏰ <span dir="ltr" style={{ display: 'inline-block' }}>{fa(e.time)}</span></div>}
                                         {e.jdate && <span className="sched-datebadge">📌 {e.jdate}</span>}
                                         <button onClick={() => del(e.id)} className="sched-del" title="حذف">✕</button>

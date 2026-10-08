@@ -1,8 +1,12 @@
 import { usePage, Link, useForm, router } from '@inertiajs/react';
+import { MasteryTag } from '@/Components/MasteryPanel';
+import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import PersonCell from '@/Components/PersonCell';
 import ListSearch from '@/Components/ListSearch';
+import StudentRecord from '@/Components/StudentRecord';
+import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -26,21 +30,18 @@ export default function Classroom() {
     const [q, setQ] = useState('');
     const [team, setTeam] = useState('all');      // all | none | <theme_id>
     const [view, setView] = useState('groups');   // groups | table
-    const [sort, setSort] = useState('xp');       // xp | name | avg
 
     // تغییر تیم/گروهِ دانش‌آموز — فقط معلم مجاز است
     const changeTeam = (s, themeId) => {
         if (themeId) router.post(route('teacher.students.team', s.id), { theme_id: themeId }, { preserveScroll: true });
     };
 
-    const edit = useForm({ name: '', phone: '', national_id: '', password: '' });
-    const [editId, setEditId] = useState(null);
-    const startEdit = (s) => {
-        setEditId(s.id);
-        edit.setData({ name: s.name || '', phone: s.phone || '', national_id: s.national_id || '', password: '' });
-        edit.clearErrors();
-    };
-    const saveEdit = (e) => { e.preventDefault(); edit.put(route('manage.users.update', editId), { preserveScroll: true, onSuccess: () => setEditId(null) }); };
+    // پرونده‌ی کاملِ دانش‌آموز — همان که مدیرِ مدرسه می‌بیند: مشاهده و ویرایشِ
+    // همه‌ی مشخصات (عکس، سرپرست، تاریخِ تولد، نشانی، رمز و…)
+    const [rec, setRec] = useState(null);   // { id, mode }
+    const openRec = (s, mode = 'view') => setRec({ id: s.id, mode });
+    const startEdit = (s) => openRec(s, 'edit');
+    const recStudent = rec ? students.find((x) => x.id === rec.id) : null;
     const del = (s) => { if (confirm(`دانش‌آموز «${s.name}» حذف شود؟`)) router.delete(route('manage.users.destroy', s.id), { preserveScroll: true }); };
 
     /* ── شمارشِ هر گروه، برای چیپ‌های فیلتر ── */
@@ -54,10 +55,10 @@ export default function Classroom() {
         return m;
     }, [students, themes]);
 
-    /* ── اعمالِ جست‌وجو + فیلتر + مرتب‌سازی ── */
-    const filtered = useMemo(() => {
+    /* ── اعمالِ جست‌وجو + فیلتر ── */
+    const matched = useMemo(() => {
         const nq = norm(q);
-        let out = students.filter((s) => {
+        return students.filter((s) => {
             if (team === 'none' && s.theme_id) return false;
             if (team !== 'all' && team !== 'none' && String(s.theme_id) !== String(team)) return false;
             if (!nq) return true;
@@ -66,13 +67,14 @@ export default function Classroom() {
                 || norm(s.national_id).includes(nq)
                 || norm(s.team_name).includes(nq);
         });
-        out = [...out].sort((a, b) => (
-            sort === 'name' ? String(a.name).localeCompare(String(b.name), 'fa')
-                : sort === 'avg' ? (b.avg - a.avg)
-                    : (b.xp - a.xp)
-        ));
-        return out;
-    }, [students, q, team, sort]);
+    }, [students, q, team]);
+
+    /* ── مرتب‌سازی (کلیک روی سرِ ستون یا نوارِ مرتب‌سازی) ── */
+    const srt = useSort(matched, {
+        name: (r) => firstName(r.name), family: (r) => lastName(r.name),
+        phone: 'phone', team: 'team_name', xp: 'xp', avg: 'avg',
+    }, { id: 'teacher-classroom', key: 'xp', dir: 'desc', firstDir: { xp: 'desc', avg: 'desc' } });
+    const filtered = srt.sorted;
 
     /* ── گروه‌بندی برای نمای «گروه‌ها» ── */
     const grouped = useMemo(() => {
@@ -87,8 +89,9 @@ export default function Classroom() {
     }, [filtered, themes]);
 
     const totalXp = useMemo(() => students.reduce((a, s) => a + (s.xp || 0), 0), [students]);
-    const avgMastery = students.length
-        ? Math.round(students.reduce((a, s) => a + (s.avg || 0), 0) / students.length) : 0;
+    // میانگینِ تسلط فقط از دانش‌آموزانی که داده‌ی کافی دارند
+    const rated = students.filter((s) => s.avg != null);
+    const avgMastery = rated.length ? Math.round(rated.reduce((a, s) => a + s.avg, 0) / rated.length) : null;
 
     if (!classroom) {
         return (
@@ -120,7 +123,7 @@ export default function Classroom() {
                 <div className="cls-sum-item"><b>{fa(students.length)}</b><span>دانش‌آموز</span></div>
                 <div className="cls-sum-item"><b>{fa(grouped.length || 0)}</b><span>گروهِ فعال</span></div>
                 <div className="cls-sum-item"><b>{fa(totalXp)}</b><span>مجموعِ امتیاز</span></div>
-                <div className="cls-sum-item"><b>{fa(avgMastery)}٪</b><span>میانگینِ تسلط</span></div>
+                <div className="cls-sum-item"><b>{avgMastery == null ? "—" : `${fa(avgMastery)}٪`}</b><span>میانگینِ تسلط</span></div>
                 <div className="cls-sum-code">
                     <span>کدِ ورودِ کلاس</span>
                     <b dir="ltr">{classroom.join_code}</b>
@@ -161,12 +164,7 @@ export default function Classroom() {
                 </div>
 
                 {/* ── مرتب‌سازی ── */}
-                <div className="filter-chips" style={{ marginBottom: 16 }}>
-                    <span style={{ fontSize: 12.5, color: 'var(--muted)', alignSelf: 'center', marginInlineEnd: 4 }}>مرتب‌سازی:</span>
-                    {[['xp', '⭐ امتیاز'], ['avg', '📈 تسلط'], ['name', '🔤 نام']].map(([k, label]) => (
-                        <button key={k} type="button" className={`filter-chip ${sort === k ? 'on' : ''}`} onClick={() => setSort(k)}>{label}</button>
-                    ))}
-                </div>
+                <SortBar s={srt} options={[['xp', '⭐ امتیاز'], ['avg', '📈 تسلط'], ['name', '🔤 نام'], ['family', '🔤 نام خانوادگی'], ['team', '🗂️ گروه']]} className="" />
 
                 {filtered.length === 0 ? (
                     <div className="list-empty">
@@ -185,9 +183,9 @@ export default function Classroom() {
                                 <span className="xp">⭐ {fa(g.list.reduce((a, s) => a + (s.xp || 0), 0))}</span>
                             </header>
                             <div className="cls-cards">
-                                {g.list.map((s, i) => (
-                                    <StudentCard key={s.id} s={s} rank={i + 1} themes={themes}
-                                        onTeam={changeTeam} onEdit={startEdit} onDel={del} />
+                                {g.list.map((s) => (
+                                    <StudentCard key={s.id} s={s} rank={xpRank(g.list, s)} themes={themes}
+                                        onTeam={changeTeam} onOpen={openRec} onEdit={startEdit} onDel={del} />
                                 ))}
                             </div>
                         </section>
@@ -197,8 +195,8 @@ export default function Classroom() {
                         <table className="tbl">
                             <thead>
                                 <tr>
-                                    <th>#</th><th>دانش‌آموز</th><th>موبایل</th>
-                                    <th>گروه</th><th>امتیاز</th><th>تسلط</th>
+                                    <th>#</th><SortTh s={srt} k="family">دانش‌آموز</SortTh><SortTh s={srt} k="phone">موبایل</SortTh>
+                                    <SortTh s={srt} k="team">گروه</SortTh><SortTh s={srt} k="xp">امتیاز</SortTh><SortTh s={srt} k="avg">تسلط</SortTh>
                                     <th style={{ textAlign: 'left' }}>عملیات</th>
                                 </tr>
                             </thead>
@@ -207,7 +205,12 @@ export default function Classroom() {
                                     <Fragment key={s.id}>
                                         <tr>
                                             <td style={{ width: 30 }}>{fa(i + 1)}</td>
-                                            <td><PersonCell name={s.name} avatar={s.avatar} sub={s.national_id || undefined} size={32} /></td>
+                                            <td>
+                                                <button type="button" onClick={() => openRec(s)} title="پرونده‌ی کامل"
+                                                    style={{ border: 0, background: 'none', padding: 0, cursor: 'pointer', font: 'inherit', textAlign: 'start', color: 'inherit' }}>
+                                                    <PersonCell name={s.name} avatar={s.avatar} sub={s.national_id || undefined} size={32} />
+                                                </button>
+                                            </td>
                                             <td dir="ltr">{s.phone || '—'}</td>
                                             <td>
                                                 <select className="input" style={{ width: 'auto', padding: '6px 9px', fontSize: 12.5 }}
@@ -217,13 +220,13 @@ export default function Classroom() {
                                                 </select>
                                             </td>
                                             <td style={{ color: 'var(--gold-2)', fontWeight: 800 }}>{fa(s.xp)}</td>
-                                            <td>{fa(s.avg)}٪</td>
+                                            <td><MasteryTag value={s.avg} title={s.mastery_level || undefined} /></td>
                                             <td style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>
-                                                <button onClick={() => startEdit(s)} className="btn btn-ghost btn-sm">✏️</button>
-                                                <button onClick={() => del(s)} className="btn btn-ghost btn-sm" style={{ color: '#e8505b', marginInlineStart: 4 }}>🗑️</button>
+                                                <button onClick={() => openRec(s)} className="btn btn-ghost btn-sm" title="پرونده‌ی کامل">📋</button>
+                                                <button onClick={() => startEdit(s)} className="btn btn-ghost btn-sm" title="ویرایش" style={{ marginInlineStart: 4 }}>✏️</button>
+                                                <button onClick={() => del(s)} className="btn btn-ghost btn-sm" title="حذف" style={{ color: '#e8505b', marginInlineStart: 4 }}>🗑️</button>
                                             </td>
                                         </tr>
-                                        {editId === s.id && <EditRow cols={7} form={edit} onSave={saveEdit} onCancel={() => setEditId(null)} />}
                                     </Fragment>
                                 ))}
                             </tbody>
@@ -231,35 +234,38 @@ export default function Classroom() {
                     </div>
                 )}
 
-                {/* فرمِ ویرایش در نمای گروهی */}
-                {view === 'groups' && editId && (
-                    <div className="panel" style={{ marginTop: 16, background: 'var(--cream)' }}>
-                        <h4 style={{ marginTop: 0 }}>✏️ ویرایشِ دانش‌آموز</h4>
-                        <EditForm form={edit} onSave={saveEdit} onCancel={() => setEditId(null)} />
-                    </div>
+                {recStudent && (
+                    <StudentRecord key={`${rec.id}-${rec.mode}`} s={recStudent} themes={themes} grades={grades}
+                        initialMode={rec.mode} onClose={() => setRec(null)} />
                 )}
             </div>
         </DashLayout>
     );
 }
 
+/** رتبه‌ی امتیازیِ دانش‌آموز در گروهش (برای مدال)، مستقل از ترتیبِ نمایش. */
+const xpRank = (list, s) => 1 + [...list].sort((a, b) => (b.xp || 0) - (a.xp || 0)).indexOf(s);
+
 /* ─────────────────────────── کارتِ دانش‌آموز ─────────────────────────── */
-function StudentCard({ s, rank, themes, onTeam, onEdit, onDel }) {
+function StudentCard({ s, rank, themes, onTeam, onOpen, onEdit, onDel }) {
     const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
     return (
         <article className="cls-card">
             <div className="cls-card-top">
-                <PersonCell name={s.name} avatar={s.avatar} sub={s.phone || undefined} size={44} />
+                <button type="button" onClick={() => onOpen(s)} title="پرونده‌ی کامل"
+                    style={{ border: 0, background: 'none', padding: 0, cursor: 'pointer', font: 'inherit', textAlign: 'start', color: 'inherit', minWidth: 0 }}>
+                    <PersonCell name={s.name} avatar={s.avatar} sub={s.phone || undefined} size={44} />
+                </button>
                 {medal && <span className="cls-medal" title={`رتبه ${rank} در گروه`}>{medal}</span>}
             </div>
 
             <div className="cls-card-stats">
                 <div><b style={{ color: 'var(--gold-2)' }}>⭐ {fa(s.xp)}</b><span>امتیاز</span></div>
-                <div><b>{fa(s.avg)}٪</b><span>تسلط</span></div>
+                <div><b>{s.avg == null ? '—' : `${fa(s.avg)}٪`}</b><span>{s.mastery_level || 'تسلط'}</span></div>
             </div>
 
-            <div className="cls-card-bar" title={`تسلط ${fa(s.avg)} درصد`}>
-                <span style={{ width: `${Math.max(0, Math.min(100, s.avg))}%` }} />
+            <div className="cls-card-bar" title={s.avg == null ? 'تسلط: هنوز داده‌ی کافی نیست' : `تسلط ${fa(s.avg)} درصد`}>
+                <span style={{ width: `${Math.max(0, Math.min(100, s.avg ?? 0))}%` }} />
             </div>
 
             <div className="cls-card-actions">
@@ -268,41 +274,11 @@ function StudentCard({ s, rank, themes, onTeam, onEdit, onDel }) {
                     <option value="" disabled>— بدون گروه —</option>
                     {themes.map((t) => <option key={t.id} value={t.id}>{t.emoji} {t.name}</option>)}
                 </select>
+                <button onClick={() => onOpen(s)} className="btn btn-ghost btn-sm" title="پرونده‌ی کامل">📋</button>
                 <button onClick={() => onEdit(s)} className="btn btn-ghost btn-sm" title="ویرایش">✏️</button>
                 <button onClick={() => onDel(s)} className="btn btn-ghost btn-sm" style={{ color: '#e8505b' }} title="حذف">🗑️</button>
             </div>
         </article>
-    );
-}
-
-/* ─────────────────────────── فرمِ ویرایش ─────────────────────────── */
-const FIELDS = { name: 'نام', phone: 'موبایل', national_id: 'کد ملی', password: 'رمز جدید' };
-
-function EditForm({ form, onSave, onCancel }) {
-    return (
-        <form onSubmit={onSave} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, alignItems: 'end' }}>
-            {Object.entries(FIELDS).map(([f, label]) => (
-                <div className="field" key={f} style={{ margin: 0 }}>
-                    <label>{label}</label>
-                    <input className="input" value={form.data[f]} onChange={(e) => form.setData(f, e.target.value)}
-                        dir={['phone', 'national_id'].includes(f) ? 'ltr' : 'rtl'}
-                        placeholder={f === 'password' ? 'بدون تغییر' : ''} />
-                    {form.errors[f] && <div style={{ color: '#e8505b', fontSize: 12, marginTop: 4 }}>{form.errors[f]}</div>}
-                </div>
-            ))}
-            <div style={{ display: 'flex', gap: 8 }}>
-                <button type="submit" disabled={form.processing} className="btn btn-sm">💾 ذخیره</button>
-                <button type="button" onClick={onCancel} className="btn btn-ghost btn-sm">انصراف</button>
-            </div>
-        </form>
-    );
-}
-
-function EditRow({ cols, form, onSave, onCancel }) {
-    return (
-        <tr><td colSpan={cols} style={{ background: 'var(--cream)' }}>
-            <div style={{ padding: 8 }}><EditForm form={form} onSave={onSave} onCancel={onCancel} /></div>
-        </td></tr>
     );
 }
 
@@ -319,7 +295,7 @@ function NewStudent({ classroom, themes = [], grades = [], count = 0, onClose })
         first_name: '', last_name: '', phone: '', password: '',
         gender: '', national_id: '', birth_date: '', grade: classroom?.grade || '', theme_id: '',
         father_name: '', mother_name: '', parent_relation: '', parent_phone: '', address: '', parent_pin: '',
-        avatar: null,
+        avatar: null, send_welcome: true,
     });
 
     const full = classroom?.capacity != null && count >= classroom.capacity;
@@ -410,8 +386,8 @@ function NewStudent({ classroom, themes = [], grades = [], count = 0, onClose })
                                 <F label="کدِ ملی" err={form.errors.national_id}>
                                     <input className="input" dir="ltr" maxLength={10} value={form.data.national_id} onChange={(e) => form.setData('national_id', e.target.value)} />
                                 </F>
-                                <F label="تاریخِ تولد (میلادی)" err={form.errors.birth_date}>
-                                    <input className="input" type="date" dir="ltr" value={form.data.birth_date} onChange={(e) => form.setData('birth_date', e.target.value)} />
+                                <F label="تاریخِ تولد" err={form.errors.birth_date}>
+                                    <JalaliDatePicker value={form.data.birth_date || ''} onChange={(v) => form.setData('birth_date', v)} placeholder="۱۳۹۰/۰۱/۰۱" />
                                 </F>
                                 <F label="پایه">
                                     <select className="input" value={form.data.grade} onChange={(e) => form.setData('grade', e.target.value)}>
@@ -449,6 +425,11 @@ function NewStudent({ classroom, themes = [], grades = [], count = 0, onClose })
                     </div>
                 )}
 
+                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 12, fontSize: 13, lineHeight: 1.9, color: 'var(--muted)' }}>
+                    <input type="checkbox" checked={form.data.send_welcome} onChange={(e) => form.setData('send_welcome', e.target.checked)} style={{ marginTop: 5 }} />
+                    <span>📩 <b style={{ color: 'var(--ink)' }}>پیامکِ خوش‌آمد</b> به دانش‌آموز و ولی فرستاده شود — با نام کاربری، رمزِ موقت و رمزِ بخشِ والدین
+                        (اگر سامانه‌ی پیامکِ مدرسه روشن باشد).</span>
+                </label>
                 <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                     <button type="submit" disabled={form.processing || full} className="btn">
                         {form.processing ? 'در حال ثبت…' : '➕ ثبتِ دانش‌آموز'}

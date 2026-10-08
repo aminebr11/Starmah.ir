@@ -21,7 +21,7 @@ class ClassContent extends Model
         'school_id', 'teacher_id', 'classroom_id', 'type',
         'title', 'description', 'file_path', 'external_url', 'due_at',
         'duration_seconds', 'xp_reward',
-        'publish_at', 'is_visible', 'notified_at',
+        'publish_at', 'is_visible', 'notified_at', 'album_id',
     ];
 
     protected $casts = [
@@ -52,4 +52,5 @@ class ClassContent extends Model
 
     public function classroom(): BelongsTo { return $this->belongsTo(Classroom::class); }
     public function teacher(): BelongsTo { return $this->belongsTo(User::class, 'teacher_id'); }
+    public function album(): BelongsTo { return $this->belongsTo(GalleryAlbum::class, 'album_id'); }
 }
