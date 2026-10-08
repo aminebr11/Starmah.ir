@@ -63,6 +63,7 @@ class DiagnosticsController extends Controller
             'schema' => $this->schemaProblems(),
             'charset' => $this->charsetProblems(),
             'errors' => $this->recentErrors(),
+            'autoFail' => $this->pendingMigrations() ? \App\Support\AutoMigrate::lastFailure() : null,
         ]);
     }
 
@@ -157,6 +158,7 @@ class DiagnosticsController extends Controller
     public function migrate(): JsonResponse
     {
         try {
+            @set_time_limit(300);
             Artisan::call('migrate', ['--force' => true]);
 
             return response()->json(['ok' => true, 'output' => trim(Artisan::output()), 'pending' => $this->pendingMigrations(), 'schema' => $this->schemaProblems()]);

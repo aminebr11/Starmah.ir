@@ -34,9 +34,9 @@ class AutoMigrate
     }
 
     /** بررسیِ سریع؛ فقط اگر لازم باشد مایگریشن اجرا می‌شود. هرگز خطا پرتاب نمی‌کند. */
-    public static function ensure(): void
+    public static function ensure(bool $retry = false): void
     {
-        if (self::$checked) {
+        if (self::$checked && ! $retry) {
             return;
         }
         self::$checked = true;
@@ -44,12 +44,12 @@ class AutoMigrate
         try {
             $sig = self::signature();
             $flag = self::flag($sig);
-            if (is_file($flag)) {
+            if (is_file($flag) && ! $retry) {
                 return;
             }
-            // پس از شکست، تا ۱۰ دقیقه دوباره تلاش نکن (درخواست‌ها کند نشوند)
+            // پس از شکست، تا ۱۰ دقیقه دوباره تلاش نکن (درخواست‌ها کند نشوند)؛ تلاشِ دوباره‌ی صفحه‌ای که جدولش نیست: ۱ دقیقه
             $fail = $flag . '.fail';
-            if (is_file($fail) && time() - filemtime($fail) < 600) {
+            if (is_file($fail) && time() - filemtime($fail) < ($retry ? 60 : 600)) {
                 return;
             }
 
@@ -63,7 +63,7 @@ class AutoMigrate
 
                     return;
                 }
-                @set_time_limit(120);
+                @set_time_limit(300);
                 $code = Artisan::call('migrate', ['--force' => true]);
                 $out = trim(Artisan::output());
                 if ($code === 0 && self::pending() === []) {
@@ -82,6 +82,18 @@ class AutoMigrate
             @file_put_contents(self::flag(self::signature()) . '.fail', date('c') . "\n" . $e->getMessage() . "\n");
             Log::error('[auto-migrate] ' . $e->getMessage());
         }
+    }
+
+    /** آخرین شکستِ اجرای خودکار (برای «سلامتِ سیستم»)، یا null. */
+    public static function lastFailure(): ?array
+    {
+        $files = glob(storage_path('framework/migrated-*.fail')) ?: [];
+        usort($files, fn ($a, $b) => filemtime($b) <=> filemtime($a));
+        if (! $files) {
+            return null;
+        }
+
+        return ['at' => date('Y-m-d H:i', filemtime($files[0])), 'text' => mb_substr((string) @file_get_contents($files[0]), 0, 2000)];
     }
 
     /** نامِ مایگریشن‌های اجرانشده. */

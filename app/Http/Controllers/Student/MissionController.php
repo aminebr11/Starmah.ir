@@ -365,9 +365,19 @@ class MissionController extends Controller
     /** صفحه‌ی «مرورِ اشتباه‌های من»: آماده‌ی امروز، در صف (با تاریخ)، جبران‌شده، و زمان‌بندیِ معلم. */
     public function reviewBoard(Request $request, \App\Services\RemediationService $rem): Response
     {
-        return Inertia::render('Student/Review', [
-            'board' => rescue(fn () => $rem->studentBoard($request->user()), ['enabled' => false], true),
-        ]);
+        // جدولِ مرور هنوز ساخته نشده (مایگریشنِ نصب اجرا نشده) → همین‌جا یک‌بار دوباره تلاش شود
+        if (! \App\Services\RemediationService::ready()) {
+            \App\Support\AutoMigrate::ensure(true);
+            \App\Services\RemediationService::ready(true);
+        }
+        $board = rescue(fn () => $rem->studentBoard($request->user()), function ($e) {
+            \App\Support\AutoMigrate::forget(); // اگر ستون/جدولی کم بود، درخواستِ بعد دوباره بررسی شود
+
+            return ['enabled' => false, 'error' => true];
+        }, true);
+        \App\Services\RemediationService::continueBackfill();
+
+        return Inertia::render('Student/Review', ['board' => $board]);
     }
 
     /** «جبرانِ اشتباه» — یادآوری‌های سررسیدِ همین دانش‌آموز (همان سؤال‌های اشتباه + مشابه). */

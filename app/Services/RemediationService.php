@@ -41,11 +41,15 @@ class RemediationService
 
     public function __construct(private LearningService $learning) {}
 
-    public static function ready(): bool
-    {
-        static $ok = null;
+    private static ?bool $ready = null;
 
-        return $ok ??= (bool) rescue(fn () => Schema::hasTable('remediations'), false, false);
+    public static function ready(bool $fresh = false): bool
+    {
+        if ($fresh) {
+            self::$ready = null;
+        }
+
+        return self::$ready ??= (bool) rescue(fn () => Schema::hasTable('remediations'), false, false);
     }
 
     /* ═══════════════ ساخت ═══════════════ */
@@ -400,75 +404,77 @@ class RemediationService
     /**
      * یک‌بار پس از نصب: اشتباه‌های آزمون و بازیِ روزهای اخیر هم مرورِ جبرانی می‌گیرند
      * (تا هسته‌ی تازه از همان روزِ اول برای همه‌ی دانش‌آموزان کار کند).
+     *
+     * روی هاستِ واقعی داده زیاد است و زمانِ هر درخواست محدود؛ پس کار تکه‌تکه و با
+     * سقفِ زمان انجام می‌شود و جایِ ادامه (شناسه‌ی آخرین تلاش) در تنظیمات می‌ماند.
+     * اگر تمام نشد، بازدیدهای بعدی (بعد از پاسخ به کاربر) ادامه‌اش می‌دهند.
+     *
+     * @return array{students:int,items:int,done:bool}
      */
-    public function backfill(int $days = 60): array
+    public function backfill(int $days = 60, float $budget = 15.0): array
     {
         if (! self::ready() || ! LearningService::bankReady()) {
-            return ['students' => 0, 'items' => 0];
+            return ['students' => 0, 'items' => 0, 'done' => true];
         }
+        $state = json_decode((string) rescue(fn () => \App\Models\Setting::get('remediation_backfill'), '', false), true) ?: [];
+        if (! empty($state['done'])) {
+            return ['students' => 0, 'items' => 0, 'done' => true];
+        }
+        $t0 = microtime(true);
+        $over = fn () => microtime(true) - $t0 > $budget;
         $since = now()->subDays($days);
         $made = [];
         $senders = [];
+        $state += ['exam' => 0, 'game' => 0, 'exam_done' => false];
 
-        // آزمون‌ها: تلاشی که امتیازش حساب شده (یا اولین تلاشِ تمام‌شده)
-        $attempts = \App\Models\SmartExamAttempt::whereNotNull('finished_at')->where('finished_at', '>=', $since)
-            ->with(['exam.questions', 'answers', 'student'])->orderBy('id')->get()
-            ->groupBy(fn ($a) => $a->smart_exam_id . ':' . $a->student_id)
-            ->map(fn ($g) => $g->first(fn ($a) => $a->rewarded) ?? $g->first());
-        foreach ($attempts as $att) {
-            $exam = $att->exam;
-            if (! $exam || ! $att->student) {
-                continue;
-            }
-            $qs = $exam->questions->keyBy('id');
-            $autoMax = $exam->questions->whereIn('type', ['mc', 'tf', 'blank'])->sum('points');
-            $bankObj = SmartQuestionBank::withoutGlobalScopes()->whereIn('id', $exam->questions->pluck('bank_id')->filter())->pluck('objective_id', 'id');
-            $stillOpen = $exam->closes_at && $exam->closes_at->isFuture();
-            $hide = ! $stillOpen && empty(($exam->rules ?? [])['show_answer'] ?? true);
-            $items = [];
-            // فقط پاسخِ «قطعاً غلط» — تشریحیِ تصحیح‌نشده (null) نه
-            foreach ($att->answers->filter(fn ($a) => $a->correct !== null && ! (bool) $a->correct) as $ans) {
-                $q = $qs[$ans->question_id] ?? null;
-                if (! $q || $autoMax <= 0) {
-                    continue;
-                }
-                $items[] = ['q_key' => $q->bank_id ? 'b' . $q->bank_id : 'e' . $q->id, 'bank_id' => $q->bank_id,
-                    'objective_id' => \App\Support\Objectives::forQuestion($exam, $q, $q->bank_id ? ($bankObj[$q->bank_id] ?? null) : null),
-                    'question' => self::snapshot($q) + ($hide ? ['no_original' => true] : []),
-                    'lost_xp' => $att->rewarded ? (int) round(100 * max(1, (int) $q->points) / $autoMax) : 0];
-            }
-            $n = $this->create($att->student, 'exam', $att->id, $exam->id, $exam->title, $exam->teacher_id, $items,
-                $stillOpen ? $exam->closes_at->copy()->addDay()->toDateString() : null, false);
-            if ($n) {
-                $made[$att->student_id] = ($made[$att->student_id] ?? 0) + $n;
-                $senders[$att->student_id] = $exam->teacher_id;
-            }
+        // آزمون‌ها: برای هر آزمون و دانش‌آموز فقط تلاشی که امتیازش حساب شده (وگرنه اولین تلاشِ تمام‌شده)
+        if (! $state['exam_done']) {
+            $finished = true;
+            \App\Models\SmartExamAttempt::whereNotNull('finished_at')->where('finished_at', '>=', $since)->where('id', '>', $state['exam'])
+                ->with(['exam.questions', 'answers', 'student'])
+                ->chunkById(40, function ($chunk) use (&$state, &$made, &$senders, &$finished, $over) {
+                    foreach ($chunk as $att) {
+                        if ($over()) {
+                            $finished = false;
+
+                            return false;
+                        }
+                        $state['exam'] = $att->id;
+                        $sibling = \App\Models\SmartExamAttempt::where('smart_exam_id', $att->smart_exam_id)->where('student_id', $att->student_id)
+                            ->whereNotNull('finished_at')->where('id', '!=', $att->id);
+                        $first = $att->rewarded ? true : ! (clone $sibling)->where('rewarded', true)->exists() && ! (clone $sibling)->where('id', '<', $att->id)->exists();
+                        if ($first && ($n = $this->backfillExam($att))) {
+                            $made[$att->student_id] = ($made[$att->student_id] ?? 0) + $n;
+                            $senders[$att->student_id] = $att->exam->teacher_id;
+                        }
+                    }
+                });
+            $state['exam_done'] = $finished;
         }
 
         // بازی‌ها: پاسخِ هر سؤال در progress
-        $games = \App\Models\EduGameAttempt::where('status', 'completed')->where('completed_at', '>=', $since)
-            ->with(['game.questions', 'student'])->get();
-        foreach ($games as $att) {
-            $game = $att->game;
-            $detail = (array) (($att->progress ?? [])['answers'] ?? []);
-            if (! $game || ! $att->student || ! $detail) {
-                continue;
-            }
-            $bankObj = SmartQuestionBank::withoutGlobalScopes()->whereIn('id', $game->questions->pluck('bank_id')->filter())->pluck('objective_id', 'id');
-            $items = [];
-            foreach ($game->questions->values() as $i => $q) {
-                if (isset($detail[$i]) && empty($detail[$i]['correct'])) {
-                    $items[] = ['q_key' => $q->bank_id ? 'b' . $q->bank_id : 'g' . $q->id, 'bank_id' => $q->bank_id,
-                        'objective_id' => \App\Support\Objectives::forQuestion($game, $q, $q->bank_id ? ($bankObj[$q->bank_id] ?? null) : null),
-                        'question' => self::snapshot($q), 'lost_xp' => max(1, (int) $q->points)];
-                }
-            }
-            $n = $this->create($att->student, 'game', $att->id, $game->id, $game->title, $game->teacher_id, $items, null, false);
-            if ($n) {
-                $made[$att->student_id] = ($made[$att->student_id] ?? 0) + $n;
-                $senders[$att->student_id] = $game->teacher_id;
-            }
+        $gamesDone = false;
+        if ($state['exam_done'] && ! $over()) {
+            $gamesDone = true;
+            \App\Models\EduGameAttempt::where('status', 'completed')->where('completed_at', '>=', $since)->where('id', '>', $state['game'])
+                ->with(['game.questions', 'student'])
+                ->chunkById(40, function ($chunk) use (&$state, &$made, &$senders, &$gamesDone, $over) {
+                    foreach ($chunk as $att) {
+                        if ($over()) {
+                            $gamesDone = false;
+
+                            return false;
+                        }
+                        $state['game'] = $att->id;
+                        if ($n = $this->backfillGame($att)) {
+                            $made[$att->student_id] = ($made[$att->student_id] ?? 0) + $n;
+                            $senders[$att->student_id] = $att->game->teacher_id;
+                        }
+                    }
+                });
         }
+        $state['done'] = $state['exam_done'] && $gamesDone;
+        rescue(fn () => \App\Models\Setting::put('remediation_backfill', json_encode($state)), null, false);
 
         // برای هر دانش‌آموز فقط یک اعلان (فرستنده: معلمِ همان آزمون/بازی)
         foreach ($made as $sid => $n) {
@@ -485,7 +491,69 @@ class RemediationService
             }, null, false);
         }
 
-        return ['students' => count($made), 'items' => array_sum($made)];
+        return ['students' => count($made), 'items' => array_sum($made), 'done' => $state['done']];
+    }
+
+    /** اگر تبدیلِ اشتباه‌های گذشته نیمه‌کاره مانده، بعد از پاسخ به کاربر کمی دیگر جلو برود. */
+    public static function continueBackfill(): void
+    {
+        if (! self::ready()) {
+            return;
+        }
+        $state = json_decode((string) rescue(fn () => \App\Models\Setting::get('remediation_backfill'), '', false), true) ?: [];
+        if (! $state || ! empty($state['done'])) {
+            return; // هنوز مایگریشن اجرا نشده یا کار تمام است
+        }
+        $run = fn () => rescue(fn () => app(self::class)->backfill(60, 10), null, true);
+        function_exists('Illuminate\Support\defer') ? \Illuminate\Support\defer($run) : app()->terminating($run);
+    }
+
+    private function backfillExam(\App\Models\SmartExamAttempt $att): int
+    {
+        $exam = $att->exam;
+        if (! $exam || ! $att->student) {
+            return 0;
+        }
+        $qs = $exam->questions->keyBy('id');
+        $autoMax = $exam->questions->whereIn('type', ['mc', 'tf', 'blank'])->sum('points');
+        $bankObj = SmartQuestionBank::withoutGlobalScopes()->whereIn('id', $exam->questions->pluck('bank_id')->filter())->pluck('objective_id', 'id');
+        $stillOpen = $exam->closes_at && $exam->closes_at->isFuture();
+        $hide = ! $stillOpen && empty(($exam->rules ?? [])['show_answer'] ?? true);
+        $items = [];
+        // فقط پاسخِ «قطعاً غلط» — تشریحیِ تصحیح‌نشده (null) نه
+        foreach ($att->answers->filter(fn ($a) => $a->correct !== null && ! (bool) $a->correct) as $ans) {
+            $q = $qs[$ans->question_id] ?? null;
+            if (! $q || $autoMax <= 0) {
+                continue;
+            }
+            $items[] = ['q_key' => $q->bank_id ? 'b' . $q->bank_id : 'e' . $q->id, 'bank_id' => $q->bank_id,
+                'objective_id' => \App\Support\Objectives::forQuestion($exam, $q, $q->bank_id ? ($bankObj[$q->bank_id] ?? null) : null),
+                'question' => self::snapshot($q) + ($hide ? ['no_original' => true] : []),
+                'lost_xp' => $att->rewarded ? (int) round(100 * max(1, (int) $q->points) / $autoMax) : 0];
+        }
+
+        return $items ? $this->create($att->student, 'exam', $att->id, $exam->id, $exam->title, $exam->teacher_id, $items,
+            $stillOpen ? $exam->closes_at->copy()->addDay()->toDateString() : null, false) : 0;
+    }
+
+    private function backfillGame(\App\Models\EduGameAttempt $att): int
+    {
+        $game = $att->game;
+        $detail = (array) (($att->progress ?? [])['answers'] ?? []);
+        if (! $game || ! $att->student || ! $detail) {
+            return 0;
+        }
+        $bankObj = SmartQuestionBank::withoutGlobalScopes()->whereIn('id', $game->questions->pluck('bank_id')->filter())->pluck('objective_id', 'id');
+        $items = [];
+        foreach ($game->questions->values() as $i => $q) {
+            if (isset($detail[$i]) && empty($detail[$i]['correct'])) {
+                $items[] = ['q_key' => $q->bank_id ? 'b' . $q->bank_id : 'g' . $q->id, 'bank_id' => $q->bank_id,
+                    'objective_id' => \App\Support\Objectives::forQuestion($game, $q, $q->bank_id ? ($bankObj[$q->bank_id] ?? null) : null),
+                    'question' => self::snapshot($q), 'lost_xp' => max(1, (int) $q->points)];
+            }
+        }
+
+        return $items ? $this->create($att->student, 'game', $att->id, $game->id, $game->title, $game->teacher_id, $items, null, false) : 0;
     }
 
     /* ═══════════════ معلم ═══════════════ */

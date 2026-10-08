@@ -24,6 +24,11 @@ class RemediationController extends Controller
 {
     public function index(Request $request, RemediationService $svc): Response
     {
+        if (! RemediationService::ready()) {
+            \App\Support\AutoMigrate::ensure(true);
+            RemediationService::ready(true);
+        }
+        RemediationService::continueBackfill();
         $rooms = Classroom::where('teacher_id', $request->user()->id)->orderBy('id')->get();
         $room = $rooms->firstWhere('id', (int) $request->query('classroom')) ?? $rooms->first();
 

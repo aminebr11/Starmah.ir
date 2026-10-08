@@ -19,7 +19,11 @@ export default function Review() {
     if (!board.enabled) {
         return (
             <ThemedDash title="مرورِ اشتباه‌های من" active="review">
-                <div className="k3-card">بخشِ مرور هنوز روی سرور فعال نشده است.</div>
+                <div className="k3-card" style={{ textAlign: 'center', lineHeight: 2 }}>
+                    <div style={{ fontSize: 40 }}>🛠️</div>
+                    مرورِ اشتباه‌ها در حالِ آماده‌شدن است؛ چند دقیقه‌ی دیگر دوباره سر بزن 🙂
+                    <div style={{ marginTop: 10 }}><Link href={route('review')} className="k3-btn">🔄 دوباره امتحان کن</Link></div>
+                </div>
             </ThemedDash>
         );
     }

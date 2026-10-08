@@ -101,8 +101,11 @@ class ReviewFromMistakesTest extends TestCase
         SmartExamAnswer::create(['attempt_id' => $att->id, 'question_id' => $q[0]->id, 'q_index' => 0, 'value' => ['value' => 'x'], 'correct' => true, 'awarded' => 1]);
         SmartExamAnswer::create(['attempt_id' => $att->id, 'question_id' => $q[1]->id, 'q_index' => 1, 'value' => ['value' => 'y'], 'correct' => false, 'awarded' => 0]);
 
+        Setting::put('remediation_backfill', ''); // مایگریشن روی پایگاهِ خالیِ تست «تمام» علامت زده است
+        // سقفِ زمانِ صفر: کار نیمه‌کاره می‌ماند و جایش ذخیره می‌شود
+        $this->assertFalse(app(RemediationService::class)->backfill(60, -1)['done']);
         $r = app(RemediationService::class)->backfill(60);
-        $this->assertSame(['students' => 1, 'items' => 1], $r);
+        $this->assertSame(['students' => 1, 'items' => 1, 'done' => true], $r);
         $rem = Remediation::firstOrFail();
         $this->assertSame([$bank[1]->id, 50, 25], [$rem->bank_id, $rem->lost_xp, $rem->cap_xp]);
         $this->assertDatabaseHas('announcement_recipients', ['user_id' => $student->id]);

@@ -10,7 +10,7 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
  * مایگریشنِ اجرانشده، ستون/جدولِ ناموجود، charset، خطاهای اخیر، و آزمایشِ واقعیِ ذخیره.
  */
 export default function Diagnostics() {
-    const { env = {}, pending = [], schema = [], charset = [], errors = [] } = usePage().props;
+    const { env = {}, pending = [], schema = [], charset = [], errors = [], autoFail = null } = usePage().props;
     const [busy, setBusy] = useState(null);
     const [out, setOut] = useState(null);
     const [test, setTest] = useState(null);
@@ -70,6 +70,12 @@ export default function Diagnostics() {
                     <>
                         <p className="dg-muted">این تغییراتِ پایگاه‌داده هنوز روی هاست اعمال نشده‌اند. با دکمه‌ی زیر همان «php artisan migrate --force» اجرا می‌شود (پیش از آن از پایگاه‌داده پشتیبان بگیرید).</p>
                         <ul className="dg-list">{pending.map((m) => <li key={m} dir="ltr">{m}</li>)}</ul>
+                        {autoFail && (
+                            <div className="dg-muted" style={{ background: '#fff4f4', border: '1px solid #f3c4c4', borderRadius: 10, padding: 10, margin: '8px 0' }}>
+                                <b>آخرین تلاشِ خودکار ناموفق بود ({autoFail.at}):</b>
+                                <pre dir="ltr" style={{ whiteSpace: 'pre-wrap', fontSize: 11.5, margin: '6px 0 0', maxHeight: 220, overflow: 'auto' }}>{autoFail.text}</pre>
+                            </div>
+                        )}
                         <button className="btn" onClick={() => { if (confirm('مایگریشن‌ها اجرا شوند؟ پیشنهاد: اول از پایگاه‌داده پشتیبان بگیرید.')) call('migrate', route('admin.diagnostics.migrate')); }} disabled={!!busy}>{busy === 'migrate' ? 'در حالِ اجرا…' : '🛠️ اجرای مایگریشن‌ها'}</button>
                     </>
                 )}
