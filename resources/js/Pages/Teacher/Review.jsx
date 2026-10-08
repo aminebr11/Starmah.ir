@@ -15,7 +15,7 @@ const SOURCES = [['exam', '🧪 آزمون'], ['game', '🎮 بازی'], ['missi
  * ۲) رصدِ کلاس + فرستادنِ مرورِ دستی (RemediationPanel).
  */
 export default function Review() {
-    const { classrooms = [], classroom, plan: initial, remediation, errors = {} } = usePage().props;
+    const { classrooms = [], classroom, plan: initial, remediation, reason = null, errors = {} } = usePage().props;
     const [p, setP] = useState(initial);
     const [busy, setBusy] = useState(false);
     useEffect(() => setP(initial), [classroom?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -136,7 +136,10 @@ export default function Review() {
             </div>
 
             {remediation ? <RemediationPanel data={remediation} /> : (
-                <div className="panel"><p style={{ color: 'var(--muted)' }}>رصدِ مرورها پس از اجرای مایگریشن‌ها در دسترس است.</p></div>
+                <div className="panel">
+                    <p style={{ color: 'var(--muted)' }}>رصدِ مرورها هنوز در دسترس نیست — جدول‌های مرور روی سرور ساخته نشده‌اند. مدیرِ کل از «🩺 سلامتِ سیستم» مایگریشن‌ها را اجرا کند.</p>
+                    {reason && <pre dir="auto" style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: 12, background: '#fff4f4', borderRadius: 10, padding: 10 }}>{reason}</pre>}
+                </div>
             )}
         </DashLayout>
     );

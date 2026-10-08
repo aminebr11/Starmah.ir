@@ -158,10 +158,13 @@ class DiagnosticsController extends Controller
     public function migrate(): JsonResponse
     {
         try {
-            @set_time_limit(300);
-            Artisan::call('migrate', ['--force' => true]);
+            $res = \App\Support\AutoMigrate::run();
+            if ($res['ok']) {
+                \App\Support\AutoMigrate::forget();
+            }
 
-            return response()->json(['ok' => true, 'output' => trim(Artisan::output()), 'pending' => $this->pendingMigrations(), 'schema' => $this->schemaProblems()]);
+            return response()->json(['ok' => $res['ok'], 'output' => $res['ok'] ? $res['output'] : \App\Support\AutoMigrate::describe($res),
+                'pending' => $this->pendingMigrations(), 'schema' => $this->schemaProblems()]);
         } catch (\Throwable $e) {
             return response()->json(['ok' => false, 'output' => FriendlySaveErrors::explainError($e) . "\n\n" . Str::limit($e->getMessage(), 800)]);
         }

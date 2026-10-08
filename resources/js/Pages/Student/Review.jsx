@@ -23,6 +23,12 @@ export default function Review() {
                     <div style={{ fontSize: 40 }}>🛠️</div>
                     مرورِ اشتباه‌ها در حالِ آماده‌شدن است؛ چند دقیقه‌ی دیگر دوباره سر بزن 🙂
                     <div style={{ marginTop: 10 }}><Link href={route('review')} className="k3-btn">🔄 دوباره امتحان کن</Link></div>
+                    {board.reason && (
+                        <details style={{ marginTop: 12, textAlign: 'start', fontSize: 12, opacity: .85 }}>
+                            <summary style={{ cursor: 'pointer' }}>جزئیاتِ فنی (برای مدیرِ سایت)</summary>
+                            <pre dir="auto" style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: '6px 0 0' }}>{board.reason}</pre>
+                        </details>
+                    )}
                 </div>
             </ThemedDash>
         );

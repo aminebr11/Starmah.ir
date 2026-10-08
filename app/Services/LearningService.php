@@ -45,6 +45,34 @@ class LearningService
     }
 
     /**
+     * هدفِ درسیِ سؤال‌های قدیمیِ بانک را تکه‌تکه و با سقفِ زمان پر می‌کند.
+     *
+     * @return bool همه پر شد؟
+     */
+    public static function fillBankObjectives(float $budget = 10.0): bool
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('smart_question_bank', 'objective_id')) {
+            return true;
+        }
+        $t0 = microtime(true);
+        $done = true;
+        \Illuminate\Support\Facades\DB::table('smart_question_bank')->whereNull('objective_id')->orderBy('id')
+            ->chunkById(200, function ($rows) use ($t0, $budget, &$done) {
+                foreach ($rows as $r) {
+                    if (microtime(true) - $t0 > $budget) {
+                        $done = false;
+
+                        return false;
+                    }
+                    \Illuminate\Support\Facades\DB::table('smart_question_bank')->where('id', $r->id)
+                        ->update(['objective_id' => \App\Support\Objectives::idFor($r)]);
+                }
+            });
+
+        return $done;
+    }
+
+    /**
      * نمره‌ی معلم در دفترِ نمره → زمان‌بندیِ مرور.
      * فقط نمره‌ی ضعیف (زیرِ ۵۰٪) فصل را به «مرورِ فردا» می‌برد؛ نمره‌ی خوب جعبه را جلو
      * نمی‌برد تا ذخیره‌ی دوباره‌ی یک ستون، مرور را بی‌جهت عقب نیندازد. تسلط را خودِ

@@ -38,6 +38,7 @@ class RemediationController extends Controller
             'plan' => RemediationPlan::forClassroom($room?->id),
             'defaults' => RemediationPlan::DEFAULTS,
             'remediation' => $room ? rescue(fn () => $svc->overview($room), null, true) : null,
+            'reason' => RemediationService::ready() ? null : RemediationService::whyNotReady(),
         ]);
     }
 

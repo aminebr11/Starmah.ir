@@ -63,16 +63,14 @@ class AutoMigrate
 
                     return;
                 }
-                @set_time_limit(300);
-                $code = Artisan::call('migrate', ['--force' => true]);
-                $out = trim(Artisan::output());
-                if ($code === 0 && self::pending() === []) {
-                    @file_put_contents($flag, date('c') . "\n" . $out . "\n");
+                $res = self::run();
+                if ($res['ok']) {
+                    @file_put_contents($flag, date('c') . "\n" . $res['output'] . "\n");
                     @unlink($fail);
-                    Log::info('[auto-migrate] pending migrations applied', ['output' => $out]);
+                    Log::info('[auto-migrate] pending migrations applied', ['output' => $res['output']]);
                 } else {
-                    @file_put_contents($fail, date('c') . "\n" . $out . "\n");
-                    Log::error('[auto-migrate] migrate did not finish', ['code' => $code, 'output' => $out]);
+                    @file_put_contents($fail, date('c') . "\n" . self::describe($res) . "\n");
+                    Log::error('[auto-migrate] migrate did not finish', ['failed' => $res['failed'], 'output' => $res['output']]);
                 }
             } finally {
                 flock($lock, LOCK_UN);
@@ -82,6 +80,62 @@ class AutoMigrate
             @file_put_contents(self::flag(self::signature()) . '.fail', date('c') . "\n" . $e->getMessage() . "\n");
             Log::error('[auto-migrate] ' . $e->getMessage());
         }
+    }
+
+    /**
+     * اجرای مایگریشن‌های باقی‌مانده. اگر اجرای یک‌جا شکست بخورد، هر مایگریشن جداگانه
+     * اجرا می‌شود تا یک مایگریشنِ مشکل‌دار جلوی بقیه (مثلاً جدول‌های مرور) را نگیرد.
+     *
+     * @return array{ok:bool,output:string,failed:array<string,string>,pending:array}
+     */
+    public static function run(): array
+    {
+        @set_time_limit(300);
+        $out = [];
+        try {
+            Artisan::call('migrate', ['--force' => true]);
+            $out[] = trim(Artisan::output());
+        } catch (\Throwable $e) {
+            $out[] = 'migrate: ' . mb_substr($e->getMessage(), 0, 600);
+        }
+        $failed = [];
+        $pending = self::pending();
+        if ($pending && $pending !== ['(migrations table)']) {
+            $files = app('migrator')->getMigrationFiles(database_path('migrations'));
+            foreach ($pending as $name) {
+                if (empty($files[$name])) {
+                    continue;
+                }
+                try {
+                    Artisan::call('migrate', ['--force' => true, '--path' => $files[$name], '--realpath' => true]);
+                    $o = trim(Artisan::output());
+                    if (in_array($name, self::pending(), true)) {
+                        $failed[$name] = mb_substr($o, 0, 600);
+                    } else {
+                        $out[] = $name . ' DONE';
+                    }
+                } catch (\Throwable $e) {
+                    $failed[$name] = mb_substr($e->getMessage(), 0, 600);
+                }
+            }
+        }
+        $left = self::pending();
+
+        return ['ok' => $left === [], 'output' => implode("\n", array_filter($out)), 'failed' => $failed, 'pending' => $left];
+    }
+
+    /** متنِ کوتاهِ نتیجه برای فایلِ شکست و «سلامتِ سیستم». */
+    public static function describe(array $res): string
+    {
+        $lines = [];
+        foreach ($res['failed'] as $name => $msg) {
+            $lines[] = "✗ {$name}\n   {$msg}";
+        }
+        if (! $lines && $res['pending']) {
+            $lines[] = 'pending: ' . implode(', ', $res['pending']) . "\n" . $res['output'];
+        }
+
+        return implode("\n", $lines);
     }
 
     /** آخرین شکستِ اجرای خودکار (برای «سلامتِ سیستم»)، یا null. */

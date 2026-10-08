@@ -52,6 +52,24 @@ class RemediationService
         return self::$ready ??= (bool) rescue(fn () => Schema::hasTable('remediations'), false, false);
     }
 
+    /** چرا بخشِ مرور آماده نیست؟ (متنِ کوتاه برای مدیرِ سایت) */
+    public static function whyNotReady(): string
+    {
+        $parts = [];
+        if (! self::ready(true)) {
+            $parts[] = 'جدولِ remediations در پایگاه‌داده ساخته نشده است.';
+        }
+        $pending = rescue(fn () => \App\Support\AutoMigrate::pending(), [], false);
+        if ($pending) {
+            $parts[] = 'مایگریشن‌های اجرانشده: ' . implode('، ', $pending);
+        }
+        if ($fail = rescue(fn () => \App\Support\AutoMigrate::lastFailure(), null, false)) {
+            $parts[] = 'آخرین خطای نصب (' . $fail['at'] . '): ' . mb_substr($fail['text'], 0, 700);
+        }
+
+        return implode("\n", $parts) ?: 'علتِ نامشخص — «🩺 سلامتِ سیستم» را ببینید.';
+    }
+
     /* ═══════════════ ساخت ═══════════════ */
 
     /**
@@ -501,10 +519,18 @@ class RemediationService
             return;
         }
         $state = json_decode((string) rescue(fn () => \App\Models\Setting::get('remediation_backfill'), '', false), true) ?: [];
-        if (! $state || ! empty($state['done'])) {
-            return; // هنوز مایگریشن اجرا نشده یا کار تمام است
+        $bankLeft = (bool) rescue(fn () => LearningService::bankReady()
+            && DB::table('smart_question_bank')->whereNull('objective_id')->exists(), false, false);
+        $remLeft = $state && empty($state['done']);
+        if (! $bankLeft && ! $remLeft) {
+            return; // کاری نمانده
         }
-        $run = fn () => rescue(fn () => app(self::class)->backfill(60, 10), null, true);
+        $run = function () use ($bankLeft, $remLeft) {
+            $bankDone = ! $bankLeft || (bool) rescue(fn () => LearningService::fillBankObjectives(8), false, true);
+            if ($remLeft && $bankDone) {
+                rescue(fn () => app(self::class)->backfill(60, 8), null, true);
+            }
+        };
         function_exists('Illuminate\Support\defer') ? \Illuminate\Support\defer($run) : app()->terminating($run);
     }
 
@@ -546,7 +572,8 @@ class RemediationService
         $bankObj = SmartQuestionBank::withoutGlobalScopes()->whereIn('id', $game->questions->pluck('bank_id')->filter())->pluck('objective_id', 'id');
         $items = [];
         foreach ($game->questions->values() as $i => $q) {
-            if (isset($detail[$i]) && empty($detail[$i]['correct'])) {
+            // فقط پاسخِ داده‌شده و غلط (سؤالِ بی‌پاسخِ بعد از تمام‌شدنِ جان‌ها نه)
+            if (isset($detail[$i]) && ($detail[$i]['picked'] ?? null) !== null && empty($detail[$i]['correct'])) {
                 $items[] = ['q_key' => $q->bank_id ? 'b' . $q->bank_id : 'g' . $q->id, 'bank_id' => $q->bank_id,
                     'objective_id' => \App\Support\Objectives::forQuestion($game, $q, $q->bank_id ? ($bankObj[$q->bank_id] ?? null) : null),
                     'question' => self::snapshot($q), 'lost_xp' => max(1, (int) $q->points)];

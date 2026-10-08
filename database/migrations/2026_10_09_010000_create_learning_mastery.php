@@ -41,23 +41,18 @@ return new class extends Migration
             });
         }
 
-        // هدفِ درسیِ سؤال‌های موجودِ بانک (سؤال‌های تازه را خودِ مدل پر می‌کند)
+        // هدفِ درسیِ سؤال‌های موجودِ بانک (سؤال‌های تازه را خودِ مدل پر می‌کند).
+        // با سقفِ زمان: بانکِ بزرگ روی هاست نباید نصب را از زمانِ مجاز رد کند؛
+        // باقی‌مانده را بازدیدهای بعدی پر می‌کنند (RemediationService::continueBackfill).
         if (Schema::hasColumn('smart_question_bank', 'objective_id')) {
-            DB::table('smart_question_bank')->whereNull('objective_id')->orderBy('id')
-                ->chunkById(500, function ($rows) {
-                    foreach ($rows as $r) {
-                        DB::table('smart_question_bank')->where('id', $r->id)
-                            ->update(['objective_id' => \App\Support\Objectives::idFor($r)]);
-                    }
-                });
+            rescue(fn () => \App\Services\LearningService::fillBankObjectives(12), null, true);
         }
 
-        if (! Schema::hasTable('objective_reviews')) {
-            Schema::create('objective_reviews', function (Blueprint $t) {
+        $this->create('objective_reviews', function (Blueprint $t, bool $fk) {
                 $t->id();
-                $t->foreignId('school_id')->nullable()->constrained()->cascadeOnDelete();
-                $t->foreignId('student_id')->constrained('users')->cascadeOnDelete();
-                $t->foreignId('objective_id')->constrained('learning_objectives')->cascadeOnDelete();
+                $this->ref($t, 'school_id', 'schools', $fk, true);
+                $this->ref($t, 'student_id', 'users', $fk);
+                $this->ref($t, 'objective_id', 'learning_objectives', $fk);
                 $t->unsignedTinyInteger('box')->default(1);
                 $t->date('due_at')->nullable();
                 $t->unsignedInteger('attempts')->default(0);
@@ -67,15 +62,13 @@ return new class extends Migration
                 $t->timestamps();
                 $t->unique(['student_id', 'objective_id']);
                 $t->index(['student_id', 'due_at']);
-            });
-        }
+        });
 
-        if (! Schema::hasTable('practice_answers')) {
-            Schema::create('practice_answers', function (Blueprint $t) {
+        $this->create('practice_answers', function (Blueprint $t, bool $fk) {
                 $t->id();
-                $t->foreignId('school_id')->nullable()->constrained()->cascadeOnDelete();
-                $t->foreignId('student_id')->constrained('users')->cascadeOnDelete();
-                $t->foreignId('objective_id')->constrained('learning_objectives')->cascadeOnDelete();
+                $this->ref($t, 'school_id', 'schools', $fk, true);
+                $this->ref($t, 'student_id', 'users', $fk);
+                $this->ref($t, 'objective_id', 'learning_objectives', $fk);
                 $t->unsignedBigInteger('bank_id')->nullable()->index();
                 $t->string('source', 20);          // mission|review|smart_exam|game
                 $t->unsignedBigInteger('source_id')->nullable();
@@ -84,20 +77,51 @@ return new class extends Migration
                 $t->boolean('hinted')->default(false);
                 $t->timestamp('created_at')->nullable();
                 $t->index(['student_id', 'objective_id', 'created_at']);
-            });
-        }
+        });
 
-        if (! Schema::hasTable('review_completions')) {
-            Schema::create('review_completions', function (Blueprint $t) {
+        $this->create('review_completions', function (Blueprint $t, bool $fk) {
                 $t->id();
-                $t->foreignId('student_id')->constrained('users')->cascadeOnDelete();
+                $this->ref($t, 'student_id', 'users', $fk);
                 $t->date('play_date');
                 $t->unsignedInteger('score')->default(0);
                 $t->unsignedInteger('total')->default(0);
                 $t->unsignedInteger('xp_awarded')->default(0);
                 $t->timestamps();
                 $t->unique(['student_id', 'play_date']);
-            });
+        });
+    }
+
+    /**
+     * ساختِ جدول با کلیدِ خارجی؛ اگر پایگاه‌داده‌ی قدیمیِ هاست (نوع یا موتورِ متفاوتِ جدولِ users/schools)
+     * کلیدِ خارجی را نپذیرفت، همان جدول بدونِ کلیدِ خارجی (فقط با ایندکس) ساخته می‌شود.
+     */
+    private function create(string $table, \Closure $build): void
+    {
+        if (Schema::hasTable($table)) {
+            return;
+        }
+        try {
+            Schema::create($table, fn (Blueprint $t) => $build($t, true));
+        } catch (\Throwable $e) {
+            Schema::dropIfExists($table);
+            Schema::create($table, fn (Blueprint $t) => $build($t, false));
+        }
+    }
+
+    private function ref(Blueprint $t, string $col, string $on, bool $fk, bool $nullable = false): void
+    {
+        if ($fk) {
+            $c = $t->foreignId($col);
+            if ($nullable) {
+                $c->nullable();
+            }
+            $c->constrained($on)->cascadeOnDelete();
+        } else {
+            $c = $t->unsignedBigInteger($col);
+            if ($nullable) {
+                $c->nullable();
+            }
+            $c->index();
         }
     }
 

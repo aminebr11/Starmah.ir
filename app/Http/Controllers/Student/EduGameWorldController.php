@@ -176,9 +176,12 @@ class EduGameWorldController extends Controller
             $max += $q->points;
             $correctIdx = collect($q->choices ?? [])->search(fn ($c) => ! empty($c['correct']));
             $picked = $data['answers'][$i] ?? null;
-            $ok = $correctIdx !== false && (int) $picked === (int) $correctIdx;
+            // سؤالِ بی‌پاسخ (مثلاً جان‌ها تمام شد و بازی زودتر بسته شد) درست حساب نمی‌شود؛
+            // قبلاً «بی‌پاسخ» به گزینه‌ی ۰ تبدیل می‌شد و اگر پاسخِ درست گزینه‌ی اول بود، امتیاز می‌گرفت.
+            $answered = $picked !== null && $picked !== '' && is_numeric($picked);
+            $ok = $answered && $correctIdx !== false && (int) $picked === (int) $correctIdx;
             if ($ok) $score += $q->points;
-            $detail[$i] = ['picked' => $picked, 'correct' => $ok];
+            $detail[$i] = ['picked' => $answered ? (int) $picked : null, 'correct' => $ok];
         }
 
         $att = EduGameAttempt::firstOrCreate(
@@ -186,7 +189,7 @@ class EduGameWorldController extends Controller
             ['max_score' => $max]
         );
         $firstCompletion = $att->status !== 'completed';
-        $bestScore = max($att->score, $score);
+        $bestScore = max((int) $att->score, $score); // تلاشِ تازه هنوز score ندارد (null) — max(null, 0) خودش null می‌شد
 
         $att->update([
             'score' => $bestScore, 'max_score' => $max,
@@ -209,7 +212,7 @@ class EduGameWorldController extends Controller
                 foreach ($eduGame->questions->values() as $i => $q) {
                     $oid = \App\Support\Objectives::forQuestion($eduGame, $q, $q->bank_id ? ($objectiveOf[$q->bank_id] ?? null) : null);
                     $objOf[$i] = $oid;
-                    if ($oid && isset($detail[$i])) {
+                    if ($oid && isset($detail[$i]) && $detail[$i]['picked'] !== null) {
                         $events[] = ['objective_id' => $oid, 'bank_id' => $q->bank_id, 'correct' => $detail[$i]['correct']];
                     }
                 }
@@ -229,7 +232,8 @@ class EduGameWorldController extends Controller
             $remedial = (int) rescue(function () use ($eduGame, $detail, $objOf, $user, $att) {
                 $items = [];
                 foreach ($eduGame->questions->values() as $i => $q) {
-                    if (isset($detail[$i]) && ! $detail[$i]['correct']) {
+                    // فقط سؤالی که دیده و اشتباه جواب داده (نه سؤال‌هایی که بعد از تمام‌شدنِ جان‌ها نرسید)
+                    if (isset($detail[$i]) && $detail[$i]['picked'] !== null && ! $detail[$i]['correct']) {
                         $items[] = ['q_key' => $q->bank_id ? 'b' . $q->bank_id : 'g' . $q->id, 'bank_id' => $q->bank_id,
                             'objective_id' => $objOf[$i] ?? null, 'question' => \App\Services\RemediationService::snapshot($q),
                             'lost_xp' => max(1, (int) $q->points)];
@@ -240,11 +244,15 @@ class EduGameWorldController extends Controller
             }, 0, true);
         }
 
+        $fa = fn ($n) => \App\Support\Jalali::fa((string) $n);
         $correctCount = collect($detail)->where('correct', true)->count();
         $total = $eduGame->questions->count();
+        $reviewNote = $remedial ? ' — 🔁 برای ' . $fa($remedial) . ' اشتباه، مرور ساخته شد (منوی «مرورِ اشتباه‌های من»)' : '';
+        $head = $correctCount === 0 ? 'این بار پاسخِ درستی نبود 💪' : ($total && $correctCount / $total >= 0.5 ? 'آفرین!' : 'خوب بود!');
+
         return back()->with('flash', $firstCompletion
-            ? "آفرین! {$correctCount} از {$total} درست — +{$bestScore} امتیاز 🎉" . ($remedial ? ' — 🔁 برای ' . \App\Support\Jalali::fa((string) $remedial) . ' اشتباه، مرور ساخته شد (منوی «مرورِ اشتباه‌های من»)' : '')
-            : "دوباره بازی کردی؛ بهترین نتیجه‌ات ثبت است ({$correctCount} از {$total}).");
+            ? "{$head} {$fa($correctCount)} از {$fa($total)} درست — " . ($score > 0 ? '+' . $fa($score) . ' امتیاز' . ($correctCount / max(1, $total) >= 0.5 ? ' 🎉' : '') : 'امتیازی نگرفتی') . $reviewNote
+            : "دوباره بازی کردی؛ بهترین نتیجه‌ات ثبت است ({$fa($correctCount)} از {$fa($total)}).");
     }
 
     private function canAccess(EduGame $game, User $user): bool

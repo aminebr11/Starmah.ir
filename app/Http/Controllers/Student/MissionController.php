@@ -370,11 +370,17 @@ class MissionController extends Controller
             \App\Support\AutoMigrate::ensure(true);
             \App\Services\RemediationService::ready(true);
         }
-        $board = rescue(fn () => $rem->studentBoard($request->user()), function ($e) {
+        $reason = null;
+        $board = rescue(fn () => $rem->studentBoard($request->user()), function ($e) use (&$reason) {
             \App\Support\AutoMigrate::forget(); // اگر ستون/جدولی کم بود، درخواستِ بعد دوباره بررسی شود
+            $reason = class_basename($e) . ': ' . mb_substr($e->getMessage(), 0, 500);
 
-            return ['enabled' => false, 'error' => true];
+            return ['enabled' => false];
         }, true);
+        if (empty($board['enabled'])) {
+            // متنِ علت برای مدیرِ سایت (در صفحه زیرِ «جزئیاتِ فنی» نشان داده می‌شود)
+            $board['reason'] = $reason ?? \App\Services\RemediationService::whyNotReady();
+        }
         \App\Services\RemediationService::continueBackfill();
 
         return Inertia::render('Student/Review', ['board' => $board]);
