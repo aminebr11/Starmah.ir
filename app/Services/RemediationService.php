@@ -52,7 +52,7 @@ class RemediationService
      * @param  array<int,array{q_key:string,bank_id:?int,objective_id:?int,question:array,lost_xp:int}>  $items
      * @return int تعدادِ یادآوریِ تازه
      */
-    public function create(User $student, string $source, int $sourceId, ?int $ref, string $title, ?int $teacherId, array $items, ?string $dueOn = null): int
+    public function create(User $student, string $source, int $sourceId, ?int $ref, string $title, ?int $teacherId, array $items, ?string $dueOn = null, bool $notify = true, ?int $capXp = null): int
     {
         $dueOn = $dueOn && $dueOn > now()->toDateString() ? $dueOn : now()->toDateString();
         if (! self::ready() || ! $items) {
@@ -79,7 +79,7 @@ class RemediationService
                     'objective_id' => $it['objective_id'] ?? null,
                     'objective_label' => $it['objective_id'] ? ($labels[$it['objective_id']] ?? null) : null,
                     'question' => $it['question'], 'lost_xp' => $lost,
-                    'cap_xp' => $lost > 0 ? max(1, (int) floor($lost * self::SHARE)) : 0,
+                    'cap_xp' => $capXp ?? ($lost > 0 ? max(1, (int) floor($lost * self::SHARE)) : 0),
                     'steps' => self::STEPS, 'due_on' => $dueOn, 'status' => 'open',
                 ]
             );
@@ -93,11 +93,13 @@ class RemediationService
         }
 
         $cap = $made->sum('cap_xp');
-        rescue(function () use ($student, $teacherId, $made, $title, $cap) {
+        // فرستنده‌ی اعلان الزامی است: معلمِ همان آزمون/بازی، وگرنه معلمِ کلاسِ دانش‌آموز
+        $teacherId ??= $student->classrooms()->value('classrooms.teacher_id');
+        if ($notify && $teacherId) rescue(function () use ($student, $teacherId, $made, $title, $cap) {
             $ann = Announcement::create([
                 'school_id' => $student->school_id, 'sender_id' => $teacherId, 'audience' => 'personal',
-                'title' => '🔁 یادآوریِ جبرانی — ' . mb_substr($title, 0, 120),
-                'body' => 'برای ' . Jalali::fa((string) $made->count()) . ' سؤالی که اشتباه زدی، تمرینِ جبرانی '
+                'title' => '🔁 مرورِ اشتباه‌ها — ' . mb_substr($title, 0, 120),
+                'body' => 'برای ' . Jalali::fa((string) $made->count()) . ' موردی که اشتباه زدی، مرورِ جبرانی '
                     . ($made->first()->due_on && $made->first()->due_on->isFuture() ? 'از ' . Jalali::format($made->first()->due_on) . ' آماده می‌شود' : 'آماده است')
                     . ($cap > 0 ? '؛ با انجامش تا ' . Jalali::fa((string) $cap) . ' امتیاز را پس می‌گیری.' : '.'),
                 'link' => '/missions/remedial/play',
@@ -195,7 +197,8 @@ class RemediationService
             if ($orig) {
                 $mine[] = $orig;
             }
-            $similar = $this->similar($rem, $teacher, array_merge($used, $skip), $orig ? self::SIMILAR : self::SIMILAR + 1);
+            // مرورِ بدونِ سؤالِ اصلی (نمره‌ی ضعیفِ معلم، مرورِ معلم، پاسخِ پنهان) → سؤال‌های بیشتری از همان فصل
+            $similar = $this->similar($rem, $teacher, array_merge($used, $skip), $orig ? self::SIMILAR : self::SIMILAR + 2);
             foreach ($similar as $q) {
                 $mine[] = $q;
                 $used[] = $q->id;
@@ -331,6 +334,146 @@ class RemediationService
         return ['rows' => $rows, 'xp' => $xpTotal, 'band_ups' => $learned['band_ups'] ?? []];
     }
 
+    /* ═══════════════ از سمتِ معلم ═══════════════ */
+
+    /** نمره‌ی ضعیفِ معلم در یک فصل → مرورِ فردی با سؤال‌های همان فصل. */
+    public function fromGrade(\App\Models\GradeColumn $col, User $student, float $fraction, int $objectiveId): int
+    {
+        $type = $col->score_type ?: $col->type;
+        $max = $type === 'numeric' ? 20 : max(GamificationService::GRADE_XP[$type] ?? [0]);
+        $lost = (int) max(0, round($max * (1 - $fraction)));
+
+        return $this->create($student, 'grade', $col->id, $col->id, '📔 ' . ($col->title ?: 'نمره‌ی کلاسی'), $col->teacher_id, [[
+            'q_key' => 'gc' . $col->id, 'bank_id' => null, 'objective_id' => $objectiveId,
+            'question' => ['type' => 'none', 'prompt' => 'نمره‌ی «' . ($col->title ?: 'کلاسی') . '»', 'choices' => [], 'no_original' => true],
+            'lost_xp' => $lost,
+        ]]);
+    }
+
+    /**
+     * معلم خودش برای یک یا چند دانش‌آموز در یک فصل مرور می‌فرستد.
+     *
+     * @param  array<int>  $studentIds
+     */
+    public function teacherAssign(User $teacher, array $studentIds, int $objectiveId, string $label, int $capXp = 6): int
+    {
+        $n = 0;
+        $stamp = (int) now()->format('ymdHis');
+        foreach (User::whereIn('id', $studentIds)->get() as $st) {
+            $n += $this->create($st, 'teacher', $stamp, $objectiveId, '👩‍🏫 مرورِ معلم — ' . $label, $teacher->id, [[
+                'q_key' => 'o' . $objectiveId, 'bank_id' => null, 'objective_id' => $objectiveId,
+                'question' => ['type' => 'none', 'prompt' => 'مرورِ فصلِ «' . $label . '»', 'choices' => [], 'no_original' => true],
+                'lost_xp' => 0,
+            ]], null, true, $capXp);
+        }
+
+        return $n;
+    }
+
+    /** چند سؤالِ قابلِ تمرین در بانک برای این فصل هست؟ (برای هشدار به معلم) */
+    public static function bankCount(User $teacher, int $objectiveId): int
+    {
+        if (! LearningService::bankReady()) {
+            return 0;
+        }
+
+        return BankAccess::visibleQuery($teacher)->where('objective_id', $objectiveId)->whereIn('type', ['mc', 'tf'])
+            ->where(fn ($q) => $q->whereNull('approval')->orWhere('approval', 'approved'))->count();
+    }
+
+    /* ═══════════════ اشتباه‌های گذشته ═══════════════ */
+
+    /**
+     * یک‌بار پس از نصب: اشتباه‌های آزمون و بازیِ روزهای اخیر هم مرورِ جبرانی می‌گیرند
+     * (تا هسته‌ی تازه از همان روزِ اول برای همه‌ی دانش‌آموزان کار کند).
+     */
+    public function backfill(int $days = 60): array
+    {
+        if (! self::ready() || ! LearningService::bankReady()) {
+            return ['students' => 0, 'items' => 0];
+        }
+        $since = now()->subDays($days);
+        $made = [];
+        $senders = [];
+
+        // آزمون‌ها: تلاشی که امتیازش حساب شده (یا اولین تلاشِ تمام‌شده)
+        $attempts = \App\Models\SmartExamAttempt::whereNotNull('finished_at')->where('finished_at', '>=', $since)
+            ->with(['exam.questions', 'answers', 'student'])->orderBy('id')->get()
+            ->groupBy(fn ($a) => $a->smart_exam_id . ':' . $a->student_id)
+            ->map(fn ($g) => $g->first(fn ($a) => $a->rewarded) ?? $g->first());
+        foreach ($attempts as $att) {
+            $exam = $att->exam;
+            if (! $exam || ! $att->student) {
+                continue;
+            }
+            $qs = $exam->questions->keyBy('id');
+            $autoMax = $exam->questions->whereIn('type', ['mc', 'tf', 'blank'])->sum('points');
+            $bankObj = SmartQuestionBank::withoutGlobalScopes()->whereIn('id', $exam->questions->pluck('bank_id')->filter())->pluck('objective_id', 'id');
+            $stillOpen = $exam->closes_at && $exam->closes_at->isFuture();
+            $hide = ! $stillOpen && empty(($exam->rules ?? [])['show_answer'] ?? true);
+            $items = [];
+            // فقط پاسخِ «قطعاً غلط» — تشریحیِ تصحیح‌نشده (null) نه
+            foreach ($att->answers->filter(fn ($a) => $a->correct !== null && ! (bool) $a->correct) as $ans) {
+                $q = $qs[$ans->question_id] ?? null;
+                if (! $q || $autoMax <= 0) {
+                    continue;
+                }
+                $items[] = ['q_key' => $q->bank_id ? 'b' . $q->bank_id : 'e' . $q->id, 'bank_id' => $q->bank_id,
+                    'objective_id' => \App\Support\Objectives::forQuestion($exam, $q, $q->bank_id ? ($bankObj[$q->bank_id] ?? null) : null),
+                    'question' => self::snapshot($q) + ($hide ? ['no_original' => true] : []),
+                    'lost_xp' => $att->rewarded ? (int) round(100 * max(1, (int) $q->points) / $autoMax) : 0];
+            }
+            $n = $this->create($att->student, 'exam', $att->id, $exam->id, $exam->title, $exam->teacher_id, $items,
+                $stillOpen ? $exam->closes_at->copy()->addDay()->toDateString() : null, false);
+            if ($n) {
+                $made[$att->student_id] = ($made[$att->student_id] ?? 0) + $n;
+                $senders[$att->student_id] = $exam->teacher_id;
+            }
+        }
+
+        // بازی‌ها: پاسخِ هر سؤال در progress
+        $games = \App\Models\EduGameAttempt::where('status', 'completed')->where('completed_at', '>=', $since)
+            ->with(['game.questions', 'student'])->get();
+        foreach ($games as $att) {
+            $game = $att->game;
+            $detail = (array) (($att->progress ?? [])['answers'] ?? []);
+            if (! $game || ! $att->student || ! $detail) {
+                continue;
+            }
+            $bankObj = SmartQuestionBank::withoutGlobalScopes()->whereIn('id', $game->questions->pluck('bank_id')->filter())->pluck('objective_id', 'id');
+            $items = [];
+            foreach ($game->questions->values() as $i => $q) {
+                if (isset($detail[$i]) && empty($detail[$i]['correct'])) {
+                    $items[] = ['q_key' => $q->bank_id ? 'b' . $q->bank_id : 'g' . $q->id, 'bank_id' => $q->bank_id,
+                        'objective_id' => \App\Support\Objectives::forQuestion($game, $q, $q->bank_id ? ($bankObj[$q->bank_id] ?? null) : null),
+                        'question' => self::snapshot($q), 'lost_xp' => max(1, (int) $q->points)];
+                }
+            }
+            $n = $this->create($att->student, 'game', $att->id, $game->id, $game->title, $game->teacher_id, $items, null, false);
+            if ($n) {
+                $made[$att->student_id] = ($made[$att->student_id] ?? 0) + $n;
+                $senders[$att->student_id] = $game->teacher_id;
+            }
+        }
+
+        // برای هر دانش‌آموز فقط یک اعلان (فرستنده: معلمِ همان آزمون/بازی)
+        foreach ($made as $sid => $n) {
+            rescue(function () use ($sid, $n, $senders) {
+                $st = User::find($sid);
+                if (! $st?->school_id || empty($senders[$sid])) {
+                    return;
+                }
+                $ann = Announcement::create(['school_id' => $st->school_id, 'sender_id' => $senders[$sid], 'audience' => 'personal',
+                    'title' => '🔁 مرورِ اشتباه‌های من آماده است',
+                    'body' => 'برای ' . Jalali::fa((string) $n) . ' سؤالی که در آزمون‌ها و بازی‌های اخیر اشتباه زدی، مرورِ جبرانی ساخته شد؛ انجامش بده و بخشی از امتیازت را پس بگیر.',
+                    'link' => '/missions/remedial/play']);
+                $ann->recipients()->sync([$sid]);
+            }, null, false);
+        }
+
+        return ['students' => count($made), 'items' => array_sum($made)];
+    }
+
     /* ═══════════════ معلم ═══════════════ */
 
     /** نمای کلیِ کلاس برای معلم: هر دانش‌آموز، هر فصل و آخرین یادآوری‌ها. */
@@ -381,6 +524,10 @@ class RemediationService
         ])->values();
 
         return [
+            // برای فرمِ «فرستادنِ مرور»
+            'grade' => $classroom->grade,
+            'subjects' => self::subjectsFor($classroom),
+            'roster' => $students->map(fn ($s) => ['id' => $s->id, 'name' => $s->name])->values(),
             'totals' => [
                 'total' => $rems->count(), 'open' => $rems->where('status', 'open')->count(),
                 'done' => $rems->where('status', 'done')->count(),
@@ -389,6 +536,19 @@ class RemediationService
             ],
             'students' => $per, 'chapters' => $chapters, 'recent' => $recent,
         ];
+    }
+
+    /** نامِ درس‌های کلاس (از کتاب‌های پایه؛ اگر نبود، درس‌هایی که برای این پایه فصل دارند). */
+    public static function subjectsFor(Classroom $classroom): array
+    {
+        $names = collect(rescue(fn () => $classroom->subjectNames(), [], false))
+            ->map(fn ($s) => is_array($s) ? ($s['name'] ?? null) : $s)->filter()->values();
+        if ($names->isEmpty() && $classroom->grade) {
+            $names = \App\Models\CurriculumChapter::withoutGlobalScopes()->where('grade', $classroom->grade)
+                ->where('is_active', true)->distinct()->orderBy('subject')->pluck('subject');
+        }
+
+        return $names->unique()->values()->all();
     }
 
     /** راه‌اندازیِ مجددِ آزمون/بازی: یادآوری‌ها و امتیازِ جبرانیِ همان تلاش‌ها هم پاک می‌شود. */
@@ -425,6 +585,11 @@ class RemediationService
         };
         // بعد از فرستادنِ پاسخ اجرا می‌شود تا دانش‌آموز منتظرِ هوش مصنوعی نماند
         function_exists('Illuminate\Support\defer') ? \Illuminate\Support\defer($run) : app()->terminating($run);
+    }
+
+    public static function aiAvailable(): bool
+    {
+        return self::aiOn();
     }
 
     private static function aiOn(): bool

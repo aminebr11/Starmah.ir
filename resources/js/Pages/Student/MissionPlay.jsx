@@ -98,12 +98,12 @@ export default function MissionPlay() {
     /* ── نتیجه ── */
     if (result) {
         return (
-            <ThemedDash title={isRemedial ? 'نتیجه‌ی جبران' : isReview ? 'نتیجه‌ی مرور' : 'نتیجه‌ی مأموریت'} active="practice">
+            <ThemedDash title={isRemedial ? 'نتیجه‌ی مرورِ اشتباه‌ها' : isReview ? 'نتیجه‌ی مرور' : 'نتیجه‌ی مأموریت'} active="practice">
                 <div style={{ position: 'relative' }}><Confetti fire={confetti} big /></div>
                 <div className="k3-card" style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: 60 }}>{result.passed ? '🏆' : '💪'}</div>
                     <div style={{ fontWeight: 900, fontSize: 22, marginTop: 4 }}>
-                        {isRemedial ? (result.xp > 0 ? 'آفرین! بخشی از امتیازت برگشت 🎉' : 'تمرینِ جبرانی تمام شد') : isReview ? 'مرورِ امروز تمام شد!' : result.passed ? 'مأموریت انجام شد!' : 'تلاشِ خوبی بود!'}
+                        {isRemedial ? (result.xp > 0 ? 'آفرین! بخشی از امتیازت برگشت 🎉' : 'مرورِ اشتباه‌ها تمام شد') : isReview ? 'مرورِ امروز تمام شد!' : result.passed ? 'مأموریت انجام شد!' : 'تلاشِ خوبی بود!'}
                     </div>
                     {!result.passed && !isReview && !isRemedial && (
                         <div style={{ fontSize: 13, opacity: .85, marginTop: 6, lineHeight: 1.9 }}>
@@ -124,7 +124,7 @@ export default function MissionPlay() {
 
                 {isRemedial && result.remedial?.length > 0 && (
                     <div className="k3-card" style={{ marginTop: 14 }}>
-                        <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 6 }}>🔁 وضعیتِ جبران</div>
+                        <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 6 }}>🔁 وضعیتِ مرورِ اشتباه‌ها</div>
                         {result.remedial.map((r, k) => (
                             <GrowthRow key={k} icon={r.done ? '🏆' : r.passed ? '✅' : '🔄'} xp={r.xp || undefined}
                                 title={`${r.chapter ? `📘 ${r.chapter} — ` : ''}${r.title || ''}`}
@@ -136,7 +136,7 @@ export default function MissionPlay() {
                 )}
                 {result.remedial_made > 0 && (
                     <div className="k3-card" style={{ marginTop: 14, background: 'linear-gradient(135deg,#ff7a45,#e8505b)', border: 0 }}>
-                        🔁 برای {fa(result.remedial_made)} سؤالی که اشتباه ماند، «جبرانِ اشتباه» ساخته شد — از تخته‌ی مأموریت‌ها انجامش بده و بخشی از امتیاز را پس بگیر.
+                        🔁 برای {fa(result.remedial_made)} سؤالی که اشتباه ماند، «مرورِ اشتباه‌ها» ساخته شد — از تخته‌ی مأموریت‌ها انجامش بده و بخشی از امتیاز را پس بگیر.
                     </div>
                 )}
                 {(result.growth?.length > 0 || result.badge || result.badges?.length > 0) && (

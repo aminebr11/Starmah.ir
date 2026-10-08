@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { useForm, router, usePage } from '@inertiajs/react';
 import { useSort, SortBar, SortTh, firstName, lastName } from '@/lib/useSort';
+import { useChapters } from '@/Components/Questions/QuestionChapter';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -33,12 +35,14 @@ export default function RemediationPanel({ data }) {
     return (
         <div className="panel rm-panel">
             <div className="rm-head">
-                <h3>🔁 جبرانِ اشتباه</h3>
-                <p>برای هر سؤالی که دانش‌آموز اشتباه می‌زند، خودکار و فقط در حسابِ خودش تمرینِ جبرانی ساخته می‌شود (همان سؤال + سؤال‌های مشابهِ همان فصل، در ۳ نوبتِ فاصله‌دار). حداکثر نیمی از امتیازِ از دست‌رفته برمی‌گردد.</p>
+                <h3>🔁 مرورِ اشتباه‌ها</h3>
+                <p>برای هر سؤالی که دانش‌آموز اشتباه می‌زند (آزمون، بازی، مأموریت) و هر نمره‌ی ضعیفِ شما در یک فصل، خودکار و فقط در حسابِ خودِ او مرور ساخته می‌شود: همان سؤال + سؤال‌های مشابهِ همان فصل، در ۳ نوبتِ فاصله‌دار. حداکثر نیمی از امتیازِ از دست‌رفته برمی‌گردد. خودتان هم می‌توانید برای هر دانش‌آموز و هر فصل مرور بفرستید.</p>
             </div>
 
+            <AssignForm data={data} />
+
             {!t.total ? (
-                <div className="rm-empty">هنوز یادآوریِ جبرانی ساخته نشده — بعد از اولین آزمون، بازی یا مأموریتی که دانش‌آموزی اشتباه بزند، اینجا پر می‌شود.</div>
+                <div className="rm-empty">هنوز مرورِ اشتباهی ساخته نشده — بعد از اولین آزمون، بازی یا مأموریتی که دانش‌آموزی اشتباه بزند (یا با فرمِ بالا)، اینجا پر می‌شود.</div>
             ) : (
                 <>
                     <div className="rm-kpis">
@@ -121,6 +125,7 @@ export default function RemediationPanel({ data }) {
                                         <SortTh s={rs} k="step" first="desc">نوبت</SortTh>
                                         <SortTh s={rs} k="status">وضعیت</SortTh>
                                         <SortTh s={rs} k="created" first="desc">ساخته‌شده</SortTh>
+                                        <th />
                                     </tr></thead>
                                     <tbody>
                                         {rs.sorted.map((r) => (
@@ -138,9 +143,10 @@ export default function RemediationPanel({ data }) {
                                                     {r.cap > 0 && <div style={{ fontSize: 11, color: 'var(--muted)' }}>⚡ {fa(r.recovered)} از {fa(r.cap)}</div>}
                                                 </td>
                                                 <td style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{r.created}</td>
+                                                <td>{r.status === 'open' && <button type="button" className="btn btn-ghost btn-sm" title="بستنِ این مرور" onClick={() => { if (confirm('این مرور بسته شود؟ امتیازی که تا الان جبران شده سرِ جایش می‌ماند.')) router.delete(route('teacher.remediations.destroy', r.id), { preserveScroll: true }); }}>✕</button>}</td>
                                             </tr>
                                         ))}
-                                        {!rs.sorted.length && <tr><td colSpan="6" style={{ textAlign: 'center', color: 'var(--muted)' }}>موردی نیست.</td></tr>}
+                                        {!rs.sorted.length && <tr><td colSpan="7" style={{ textAlign: 'center', color: 'var(--muted)' }}>موردی نیست.</td></tr>}
                                     </tbody>
                                 </table>
                             </div>
@@ -148,6 +154,51 @@ export default function RemediationPanel({ data }) {
                     )}
                 </>
             )}
+        </div>
+    );
+}
+
+/** فرستادنِ مرور برای یک یا چند دانش‌آموز در یک فصل. */
+function AssignForm({ data }) {
+    const { flash } = usePage().props;
+    const [open, setOpen] = useState(false);
+    const f = useForm({ subject: data?.subjects?.[0] || '', chapter_id: '', student_ids: [] });
+    const chapters = useChapters(data?.grade, f.data.subject);
+    const roster = data?.roster || [];
+    const toggle = (id) => f.setData('student_ids', f.data.student_ids.includes(id) ? f.data.student_ids.filter((x) => x !== id) : [...f.data.student_ids, id]);
+    const err = f.errors.student_ids || f.errors.chapter_id || f.errors.subject;
+    if (!open) {
+        return <button type="button" className="btn btn-sm" style={{ marginBottom: 12 }} onClick={() => setOpen(true)}>➕ فرستادنِ مرور برای دانش‌آموز</button>;
+    }
+    return (
+        <div className="rm-assign">
+            <div className="rm-assign-row">
+                <label>درس
+                    <select className="input" value={f.data.subject} onChange={(e) => f.setData((d) => ({ ...d, subject: e.target.value, chapter_id: '' }))}>
+                        <option value="">— درس —</option>
+                        {(data?.subjects || []).map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                </label>
+                <label>فصل
+                    <select className="input" value={f.data.chapter_id} onChange={(e) => f.setData('chapter_id', e.target.value)} disabled={!chapters.length}>
+                        <option value="">{f.data.subject ? (chapters.length ? '— فصل —' : 'فصلی ثبت نشده') : 'اول درس'}</option>
+                        {chapters.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+                    </select>
+                </label>
+            </div>
+            <div className="rm-assign-h">
+                <b>دانش‌آموزان ({f.data.student_ids.length})</b>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => f.setData('student_ids', f.data.student_ids.length === roster.length ? [] : roster.map((r) => r.id))}>{f.data.student_ids.length === roster.length ? 'برداشتنِ همه' : 'همه‌ی کلاس'}</button>
+            </div>
+            <div className="rm-assign-chips">
+                {roster.map((r) => <button type="button" key={r.id} className={`rm-chip ${f.data.student_ids.includes(r.id) ? 'on' : ''}`} onClick={() => toggle(r.id)}>{f.data.student_ids.includes(r.id) ? '✓ ' : ''}{r.name}</button>)}
+            </div>
+            {err && <div className="rm-err">{err}</div>}
+            <div className="rm-assign-row">
+                <button type="button" className="btn btn-sm" disabled={f.processing} onClick={() => f.post(route('teacher.remediations.store'), { preserveScroll: true, onSuccess: () => { f.setData('student_ids', []); setOpen(false); } })}>🔁 فرستادنِ مرور</button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setOpen(false)}>انصراف</button>
+                <small style={{ color: 'var(--muted)' }}>سؤال‌ها از بانکِ همان فصل می‌آیند؛ ۳ نوبتِ فاصله‌دار، تا ۶ امتیاز.</small>
+            </div>
         </div>
     );
 }

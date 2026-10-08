@@ -371,13 +371,13 @@ class MissionController extends Controller
             $s = $rem->summary($user);
 
             return redirect()->route('missions')->with('flash', ($s['open'] ?? 0) > 0 && $s['next']
-                ? "تمرینِ جبرانیِ امروز را انجام دادی ✅ نوبتِ بعدی: {$s['next']}"
-                : 'فعلاً تمرینِ جبرانی‌ای نداری — آفرین! 🌟');
+                ? "مرورِ اشتباه‌های امروز را انجام دادی ✅ نوبتِ بعدی: {$s['next']}"
+                : 'فعلاً مرورِ اشتباهی نداری — آفرین! 🌟');
         }
 
         return $this->startSession($request, 'remedial', null, $items, [
-            'id' => null, 'title' => 'جبرانِ اشتباه',
-            'description' => 'سؤال‌هایی که اشتباه زده بودی و چند سؤالِ شبیهشان — درستشان کن و امتیازت را پس بگیر!',
+            'id' => null, 'title' => 'مرورِ اشتباه‌های من',
+            'description' => 'سؤال‌هایی که اشتباه زده بودی و چند سؤالِ شبیهشان — درستشان کن و بخشی از امتیازت را پس بگیر!',
             'subject' => null, 'xp_reward' => 0, 'pass_percent' => (int) (\App\Services\RemediationService::PASS * 100),
             'badge_name' => null, 'badge_icon' => '🔁',
         ]);
@@ -393,7 +393,7 @@ class MissionController extends Controller
         }
 
         return $this->startSession($request, 'review', null, $items, [
-            'id' => null, 'title' => 'مرورِ امروز',
+            'id' => null, 'title' => 'مرورِ فاصله‌دار',
             'description' => 'این‌ها را چند روز پیش یاد گرفتی — مرورشان کن تا همیشه یادت بماند!',
             'subject' => null, 'xp_reward' => self::REVIEW_XP, 'pass_percent' => 0,
             'badge_name' => null, 'badge_icon' => '🔁',

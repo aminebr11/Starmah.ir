@@ -45,11 +45,34 @@ class AiCenterController extends Controller
         return Inertia::render('Admin/AiCenter', [
             'active' => $active, 'providers' => $providers,
             'prices' => $this->prices(), 'currency' => Setting::get('ai_currency', 'تومان'),
-            'days' => $days, 'usage' => $this->usage($days),
+            // گزارشِ مصرف «کارِ جانبی» است: اگر خطا بدهد (جدولِ ناموجود، داده‌ی ناقص)، تنظیماتِ هوش مصنوعی باید باز بماند
+            'days' => $days, 'usage' => rescue(fn () => $this->usage($days), fn ($e) => ['error' => \App\Http\Controllers\Concerns\FriendlySaveErrors::explainError($e)], true),
             'features' => AiUsage::FEATURES,
             'server' => ['max_execution_time' => (int) ini_get('max_execution_time'), 'curl' => function_exists('curl_init')],
             'qtest' => json_decode((string) Setting::get('ai_testq_' . $active), true) ?: null,
+            'tts' => ['engine' => \App\Services\SpeechService::engine(), 'on' => Setting::get('tts_enabled', '1') !== '0'],
         ]);
+    }
+
+    /** «بخوان برایم»: روشن/خاموش و آزمایشِ صدای فارسی. */
+    public function tts(Request $request, \App\Services\SpeechService $speech): \Illuminate\Http\JsonResponse
+    {
+        if ($request->has('on')) {
+            Setting::put('tts_enabled', $request->boolean('on') ? '1' : '0');
+        }
+        if (! $request->boolean('test')) {
+            return response()->json(['ok' => true]);
+        }
+        if (! \App\Services\SpeechService::engine()) {
+            return response()->json(['ok' => false, 'message' => 'برای صدای فارسی، کلیدِ OpenAI یا Gemini را در همین صفحه ثبت کنید (لازم نیست سرویسِ فعال باشد).']);
+        }
+        try {
+            $url = $speech->urlFor('سلام! من ستاره ماه هستم. این یک آزمایشِ صدای فارسی است.');
+        } catch (\Throwable $e) {
+            return response()->json(['ok' => false, 'message' => \App\Http\Controllers\Concerns\FriendlySaveErrors::explainError($e)]);
+        }
+
+        return response()->json($url ? ['ok' => true, 'url' => $url] : ['ok' => false, 'message' => 'سرویسِ صدا پاسخ نداد؛ اعتبارِ کلید یا دسترسیِ سرور به اینترنت را بررسی کنید.']);
     }
 
     /** ذخیره‌ی سرویسِ فعال، کلیدها، مدل‌ها و نشانیِ سرویسِ سازگار. */
@@ -195,7 +218,7 @@ class AiCenterController extends Controller
             $stu = $g->where('role', Roles::STUDENT);
 
             return [
-                'id' => (int) $tid, 'name' => $teachers[$tid]->name ?? '—', 'school_id' => $teachers[$tid]->school_id ?? null,
+                'id' => (int) $tid, 'name' => $teachers->get($tid)?->name ?? 'معلمِ حذف‌شده', 'school_id' => $teachers->get($tid)?->school_id,
                 'own_tokens' => (int) ($own->sum('tin') + $own->sum('tout')), 'own_req' => (int) $own->sum('req'), 'own_cost' => $this->cost($own),
                 'stu_tokens' => (int) ($stu->sum('tin') + $stu->sum('tout')), 'stu_req' => (int) $stu->sum('req'), 'stu_cost' => $this->cost($stu),
                 'tokens' => (int) ($g->sum('tin') + $g->sum('tout')), 'cost' => $this->cost($g),
@@ -211,10 +234,11 @@ class AiCenterController extends Controller
         // پرمصرف‌ترین کاربران
         $byUser = $q()->whereNotNull('user_id')->groupBy('user_id', 'model')->selectRaw("user_id, model, $agg")->get()->groupBy('user_id');
         $users = User::with('roles:id,name')->whereIn('id', $byUser->keys())->get(['id', 'name', 'school_id'])->keyBy('id');
+        // کاربرِ حذف‌شده هم ممکن است در سابقه‌ی مصرف باشد → get() به‌جای [] (وگرنه «Undefined array key» و خطای ۵۰۰)
         $topUsers = $byUser->map(fn ($g, $uid) => [
-            'id' => (int) $uid, 'name' => $users[$uid]->name ?? '—',
-            'role' => \App\Services\VisitAnalytics::ROLE_LABELS[$users[$uid]?->roles->first()?->name] ?? '—',
-            'school' => $schoolNames[$users[$uid]->school_id ?? 0] ?? '—',
+            'id' => (int) $uid, 'name' => $users->get($uid)?->name ?? 'کاربرِ حذف‌شده',
+            'role' => \App\Services\VisitAnalytics::ROLE_LABELS[$users->get($uid)?->roles->first()?->name ?? ''] ?? '—',
+            'school' => $schoolNames[$users->get($uid)?->school_id ?? 0] ?? '—',
             'requests' => (int) $g->sum('req'), 'tokens' => (int) ($g->sum('tin') + $g->sum('tout')), 'cost' => $this->cost($g),
         ])->sortByDesc('tokens')->take(30)->values();
 

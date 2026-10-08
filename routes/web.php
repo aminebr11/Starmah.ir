@@ -114,6 +114,7 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::post('/diagnostics/test-save', [\App\Http\Controllers\Admin\DiagnosticsController::class, 'testSave'])->name('diagnostics.test');
     Route::get('/ai', [\App\Http\Controllers\Admin\AiCenterController::class, 'index'])->name('ai');
     Route::post('/ai', [\App\Http\Controllers\Admin\AiCenterController::class, 'save'])->name('ai.save');
+    Route::post('/ai/tts', [\App\Http\Controllers\Admin\AiCenterController::class, 'tts'])->name('ai.tts');
     Route::post('/ai/test', [\App\Http\Controllers\Admin\AiCenterController::class, 'test'])->middleware('throttle:15,1')->name('ai.test');
     Route::post('/ai/test-questions', [\App\Http\Controllers\Admin\AiCenterController::class, 'testQuestions'])->middleware('throttle:6,1')->name('ai.testq');
     Route::post('/ai/prices', [\App\Http\Controllers\Admin\AiCenterController::class, 'savePrices'])->name('ai.prices');
@@ -178,6 +179,7 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::post('/missions/check', [\App\Http\Controllers\Student\MissionController::class, 'check'])->middleware('throttle:120,1')->name('missions.check');
     Route::post('/missions/hint', [\App\Http\Controllers\Student\MissionController::class, 'hint'])->middleware('throttle:60,1')->name('missions.hint');
     Route::post('/me/a11y', [\App\Http\Controllers\Student\A11yController::class, 'update'])->name('a11y.update');
+    Route::post('/speech', \App\Http\Controllers\SpeechController::class)->middleware('throttle:40,1')->name('speech');
     Route::get('/missions/review/play', [\App\Http\Controllers\Student\MissionController::class, 'reviewPlay'])->name('missions.review.play');
     Route::get('/missions/remedial/play', [\App\Http\Controllers\Student\MissionController::class, 'remedialPlay'])->name('missions.remedial.play');
     Route::get('/missions/{mission}/play', [\App\Http\Controllers\Student\MissionController::class, 'play'])->whereNumber('mission')->name('missions.play');
@@ -281,6 +283,9 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/games/{classActivity}/toggle', [\App\Http\Controllers\Teacher\GameController::class, 'toggle'])->name('games.toggle');
     Route::post('/games/{classActivity}/duplicate', [\App\Http\Controllers\Teacher\GameController::class, 'duplicate'])->name('games.duplicate');
     Route::delete('/games/{classActivity}', [\App\Http\Controllers\Teacher\GameController::class, 'destroy'])->name('games.destroy');
+    // «مرورِ اشتباه‌ها»: فرستادن برای دانش‌آموز/فصل و بستن
+    Route::post('/remediations', [\App\Http\Controllers\Teacher\RemediationController::class, 'store'])->name('remediations.store');
+    Route::delete('/remediations/{remediation}', [\App\Http\Controllers\Teacher\RemediationController::class, 'destroy'])->name('remediations.destroy');
     Route::get('/gradebook', [\App\Http\Controllers\Teacher\GradebookController::class, 'index'])->name('gradebook');
     Route::post('/gradebook/activities', [\App\Http\Controllers\Teacher\GradebookController::class, 'storeActivity'])->name('gradebook.activities');
     Route::post('/gradebook/columns/{gradeColumn}', [\App\Http\Controllers\Teacher\GradebookController::class, 'updateActivity'])->name('gradebook.columns.update');

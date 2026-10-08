@@ -66,6 +66,8 @@ class LearningService
             $f = MasteryService::gradeFraction($type, $g->score, $g->text, $col->max);
             if ($f !== null && $f < 0.5 && $g->student) {
                 app(self::class)->record($g->student, [['objective_id' => $oid, 'correct' => false]], 'grade', $col->id, false);
+                // نمره‌ی ضعیفِ معلم → مرورِ فردی با سؤال‌های همان فصل (یک‌بار برای هر ستون)
+                rescue(fn () => app(RemediationService::class)->fromGrade($col, $g->student, $f, $oid), null, true);
             }
         }
     }

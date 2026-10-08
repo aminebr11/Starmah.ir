@@ -13,7 +13,7 @@ const money = (n, cur) => (n ? `${num(n)} ${cur}` : `۰ ${cur}`);
 
 /** مرکزِ هوش مصنوعی — سرویس و مدل، آزمایشِ اتصال، مصرفِ توکن و هزینه. */
 export default function AiCenter() {
-    const { active, providers = [], prices = {}, currency, days, usage = {}, flash, errors = {}, server = {}, qtest: qtest0 } = usePage().props;
+    const { active, providers = [], prices = {}, currency, days, usage = {}, flash, errors = {}, server = {}, qtest: qtest0, tts = {} } = usePage().props;
     const [qtest, setQtest] = useState(qtest0);
     const testQ = async () => {
         setBusy('q');
@@ -23,7 +23,7 @@ export default function AiCenter() {
     };
     const banner = typeof flash?.flash === 'string' ? flash.flash : flash?.flash?.message;
     const act = providers.find((p) => p.key === active);
-    const t = usage.totals || {};
+    const t = usage?.totals || {};
     const [tests, setTests] = useState(() => Object.fromEntries(providers.map((p) => [p.key, p.test])));
     const [busy, setBusy] = useState(null);
     const [tab, setTab] = useState('schools');
@@ -152,6 +152,7 @@ export default function AiCenter() {
                     );
                 })}
             </div>
+            <TtsBox tts={tts} />
             <p className="ai-note">🔒 کلیدها فقط روی سرور ذخیره می‌شوند و هرگز کامل نمایش داده نمی‌شوند. خالی‌گذاشتنِ کادرِ کلید یعنی «بدونِ تغییر». با «فعال کن»، همه‌ی بخش‌ها (دستیار، طراحیِ سؤالِ آزمون و بازی و مأموریت، کاربرگ، اطلاعیه‌نویس) بلافاصله از همان سرویس استفاده می‌کنند.</p>
 
             {/* ===== مصرف ===== */}
@@ -159,6 +160,7 @@ export default function AiCenter() {
                 <h3>📊 مصرفِ توکن و هزینه</h3>
                 <PeriodPicker days={days} />
             </div>
+            {usage?.error && <div className="panel" style={{ borderColor: '#f3b4b4', background: '#fff5f5' }}>⚠️ گزارشِ مصرف فعلاً نمایش داده نشد: {usage.error}</div>}
             <div className="ai-two">
                 <div className="panel"><h3>📈 توکنِ مصرفیِ روزانه</h3><AreaTrend data={usage.series || []} valueLabel="توکن" empty="هنوز مصرفی ثبت نشده" /></div>
                 <div className="panel"><h3>🧩 به تفکیکِ کاربرد</h3>
@@ -305,6 +307,34 @@ function Prices({ providers, prices, currency, usedModels }) {
                 <button type="button" className="btn" disabled={form.processing} onClick={() => form.post(route('admin.ai.prices'), { preserveScroll: true })}>💾 ذخیره‌ی قیمت‌ها</button>
                 {allModels.length > models.length || all ? <button type="button" className="btn btn-ghost" onClick={() => setAll(!all)}>{all ? 'فقط مدل‌های در حالِ استفاده' : `نمایشِ همه‌ی مدل‌ها (${fa(allModels.length)})`}</button> : null}
             </div>
+        </div>
+    );
+}
+
+/** «🔊 بخوان برایم» — وضعیت، روشن/خاموش و آزمایشِ صدای فارسی. */
+function TtsBox({ tts }) {
+    const [on, setOn] = useState(tts.on !== false);
+    const [msg, setMsg] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const engine = tts.engine === 'openai' ? 'OpenAI' : tts.engine === 'gemini' ? 'Gemini' : null;
+    const toggle = async () => { const v = !on; setOn(v); await axios.post(route('admin.ai.tts'), { on: v }).catch(() => {}); };
+    const test = async () => {
+        setBusy(true); setMsg(null);
+        try {
+            const { data } = await axios.post(route('admin.ai.tts'), { test: true });
+            if (data.ok && data.url) { setMsg({ ok: true, text: '✅ صدای فارسی کار می‌کند.' }); new Audio(data.url).play().catch(() => {}); } else setMsg({ ok: false, text: data.message || 'ناموفق' });
+        } catch { setMsg({ ok: false, text: 'درخواست ناموفق بود.' }); }
+        setBusy(false);
+    };
+    return (
+        <div className="panel" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <b>🔊 «بخوان برایم» با صدای فارسی</b>
+            <span style={{ fontSize: 13, color: 'var(--muted)', flex: '1 1 260px', lineHeight: 1.9 }}>
+                {engine ? `برای دستگاه‌هایی که خودشان صدای فارسی ندارند (مثلِ آیفون)، متن با ${engine} خوانده و فایلش ذخیره می‌شود؛ هر متن فقط یک‌بار هزینه دارد.` : 'برای صدای فارسی روی همه‌ی گوشی‌ها، کلیدِ OpenAI یا Gemini را ثبت کنید؛ تا آن موقع فقط دستگاه‌هایی که صدای فارسی دارند می‌خوانند و روی بقیه دکمه نمایش داده نمی‌شود.'}
+            </span>
+            <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={on} onChange={toggle} /> فعال</label>
+            <button type="button" className="btn btn-sm" onClick={test} disabled={busy || !engine}>{busy ? '…' : '🔊 آزمایشِ صدا'}</button>
+            {msg && <div style={{ width: '100%', fontSize: 13, color: msg.ok ? '#138a4f' : '#c0392b' }}>{msg.text}</div>}
         </div>
     );
 }

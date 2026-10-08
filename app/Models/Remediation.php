@@ -22,7 +22,7 @@ class Remediation extends Model
         'lost_xp' => 'integer', 'cap_xp' => 'integer', 'recovered_xp' => 'integer', 'step' => 'integer', 'steps' => 'integer',
     ];
 
-    public const SOURCE_LABELS = ['exam' => '🧪 آزمون', 'game' => '🎮 بازی', 'mission' => '🎯 مأموریت'];
+    public const SOURCE_LABELS = ['exam' => '🧪 آزمون', 'game' => '🎮 بازی', 'mission' => '🎯 مأموریت', 'grade' => '📔 نمره‌ی کلاسی', 'teacher' => '👩‍🏫 مرورِ معلم'];
 
     public function student(): BelongsTo { return $this->belongsTo(User::class, 'student_id'); }
     public function objective(): BelongsTo { return $this->belongsTo(LearningObjective::class, 'objective_id'); }

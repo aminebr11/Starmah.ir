@@ -19,7 +19,7 @@ class AiUsage
 
     public const FEATURES = [
         'assistant' => '🤖 دستیارِ هوشمند', 'questions' => '🧠 طراحیِ سؤال (آزمون/بازی/مأموریت)', 'worksheet' => '📝 کاربرگ',
-        'announcement' => '📢 اطلاعیه و پیام', 'image' => '🎨 تصویرسازی', 'test' => '🧪 آزمایشِ اتصال', 'other' => '✨ سایر',
+        'announcement' => '📢 اطلاعیه و پیام', 'image' => '🎨 تصویرسازی', 'tts' => '🔊 خواندنِ فارسی (صدا)', 'test' => '🧪 آزمایشِ اتصال', 'other' => '✨ سایر',
     ];
 
     public static function handle(ResponseReceived $e): void

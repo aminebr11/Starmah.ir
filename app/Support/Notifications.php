@@ -330,7 +330,7 @@ class Notifications
                         'group' => 'personal',
                         'icon'  => '🔁',
                         'color' => '#e8505b',
-                        'title' => 'نوبتِ جبرانِ اشتباه رسید — '.Jalali::fa((string) $due->count()).' مورد',
+                        'title' => 'نوبتِ مرورِ اشتباه‌ها رسید — '.Jalali::fa((string) $due->count()).' مورد',
                         'body'  => 'سؤال‌هایی که اشتباه زده بودی دوباره آمده‌اند'.($left > 0 ? '؛ تا '.Jalali::fa((string) $left).' امتیاز را پس بگیر.' : '.'),
                         'date'  => Jalali::format(now(), true),
                         'href'  => '/missions/remedial/play',
