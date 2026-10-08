@@ -361,12 +361,9 @@ class WorksheetController extends Controller
 
         $submissions = [];
         if (WorksheetAccess::canEdit($user, $worksheet)) {
-            $submissions = $worksheet->submissions()->with('student:id,name')->latest('submitted_at')->get()
-                ->map(fn ($s) => [
-                    'id' => $s->id, 'student' => $s->student?->name,
-                    'url' => Storage::disk('public')->url($s->file_path),
-                    'note' => $s->note, 'date' => Jalali::format($s->submitted_at ?? $s->created_at, true),
-                ]);
+            // فقط ارسال‌های دارای فایل (ردیفِ «دانلود» بدونِ فایل هم در همین جدول است)
+            $submissions = $worksheet->submissions()->whereNotNull('file_path')->with('student:id,name')->latest('submitted_at')->get()
+                ->map(fn ($s) => $s->viewData() + ['student' => $s->student?->name])->values();
         }
 
         return Inertia::render('Teacher/WorksheetView', [
@@ -391,6 +388,8 @@ class WorksheetController extends Controller
             'canEdit' => WorksheetAccess::canEdit($user, $worksheet),
             'themes' => $this->sheets->themeList(),
             'submissions' => $submissions,
+            'gradeOptions' => \App\Models\WorksheetSubmission::GRADES,
+            'maxXp' => \App\Models\WorksheetSubmission::MAX_XP,
         ]);
     }
 

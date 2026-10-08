@@ -3,6 +3,7 @@ import { usePage } from '@inertiajs/react';
 import { useRef, useState } from 'react';
 import axios from 'axios';
 import ThemedDash from '@/Layouts/ThemedDash';
+import SubmissionViewer from '@/Components/SubmissionViewer';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const card = { background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 18, padding: 16, color: '#fff' };
@@ -13,6 +14,7 @@ export default function WorksheetView() {
     const fileRef = useRef(null);
     const [dlToast, setDlToast] = useState(downloaded ? null : `این کاربرگ را دریافت کن تا +${fa(downloadXp)} امتیاز بگیری`);
     const [gotDl, setGotDl] = useState(downloaded);
+    const [viewing, setViewing] = useState(false);
 
     // ثبتِ دریافت (یک‌بار امتیاز) هنگام چاپ یا دانلودِ فایل
     const markDownloaded = async () => {
@@ -61,7 +63,14 @@ export default function WorksheetView() {
                 <p style={{ opacity: .8, fontSize: 13, marginTop: 4 }}>کاربرگ را چاپ/دانلود کن، با دست پرش کن، سپس عکس یا فایلش را این‌جا برای معلم بفرست. با اولین ارسال +{fa(submitXp)} امتیاز می‌گیری؛ اگر پاسخت درست باشد، معلم در امتیازِ گروهی برایت امتیازِ بیشتر ثبت می‌کند.</p>
                 {submitted && (
                     <div style={{ background: 'rgba(43,182,115,.18)', border: '1px solid rgba(43,182,115,.5)', borderRadius: 12, padding: '10px 14px', marginTop: 8 }}>
-                        ✅ قبلاً فرستادی ({submitted.date}) — <a href={submitted.url} target="_blank" rel="noreferrer" style={{ color: '#9be7bd', fontWeight: 800 }}>مشاهده</a>. می‌توانی نسخه‌ی جدید بفرستی.
+                        ✅ قبلاً فرستادی ({submitted.date}) — <button type="button" onClick={() => setViewing(true)} style={{ background: 'none', border: 0, padding: 0, color: '#9be7bd', fontWeight: 800, font: 'inherit', cursor: 'pointer', textDecoration: 'underline' }}>مشاهده</button>. می‌توانی نسخه‌ی جدید بفرستی.
+                        {submitted.graded ? (
+                            <div style={{ marginTop: 8, background: 'rgba(0,0,0,.2)', borderRadius: 10, padding: '8px 12px', lineHeight: 1.9 }}>
+                                ✍️ <b>معلم تصحیح کرد</b>{submitted.grade ? <> — نمره: <b>{submitted.grade}</b></> : null}{submitted.xp > 0 ? <> — ⚡ +{fa(submitted.xp)} امتیاز</> : null}
+                                {submitted.feedback && <div>💬 {submitted.feedback}</div>}
+                                {submitted.marked_url && <button type="button" onClick={() => setViewing(true)} className="k3-btn" style={{ marginTop: 6, fontSize: 13 }}>🖍️ دیدنِ برگه‌ی تصحیح‌شده</button>}
+                            </div>
+                        ) : <div style={{ marginTop: 4, fontSize: 12.5, opacity: .85 }}>⏳ منتظرِ تصحیحِ معلم</div>}
                     </div>
                 )}
                 <form onSubmit={send} style={{ marginTop: 10 }}>
@@ -73,6 +82,7 @@ export default function WorksheetView() {
                     <button type="submit" disabled={form.processing || !form.data.file} style={{ marginTop: 10, background: 'linear-gradient(135deg,#2bb673,#0f9d58)', color: '#fff', border: 0, padding: '11px 20px', borderRadius: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>{form.processing ? 'در حال ارسال…' : '📨 ارسال برای معلم'}</button>
                 </form>
             </div>
+            {viewing && submitted && <SubmissionViewer items={[submitted]} onClose={() => setViewing(false)} />}
         </ThemedDash>
     );
 }

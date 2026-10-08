@@ -52,10 +52,7 @@ class StudentWorksheetController extends Controller
             'downloadXp' => self::DOWNLOAD_XP,
             'submitXp' => self::SUBMIT_XP,
             'downloaded' => $mine ? (bool) $mine->download_xp : false,
-            'submitted' => $mine && $mine->file_path ? [
-                'url' => Storage::disk('public')->url($mine->file_path),
-                'note' => $mine->note, 'date' => Jalali::format($mine->submitted_at ?? $mine->created_at, true),
-            ] : null,
+            'submitted' => $mine && $mine->file_path ? $mine->viewData() : null,
         ]);
     }
 
@@ -108,6 +105,15 @@ class StudentWorksheetController extends Controller
         }
 
         $sub->file_path = $this->storeUpload($request->file('file'), 'worksheet-submissions');
+        // نسخه‌ی تازه بعد از تصحیح: علامت‌های معلم روی نسخه‌ی قبلی بود؛ دوباره «منتظرِ تصحیح» می‌شود
+        // (امتیازِ تصحیحِ قبلی سرِ جایش می‌ماند تا معلم دوباره تصحیح کند)
+        if (\App\Support\DbSchema::hasColumn('worksheet_submissions', 'graded_at') && $sub->graded_at) {
+            if ($sub->marked_path) {
+                Storage::disk('public')->delete($sub->marked_path);
+            }
+            $sub->marked_path = null;
+            $sub->graded_at = null;
+        }
         $sub->note = $data['note'] ?? null;
         $sub->submitted_at = now();
         $sub->save();

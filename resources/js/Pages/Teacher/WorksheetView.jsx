@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { usePage, Link, useForm, router } from '@inertiajs/react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import QuestionEditor, { Q_TYPES, blankQ } from '@/Components/QuestionEditor';
+import SubmissionViewer from '@/Components/SubmissionViewer';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 /** نمایش/چاپ کاربرگ + انتشار برای کلاس + دیدن کاربرگ‌های پرشده‌ی دانش‌آموزان. */
 export default function WorksheetView() {
-    const { worksheet, classrooms = [], canEdit, submissions = [], themes = [] } = usePage().props;
+    const { worksheet, classrooms = [], canEdit, submissions = [], themes = [], gradeOptions = {}, maxXp = 50 } = usePage().props;
     const print = () => window.print();
     const pub = useForm({ classroom_id: worksheet.classroom_id || (classrooms[0]?.id ?? '') });
     const publish = () => pub.post(route('teacher.worksheets.publish', worksheet.id), { preserveScroll: true });
@@ -116,24 +117,53 @@ export default function WorksheetView() {
                 </div>
             )}
 
-            {/* کاربرگ‌های پرشده‌ی دانش‌آموزان */}
-            {canEdit && (
-                <div className="panel no-print" style={{ marginTop: 16 }}>
-                    <h3 style={{ marginTop: 0 }}>📥 کاربرگ‌های ارسالی دانش‌آموزان ({fa(submissions.length)})</h3>
-                    {submissions.length === 0 ? <p style={{ color: 'var(--muted)' }}>هنوز کسی کاربرگِ پرشده نفرستاده است.</p> : (
-                        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))' }}>
-                            {submissions.map((s) => (
-                                <a key={s.id} href={s.url} target="_blank" rel="noreferrer" style={{ border: '1px solid var(--line)', borderRadius: 12, padding: 12, textDecoration: 'none', color: 'var(--ink)' }}>
-                                    <div style={{ fontWeight: 800 }}>👤 {s.student}</div>
-                                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{s.date}</div>
-                                    {s.note && <div style={{ fontSize: 12.5, marginTop: 4 }}>{s.note}</div>}
-                                    <div style={{ marginTop: 8, fontWeight: 800, fontSize: 13, color: '#2555c0' }}>⬇️ مشاهده فایل</div>
-                                </a>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
+            {/* کاربرگ‌های پرشده‌ی دانش‌آموزان — بازکردن و تصحیح داخلِ خودِ سایت */}
+            {canEdit && <Submissions initial={submissions} grades={gradeOptions} maxXp={maxXp} />}
         </DashLayout>
+    );
+}
+
+function Submissions({ initial, grades, maxXp }) {
+    const [list, setList] = useState(initial);
+    const [open, setOpen] = useState(null);
+    const [filter, setFilter] = useState('all');
+    const pending = list.filter((s) => !s.graded).length;
+    const shown = filter === 'todo' ? list.filter((s) => !s.graded) : filter === 'done' ? list.filter((s) => s.graded) : list;
+    const merge = (arr, sub) => arr.map((x) => (x.id === sub.id ? { ...x, ...sub } : x));
+    // نمایشگر فهرستِ ثابتِ لحظه‌ی بازشدن را می‌گیرد (با فیلترِ «منتظرِ تصحیح» موردِ تصحیح‌شده از زیرِ دستش نپرد)
+    const saved = (sub) => { setList((l) => merge(l, sub)); setOpen((o) => (o ? { ...o, items: merge(o.items, sub) } : o)); };
+
+    return (
+        <div className="panel no-print" style={{ marginTop: 16 }}>
+            <h3 style={{ marginTop: 0 }}>📥 کاربرگ‌های ارسالی دانش‌آموزان ({fa(list.length)})</h3>
+            {list.length === 0 ? <p style={{ color: 'var(--muted)' }}>هنوز کسی کاربرگِ پرشده نفرستاده است.</p> : (
+                <>
+                    <p style={{ color: 'var(--muted)', fontSize: 12.5, margin: '0 0 8px' }}>روی هر کاربرگ بزنید: همان‌جا باز می‌شود، روی برگه تیک/ضربدر بزنید و نمره و امتیاز بدهید.</p>
+                    <div className="ws-filter">
+                        <button type="button" className={filter === 'all' ? 'on' : ''} onClick={() => setFilter('all')}>همه ({fa(list.length)})</button>
+                        <button type="button" className={filter === 'todo' ? 'on' : ''} onClick={() => setFilter('todo')}>منتظرِ تصحیح ({fa(pending)})</button>
+                        <button type="button" className={filter === 'done' ? 'on' : ''} onClick={() => setFilter('done')}>تصحیح‌شده ({fa(list.length - pending)})</button>
+                    </div>
+                    <div className="ws-subs">
+                        {shown.map((s) => (
+                            <button key={s.id} type="button" className="ws-sub" onClick={() => setOpen({ items: shown, index: shown.indexOf(s) })}>
+                                <div className="ws-sub-thumb" style={!s.pdf ? { backgroundImage: `url("${s.marked_url || s.url}")` } : undefined}>
+                                    {s.pdf && '📄'}
+                                    <span className={`ws-sub-badge ${s.graded ? 'done' : ''}`}>{s.graded ? `✅ ${s.grade || 'تصحیح شد'}` : '⏳ تصحیح نشده'}</span>
+                                </div>
+                                <div className="ws-sub-b">
+                                    <b>👤 {s.student}</b>
+                                    <span>{s.date}{s.graded && s.xp > 0 ? ` · ⚡ ${fa(s.xp)}` : ''}</span>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </>
+            )}
+            {open && (
+                <SubmissionViewer items={open.items} index={open.index} canGrade grades={grades} maxXp={maxXp}
+                    onSaved={saved} onClose={() => setOpen(null)} />
+            )}
+        </div>
     );
 }

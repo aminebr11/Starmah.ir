@@ -414,6 +414,11 @@ Route::middleware(['auth', 'role:parent'])->group(function () {
 
 /* ---------------- مشترک ---------------- */
 Route::middleware('auth')->group(function () {
+    // کاربرگِ پرشده: فایل از مسیرِ خودِ سایت (نه لینکِ مستقیم) + تصحیحِ معلم
+    Route::get('/worksheet-files/{submission}/{which?}', [\App\Http\Controllers\WorksheetSubmissionController::class, 'file'])
+        ->whereIn('which', ['file', 'marked'])->name('worksheet.file');
+    Route::post('/worksheet-submissions/{submission}/grade', [\App\Http\Controllers\WorksheetSubmissionController::class, 'grade'])
+        ->middleware('throttle:60,1')->name('worksheet.grade');
     // سقفِ نرخ: هزینه‌ی کلیدِ هوش مصنوعی را از تکرارِ پرشتاب حفظ می‌کند
     // برنامه‌ی درسی (کلاس‌ها، درس‌ها و فصل‌ها) برای فرم‌های ساختِ آزمون و بازی
     Route::middleware('role:teacher|school_admin|super_admin')->prefix('curriculum')->name('curriculum.')->group(function () {
