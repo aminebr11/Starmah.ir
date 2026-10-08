@@ -82,7 +82,7 @@ function Overview({ report, onMastery }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 14, marginTop: 14 }}>
                 <div style={card}>
                     <ST>💪 نقاط قوت</ST>
-                    {(report.strengths || []).length === 0 && <Empty>هنوز درسی به سطحِ «نزدیک به تسلط» (۷۰٪) نرسیده؛ با تمرین می‌رسد 💪</Empty>}
+                    {(report.strengths || []).length === 0 && <Empty>هنوز درسی به سطحِ «خوب» (۷۰٪) نرسیده؛ با تمرین می‌رسد 💪</Empty>}
                     {(report.strengths || []).map((s, i) => <Bar key={i} name={s.name} pct={s.mastery} color="#2bb673" />)}
                 </div>
                 <div style={card}>

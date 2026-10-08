@@ -3,13 +3,14 @@ import { useState, useRef, useEffect } from 'react';
 import ThemedDash from '@/Layouts/ThemedDash';
 import Confetti from '@/Components/Confetti';
 import useGameSound from '@/hooks/useGameSound';
+import ReadAloud from '@/Components/ReadAloud';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const CHEER = ['آفرین! 🎉', 'عالی بود! 🌟', 'ایول! 💪', 'درسته! ✅', 'کارِت درسته! 🚀'];
 const NUDGE = ['اشکالی نداره، ادامه بده! 💛', 'دفعه‌ی بعد می‌گیریش! 🙂', 'یاد گرفتن مهم‌تره! 🌱'];
 
 export default function GamePlayer() {
-    const { game = {}, attempt = {}, flash, preview = null } = usePage().props;
+    const { game = {}, attempt = {}, flash, preview = null, a11y = null } = usePage().props;
     const skin = game.theme?.skin || {};
     const questions = game.questions || [];
     const rules = game.rules || {};
@@ -170,9 +171,12 @@ export default function GamePlayer() {
                 {/* سؤال */}
                 {!done && q && (
                     <div className="k3-card">
-                        <div style={{ fontSize: 12.5, opacity: .75, marginBottom: 6 }}>سؤال {fa(step + 1)} از {fa(total)} · ⚡ {fa(q.points)}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+                            <span style={{ fontSize: 12.5, opacity: .75 }}>سؤال {fa(step + 1)} از {fa(total)} · ⚡ {fa(q.points)}</span>
+                            {a11y?.readAloud !== false && <ReadAloud text={q.prompt} />}
+                        </div>
                         {q.media && <img src={q.media} alt="" style={{ maxWidth: '100%', borderRadius: 12, marginBottom: 10 }} />}
-                        <div style={{ fontWeight: 800, fontSize: 18, lineHeight: 2 }}>{q.prompt}</div>
+                        <div style={{ fontWeight: 800, fontSize: a11y?.largeText ? 23 : 18, lineHeight: 2 }}>{q.prompt}</div>
 
                         <div style={{ display: 'grid', gap: 10, marginTop: 16, gridTemplateColumns: q.choices.length > 2 ? '1fr 1fr' : '1fr' }}>
                             {q.choices.map((c, ci) => {

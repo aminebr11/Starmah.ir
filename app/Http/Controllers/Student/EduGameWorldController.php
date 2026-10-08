@@ -196,6 +196,19 @@ class EduGameWorldController extends Controller
             'completed_at' => now(),
         ]);
 
+        // زمان‌بندیِ مرورِ فاصله‌دار — فقط بارِ اول (بازی پاسخ‌ها را به مرورگر می‌فرستد، تکرار شاهدِ واقعی نیست)
+        if ($firstCompletion) {
+            $objectiveOf = \App\Models\SmartQuestionBank::withoutGlobalScopes()
+                ->whereIn('id', $eduGame->questions->pluck('bank_id')->filter()->unique())->pluck('objective_id', 'id');
+            $events = [];
+            foreach ($eduGame->questions->values() as $i => $q) {
+                if ($q->bank_id && ! empty($objectiveOf[$q->bank_id]) && isset($detail[$i])) {
+                    $events[] = ['objective_id' => $objectiveOf[$q->bank_id], 'bank_id' => $q->bank_id, 'correct' => $detail[$i]['correct']];
+                }
+            }
+            app(\App\Services\LearningService::class)->record($user, $events, 'game', $att->id, false);
+        }
+
         // XP فقط بار اولِ تکمیل (idempotent با منبعِ Attempt)
         if ($firstCompletion && $bestScore > 0) {
             $game->award($user, $bestScore, '🎮 بازی — ' . $eduGame->title,

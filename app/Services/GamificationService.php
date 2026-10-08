@@ -222,14 +222,18 @@ class GamificationService
     {
         $awarded = [];
 
-        $totalXp = $student->totalXp();
         $rules = [
-            'streak-7' => fn () => ActivityResult::where('student_id', $student->id)->count() >= 7,
+            // ۷ روزِ «پیاپی» تمرین (مأموریت یا مرور) — نه ۷ نتیجه در هر زمانی
+            'streak-7' => fn () => \App\Support\Streak::days($student) >= 7,
             'king-mul' => fn () => SkillMastery::where('student_id', $student->id)->where('mastery', '>=', 90)->exists(),
         ];
+        // نشانِ زنجیره در مدرسه‌هایی که داده‌ی نمونه ندارند هم باید وجود داشته باشد
+        $defaults = ['streak-7' => ['name' => '۷ روز پیاپی', 'emoji' => '🔥', 'description' => 'هفت روزِ پشت‌سرِهم تمرین کردی']];
 
         foreach ($rules as $key => $passes) {
-            $badge = Badge::where('key', $key)->first();
+            $badge = isset($defaults[$key])
+                ? Badge::firstOrCreate(['key' => $key], $defaults[$key])
+                : Badge::where('key', $key)->first();
             if (! $badge) {
                 continue;
             }

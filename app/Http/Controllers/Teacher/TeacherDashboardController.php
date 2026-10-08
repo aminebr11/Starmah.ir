@@ -152,6 +152,10 @@ class TeacherDashboardController extends Controller
                 : null,
             'trendStudent' => isset($sid) && $studentIds->contains($sid) ? \App\Models\User::find($sid)?->name : null,
             'heatmap' => $classIds->isNotEmpty() ? $analytics->activityHeatmap($classIds, 6) : null,
+            // نقشه‌ی تسلطِ کلاس (دانش‌آموز × مبحث) و «چه کسی امروز کمک لازم دارد»
+            'masteryGrid' => fn () => $classroom
+                ? \App\Support\MasteryGrid::build($classroom->students()->orderBy('users.name')->get(['users.id', 'users.name']))
+                : null,
         ]);
     }
 

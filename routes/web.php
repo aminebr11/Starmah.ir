@@ -174,6 +174,11 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     //    رشته‌ی «combo» را به‌جای شناسه می‌گیرد و نتیجه ۴۰۴ می‌شود.
     //    قیدِ whereNumber هم گذاشته شده تا این اشتباه دوباره ممکن نباشد.
     Route::post('/missions/combo/claim', [\App\Http\Controllers\Student\MissionController::class, 'claimCombo'])->name('missions.combo');
+    // بازخوردِ همان لحظه (بررسیِ هر پاسخ + راهنما) و «مرورِ امروز»
+    Route::post('/missions/check', [\App\Http\Controllers\Student\MissionController::class, 'check'])->middleware('throttle:120,1')->name('missions.check');
+    Route::post('/missions/hint', [\App\Http\Controllers\Student\MissionController::class, 'hint'])->middleware('throttle:60,1')->name('missions.hint');
+    Route::post('/me/a11y', [\App\Http\Controllers\Student\A11yController::class, 'update'])->name('a11y.update');
+    Route::get('/missions/review/play', [\App\Http\Controllers\Student\MissionController::class, 'reviewPlay'])->name('missions.review.play');
     Route::get('/missions/{mission}/play', [\App\Http\Controllers\Student\MissionController::class, 'play'])->whereNumber('mission')->name('missions.play');
     Route::post('/missions/{mission}/claim', [\App\Http\Controllers\Student\MissionController::class, 'claim'])->whereNumber('mission')->name('missions.claim');
 

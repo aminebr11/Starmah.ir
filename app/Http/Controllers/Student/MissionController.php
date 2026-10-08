@@ -11,11 +11,19 @@ use App\Models\EduGameAttempt;
 use App\Models\Mission;
 use App\Models\MissionCombo;
 use App\Models\MissionCompletion;
+use App\Models\LearningObjective;
+use App\Models\ObjectiveReview;
+use App\Models\ReviewCompletion;
 use App\Models\SmartExam;
 use App\Models\SmartExamAttempt;
 use App\Models\Worksheet;
 use App\Models\WorksheetSubmission;
 use App\Services\GamificationService;
+use App\Services\LearningService;
+use App\Services\MasteryService;
+use App\Services\ReviewMissionBuilder;
+use App\Support\Objectives;
+use App\Support\Streak;
 use App\Support\BankAccess;
 use App\Support\MissionAccess;
 use App\Support\Jalali;
@@ -51,6 +59,17 @@ class MissionController extends Controller
     private const STREAK_BONUS = 5;
 
     private const STREAK_BONUS_MAX = 50;
+
+    /** امتیازِ پایه‌ی «مرورِ امروز». */
+    private const REVIEW_XP = 15;
+
+    /** پاداش‌های رشد (تلاش و پیشرفت، نه فقط درستی). */
+    private const XP_PERSONAL_BEST = 5;
+    private const XP_RETRY_FIX = 1;
+    private const XP_RETRY_FIX_MAX = 5;
+    private const XP_LEVEL_UP = 10;
+
+    private const GENERIC_HINT = 'صورتِ سؤال را یک بارِ دیگر آرام و با دقت بخوان 🔍';
 
     /* ═══════════════════════ دامنه‌ی دسترسی ═══════════════════════ */
 
@@ -94,6 +113,8 @@ class MissionController extends Controller
             'streak' => $this->streak($user),
             'combo' => $this->comboState($user, $cards->all()),
             'history' => $this->recentHistory($user),
+            'review' => $this->reviewState($user),
+            'mastery' => $this->masteryChips($user),
         ]);
     }
 
@@ -169,29 +190,10 @@ class MissionController extends Controller
 
     /* ═══════════════════════ پخش و تاریخچه ═══════════════════════ */
 
-    /** روزهای پیاپیِ انجامِ مأموریت — سوختِ اصلیِ انگیزه. */
+    /** روزهای پیاپیِ تمرین (مأموریت یا مرور) — سوختِ اصلیِ انگیزه. */
     private function streak($user): int
     {
-        $dates = MissionCompletion::where('student_id', $user->id)
-            ->orderByDesc('play_date')->pluck('play_date')
-            ->map(fn ($d) => $d->toDateString())->unique()->values();
-
-        $streak = 0;
-        $cursor = now()->startOfDay();
-        foreach ($dates as $d) {
-            if ($d === $cursor->toDateString()) {
-                $streak++;
-                $cursor->subDay();
-            } elseif ($d === $cursor->copy()->subDay()->toDateString() && $streak === 0) {
-                // دیروز انجام داده و امروز هنوز نه — رشته هنوز زنده است
-                $streak++;
-                $cursor->subDays(2);
-            } else {
-                break;
-            }
-        }
-
-        return $streak;
+        return Streak::days($user);
     }
 
     /** هفت روزِ اخیر: چند مأموریت در هر روز — برای نوارِ تقویمِ کوچکِ صفحه. */
@@ -351,95 +353,292 @@ class MissionController extends Controller
         $pool = $this->bankQuery($mission)->inRandomOrder()->limit(max(1, (int) $mission->question_count))->get();
         abort_if($pool->isEmpty(), 404, 'برای این مأموریت هنوز سؤالی در بانک نیست.');
 
+        return $this->startSession($request, 'quiz', $mission, $pool->map(fn ($q) => ['bank' => $q, 'objective_id' => null])->all(), [
+            'id' => $mission->id, 'title' => $mission->title, 'description' => $mission->description,
+            'subject' => $mission->subject, 'xp_reward' => $mission->xp_reward,
+            'pass_percent' => $mission->pass_percent ?? 60,
+            'badge_name' => $mission->badge_name, 'badge_icon' => $mission->badge_icon,
+        ]);
+    }
+
+    /** «مرورِ امروز» — سؤال‌های خودکار از هدف‌های جاری و سررسیدِ همین دانش‌آموز. */
+    public function reviewPlay(Request $request, ReviewMissionBuilder $builder): Response|RedirectResponse
+    {
+        $user = $request->user();
+        $items = $builder->build($user);
+        if (count($items) < ReviewMissionBuilder::MIN) {
+            return redirect()->route('missions')->with('flash', 'هنوز سؤالِ کافی برای مرور نیست — اول چند مأموریت انجام بده 🙂');
+        }
+
+        return $this->startSession($request, 'review', null, $items, [
+            'id' => null, 'title' => 'مرورِ امروز',
+            'description' => 'این‌ها را چند روز پیش یاد گرفتی — مرورشان کن تا همیشه یادت بماند!',
+            'subject' => null, 'xp_reward' => self::REVIEW_XP, 'pass_percent' => 0,
+            'badge_name' => null, 'badge_icon' => '🔁',
+        ]);
+    }
+
+    /**
+     * جلسه‌ی پرسش: کلیدِ پاسخ، راهنما و وضعیتِ هر سؤال فقط در session سرور می‌ماند.
+     *
+     * @param  array<int,array{bank:\App\Models\SmartQuestionBank,objective_id:?int}>  $items
+     */
+    private function startSession(Request $request, string $kind, ?Mission $mission, array $items, array $meta): Response
+    {
         $token = (string) Str::uuid();
         $questions = [];
-        $key = [];
-        foreach ($pool->values() as $i => $q) {
+        $state = [];
+        foreach (array_values($items) as $i => $it) {
+            $q = $it['bank'];
             // گزینه‌ها هر بار درهم می‌شوند تا حفظ‌کردنِ «جایِ پاسخ» بی‌فایده باشد
             $choices = collect($q->choices ?? [])->shuffle()->values();
             $correct = $choices->first(fn ($c) => ! empty($c['correct']));
+            $oid = LearningService::ready() ? ($it['objective_id'] ?: ($q->objective_id ?: Objectives::idFor($q))) : null;
             $questions[] = [
                 'i' => $i, 'type' => $q->type, 'prompt' => $q->prompt,
                 'choices' => $choices->map(fn ($c) => ['value' => $c['value'] ?? ''])->values(),
+                'objective' => $oid,
             ];
-            $key[$i] = ['answer' => $correct['value'] ?? null, 'explanation' => $q->explanation];
+            $state[$i] = [
+                'answer' => $correct['value'] ?? null, 'explanation' => $q->explanation, 'hint' => $q->hint,
+                'choices' => $choices->pluck('value')->all(), 'bank_id' => $q->id, 'objective_id' => $oid,
+                'tries' => 0, 'ok' => null, 'hinted' => false, 'picked' => [],
+            ];
         }
-        $request->session()->put("mission.$token", ['mission_id' => $mission->id, 'key' => $key]);
+        $request->session()->put("mission.$token", ['kind' => $kind, 'mission_id' => $mission?->id, 'items' => $state]);
+
+        $labels = LearningService::ready()
+            ? LearningObjective::whereIn('id', array_filter(array_column($questions, 'objective')))->pluck('label', 'id')
+            : collect();
+        foreach ($questions as &$qq) {
+            $qq['objective'] = $labels[$qq['objective']] ?? null;
+        }
+        unset($qq);
 
         return Inertia::render('Student/MissionPlay', [
-            'mission' => [
-                'id' => $mission->id, 'title' => $mission->title, 'description' => $mission->description,
-                'subject' => $mission->subject, 'xp_reward' => $mission->xp_reward,
-                'pass_percent' => $mission->pass_percent ?? 60,
-                'badge_name' => $mission->badge_name, 'badge_icon' => $mission->badge_icon,
-            ],
+            'mission' => $meta + ['kind' => $kind],
             'token' => $token,
             'questions' => $questions,
         ]);
     }
 
-    public function submit(Request $request, GamificationService $game): JsonResponse
+    private function sessionItem(Request $request, string $token, int $i): array
     {
-        $data = $request->validate([
-            'token' => ['required', 'string'],
-            'answers' => ['required', 'array'],
-            'answers.*.i' => ['required', 'integer'],
-            'answers.*.value' => ['nullable'],
-        ]);
-        $sess = $request->session()->pull("mission.{$data['token']}");
+        $sess = $request->session()->get("mission.$token");
         abort_if(! $sess, 419, 'جلسه‌ی مأموریت منقضی شده');
+        abort_unless(isset($sess['items'][$i]), 404);
 
-        $user = $request->user();
-        $mission = Mission::find($sess['mission_id']);
-        abort_if(! $mission, 404);
+        return $sess;
+    }
 
-        $key = $sess['key'];
-        $correct = 0;
-        $total = count($key);
-        $review = [];
-        foreach ($data['answers'] as $ans) {
-            $i = $ans['i'];
-            if (! isset($key[$i])) {
-                continue;
-            }
-            $ok = (string) ($ans['value'] ?? '') === (string) $key[$i]['answer'];
-            $correct += $ok ? 1 : 0;
-            $review[] = [
-                'i' => $i, 'ok' => $ok,
-                'answer' => $key[$i]['answer'],
-                'explanation' => $key[$i]['explanation'] ?? null,
-            ];
+    private static function finished(array $item): bool
+    {
+        return $item['ok'] === true || $item['tries'] >= 2;
+    }
+
+    /**
+     * بررسیِ یک پاسخ — بازخوردِ همان لحظه. هر سؤال دو فرصت دارد؛ پاسخِ درست و
+     * توضیح فقط بعد از جوابِ درست یا تلاشِ دوم فرستاده می‌شود.
+     */
+    public function check(Request $request): JsonResponse
+    {
+        $data = $request->validate(['token' => ['required', 'string'], 'i' => ['required', 'integer'], 'value' => ['nullable']]);
+        $sess = $this->sessionItem($request, $data['token'], $data['i']);
+        $item = &$sess['items'][$data['i']];
+
+        if (! self::finished($item)) {
+            $item['tries']++;
+            $item['picked'][] = (string) ($data['value'] ?? '');
+            $item['ok'] = (string) ($data['value'] ?? '') === (string) $item['answer'];
+            $request->session()->put("mission.{$data['token']}", $sess);
         }
 
-        $today = now()->toDateString();
-        $already = MissionCompletion::where('mission_id', $mission->id)
-            ->where('student_id', $user->id)->whereDate('play_date', $today)->exists();
+        $done = self::finished($item);
 
-        $pass = ($mission->pass_percent ?? 60) / 100;
-        $passed = $total > 0 && ($correct / $total) >= $pass;
-        $xpGain = 0;
-        $badge = null;
-        if (! $already) {
-            // امتیازِ متناسب با درصدِ درست
-            $xpGain = (int) round($mission->xp_reward * ($total ? $correct / $total : 0));
-            if ($xpGain > 0) {
-                $game->award($user, $xpGain, '🎯 مأموریت روزانه — ' . $mission->title,
-                    $mission->teacher, Mission::class, $mission->id);
-            }
-            MissionCompletion::create([
-                'mission_id' => $mission->id, 'student_id' => $user->id, 'play_date' => $today,
-                'score' => $correct, 'total' => $total, 'xp_awarded' => $xpGain,
-            ]);
-            if ($passed && $mission->badge_name) {
-                $badge = $this->awardBadge($user, $mission);
-            }
+        return response()->json([
+            'ok' => (bool) $item['ok'], 'tries' => $item['tries'], 'done' => $done,
+            'retry' => ! $done,
+        ] + ($done ? ['answer' => $item['answer'], 'explanation' => $item['explanation']] : []));
+    }
+
+    /** راهنما: متنِ راهنمای سؤال + حذفِ یک گزینه‌ی غلط (اگر بیش از دو گزینه باشد). یک‌بار برای هر سؤال. */
+    public function hint(Request $request): JsonResponse
+    {
+        $data = $request->validate(['token' => ['required', 'string'], 'i' => ['required', 'integer']]);
+        $sess = $this->sessionItem($request, $data['token'], $data['i']);
+        $item = &$sess['items'][$data['i']];
+        abort_if(self::finished($item), 409, 'این سؤال تمام شده است.');
+
+        if (! $item['hinted']) {
+            $item['hinted'] = true;
+            $wrong = array_values(array_filter($item['choices'], fn ($c) => (string) $c !== (string) $item['answer'] && ! in_array((string) $c, $item['picked'], true)));
+            $item['removed'] = count($item['choices']) > 2 && $wrong ? $wrong[array_rand($wrong)] : null;
+            $request->session()->put("mission.{$data['token']}", $sess);
         }
 
         return response()->json([
-            'correct' => $correct, 'total' => $total,
-            'xp' => $xpGain, 'already' => $already, 'passed' => $passed,
-            'badge' => $badge, 'review' => $review,
+            'hint' => $item['hint'] ?: (empty($item['removed']) ? self::GENERIC_HINT : null),
+            'remove' => $item['removed'] ?? null,
         ]);
+    }
+
+    /**
+     * پایانِ جلسه. نمره فقط از وضعیتِ سمتِ سرور حساب می‌شود (پاسخ‌های ارسالیِ مرورگر نادیده گرفته می‌شوند):
+     * درست در بارِ اول = کامل، در تلاشِ دوم = نیم، با راهنما = سه‌چهارم.
+     */
+    public function submit(Request $request, GamificationService $game, LearningService $learning): JsonResponse
+    {
+        $data = $request->validate(['token' => ['required', 'string']]);
+        $sess = $request->session()->pull("mission.{$data['token']}");
+        abort_if(! $sess || empty($sess['items']), 419, 'جلسه‌ی مأموریت منقضی شده');
+
+        $user = $request->user();
+        $kind = $sess['kind'] ?? 'quiz';
+        $mission = $kind === 'quiz' ? Mission::find($sess['mission_id']) : null;
+        abort_if($kind === 'quiz' && ! $mission, 404);
+
+        $items = $sess['items'];
+        $total = count($items);
+        $correct = 0;
+        $credit = 0.0;
+        $retryFixes = 0;
+        $events = [];
+        $review = [];
+        foreach ($items as $i => $it) {
+            $ok = $it['ok'] === true;
+            $firstTry = $ok && $it['tries'] === 1;
+            $correct += $ok ? 1 : 0;
+            $credit += LearningService::credit($ok, $firstTry, (bool) $it['hinted']);
+            $retryFixes += ($ok && $it['tries'] === 2) ? 1 : 0;
+            if ($it['tries'] > 0) {
+                $events[] = ['objective_id' => $it['objective_id'], 'bank_id' => $it['bank_id'], 'correct' => $ok, 'first_try' => $firstTry, 'hinted' => (bool) $it['hinted']];
+            }
+            $review[] = [
+                'i' => $i, 'ok' => $ok, 'tries' => $it['tries'], 'hinted' => (bool) $it['hinted'],
+                'answer' => $it['answer'], 'explanation' => $it['explanation'] ?? null,
+            ];
+        }
+        $ratio = $total ? $credit / $total : 0;
+
+        $today = now()->toDateString();
+        $already = $kind === 'quiz'
+            ? MissionCompletion::where('mission_id', $mission->id)->where('student_id', $user->id)->whereDate('play_date', $today)->exists()
+            : ReviewCompletion::where('student_id', $user->id)->whereDate('play_date', $today)->exists();
+
+        $passed = $kind === 'review' ? true : ($total > 0 && $ratio >= ($mission->pass_percent ?? 60) / 100);
+        $xpGain = 0;
+        $badge = null;
+        $growth = [];
+        $badges = [];
+
+        if (! $already) {
+            $base = $kind === 'quiz' ? (int) $mission->xp_reward : self::REVIEW_XP;
+            $label = $kind === 'quiz' ? '🎯 مأموریت روزانه — ' . $mission->title : '🔁 مرورِ امروز';
+            $xpGain = (int) round($base * $ratio);
+
+            // رکوردِ شخصی: بهتر از بهترین نتیجه‌ی روزهای قبلِ همین مأموریت
+            $prevBest = null;
+            if ($kind === 'quiz') {
+                $prevBest = MissionCompletion::where('mission_id', $mission->id)->where('student_id', $user->id)
+                    ->whereDate('play_date', '<', $today)->where('total', '>', 0)->get()
+                    ->sortByDesc(fn ($c) => $c->score / $c->total)->first();
+            }
+
+            if ($xpGain > 0) {
+                $game->award($user, $xpGain, $label, $mission?->teacher, $kind === 'quiz' ? Mission::class : ReviewCompletion::class, $mission?->id);
+            }
+            if ($kind === 'quiz') {
+                MissionCompletion::create([
+                    'mission_id' => $mission->id, 'student_id' => $user->id, 'play_date' => $today,
+                    'score' => $correct, 'total' => $total, 'xp_awarded' => $xpGain,
+                ]);
+                if ($passed && $mission->badge_name) {
+                    $badge = $this->awardBadge($user, $mission);
+                }
+            } else {
+                ReviewCompletion::create([
+                    'student_id' => $user->id, 'play_date' => $today,
+                    'score' => $correct, 'total' => $total, 'xp_awarded' => $xpGain,
+                ]);
+            }
+
+            // شواهدِ یادگیری فقط بارِ اولِ روز (تکرارِ بلافاصله بعد از دیدنِ پاسخ‌ها شاهدِ واقعی نیست)
+            $learned = $learning->record($user, $events, $kind === 'quiz' ? 'mission' : 'review', $mission?->id);
+
+            if ($prevBest && $total > 0 && $correct / $total > $prevBest->score / $prevBest->total) {
+                $growth[] = ['icon' => '🚀', 'title' => 'رکوردِ شخصیِ تازه!',
+                    'sub' => 'دفعه‌ی قبل ' . Jalali::fa((string) $prevBest->score) . ' از ' . Jalali::fa((string) $prevBest->total)
+                        . ' — امروز ' . Jalali::fa((string) $correct) . ' از ' . Jalali::fa((string) $total),
+                    'xp' => self::XP_PERSONAL_BEST];
+            }
+            if ($retryFixes > 0) {
+                $growth[] = ['icon' => '🔁', 'title' => Jalali::fa((string) $retryFixes) . ' اشتباه را خودت درست کردی',
+                    'sub' => 'با تلاشِ دوم', 'xp' => min(self::XP_RETRY_FIX_MAX, $retryFixes * self::XP_RETRY_FIX)];
+            }
+            foreach ($learned['band_ups'] as $up) {
+                $growth[] = ['icon' => '⬆️', 'title' => $up['label'] . ' یک سطح بالا رفت!',
+                    'sub' => null, 'xp' => self::XP_LEVEL_UP,
+                    'from' => MasteryService::LEVELS[array_search($up['from'], array_column(MasteryService::LEVELS, 'key'))]['label'] ?? null,
+                    'to' => MasteryService::LEVELS[array_search($up['to'], array_column(MasteryService::LEVELS, 'key'))]['label'] ?? null];
+            }
+            foreach ($growth as $g) {
+                $game->award($user, $g['xp'], '🌱 پیشرفت — ' . $g['title'], null, 'growth', $mission?->id);
+            }
+
+            $badges = $game->checkBadges($user);
+        }
+
+        return response()->json([
+            'kind' => $kind,
+            'correct' => $correct, 'total' => $total, 'percent' => (int) round($ratio * 100),
+            'xp' => $xpGain, 'xp_total' => $xpGain + array_sum(array_column($growth, 'xp')),
+            'already' => $already, 'passed' => $passed,
+            'badge' => $badge, 'badges' => $badges, 'growth' => $growth,
+            'streak' => $this->streak($user),
+            'review' => $review,
+        ]);
+    }
+
+    /** وضعیتِ کارتِ «مرورِ امروز» در تخته‌ی مأموریت. */
+    private function reviewState($user): array
+    {
+        $builder = app(ReviewMissionBuilder::class);
+        $done = $builder->isDoneToday($user);
+        $items = $done ? [] : $builder->build($user);
+
+        return [
+            'available' => ! $done && count($items) >= ReviewMissionBuilder::MIN,
+            'done_today' => $done,
+            'count' => count($items),
+            'objectives' => count(array_unique(array_column($items, 'objective_id'))),
+            'xp' => self::REVIEW_XP,
+        ];
+    }
+
+    /** سطحِ دانش‌آموز در مبحث‌ها (از موتورِ تسلط) + این‌که موعدِ مرورش رسیده یا نه. */
+    private function masteryChips($user): array
+    {
+        if (! LearningService::ready()) {
+            return [];
+        }
+        $due = ObjectiveReview::withoutGlobalScopes()->where('student_id', $user->id)
+            ->whereDate('due_at', '<=', now()->toDateString())->with('objective:id,subject,label')->get()
+            ->mapWithKeys(fn ($r) => [LearningService::topicKey($r->objective?->subject, $r->objective?->label) => true]);
+
+        $rows = [];
+        foreach (app(MasteryService::class)->forStudent($user->id)['subjects'] ?? [] as $s) {
+            foreach ($s['topics'] ?? [] as $t) {
+                $rows[] = [
+                    'subject' => $s['name'], 'topic' => $t['name'], 'mastery' => $t['mastery'],
+                    'level' => $t['level'], 'n' => $t['n'],
+                    'due' => isset($due[LearningService::topicKey($s['name'], $t['name'])]),
+                ];
+            }
+        }
+        // ضعیف‌ترها و سررسیدها بالاتر — همان‌هایی که باید تمرین شوند
+        usort($rows, fn ($a, $b) => [$b['due'], $a['mastery'] ?? 101] <=> [$a['due'], $b['mastery'] ?? 101]);
+
+        return array_slice($rows, 0, 6);
     }
 
     private function awardBadge($user, Mission $mission): ?array

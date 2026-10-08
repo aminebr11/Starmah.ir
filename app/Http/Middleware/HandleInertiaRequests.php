@@ -43,6 +43,8 @@ class HandleInertiaRequests extends Middleware
                 'roles' => $user ? $user->getRoleNames() : [],
             ],
             // عکسِ کاربر و برندِ مدرسه — در همه‌ی داشبوردها (سایدبار/تاپ‌بار) استفاده می‌شود
+            // «بخوان برایم» و «متنِ درشت» — فقط برای دانش‌آموز
+            'a11y' => fn () => $user && $user->hasRole(\App\Support\Roles::STUDENT) ? \App\Support\A11y::for($user) : null,
             'avatarUrl' => $user && $user->avatar ? Storage::url($user->avatar) : null,
             'school' => fn () => $user && $user->school ? [
                 'name'     => $user->school->name,

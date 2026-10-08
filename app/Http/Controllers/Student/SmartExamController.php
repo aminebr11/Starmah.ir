@@ -321,7 +321,7 @@ class SmartExamController extends Controller
         $answersById = collect($data['answers'])->keyBy('i');
         $questions = $smartExam->questions->values();
 
-        $auto = 0; $autoMax = 0; $score = 0; $hasDesc = false;
+        $auto = 0; $autoMax = 0; $score = 0; $hasDesc = false; $graded = [];
         $attempt->answers()->delete();
         foreach ($questions as $i => $q) {
             $given = $answersById[$i]['value'] ?? null;
@@ -344,7 +344,20 @@ class SmartExamController extends Controller
                 'attempt_id' => $attempt->id, 'question_id' => $q->id, 'q_index' => $i,
                 'value' => ['value' => $given], 'correct' => $correct, 'awarded' => $awarded,
             ]);
+            $graded[$i] = $correct;
         }
+
+        // زمان‌بندیِ مرورِ فاصله‌دار (تسلط را موتورِ تسلط از خودِ پاسخ‌های آزمون می‌خواند)
+        $objectiveOf = \App\Models\SmartQuestionBank::withoutGlobalScopes()
+            ->whereIn('id', $questions->pluck('bank_id')->filter()->unique())->pluck('objective_id', 'id');
+        $events = [];
+        foreach ($questions as $i => $q) {
+            $ok = $graded[$i] ?? null;
+            if ($q->bank_id && $ok !== null && ! empty($objectiveOf[$q->bank_id])) {
+                $events[] = ['objective_id' => $objectiveOf[$q->bank_id], 'bank_id' => $q->bank_id, 'correct' => (bool) $ok];
+            }
+        }
+        app(\App\Services\LearningService::class)->record($user, $events, 'smart_exam', $attempt->id, false);
 
         $maxScore = (int) $questions->sum('points');
         $attempt->update([
