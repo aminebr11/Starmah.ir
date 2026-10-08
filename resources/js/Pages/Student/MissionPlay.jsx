@@ -130,13 +130,13 @@ export default function MissionPlay() {
                                 title={`${r.chapter ? `📘 ${r.chapter} — ` : ''}${r.title || ''}`}
                                 sub={r.done ? `کامل شد! ${fa(r.recovered)} از ${fa(r.cap)} امتیاز برگشت`
                                     : r.passed ? `نوبتِ ${fa(r.step)} از ${fa(r.steps)} قبول شد — نوبتِ بعد: ${r.next}`
-                                        : `${fa(r.percent)}٪ — فردا دوباره امتحان کن (برای قبولی ${fa(mission.pass_percent)}٪ لازم است)`} />
+                                        : `${fa(r.percent)}٪ — ${r.next ? `${r.next} دوباره` : 'دوباره'} امتحان کن (برای قبولی ${fa(mission.pass_percent)}٪ لازم است)`} />
                         ))}
                     </div>
                 )}
                 {result.remedial_made > 0 && (
                     <div className="k3-card" style={{ marginTop: 14, background: 'linear-gradient(135deg,#ff7a45,#e8505b)', border: 0 }}>
-                        🔁 برای {fa(result.remedial_made)} سؤالی که اشتباه ماند، «مرورِ اشتباه‌ها» ساخته شد — از تخته‌ی مأموریت‌ها انجامش بده و بخشی از امتیاز را پس بگیر.
+                        🔁 برای {fa(result.remedial_made)} سؤالی که اشتباه ماند، «مرورِ اشتباه‌ها» ساخته شد — از منوی «🔁 مرورِ اشتباه‌های من» انجامش بده و بخشی از امتیاز را پس بگیر.
                     </div>
                 )}
                 {(result.growth?.length > 0 || result.badge || result.badges?.length > 0) && (

@@ -108,7 +108,7 @@ function groupMenu(menu) {
 
 // مقصدهای نوارِ پایینِ موبایل، به ترتیبِ اولویت (هر نقش هرکدام را داشت)
 const BOTTOM_PRIORITY = ['home', 'class', 'students', 'teachers', 'schools', 'studio', 'missions', 'messages', 'notices', 'reports'];
-const BOTTOM_LABEL = { gameworld: 'بازی‌ها', smart: 'آزمون', board: 'رقابت', practice: 'مأموریت', home: 'خانه', class: 'کلاس', students: 'دانش‌آموزان', teachers: 'معلم‌ها', schools: 'مدارس', studio: 'بازی‌ها', missions: 'مأموریت', messages: 'پیام‌ها', notices: 'اعلان‌ها', reports: 'گزارش' };
+const BOTTOM_LABEL = { review: 'مرور', gameworld: 'بازی‌ها', smart: 'آزمون', board: 'رقابت', practice: 'مأموریت', home: 'خانه', class: 'کلاس', students: 'دانش‌آموزان', teachers: 'معلم‌ها', schools: 'مدارس', studio: 'بازی‌ها', missions: 'مأموریت', messages: 'پیام‌ها', notices: 'اعلان‌ها', reports: 'گزارش' };
 
 /**
  * چیدمانِ «خمیرماه»: به‌جای ستونِ کناری، گروه‌های منو تب‌های بزرگِ بالا
@@ -128,7 +128,7 @@ export function ClayDash({
     const current = groups.find((g) => g.items.some((m) => m.key === active)) || groups[0];
     const icon = (m) => MENU_ICON[m.key] || 'star';
     const count = (m) => (m.key === 'notices' ? unreadNotices : (badges[m.key] || 0));
-    const badge = (m) => (count(m) > 0 ? <span className="cd-badge">{count(m)}</span> : null);
+    const badge = (m) => (count(m) > 0 ? <span className="cd-badge">{String(count(m)).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d])}</span> : null);
     const flat = groups.flatMap((g) => g.items);
     const bottom = (bottomKeys || BOTTOM_PRIORITY).map((k) => flat.find((m) => m.key === k)).filter(Boolean).slice(0, 4);
     const logout = () => router.post(route('logout'));
@@ -310,6 +310,7 @@ export const teacherMenu = [
     { divider: 'آموزش و بازی' },
     { key: 'studio', label: 'استودیوی بازی', icon: '🎮', href: '/teacher/studio' },
     { key: 'missions', label: 'مأموریت‌های روزانه', icon: '🎯', href: '/teacher/missions' },
+    { key: 'review', label: 'مرورِ اشتباه‌ها', icon: '🔁', href: '/teacher/review' },
     { key: 'mybank', label: 'بانکِ سؤالاتِ من', icon: '🗄️', href: '/teacher/my-bank' },
     { key: 'materials', label: 'مطالب و محتوا', icon: '📚', href: '/teacher/materials' },
     { key: 'smart', label: 'آزمون هوشمند 🧪', icon: '🧠', href: '/teacher/smart-exams', flag: 'smart' },

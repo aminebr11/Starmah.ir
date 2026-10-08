@@ -67,6 +67,11 @@ class HandleInertiaRequests extends Middleware
             'familyNew' => fn () => ($user && $user->isStudent() && \Illuminate\Support\Facades\Schema::hasTable('parent_notes'))
                 ? \App\Models\ParentNote::where('student_id', $user->id)->where('from_parent', false)->whereNull('read_at')->count()
                 : 0,
+            // «مرورِ اشتباه‌های من» که امروز آماده است (نشان روی منوی دانش‌آموز)
+            'reviewDue' => fn () => ($user && $user->isStudent() && \App\Services\RemediationService::ready())
+                ? (int) rescue(fn () => \App\Models\Remediation::where('student_id', $user->id)->where('status', 'open')
+                    ->whereDate('due_on', '<=', now()->toDateString())->count(), 0, false)
+                : 0,
         ];
     }
 }

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Announcement;
 use App\Models\Classroom;
 use App\Models\Remediation;
+use App\Models\RemediationPlan;
 use App\Models\SmartQuestionBank;
 use App\Models\User;
 use App\Models\XpEntry;
@@ -18,7 +19,8 @@ use Illuminate\Support\Facades\Schema;
  * «یادآوریِ جبرانی» — بعد از هر آزمون، بازی یا مأموریت، برای هر سؤالی که دانش‌آموز
  * در نهایت اشتباه زده، به‌طورِ خودکار و فقط برای خودِ او ساخته می‌شود.
  *
- * - هر یادآوری ۳ نوبت دارد: همان روز، ۲ روز بعد، ۵ روز بعد از آن (فاصله‌ی رو به افزایش).
+ * - زمان‌بندی را معلم برای هر کلاس اعلام می‌کند (RemediationPlan)؛ پیش‌فرض: ۳ نوبت —
+ *   همان روز، ۲ روز بعد، ۵ روز بعد از آن (فاصله‌ی رو به افزایش).
  * - هر نوبت: همان سؤال (با گزینه‌های درهم) + تا ۲ سؤالِ مشابه از همان فصل (از بانک؛ اگر
  *   نبود و هوش مصنوعی فعال بود، نسخه‌ی مشابه با عدد/پاسخِ دیگر ساخته می‌شود).
  * - قبولیِ نوبت: دستِ‌کم ۶۰٪ (درستِ بارِ اول = کامل، با راهنما = ¾، تلاشِ دوم = ½).
@@ -54,10 +56,18 @@ class RemediationService
      */
     public function create(User $student, string $source, int $sourceId, ?int $ref, string $title, ?int $teacherId, array $items, ?string $dueOn = null, bool $notify = true, ?int $capXp = null): int
     {
-        $dueOn = $dueOn && $dueOn > now()->toDateString() ? $dueOn : now()->toDateString();
         if (! self::ready() || ! $items) {
             return 0;
         }
+        // زمان‌بندیِ اعلام‌شده‌ی معلمِ کلاس
+        $plan = RemediationPlan::forStudent($student, $teacherId);
+        if ($source !== 'teacher' && (! $plan['enabled'] || empty($plan['sources'][$source] ?? true))) {
+            return 0;
+        }
+        $first = now()->addDays($source === 'teacher' ? 0 : $plan['first_delay'])->toDateString();
+        $dueOn = $dueOn && $dueOn > $first ? $dueOn : $first;
+        $share = $plan['share'] / 100;
+        $snap = ['gaps' => $plan['gaps'], 'retry' => $plan['retry'], 'pass' => $plan['pass']];
         $open = Remediation::where('student_id', $student->id)->where('status', 'open')->pluck('q_key')->flip();
         $labels = \App\Models\LearningObjective::whereIn('id', array_filter(array_column($items, 'objective_id')))->pluck('label', 'id');
         $made = collect();
@@ -79,8 +89,8 @@ class RemediationService
                     'objective_id' => $it['objective_id'] ?? null,
                     'objective_label' => $it['objective_id'] ? ($labels[$it['objective_id']] ?? null) : null,
                     'question' => $it['question'], 'lost_xp' => $lost,
-                    'cap_xp' => $capXp ?? ($lost > 0 ? max(1, (int) floor($lost * self::SHARE)) : 0),
-                    'steps' => self::STEPS, 'due_on' => $dueOn, 'status' => 'open',
+                    'cap_xp' => $capXp ?? ($lost > 0 && $share > 0 ? max(1, (int) floor($lost * $share)) : 0),
+                    'steps' => $plan['rounds'], 'due_on' => $dueOn, 'status' => 'open', 'plan' => $snap,
                 ]
             );
             if ($rem->wasRecentlyCreated) {
@@ -102,7 +112,7 @@ class RemediationService
                 'body' => 'برای ' . Jalali::fa((string) $made->count()) . ' موردی که اشتباه زدی، مرورِ جبرانی '
                     . ($made->first()->due_on && $made->first()->due_on->isFuture() ? 'از ' . Jalali::format($made->first()->due_on) . ' آماده می‌شود' : 'آماده است')
                     . ($cap > 0 ? '؛ با انجامش تا ' . Jalali::fa((string) $cap) . ' امتیاز را پس می‌گیری.' : '.'),
-                'link' => '/missions/remedial/play',
+                'link' => '/review',
             ]);
             $ann->recipients()->sync([$student->id]);
         }, null, true);
@@ -178,7 +188,8 @@ class RemediationService
      */
     public function buildSession(User $student): array
     {
-        $rems = $this->due($student)->take(self::PER_SESSION);
+        $plan = RemediationPlan::forStudent($student);
+        $rems = $this->due($student)->take($plan['per_session']);
         if ($rems->isEmpty()) {
             return [];
         }
@@ -198,7 +209,7 @@ class RemediationService
                 $mine[] = $orig;
             }
             // مرورِ بدونِ سؤالِ اصلی (نمره‌ی ضعیفِ معلم، مرورِ معلم، پاسخِ پنهان) → سؤال‌های بیشتری از همان فصل
-            $similar = $this->similar($rem, $teacher, array_merge($used, $skip), $orig ? self::SIMILAR : self::SIMILAR + 2);
+            $similar = $this->similar($rem, $teacher, array_merge($used, $skip), $orig ? $plan['similar'] : max(3, $plan['similar'] + 2));
             foreach ($similar as $q) {
                 $mine[] = $q;
                 $used[] = $q->id;
@@ -220,6 +231,8 @@ class RemediationService
         if ($needAi->isNotEmpty()) {
             $this->queueVariants($student, $needAi);
         }
+        // ترتیبِ سؤال‌ها هم درهم (گزینه‌ها در موتورِ پرسش درهم می‌شوند)
+        shuffle($items);
 
         return $items;
     }
@@ -289,9 +302,10 @@ class RemediationService
                 continue;
             }
             $credit = $played->avg(fn ($it) => LearningService::credit($it['ok'] === true, $it['ok'] === true && $it['tries'] === 1, (bool) $it['hinted']));
-            $passed = $credit >= self::PASS;
+            $rplan = RemediationPlan::normalize(($rem->plan ?? []) + ['rounds' => $rem->steps]);
+            $passed = $credit >= $rplan['pass'] / 100;
             $xp = 0;
-            DB::transaction(function () use ($rem, $passed, $credit, &$xp) {
+            DB::transaction(function () use ($rem, $passed, $credit, $rplan, &$xp) {
                 $rem->tries++;
                 $rem->last_played_at = now();
                 $rem->last_credit = round($credit, 2);
@@ -304,10 +318,10 @@ class RemediationService
                         $rem->status = 'done';
                         $rem->due_on = null;
                     } else {
-                        $rem->due_on = now()->addDays(self::GAP_AFTER_PASS[$rem->step] ?? 3)->toDateString();
+                        $rem->due_on = now()->addDays($rplan['gaps'][$rem->step - 1] ?? 3)->toDateString();
                     }
                 } else {
-                    $rem->due_on = now()->addDay()->toDateString(); // فردا دوباره
+                    $rem->due_on = now()->addDays($rplan['retry'])->toDateString(); // نوبتِ ردشده دوباره
                 }
                 $rem->save();
             });
@@ -466,7 +480,7 @@ class RemediationService
                 $ann = Announcement::create(['school_id' => $st->school_id, 'sender_id' => $senders[$sid], 'audience' => 'personal',
                     'title' => '🔁 مرورِ اشتباه‌های من آماده است',
                     'body' => 'برای ' . Jalali::fa((string) $n) . ' سؤالی که در آزمون‌ها و بازی‌های اخیر اشتباه زدی، مرورِ جبرانی ساخته شد؛ انجامش بده و بخشی از امتیازت را پس بگیر.',
-                    'link' => '/missions/remedial/play']);
+                    'link' => '/review']);
                 $ann->recipients()->sync([$sid]);
             }, null, false);
         }
@@ -535,6 +549,58 @@ class RemediationService
                 'rate' => $rems->count() ? (int) round($rems->where('status', 'done')->count() / $rems->count() * 100) : 0,
             ],
             'students' => $per, 'chapters' => $chapters, 'recent' => $recent,
+        ];
+    }
+
+    /**
+     * معلم زمان‌بندیِ کلاس را عوض کرد → مرورهای بازِ همین کلاس هم با زمان‌بندیِ تازه ادامه می‌دهند
+     * (نوبت‌های قبول‌شده و امتیازِ برگشته سرِ جایش می‌ماند).
+     */
+    public function applyPlan(Classroom $classroom, array $plan): int
+    {
+        if (! self::ready()) {
+            return 0;
+        }
+        $snap = ['gaps' => $plan['gaps'], 'retry' => $plan['retry'], 'pass' => $plan['pass']];
+        $n = 0;
+        Remediation::whereIn('student_id', $classroom->students()->pluck('users.id'))->where('status', 'open')
+            ->get()->each(function ($r) use ($plan, $snap, &$n) {
+                $r->update(['steps' => max($r->step + 1, $plan['rounds']), 'plan' => $snap]);
+                $n++;
+            });
+
+        return $n;
+    }
+
+    /** فهرستِ مرورهای خودِ دانش‌آموز برای صفحه‌ی «مرورِ اشتباه‌های من». */
+    public function studentBoard(User $student): array
+    {
+        if (! self::ready()) {
+            return ['enabled' => false];
+        }
+        $plan = RemediationPlan::forStudent($student);
+        $today = now()->endOfDay();
+        $rows = Remediation::where('student_id', $student->id)->where('created_at', '>=', now()->subDays(90))
+            ->orderBy('due_on')->orderByDesc('id')->get()
+            ->map(fn ($r) => [
+                'id' => $r->id, 'source' => Remediation::SOURCE_LABELS[$r->source] ?? $r->source,
+                'title' => $r->source_title, 'chapter' => $r->objective_label,
+                'prompt' => ! empty($r->question['no_original']) ? null : mb_substr((string) ($r->question['prompt'] ?? ''), 0, 160),
+                'status' => $r->status, 'step' => $r->step, 'steps' => $r->steps,
+                'due' => $r->due_on ? Jalali::format($r->due_on) : null,
+                'ready' => $r->status === 'open' && $r->due_on && $r->due_on->lte($today),
+                'days' => $r->status === 'open' && $r->due_on ? max(0, (int) now()->startOfDay()->diffInDays($r->due_on->copy()->startOfDay(), false)) : null,
+                'recovered' => $r->recovered_xp, 'cap' => $r->cap_xp,
+                'created' => Jalali::format($r->created_at),
+            ]);
+
+        return [
+            'enabled' => true,
+            'plan' => $plan,
+            'summary' => $this->summary($student),
+            'ready' => $rows->where('ready', true)->values(),
+            'waiting' => $rows->where('status', 'open')->where('ready', false)->values(),
+            'done' => $rows->where('status', 'done')->sortByDesc('id')->take(30)->values(),
         ];
     }
 

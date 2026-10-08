@@ -3,7 +3,7 @@ import { useRef } from 'react';
 import PointsTrend from '@/Components/PointsTrend';
 import { MasteryTag } from '@/Components/MasteryPanel';
 import MasteryGrid from '@/Components/MasteryGrid';
-import RemediationPanel from '@/Components/RemediationPanel';
+import { Link } from '@inertiajs/react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import { AreaTrend, Donut, Heatmap, PAL } from '@/Components/Charts';
 import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
@@ -11,7 +11,7 @@ import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 export default function Reports() {
-    const { classroom, report, crossSubject = {}, studentCount = 0, trend = [], heatmap = null, studentTrend = null, trendStudent = null, masteryGrid = null, remediation = null } = usePage().props;
+    const { classroom, report, crossSubject = {}, studentCount = 0, trend = [], heatmap = null, studentTrend = null, trendStudent = null, masteryGrid = null } = usePage().props;
     const trendRef = useRef(null);
     // نمودارِ روندِ یک دانش‌آموز، بدونِ بارگذاریِ دوباره‌ی کلِ صفحه
     const showTrend = (id) => router.get(route('teacher.reports'), id ? { student: id } : {}, {
@@ -51,7 +51,12 @@ export default function Reports() {
 
             {masteryGrid && <MasteryGrid data={masteryGrid} />}
 
-            {remediation && <RemediationPanel data={remediation} />}
+            {/* مرورِ اشتباه‌ها صفحه‌ی خودش را دارد (زمان‌بندی + رصد + فرستادن) */}
+            <Link href={route('teacher.review')} className="panel" style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}>
+                <span style={{ fontSize: 30 }}>🔁</span>
+                <span style={{ flex: 1 }}><b>مرورِ اشتباه‌ها</b><br /><span style={{ color: 'var(--muted)', fontSize: 12.5 }}>زمان‌بندیِ مرور، وضعیتِ جبرانِ هر دانش‌آموز و فرستادنِ مرورِ فصل</span></span>
+                <span className="btn btn-sm">باز کن ←</span>
+            </Link>
 
             <TeacherCrossSubject data={crossSubject} studentCount={studentCount} />
 

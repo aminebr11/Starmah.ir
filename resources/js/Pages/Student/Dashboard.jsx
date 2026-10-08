@@ -25,7 +25,7 @@ const FLOAT_POS = [
 ];
 
 export default function Dashboard() {
-    const { auth, theme, me = {}, groups = [], sample, notices = [], notifications = [], unreadNotices = 0, levelXp = 150, levelNames = [], missionsToday = [] } = usePage().props;
+    const { auth, theme, me = {}, groups = [], sample, notices = [], notifications = [], unreadNotices = 0, levelXp = 150, levelNames = [], missionsToday = [], reviewDue = 0 } = usePage().props;
     const w = (k, d = '') => theme?.narrative?.[k] ?? d;
     const skin = theme?.skin ?? {};
     const [picked, setPicked] = useState(null);
@@ -53,6 +53,7 @@ export default function Dashboard() {
         { href: '/missions', em: '🎯', label: 'مأموریت روزانه', t1: skin.p1, t2: skin.p2 },
         { href: '/game-world', em: '🎮', label: 'دنیای بازی‌ها', t1: '#e8505b', t2: '#b0333f' },
         ...(smartLab ? [{ href: '/student/smart-exams', em: '🧠', label: 'آزمون هوشمند', t1: '#7c5cf0', t2: '#4c2fb0' }] : []),
+        { href: '/review', em: '🔁', label: 'مرورِ اشتباه‌ها', t1: '#ff7a45', t2: '#c8432c' },
         { href: '/report', em: '📊', label: 'کارنامه‌ی من', t1: '#18a97c', t2: '#0d6b4e' },
     ];
 
@@ -129,6 +130,18 @@ export default function Dashboard() {
                     </Link>
                 ))}
             </div>
+
+            {/* ===== مرورِ اشتباه‌هایی که امروز آماده است ===== */}
+            {reviewDue > 0 && (
+                <Link href="/review" className="k3-card" style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 12, background: 'linear-gradient(135deg,#ff7a45,#e8505b)', color: '#fff' }}>
+                    <span style={{ fontSize: 30 }}>🔁</span>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 900, fontSize: 16 }}>{fa(reviewDue)} اشتباه آماده‌ی مرور است</div>
+                        <div style={{ opacity: .9, fontSize: 12.5 }}>همان سؤال‌ها با گزینه‌های جابه‌جا و چند سؤالِ شبیه — امتیازت را پس بگیر!</div>
+                    </div>
+                    <span className="k3-btn" style={{ background: 'rgba(0,0,0,.25)' }}>شروع ←</span>
+                </Link>
+            )}
 
             {/* ===== باکسِ مأموریت‌های امروز ===== */}
             {missionsToday.length > 0 && (

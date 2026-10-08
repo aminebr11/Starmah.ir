@@ -14,11 +14,11 @@ class Remediation extends Model
     protected $fillable = [
         'school_id', 'student_id', 'teacher_id', 'source', 'source_id', 'source_ref', 'source_title',
         'q_key', 'bank_id', 'objective_id', 'objective_label', 'question', 'lost_xp', 'cap_xp', 'recovered_xp',
-        'step', 'steps', 'tries', 'due_on', 'status', 'ai_tried', 'last_played_at', 'last_credit',
+        'step', 'steps', 'tries', 'due_on', 'status', 'ai_tried', 'last_played_at', 'last_credit', 'plan',
     ];
 
     protected $casts = [
-        'question' => 'array', 'due_on' => 'date', 'last_played_at' => 'datetime', 'ai_tried' => 'boolean',
+        'question' => 'array', 'plan' => 'array', 'due_on' => 'date', 'last_played_at' => 'datetime', 'ai_tried' => 'boolean',
         'lost_xp' => 'integer', 'cap_xp' => 'integer', 'recovered_xp' => 'integer', 'step' => 'integer', 'steps' => 'integer',
     ];
 

@@ -197,3 +197,29 @@
 .rm-chip { border: 1px solid var(--line); background: #fff; border-radius: 16px; padding: 4px 10px; font: inherit; font-size: 12.5px; cursor: pointer; }
 .rm-chip.on { background: #e5eeff; border-color: #3d7bf0; color: #2555c0; font-weight: 700; }
 .rm-err { color: #c0392b; font-size: 13px; font-weight: 700; }
+
+/* ═══ «مرورِ اشتباه‌ها»: زمان‌بندیِ معلم و صفحه‌ی دانش‌آموز ═══ */
+.rv-plan-h { display: flex; gap: 14px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+.rv-plan-h p { margin: 6px 0 12px; color: var(--muted); font-size: 12.5px; line-height: 1.9; max-width: 760px; }
+.rv-switch { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 13px; background: #eef4ff; border-radius: 12px; padding: 8px 12px; cursor: pointer; }
+.rv-switch input { width: 18px; height: 18px; }
+.rv-fs { border: 0; padding: 0; margin: 0; min-width: 0; }
+.rv-fs:disabled { opacity: .5; }
+.rv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.rv-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; font-weight: 700; }
+.rv-src { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-top: 12px; font-size: 13px; }
+.rv-src label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+.rv-timeline, .rv-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
+.rv-step { display: inline-flex; flex-direction: column; align-items: center; border-radius: 12px; padding: 6px 11px; font-weight: 800; font-size: 12.5px; background: #eef4ff; color: #1d3d8f; }
+.rv-step small { font-weight: 600; font-size: 11px; opacity: .8; }
+.rv-step.bad { background: #fdeaec; color: #c0392b; } .rv-step.ok { background: #e3f7ec; color: #138a4f; }
+.rv-arrow { opacity: .55; font-weight: 900; }
+.kids-dash .rv-step, .cd-kids .rv-step { background: rgba(255,255,255,.16); color: inherit; }
+.kids-dash .rv-step.bad, .cd-kids .rv-step.bad { background: rgba(232,80,91,.35); }
+.kids-dash .rv-step.ok, .cd-kids .rv-step.ok { background: rgba(31,164,99,.4); }
+.rv-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.rv-row { margin: 0 !important; }
+.rv-row .k3-chip, .rv-row ~ * .k3-chip { flex-direction: row; }
+.rv-dots { display: inline-flex; gap: 3px; }
+.rv-dots i { width: 16px; height: 7px; border-radius: 4px; background: rgba(255,255,255,.3); }
+.rv-dots i.on { background: #ffd23f; }

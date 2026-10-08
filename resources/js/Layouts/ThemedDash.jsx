@@ -34,7 +34,7 @@ function PreviewRibbon({ preview }) {
  * لوگوی سایت بالا قرار دارد. ریسپانسیو.
  */
 export default function ThemedDash({ title, active = '', children, actions = null }) {
-    const { auth, theme, unreadNotices = 0, smartLab = false, avatarUrl = null, familyNew = 0, preview = null, ui = 'classic' } = usePage().props;
+    const { auth, theme, unreadNotices = 0, smartLab = false, avatarUrl = null, familyNew = 0, reviewDue = 0, preview = null, ui = 'classic' } = usePage().props;
     const skin = theme?.skin ?? {};
     const vars = useMemo(() => cssVars(skin), [theme?.id]);
     const [open, setOpen] = useState(false);
@@ -43,6 +43,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
         { key: 'home', label: 'خانه', icon: '🏠', href: '/dashboard' },
         { divider: 'یادگیری و بازی' },
         { key: 'practice', label: 'مأموریت‌های من', icon: '🎯', href: '/missions' },
+        { key: 'review', label: 'مرورِ اشتباه‌های من', icon: '🔁', href: '/review' },
         { key: 'gameworld', label: 'دنیای بازی‌ها', icon: '🎮', href: '/game-world' },
         ...(smartLab ? [{ key: 'smart', label: 'آزمون هوشمند 🧪', icon: '🧠', href: '/student/smart-exams' }] : []),
         { divider: 'عملکردِ من' },
@@ -69,7 +70,9 @@ export default function ThemedDash({ title, active = '', children, actions = nul
         { key: 'home', label: 'خانه', icon: '🏠', href: '/dashboard' },
         { key: 'gameworld', label: 'بازی‌ها', icon: '🎮', href: '/game-world' },
         ...(smartLab ? [{ key: 'smart', label: 'آزمون', icon: '🧠', href: '/student/smart-exams' }] : []),
-        { key: 'board', label: 'رقابت', icon: '🏆', href: '/leaderboard' },
+        // مرورِ اشتباه‌ها همیشه دمِ دست (با نشانِ تعدادِ آماده)
+        { key: 'review', label: 'مرور', icon: '🔁', href: '/review' },
+        ...(smartLab ? [] : [{ key: 'board', label: 'رقابت', icon: '🏆', href: '/leaderboard' }]),
         { key: 'notices', label: 'اعلان‌ها', icon: '📢', href: '/notices' },
     ];
 
@@ -79,7 +82,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
         return (
             <ClayDash title={title} roleLabel={theme ? `${theme.emoji ?? ''} ${theme.name ?? ''}`.trim() : 'دانش‌آموز'}
                 menu={menu.filter((m) => m.divider !== null && m.key !== 'profile')} active={active} actions={actions}
-                kids kidsStyle={{ ...vars }} bottomKeys={bottomNav.map((m) => m.key)} badges={{ family: familyNew }}
+                kids kidsStyle={{ ...vars }} bottomKeys={bottomNav.map((m) => m.key)} badges={{ family: familyNew, review: reviewDue }}
                 ribbon={preview ? <PreviewRibbon preview={preview} /> : null} locked={!!preview}>
                 {children}
             </ClayDash>
@@ -111,6 +114,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
                                 <span className="ic">{m.icon}</span>{m.label}
                                 {m.key === 'notices' && unreadNotices > 0 && <span className="nav-badge">{fa(unreadNotices)}</span>}
                                 {m.key === 'family' && familyNew > 0 && <span className="nav-badge">{fa(familyNew)}</span>}
+                                {m.key === 'review' && reviewDue > 0 && <span className="nav-badge">{fa(reviewDue)}</span>}
                             </Link>
                         )
                     ))}
@@ -155,6 +159,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
                     <Link key={m.key} href={m.href} className={active === m.key ? 'on' : ''}>
                         <span className="bic">{m.icon}</span>{m.label}
                         {m.key === 'notices' && unreadNotices > 0 && <span className="bdot">{fa(unreadNotices)}</span>}
+                        {m.key === 'review' && reviewDue > 0 && <span className="bdot">{fa(reviewDue)}</span>}
                     </Link>
                 ))}
             </nav>

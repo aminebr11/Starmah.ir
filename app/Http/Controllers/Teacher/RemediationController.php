@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Teacher;
 use App\Http\Controllers\Controller;
 use App\Models\Classroom;
 use App\Models\Remediation;
+use App\Models\RemediationPlan;
 use App\Services\RemediationService;
 use App\Support\Jalali;
 use App\Support\Objectives;
@@ -12,10 +13,56 @@ use App\Support\QuestionChapter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
+use Inertia\Response;
 
-/** معلم: فرستادنِ «مرورِ اشتباه‌ها» برای یک یا چند دانش‌آموز در یک فصل، و بستنِ یک مرور. */
+/**
+ * معلم: صفحه‌ی «مرورِ اشتباه‌ها» — زمان‌بندیِ کلاس، رصدِ دانش‌آموزان، فرستادنِ مرور
+ * برای یک یا چند دانش‌آموز در یک فصل، و بستنِ یک مرور.
+ */
 class RemediationController extends Controller
 {
+    public function index(Request $request, RemediationService $svc): Response
+    {
+        $rooms = Classroom::where('teacher_id', $request->user()->id)->orderBy('id')->get();
+        $room = $rooms->firstWhere('id', (int) $request->query('classroom')) ?? $rooms->first();
+
+        return Inertia::render('Teacher/Review', [
+            'classrooms' => $rooms->map(fn ($c) => ['id' => $c->id, 'name' => $c->name])->values(),
+            'classroom' => $room?->only('id', 'name'),
+            'plan' => RemediationPlan::forClassroom($room?->id),
+            'defaults' => RemediationPlan::DEFAULTS,
+            'remediation' => $room ? rescue(fn () => $svc->overview($room), null, true) : null,
+        ]);
+    }
+
+    /** زمان‌بندیِ اعلام‌شده‌ی معلم برای کلاس (مرورهای بازِ کلاس هم با آن ادامه می‌دهند). */
+    public function plan(Request $request, RemediationService $svc): RedirectResponse
+    {
+        $data = $request->validate([
+            'classroom_id' => ['required', 'integer'],
+            'enabled' => ['boolean'],
+            'sources' => ['array'], 'sources.*' => ['boolean'],
+            'first_delay' => ['required', 'integer', 'min:0', 'max:14'],
+            'rounds' => ['required', 'integer', 'min:1', 'max:5'],
+            'gaps' => ['array'], 'gaps.*' => ['integer', 'min:1', 'max:30'],
+            'retry' => ['required', 'integer', 'min:1', 'max:7'],
+            'per_session' => ['required', 'integer', 'min:1', 'max:8'],
+            'similar' => ['required', 'integer', 'min:0', 'max:4'],
+            'share' => ['required', 'integer', 'min:0', 'max:50'],
+            'pass' => ['required', 'integer', 'min:40', 'max:100'],
+        ], [
+            'share.max' => 'حداکثر ۵۰٪ امتیازِ از دست‌رفته برمی‌گردد تا دانش‌آموزی که از اول درست زده همیشه جلوتر بماند.',
+        ]);
+        $room = Classroom::where('teacher_id', $request->user()->id)->findOrFail($data['classroom_id']);
+        abort_unless(RemediationPlan::ready(), 503, 'جدولِ زمان‌بندی هنوز ساخته نشده؛ از «سلامتِ سیستم» مایگریشن را اجرا کنید.');
+        $plan = RemediationPlan::put($room->id, $request->user()->id, $data);
+        $n = $svc->applyPlan($room, $plan);
+
+        return back()->with('flash', '✅ زمان‌بندیِ مرورِ «' . $room->name . '» ذخیره شد'
+            . ($n ? ' — ' . Jalali::fa((string) $n) . ' مرورِ باز هم با همین زمان‌بندی ادامه می‌دهد' : ''));
+    }
+
     public function store(Request $request, RemediationService $svc): RedirectResponse
     {
         $teacher = $request->user();

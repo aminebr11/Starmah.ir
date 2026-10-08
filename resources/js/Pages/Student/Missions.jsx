@@ -59,7 +59,7 @@ export default function Missions() {
             </div>
 
             {/* ── مرورِ امروز (مرورِ فاصله‌دار) ── */}
-            {remedial?.enabled && (remedial.open > 0 || remedial.done > 0) && <RemedialCard r={remedial} />}
+            {remedial?.enabled && <RemedialCard r={remedial} />}
             {review && (review.available || review.done_today) && <ReviewCard review={review} streak={streak} />}
 
             {/* ── سطحِ من در هر مبحث (همان چهار سطحِ ارزشیابیِ توصیفی) ── */}
@@ -111,9 +111,12 @@ function RemedialCard({ r }) {
                 </>
             ) : (
                 <div style={{ fontSize: 14, lineHeight: 1.9, marginTop: 6 }}>
-                    {r.open > 0 ? <>مرورِ امروز انجام شد ✅ نوبتِ بعدی: <b>{r.next}</b> — با فاصله تکرار می‌شود تا برای همیشه یادت بماند.</> : <>همه‌ی اشتباه‌هایت را جبران کردی! 🌟 ({fa(r.done)} مورد)</>}
+                    {r.open > 0 ? <>مرورِ امروز انجام شد ✅ نوبتِ بعدی: <b>{r.next}</b> — با فاصله تکرار می‌شود تا برای همیشه یادت بماند.</>
+                        : r.done > 0 ? <>همه‌ی اشتباه‌هایت را جبران کردی! 🌟 ({fa(r.done)} مورد)</>
+                            : <>هر سؤالی که در آزمون، بازی یا مأموریت اشتباه بزنی، خودکار اینجا برای مرور می‌آید — با زمان‌بندیِ معلمت.</>}
                 </div>
             )}
+            <Link href={route('review')} style={{ display: 'block', textAlign: 'center', marginTop: 10, color: '#fff', fontWeight: 800, fontSize: 13.5, textDecoration: 'underline' }}>📋 همه‌ی مرورها و زمان‌بندی</Link>
         </div>
     );
 }

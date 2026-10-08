@@ -416,7 +416,7 @@ class SmartExamController extends Controller
             ? 'پاسخ‌هایت ثبت شد؛ بخشِ تشریحی توسط معلم بررسی می‌شود.'
             : "آزمون تمام شد — نتیجه: {$auto} از {$autoMax}" . ($alreadyRewarded ? ' (XP قبلاً محاسبه شده)' : " (+{$xp} امتیاز)");
         if ($remedial > 0) {
-            $msg .= ' — 🔁 برای ' . \App\Support\Jalali::fa((string) $remedial) . ' اشتباه، تمرینِ جبرانی ساخته شد';
+            $msg .= ' — 🔁 برای ' . \App\Support\Jalali::fa((string) $remedial) . ' اشتباه، مرور ساخته شد (منوی «مرورِ اشتباه‌های من»)';
         }
 
         return redirect()->route('student.smart.result', [$smartExam->id, $attempt->id])->with('flash', $msg);

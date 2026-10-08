@@ -243,7 +243,7 @@ class EduGameWorldController extends Controller
         $correctCount = collect($detail)->where('correct', true)->count();
         $total = $eduGame->questions->count();
         return back()->with('flash', $firstCompletion
-            ? "آفرین! {$correctCount} از {$total} درست — +{$bestScore} امتیاز 🎉" . ($remedial ? ' — 🔁 برای ' . \App\Support\Jalali::fa((string) $remedial) . ' اشتباه، تمرینِ جبرانی ساخته شد' : '')
+            ? "آفرین! {$correctCount} از {$total} درست — +{$bestScore} امتیاز 🎉" . ($remedial ? ' — 🔁 برای ' . \App\Support\Jalali::fa((string) $remedial) . ' اشتباه، مرور ساخته شد (منوی «مرورِ اشتباه‌های من»)' : '')
             : "دوباره بازی کردی؛ بهترین نتیجه‌ات ثبت است ({$correctCount} از {$total}).");
     }
 

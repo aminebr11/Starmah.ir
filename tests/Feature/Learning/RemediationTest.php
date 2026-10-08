@@ -223,7 +223,8 @@ class RemediationTest extends TestCase
         $exam = $this->exam($teacher, [$bank[0], $bank[1]], $ch);
         $this->submit($student, $exam, [['i' => 0, 'value' => $bank[0]->choices[1]['value']], ['i' => 1, 'value' => $bank[1]->choices[1]['value']]]);
 
-        $page = $this->actingAs($teacher)->get(route('teacher.reports'))->assertOk();
+        $this->actingAs($teacher)->get(route('teacher.reports'))->assertOk();
+        $page = $this->actingAs($teacher)->get(route('teacher.review'))->assertOk();
         $rem = $page->viewData('page')['props']['remediation'];
         $this->assertSame(2, $rem['totals']['total']);
         $this->assertSame($student->id, $rem['students'][0]['id']);

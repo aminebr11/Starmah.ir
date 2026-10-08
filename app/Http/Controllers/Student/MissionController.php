@@ -362,6 +362,14 @@ class MissionController extends Controller
         ]);
     }
 
+    /** صفحه‌ی «مرورِ اشتباه‌های من»: آماده‌ی امروز، در صف (با تاریخ)، جبران‌شده، و زمان‌بندیِ معلم. */
+    public function reviewBoard(Request $request, \App\Services\RemediationService $rem): Response
+    {
+        return Inertia::render('Student/Review', [
+            'board' => rescue(fn () => $rem->studentBoard($request->user()), ['enabled' => false], true),
+        ]);
+    }
+
     /** «جبرانِ اشتباه» — یادآوری‌های سررسیدِ همین دانش‌آموز (همان سؤال‌های اشتباه + مشابه). */
     public function remedialPlay(Request $request, \App\Services\RemediationService $rem): Response|RedirectResponse
     {
@@ -370,15 +378,15 @@ class MissionController extends Controller
         if (! $items) {
             $s = $rem->summary($user);
 
-            return redirect()->route('missions')->with('flash', ($s['open'] ?? 0) > 0 && $s['next']
+            return redirect()->route('review')->with('flash', ($s['open'] ?? 0) > 0 && $s['next']
                 ? "مرورِ اشتباه‌های امروز را انجام دادی ✅ نوبتِ بعدی: {$s['next']}"
                 : 'فعلاً مرورِ اشتباهی نداری — آفرین! 🌟');
         }
 
         return $this->startSession($request, 'remedial', null, $items, [
             'id' => null, 'title' => 'مرورِ اشتباه‌های من',
-            'description' => 'سؤال‌هایی که اشتباه زده بودی و چند سؤالِ شبیهشان — درستشان کن و بخشی از امتیازت را پس بگیر!',
-            'subject' => null, 'xp_reward' => 0, 'pass_percent' => (int) (\App\Services\RemediationService::PASS * 100),
+            'description' => 'سؤال‌هایی که اشتباه زده بودی (با گزینه‌های جابه‌جا) و چند سؤالِ شبیهشان — درستشان کن و بخشی از امتیازت را پس بگیر!',
+            'subject' => null, 'xp_reward' => 0, 'pass_percent' => \App\Models\RemediationPlan::forStudent($user)['pass'],
             'badge_name' => null, 'badge_icon' => '🔁',
         ]);
     }

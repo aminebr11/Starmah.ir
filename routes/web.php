@@ -181,6 +181,8 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::post('/me/a11y', [\App\Http\Controllers\Student\A11yController::class, 'update'])->name('a11y.update');
     Route::post('/speech', \App\Http\Controllers\SpeechController::class)->middleware('throttle:40,1')->name('speech');
     Route::get('/missions/review/play', [\App\Http\Controllers\Student\MissionController::class, 'reviewPlay'])->name('missions.review.play');
+    // «مرورِ اشتباه‌های من» — صفحه‌ی اختصاصی (منو)
+    Route::get('/review', [\App\Http\Controllers\Student\MissionController::class, 'reviewBoard'])->name('review');
     Route::get('/missions/remedial/play', [\App\Http\Controllers\Student\MissionController::class, 'remedialPlay'])->name('missions.remedial.play');
     Route::get('/missions/{mission}/play', [\App\Http\Controllers\Student\MissionController::class, 'play'])->whereNumber('mission')->name('missions.play');
     Route::post('/missions/{mission}/claim', [\App\Http\Controllers\Student\MissionController::class, 'claim'])->whereNumber('mission')->name('missions.claim');
@@ -284,6 +286,8 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/games/{classActivity}/duplicate', [\App\Http\Controllers\Teacher\GameController::class, 'duplicate'])->name('games.duplicate');
     Route::delete('/games/{classActivity}', [\App\Http\Controllers\Teacher\GameController::class, 'destroy'])->name('games.destroy');
     // «مرورِ اشتباه‌ها»: فرستادن برای دانش‌آموز/فصل و بستن
+    Route::get('/review', [\App\Http\Controllers\Teacher\RemediationController::class, 'index'])->name('review');
+    Route::put('/review/plan', [\App\Http\Controllers\Teacher\RemediationController::class, 'plan'])->name('review.plan');
     Route::post('/remediations', [\App\Http\Controllers\Teacher\RemediationController::class, 'store'])->name('remediations.store');
     Route::delete('/remediations/{remediation}', [\App\Http\Controllers\Teacher\RemediationController::class, 'destroy'])->name('remediations.destroy');
     Route::get('/gradebook', [\App\Http\Controllers\Teacher\GradebookController::class, 'index'])->name('gradebook');
