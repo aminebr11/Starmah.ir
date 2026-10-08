@@ -338,7 +338,7 @@ class WorksheetController extends Controller
                 'audience' => 'personal',
                 'body' => "یک کاربرگ جدید برای شما منتشر شد: «{$worksheet->title}».\nآن را از بخشِ «مطالب و محتوا» ببینید، چاپ/دانلود کنید، و پس از پر کردن برای معلم بفرستید.",
             ];
-            if (\Illuminate\Support\Facades\Schema::hasColumn('announcements', 'link')) {
+            if (\App\Support\DbSchema::hasColumn('announcements', 'link')) {
                 $payload['link'] = '/worksheets/' . $worksheet->id;
             }
             $ann = Announcement::create($payload);

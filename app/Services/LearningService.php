@@ -32,8 +32,8 @@ class LearningService
     {
         static $ok = null;
 
-        return $ok ??= \Illuminate\Support\Facades\Schema::hasTable('objective_reviews')
-            && \Illuminate\Support\Facades\Schema::hasTable('practice_answers');
+        return $ok ??= \App\Support\DbSchema::hasTable('objective_reviews')
+            && \App\Support\DbSchema::hasTable('practice_answers');
     }
 
     /** ستونِ «هدفِ درسی» در بانک هم آماده است؟ (پیش از اجرای مایگریشن، ثبتِ آزمون نباید بشکند) */
@@ -41,7 +41,7 @@ class LearningService
     {
         static $ok = null;
 
-        return $ok ??= self::ready() && \Illuminate\Support\Facades\Schema::hasColumn('smart_question_bank', 'objective_id');
+        return $ok ??= self::ready() && \App\Support\DbSchema::hasColumn('smart_question_bank', 'objective_id');
     }
 
     /**
@@ -51,7 +51,7 @@ class LearningService
      */
     public static function fillBankObjectives(float $budget = 10.0): bool
     {
-        if (! \Illuminate\Support\Facades\Schema::hasColumn('smart_question_bank', 'objective_id')) {
+        if (! \App\Support\DbSchema::hasColumn('smart_question_bank', 'objective_id')) {
             return true;
         }
         $t0 = microtime(true);

@@ -120,6 +120,7 @@ class AutoMigrate
             }
         }
         $left = self::pending();
+        DbSchema::forget(); // جدول/ستونِ تازه دوباره بررسی شود
 
         return ['ok' => $left === [], 'output' => implode("\n", array_filter($out)), 'failed' => $failed, 'pending' => $left];
     }

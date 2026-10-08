@@ -64,7 +64,7 @@ class HandleInertiaRequests extends Middleware
             // آیا حبابِ دستیار برای این کاربر نمایش داده شود؟ (تصمیمِ مدیرِ مدرسه)
             'assistantOn' => fn () => \App\Support\AssistantAccess::visible($user),
             // پیامِ خوانده‌نشده‌ی «بخشِ والدین» (نشان روی منوی دانش‌آموز)
-            'familyNew' => fn () => ($user && $user->isStudent() && \Illuminate\Support\Facades\Schema::hasTable('parent_notes'))
+            'familyNew' => fn () => ($user && $user->isStudent() && \App\Support\DbSchema::hasTable('parent_notes'))
                 ? \App\Models\ParentNote::where('student_id', $user->id)->where('from_parent', false)->whereNull('read_at')->count()
                 : 0,
             // «مرورِ اشتباه‌های من» که امروز آماده است (نشان روی منوی دانش‌آموز)

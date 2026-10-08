@@ -44,7 +44,7 @@ class SchoolManageController extends Controller
             })->values();
 
         $students = User::where('school_id', $school->id)
-            ->whereHas('roles', fn ($q) => $q->where('name', Roles::STUDENT))->get()
+            ->whereHas('roles', fn ($q) => $q->where('name', Roles::STUDENT))->withXp()->get()
             ->map(function ($s) {
                 $class = $s->classrooms()->with('teacher:id,name')->first();
                 return [
@@ -85,7 +85,7 @@ class SchoolManageController extends Controller
             'ui'     => ['nullable', Rule::in(\App\Support\Ui::SKINS)],
         ], [], ['level' => 'مقطع مدرسه', 'ui' => 'طرحِ ظاهری']);
         $data['ui'] = $data['ui'] ?? null;
-        if (! \Illuminate\Support\Facades\Schema::hasColumn('schools', 'ui')) {
+        if (! \App\Support\DbSchema::hasColumn('schools', 'ui')) {
             unset($data['ui']);   // مهاجرت هنوز روی سرور اجرا نشده
         }
 

@@ -27,9 +27,10 @@ class SchoolDashboardController extends Controller
 
         $students = User::role(Roles::STUDENT)->where('school_id', $schoolId)->count();
 
-        $topStudents = User::role(Roles::STUDENT)->where('school_id', $schoolId)->get()
-            ->map(fn ($s) => ['name' => $s->name, 'avatar' => $s->avatar_url, 'xp' => $s->totalXp()])
-            ->sortByDesc('xp')->take(5)->values();
+        // پنج نفرِ برتر مستقیم از پایگاه‌داده (قبلاً همه‌ی دانش‌آموزانِ مدرسه و برای هر کدام یک کوئری)
+        $topStudents = User::role(Roles::STUDENT)->where('school_id', $schoolId)->withXp()
+            ->orderByDesc('xp_sum')->limit(5)->get()
+            ->map(fn ($s) => ['name' => $s->name, 'avatar' => $s->avatar_url, 'xp' => $s->totalXp()])->values();
 
         return Inertia::render('SchoolAdmin/Overview', [
             'school' => $school ? array_merge(
@@ -87,7 +88,7 @@ class SchoolDashboardController extends Controller
         // پرونده‌ی کاملِ دانش‌آموز — همان چیزی که هنگامِ ثبت‌نام گرفته شده،
         // تا مدیرِ مدرسه بتواند ببیند، ویرایش کند و چاپ بگیرد.
         $students = User::role(Roles::STUDENT)->where('school_id', $schoolId)
-            ->with('theme:id,name,emoji')->get()
+            ->with('theme:id,name,emoji')->withXp()->get()
             ->map(fn ($s) => \App\Support\StudentRecordData::row($s))
             ->sortBy('name', SORT_NATURAL)->values();
 

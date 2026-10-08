@@ -31,9 +31,9 @@ class PointBatch extends Model
         if (self::$ready !== null) {
             return self::$ready;
         }
-        $check = fn () => \Illuminate\Support\Facades\Schema::hasTable('point_batches')
-            && \Illuminate\Support\Facades\Schema::hasColumn('team_points', 'batch_id')
-            && \Illuminate\Support\Facades\Schema::hasColumn('activity_awards', 'batch_id');
+        $check = fn () => \App\Support\DbSchema::hasTable('point_batches')
+            && \App\Support\DbSchema::hasColumn('team_points', 'batch_id')
+            && \App\Support\DbSchema::hasColumn('activity_awards', 'batch_id');
         if (rescue($check, false, false)) {
             return self::$ready = true;
         }

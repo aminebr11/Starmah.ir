@@ -97,7 +97,7 @@ class ContentRelease
             'body' => $over['body'] ?? "معلمت محتوای جدیدی برایت گذاشت: «{$content->title}». روی همین اعلان بزن تا ببینی"
                 . ($content->type === 'podcast' ? ' و با گوش‌دادن امتیاز بگیری ⚡' : '.'),
         ];
-        if (\Illuminate\Support\Facades\Schema::hasColumn('announcements', 'link')) {
+        if (\App\Support\DbSchema::hasColumn('announcements', 'link')) {
             $payload['link'] = $over['link'] ?? self::linkFor($content);
         }
 
@@ -120,7 +120,7 @@ class ContentRelease
      */
     public static function releaseDue(): void
     {
-        if (! \Illuminate\Support\Facades\Schema::hasColumn('class_contents', 'publish_at')) {
+        if (! \App\Support\DbSchema::hasColumn('class_contents', 'publish_at')) {
             return;
         }
         try {

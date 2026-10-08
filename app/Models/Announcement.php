@@ -46,7 +46,7 @@ class Announcement extends Model
         $grade = $isStudent ? optional($user->classrooms()->first())->grade : null;
 
         // اعلان‌هایی که کاربر برای خودش حذف/پنهان کرده را نشان نده
-        if (Schema::hasTable('announcement_dismissals')) {
+        if (\App\Support\DbSchema::hasTable('announcement_dismissals')) {
             $q->whereNotExists(function ($sub) use ($user) {
                 $sub->selectRaw('1')->from('announcement_dismissals')
                     ->whereColumn('announcement_dismissals.announcement_id', 'announcements.id')

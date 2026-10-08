@@ -149,7 +149,7 @@ class PrintController extends Controller
         abort_unless($admin->hasRole(Roles::SCHOOL_ADMIN) || $admin->hasRole(Roles::SUPER_ADMIN), 403);
 
         $students = User::role(Roles::STUDENT)->where('school_id', $admin->school_id)
-            ->with('theme:id,name,emoji')->orderBy('name')->get()
+            ->with('theme:id,name,emoji')->withXp()->orderBy('name')->get()
             ->map(function ($s) {
                 $class = $s->classrooms()->with('teacher:id,name')->first();
                 $g = data_get($s->settings, 'guardian', []);

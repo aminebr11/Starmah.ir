@@ -200,7 +200,7 @@ class Notifications
         }
 
         // ── ۳) پیامِ «بخشِ والدین» برای دانش‌آموز ─────────────────────
-        if ($user->isStudent() && Schema::hasTable('parent_notes')) {
+        if ($user->isStudent() && \App\Support\DbSchema::hasTable('parent_notes')) {
             foreach (ParentNote::where('student_id', $user->id)->where('from_parent', false)
                 ->whereNull('read_at')->latest()->limit(5)->get() as $n) {
                 $items->push([
@@ -220,7 +220,7 @@ class Notifications
         }
 
         // ── ۴) صندوقِ پیام (همه‌ی نقش‌ها) ─────────────────────────────
-        if (Schema::hasTable('messages')) {
+        if (\App\Support\DbSchema::hasTable('messages')) {
             foreach (Message::with('sender:id,name')->where('recipient_id', $user->id)
                 ->where('created_at', '>=', now()->subDays(30))->latest()->limit($limit)->get() as $m) {
                 $items->push([
@@ -242,7 +242,7 @@ class Notifications
 
         // ── ۵) پاسخِ والدین برای معلم و مدیرِ مدرسه ───────────────────
         if (($user->hasRole(Roles::TEACHER) || $user->hasRole(Roles::SCHOOL_ADMIN))
-            && Schema::hasTable('parent_notes')) {
+            && \App\Support\DbSchema::hasTable('parent_notes')) {
             $studentIds = $user->hasRole(Roles::TEACHER)
                 ? User::whereHas('classrooms', fn ($q) => $q->where('teacher_id', $user->id))->pluck('id')
                 : User::role(Roles::STUDENT)->where('school_id', $user->school_id)->pluck('id');
@@ -267,7 +267,7 @@ class Notifications
         }
 
         // ── ۶) کاربرگِ پرشده‌ای که دانش‌آموز فرستاده (معلم) ───────────
-        if ($user->hasRole(Roles::TEACHER) && Schema::hasTable('worksheet_submissions')) {
+        if ($user->hasRole(Roles::TEACHER) && \App\Support\DbSchema::hasTable('worksheet_submissions')) {
             $subs = \App\Models\WorksheetSubmission::with(['student:id,name', 'worksheet:id,title,teacher_id'])
                 ->whereHas('worksheet', fn ($q) => $q->where('teacher_id', $user->id))
                 ->whereNotNull('file_path')

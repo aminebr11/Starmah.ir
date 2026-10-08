@@ -41,6 +41,12 @@ class BirthdayService
         if (! $schoolId) {
             return;
         }
+        // روزی یک بار برای هر مدرسه کافی است — قبلاً با هر بازکردنِ پیشخوان همه‌ی دانش‌آموزانِ مدرسه خوانده می‌شد
+        $gate = 'bday-run:' . $schoolId . ':' . now()->toDateString();
+        if (! (bool) rescue(fn () => DB::table('settings')->insertOrIgnore(['key' => $gate, 'value' => '1', 'created_at' => now(), 'updated_at' => now()]), 1, false)) {
+            return;
+        }
+        rescue(fn () => DB::table('settings')->where('key', 'like', 'bday-run:%')->where('created_at', '<', now()->subDays(3))->delete(), null, false);
         [$jy] = self::jToday();
 
         foreach ($this->birthdaysOn(now(), $schoolId) as $student) {

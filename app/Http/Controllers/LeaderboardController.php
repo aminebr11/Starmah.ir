@@ -16,7 +16,7 @@ class LeaderboardController extends Controller
 
         $rows = [];
         if ($classroom) {
-            $rows = $classroom->students()->get()
+            $rows = $classroom->students()->withXp()->get()
                 ->map(fn ($s) => [
                     'id'    => $s->id,
                     'name'  => $s->name,

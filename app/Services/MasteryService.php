@@ -208,14 +208,14 @@ class MasteryService
         };
 
         // ۱) آزمونِ هوشمند — هر سؤال یک مشاهده
-        if (Schema::hasTable('smart_exam_answers')) {
+        if (\App\Support\DbSchema::hasTable('smart_exam_answers')) {
             DB::table('smart_exam_answers as a')
                 ->join('smart_exam_attempts as t', 't.id', '=', 'a.attempt_id')
                 ->join('smart_exams as e', 'e.id', '=', 't.smart_exam_id')
                 ->leftJoin('smart_exam_questions as q', 'q.id', '=', 'a.question_id')
                 ->whereIn('t.student_id', $ids)
                 ->select('t.student_id', 'e.subject', 'e.topic as etopic', 'e.chapter as echapter', 'e.chapter_id as echapter_id', 'q.topic', 'q.difficulty', 'q.points', 'a.correct', 'a.awarded', 'a.created_at', 't.finished_at')
-                ->when(Schema::hasColumn('smart_exam_questions', 'chapter_id'), fn ($q) => $q->addSelect('q.chapter_id'))
+                ->when(\App\Support\DbSchema::hasColumn('smart_exam_questions', 'chapter_id'), fn ($q) => $q->addSelect('q.chapter_id'))
                 ->orderBy('a.id')->get()
                 ->each(function ($r) use ($push, $unit) {
                     if ($r->correct !== null) $c = (float) $r->correct;
@@ -229,7 +229,7 @@ class MasteryService
         $attempts = DB::table('edu_game_attempts as a')->join('edu_games as g', 'g.id', '=', 'a.edu_game_id')
             ->whereIn('a.student_id', $ids)->select('a.student_id', 'a.edu_game_id', 'a.progress', 'a.score', 'a.max_score', 'a.completed_at', 'a.updated_at', 'g.subject', 'g.topic', 'g.difficulty', 'g.chapter_id as gchapter_id', 'g.chapter as gchapter')->get();
         $qCols = ['edu_game_id', 'topic', 'difficulty'];
-        if (Schema::hasColumn('edu_game_questions', 'chapter_id')) $qCols[] = 'chapter_id';
+        if (\App\Support\DbSchema::hasColumn('edu_game_questions', 'chapter_id')) $qCols[] = 'chapter_id';
         $qs = DB::table('edu_game_questions')->whereIn('edu_game_id', $attempts->pluck('edu_game_id')->unique())
             ->orderBy('sort')->orderBy('id')->get($qCols)->groupBy('edu_game_id');
         foreach ($attempts as $a) {
@@ -251,7 +251,7 @@ class MasteryService
         // ۳الف) پاسخ‌های سؤال‌به‌سؤالِ مأموریت و مرورِ روزانه — با «تلاشِ دوم» و «راهنما»
         //       (دقیق‌تر از نمره‌ی کلِ روز؛ هر پاسخ به هدفِ درسیِ خودش می‌رود)
         $detailed = [];
-        if (Schema::hasTable('practice_answers')) {
+        if (\App\Support\DbSchema::hasTable('practice_answers')) {
             DB::table('practice_answers as p')->join('learning_objectives as o', 'o.id', '=', 'p.objective_id')
                 ->leftJoin('smart_question_bank as b', 'b.id', '=', 'p.bank_id')
                 ->whereIn('p.student_id', $ids)
@@ -284,7 +284,7 @@ class MasteryService
         DB::table('grades as g')->join('grade_columns as c', 'c.id', '=', 'g.grade_column_id')
             ->whereIn('g.student_id', $ids)
             ->select('g.student_id', 'g.score', 'g.text', 'g.created_at', 'c.id as col_id', 'c.max', 'c.type', 'c.score_type', 'c.lesson', 'c.topic', 'c.title', 'c.graded_at')
-            ->when(Schema::hasColumn('grade_columns', 'chapter_id'), fn ($q) => $q->addSelect('c.chapter_id'))->get()
+            ->when(\App\Support\DbSchema::hasColumn('grade_columns', 'chapter_id'), fn ($q) => $q->addSelect('c.chapter_id'))->get()
             ->each(function ($r) use ($push, $unit) {
                 $type = $r->score_type ?: $r->type;
                 $c = self::gradeFraction($type, $r->score, $r->text, $r->max);
@@ -305,9 +305,9 @@ class MasteryService
             });
 
         // ۶) تمرین‌های قدیمیِ مهارت‌محور
-        if (Schema::hasTable('activity_results') && Schema::hasTable('skills')) {
+        if (\App\Support\DbSchema::hasTable('activity_results') && \App\Support\DbSchema::hasTable('skills')) {
             $q = DB::table('activity_results as r')->leftJoin('skills as k', 'k.id', '=', 'r.skill_id')->leftJoin('topics as tp', 'tp.id', '=', 'k.topic_id');
-            $hasSubjects = Schema::hasTable('subjects');
+            $hasSubjects = \App\Support\DbSchema::hasTable('subjects');
             if ($hasSubjects) $q->leftJoin('subjects as sb', 'sb.id', '=', 'tp.subject_id');
             $q->whereIn('r.student_id', $ids)
                 ->select('r.student_id', 'r.score', 'r.max_score', 'r.accuracy', 'r.created_at', 'k.name as skill', 'tp.name as topic', $hasSubjects ? 'sb.name as subject' : DB::raw('NULL as subject'))

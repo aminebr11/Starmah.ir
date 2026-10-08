@@ -43,7 +43,7 @@ class ExamBuilderController extends Controller
             });
 
         // بانک سؤالات — اگر جدولش هنوز ساخته نشده (آپگرید SQL اجرا نشده) صفحه نباید ۵۰۰ بدهد.
-        $bank = Schema::hasTable('exam_questions')
+        $bank = \App\Support\DbSchema::hasTable('exam_questions')
             ? ExamQuestion::where('teacher_id', $teacher->id)->latest()->get()
                 ->map(fn ($q) => [
                     'id' => $q->id, 'type' => $q->type, 'lesson' => $q->lesson, 'prompt' => $q->prompt,
@@ -64,7 +64,7 @@ class ExamBuilderController extends Controller
     public function saveToBank(Request $request): RedirectResponse
     {
         $teacher = $request->user();
-        if (! Schema::hasTable('exam_questions')) {
+        if (! \App\Support\DbSchema::hasTable('exam_questions')) {
             return back()->with('flash', 'بانک سؤالات هنوز روی سرور فعال نشده — لطفاً آپگرید پایگاه‌داده (upgrade-v7.sql) را اجرا کنید.');
         }
         $data = $request->validate([

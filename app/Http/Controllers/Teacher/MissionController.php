@@ -383,7 +383,7 @@ class MissionController extends Controller
                     . ($mission->description ? $mission->description . "\n" : '')
                     . 'از بخشِ «مأموریت‌های من» انجامش بده.',
             ];
-            if (\Illuminate\Support\Facades\Schema::hasColumn('announcements', 'link')) {
+            if (\App\Support\DbSchema::hasColumn('announcements', 'link')) {
                 $payload['link'] = '/missions';
             }
             $ann = Announcement::create($payload);

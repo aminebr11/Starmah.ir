@@ -19,8 +19,10 @@ class AnalyticsService
     /* ---------------- کلاس (گزارش معلم) ---------------- */
     public function classroomReport(Classroom $classroom): array
     {
-        $students = $classroom->students()->with('theme')->get();
+        $students = $classroom->students()->with('theme')->withXp()->get();
         $masteryMap = app(MasteryService::class)->forStudents($students->pluck('id')->all());
+        $acts = ActivityAward::whereIn('student_id', $students->pluck('id'))->groupBy('student_id')
+            ->selectRaw('student_id, COUNT(*) as c')->pluck('c', 'student_id');
 
         $perStudent = $students->map(fn ($s) => [
             'id' => $s->id, 'name' => $s->name, 'theme_id' => $s->theme_id,
@@ -28,7 +30,7 @@ class AnalyticsService
             'xp' => $s->totalXp(),
             'mastery' => $masteryMap[$s->id]['overall'] ?? null,
             'mastery_level' => $masteryMap[$s->id]['level']['label'] ?? null,
-            'activities' => ActivityAward::where('student_id', $s->id)->count(),
+            'activities' => (int) ($acts[$s->id] ?? 0),
         ])->sortByDesc('xp')->values();
 
         // امتیازِ دستیِ گروهی برای همین کلاس
@@ -190,7 +192,7 @@ class AnalyticsService
         // جایگاه در کلاس
         $rank = null; $classSize = null; $classAvgWeek = null;
         if ($classroom) {
-            $peers = $classroom->students()->get()->map(fn ($s) => ['id' => $s->id, 'xp' => $s->totalXp()])->sortByDesc('xp')->values();
+            $peers = $classroom->students()->withXp()->get()->map(fn ($s) => ['id' => $s->id, 'xp' => $s->totalXp()])->sortByDesc('xp')->values();
             $classSize = $peers->count();
             $i = $peers->search(fn ($p) => $p['id'] === $student->id);
             $rank = $i === false ? null : $i + 1;

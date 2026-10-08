@@ -69,7 +69,7 @@ class RemediationPlan extends Model
     {
         static $ok = null;
 
-        return $ok ??= (bool) rescue(fn () => Schema::hasTable('remediation_plans'), false, false);
+        return $ok ??= (bool) rescue(fn () => \App\Support\DbSchema::hasTable('remediation_plans'), false, false);
     }
 
     public static function forClassroom(?int $classroomId): array

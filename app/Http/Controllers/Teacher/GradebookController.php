@@ -276,7 +276,7 @@ class GradebookController extends Controller
         ];
         // کلیک روی اعلان باید مستقیم تبِ «نمرات کلاسی» کارنامه را باز کند،
         // نه صفحه‌ی کلیِ اطلاعیه‌ها.
-        if (\Illuminate\Support\Facades\Schema::hasColumn('announcements', 'link')) {
+        if (\App\Support\DbSchema::hasColumn('announcements', 'link')) {
             $payload['link'] = '/report?tab=grades';
         }
 

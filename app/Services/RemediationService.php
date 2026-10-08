@@ -49,7 +49,7 @@ class RemediationService
             self::$ready = null;
         }
 
-        return self::$ready ??= (bool) rescue(fn () => Schema::hasTable('remediations'), false, false);
+        return self::$ready ??= \App\Support\DbSchema::hasTable('remediations');
     }
 
     /** چرا بخشِ مرور آماده نیست؟ (متنِ کوتاه برای مدیرِ سایت) */

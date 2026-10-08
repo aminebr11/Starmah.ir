@@ -77,7 +77,7 @@ class EduGameWorldController extends Controller
         // پروفایل + گروه + امتیاز + مدال‌ها + رتبه
         $xp = $user->totalXp();
         $classroom = $user->classrooms()->with('teacher')->first();
-        $members = $classroom ? $classroom->students()->with('theme')->get()
+        $members = $classroom ? $classroom->students()->with('theme')->withXp()->get()
             ->map(fn ($s) => ['id' => $s->id, 'xp' => $s->totalXp(), 'theme_id' => $s->theme_id])
             ->sortByDesc('xp')->values() : collect();
         $groupMembers = $members->where('theme_id', $user->theme_id)->values();

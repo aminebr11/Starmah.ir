@@ -70,8 +70,8 @@ class VisitTracker
 
     private static function bump(string $table, array $key): void
     {
-        DB::table($table)->insertOrIgnore($key + ['hits' => 0]);
-        DB::table($table)->where($key)->increment('hits');
+        // یک کوئری به‌جای دو (درج یا افزایش)
+        DB::table($table)->upsert([$key + ['hits' => 1]], array_keys($key), ['hits' => DB::raw('hits + 1')]);
     }
 
     public static function device(Request $request): string

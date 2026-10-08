@@ -22,7 +22,7 @@ class GalleryAlbums
     {
         static $ok = null;
 
-        return $ok ??= Schema::hasTable('gallery_albums') && Schema::hasColumn('class_contents', 'album_id');
+        return $ok ??= \App\Support\DbSchema::hasTable('gallery_albums') && \App\Support\DbSchema::hasColumn('class_contents', 'album_id');
     }
 
     /** دسته‌بندیِ عکس‌های بی‌آلبومِ یک معلم. */

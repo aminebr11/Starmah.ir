@@ -18,7 +18,7 @@ class TeamScoreService
     /** خلاصه‌ی همه‌ی تیم‌های یک کلاس. */
     public function teams(Classroom $classroom, ?int $meId = null): array
     {
-        $students = $classroom->students()->with('theme')->get();
+        $students = $classroom->students()->with('theme')->withXp()->get();
         $manual = TeamPoint::where('classroom_id', $classroom->id)
             ->selectRaw('theme_id, SUM(amount) as s')->groupBy('theme_id')->pluck('s', 'theme_id');
 

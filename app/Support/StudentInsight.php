@@ -105,7 +105,7 @@ class StudentInsight
         if (! $classroom) {
             return ['in_class' => null, 'of' => 0];
         }
-        $scores = $classroom->students()->get()->map(fn ($x) => ['id' => $x->id, 'xp' => $x->totalXp()])
+        $scores = $classroom->students()->withXp()->get()->map(fn ($x) => ['id' => $x->id, 'xp' => $x->totalXp()])
             ->sortByDesc('xp')->values();
         $i = $scores->search(fn ($r) => $r['id'] === $s->id);
 
@@ -129,7 +129,7 @@ class StudentInsight
     /** نمره‌های دفترِ نمره (کلاسی). */
     private function classGrades(User $s): array
     {
-        if (! Schema::hasTable('grades')) {
+        if (! \App\Support\DbSchema::hasTable('grades')) {
             return [];
         }
 
@@ -154,7 +154,7 @@ class StudentInsight
     /** آزمون‌های هوشمندِ تمام‌شده. */
     private function exams(User $s): array
     {
-        if (! Schema::hasTable('smart_exam_attempts')) {
+        if (! \App\Support\DbSchema::hasTable('smart_exam_attempts')) {
             return [];
         }
 
@@ -173,7 +173,7 @@ class StudentInsight
     private function missions(User $s): array
     {
         $pending = MissionAccess::pendingToday($s);
-        $done30 = Schema::hasTable('mission_completions')
+        $done30 = \App\Support\DbSchema::hasTable('mission_completions')
             ? DB::table('mission_completions')->where('student_id', $s->id)
                 ->where('play_date', '>=', now()->subDays(30)->toDateString())->count()
             : 0;
@@ -189,7 +189,7 @@ class StudentInsight
     /** حضور و غیابِ ۳۰ روزِ اخیر. */
     private function attendance(User $s): array
     {
-        if (! Schema::hasTable('attendance_records')) {
+        if (! \App\Support\DbSchema::hasTable('attendance_records')) {
             return [];
         }
         $rows = AttendanceRecord::where('student_id', $s->id)
@@ -207,7 +207,7 @@ class StudentInsight
     /** تشویق/تذکرِ ۳۰ روزِ اخیر. */
     private function discipline(User $s): array
     {
-        if (! Schema::hasTable('discipline_records')) {
+        if (! \App\Support\DbSchema::hasTable('discipline_records')) {
             return ['plus' => 0, 'minus' => 0, 'count' => 0];
         }
         $rows = DisciplineRecord::where('student_id', $s->id)

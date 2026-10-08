@@ -15,7 +15,8 @@ class TrackVisit
         $response = $next($request);
 
         if ($response->getStatusCode() < 400 && ! $response->isRedirection() && VisitTracker::countable($request)) {
-            VisitTracker::hit($request);
+            // بعد از فرستادنِ پاسخ ثبت می‌شود تا کاربر منتظرِ نوشتنِ آمار نماند
+            \Illuminate\Support\defer(fn () => VisitTracker::hit($request));
         }
 
         return $response;

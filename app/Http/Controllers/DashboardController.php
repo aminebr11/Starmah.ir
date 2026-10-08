@@ -23,7 +23,7 @@ class DashboardController extends Controller
         // همه‌ی اعضای کلاس با تیم و امتیازشان
         $members = collect();
         if ($classroom) {
-            $members = $classroom->students()->with('theme')->get()->map(fn ($s) => [
+            $members = $classroom->students()->with('theme')->withXp()->get()->map(fn ($s) => [
                 'id' => $s->id, 'name' => $s->name, 'xp' => $s->totalXp(),
                 'theme_id' => $s->theme_id,
                 'group' => $s->theme?->name, 'emoji' => $s->theme?->emoji,

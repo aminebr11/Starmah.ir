@@ -88,13 +88,16 @@ class TeacherDashboardController extends Controller
 
         $rows = [];
         if ($classroom) {
-            $students = $classroom->students()->get();
+            $students = $classroom->students()->withXp()->get();
             $mastery = app(\App\Services\MasteryService::class)->forStudents($students->pluck('id')->all());
+            // ستاره‌های همه با یک کوئری (نه یکی برای هر دانش‌آموز)
+            $stars = DisciplineRecord::whereIn('student_id', $students->pluck('id'))->where('type', 'star')
+                ->groupBy('student_id')->selectRaw('student_id, SUM(points) as s')->pluck('s', 'student_id');
             $rows = $students->map(fn ($s) => [
                 'id' => $s->id, 'name' => $s->name,
                 'xp' => $s->totalXp(),
                 'mastery' => $mastery[$s->id]['overall'] ?? null,
-                'stars' => DisciplineRecord::where('student_id', $s->id)->where('type', 'star')->sum('points'),
+                'stars' => (int) ($stars[$s->id] ?? 0),
             ])->sortByDesc('xp')->values();
         }
 
@@ -163,7 +166,7 @@ class TeacherDashboardController extends Controller
     {
         abort_unless($classroom->teacher_id === $request->user()->id, 403);
 
-        $list = $classroom->students()->with('theme:id,name,emoji')->get();
+        $list = $classroom->students()->with('theme:id,name,emoji')->withXp()->get();
         $masteryMap = app(\App\Services\MasteryService::class)->forStudents($list->pluck('id')->all());
         $students = $list->map(fn ($s) => \App\Support\StudentRecordData::row($s) + [
             'id'   => $s->id,

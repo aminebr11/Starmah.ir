@@ -23,7 +23,7 @@ class SmartQuestionBank extends Model
         static::saving(function (self $q) {
             static $ready = null;
             // اگر به‌روزرسانیِ کد پیش از اجرای مایگریشن رسیده باشد، ذخیره‌ی سؤال نباید بشکند
-            $ready ??= \Illuminate\Support\Facades\Schema::hasColumn('smart_question_bank', 'objective_id');
+            $ready ??= \App\Support\DbSchema::hasColumn('smart_question_bank', 'objective_id');
             if (! $ready) {
                 return;
             }

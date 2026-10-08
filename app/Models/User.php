@@ -95,9 +95,20 @@ class User extends Authenticatable
 
     // ---------- کمک‌کننده‌ها ----------
 
+    /** جمعِ XP هر کاربر در همان کوئریِ فهرست (برای totalXp بدونِ کوئریِ جدا). */
+    public function scopeWithXp($query)
+    {
+        return $query->withSum('xpEntries as xp_sum', 'amount');
+    }
+
     /** مجموع XP (در صورت نیاز قابل محدود کردن به یک فصل) */
     public function totalXp(?int $seasonId = null): int
     {
+        // فهرست‌ها با ->withXp() جمع را در همان یک کوئری می‌آورند (نه یک کوئری برای هر دانش‌آموز)
+        if ($seasonId === null && array_key_exists('xp_sum', $this->attributes)) {
+            return (int) $this->attributes['xp_sum'];
+        }
+
         return (int) $this->xpEntries()
             ->when($seasonId, fn ($q) => $q->where('season_id', $seasonId))
             ->sum('amount');
