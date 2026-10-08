@@ -14,6 +14,7 @@
 | قالب و هدر صفحات عمومی | `resources/js/Layouts/WebLayout.jsx` |
 | مسیرها (routes) | `routes/web.php` |
 | راهنمای نصب روی cPanel | [`DEPLOY.md`](DEPLOY.md) |
+| راهنمای «هسته‌ی یادگیری» (بازخوردِ لحظه‌ای، مرورِ امروز، نقشه‌ی تسلط، بخوان برایم) | [`docs/LEARNING_CORE_GUIDE.md`](docs/LEARNING_CORE_GUIDE.md) |
 | نسخه‌ی ۱ (سایت قدیمیِ PHP، بازنشسته) | `legacy/` |
 
 ### درباره‌ی برانچ‌های `claude/*`
