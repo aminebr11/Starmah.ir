@@ -2,11 +2,12 @@ import { usePage, router } from '@inertiajs/react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import ThemedDash from '@/Layouts/ThemedDash';
+import ReadAloud from '@/Components/ReadAloud';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 export default function SmartExamTake() {
-    const { exam = {}, token, questions = [], saved = {}, preview = null } = usePage().props;
+    const { exam = {}, token, questions = [], saved = {}, preview = null, a11y = null } = usePage().props;
     const rules = exam.rules || {};
     const onePer = exam.onePerPage;
     const total = questions.length;
@@ -85,9 +86,12 @@ export default function SmartExamTake() {
 
     const Question = (question, i) => (
         <div key={i} className="k3-card" style={{ marginBottom: onePer ? 0 : 12 }}>
-            <div style={{ fontSize: 12.5, opacity: .75, marginBottom: 6 }}>سؤال {fa(i + 1)} از {fa(total)} · بارم {fa(question.points)}</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+                <span style={{ fontSize: 12.5, opacity: .75 }}>سؤال {fa(i + 1)} از {fa(total)} · بارم {fa(question.points)}</span>
+                {a11y?.readAloud !== false && <ReadAloud text={question.prompt} />}
+            </div>
             {question.media && <img src={question.media} alt="" style={{ maxWidth: '100%', borderRadius: 12, marginBottom: 10 }} />}
-            <div style={{ fontWeight: 800, fontSize: 17, lineHeight: 2 }}>{question.prompt}</div>
+            <div style={{ fontWeight: 800, fontSize: a11y?.largeText ? 22 : 17, lineHeight: 2 }}>{question.prompt}</div>
             {question.type === 'desc' || question.type === 'blank' ? (
                 <textarea style={{ marginTop: 12, minHeight: question.type === 'desc' ? 90 : 44, width: '100%', borderRadius: 14, padding: 14, fontFamily: 'inherit', fontSize: 15.5, background: 'rgba(255,255,255,.08)', color: '#fff', border: '1.5px solid rgba(255,255,255,.22)', resize: 'vertical' }}
                     value={answers[i]?.value || ''} onChange={(e) => setAns(i, e.target.value)} placeholder={question.type === 'blank' ? 'پاسخ کوتاه' : 'پاسخ تشریحی خود را بنویس…'} />

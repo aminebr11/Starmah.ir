@@ -30,7 +30,8 @@ use Illuminate\Support\Facades\Schema;
  *    می‌رسد؛ یک سؤالِ غلط کسی را «صفر» نمی‌کند و یک سؤالِ درست «۱۰۰».
  * ۶) اطمینان: هرچه شواهد بیشتر، اطمینان بیشتر. زیرِ ۳ مشاهده عددی نمایش
  *    داده نمی‌شود و «هنوز کافی نیست» گفته می‌شود (نه صفر).
- * ۷) سطح‌ها بر پایه‌ی «یادگیری در حدِ تسلط» (بلوم، معیارِ ۸۰–۹۰٪).
+ * ۷) سطح‌ها بر پایه‌ی «یادگیری در حدِ تسلط» (بلوم، معیارِ ۸۰–۹۰٪) و با همان چهار
+ *    عنوانِ ارزشیابیِ توصیفیِ دبستان: خیلی خوب / خوب / قابل قبول / نیاز به تلاش بیشتر.
  */
 class MasteryService
 {
@@ -64,13 +65,13 @@ class MasteryService
     public const SOURCE_LABELS = ['exam' => 'آزمون', 'game' => 'بازی', 'mission' => 'مأموریت', 'grade' => 'نمره‌ی معلم', 'homework' => 'تکلیف', 'legacy' => 'تمرین'];
 
     public const LEVELS = [
-        ['key' => 'master', 'min' => 85, 'label' => 'مسلط', 'emoji' => '🏆', 'color' => '#1fa463',
+        ['key' => 'master', 'min' => 85, 'label' => 'خیلی خوب', 'emoji' => '🏆', 'color' => '#1fa463',
             'kid' => 'این درس را خیلی خوب بلدی! حالا می‌توانی به دوستانت هم کمک کنی.'],
-        ['key' => 'proficient', 'min' => 70, 'label' => 'نزدیک به تسلط', 'emoji' => '🚀', 'color' => '#3d7bf0',
+        ['key' => 'proficient', 'min' => 70, 'label' => 'خوب', 'emoji' => '🚀', 'color' => '#3d7bf0',
             'kid' => 'خیلی خوب پیش می‌روی؛ با کمی تمرینِ بیشتر مسلط می‌شوی.'],
-        ['key' => 'developing', 'min' => 50, 'label' => 'در حالِ یادگیری', 'emoji' => '🌱', 'color' => '#e8862e',
+        ['key' => 'developing', 'min' => 50, 'label' => 'قابل قبول', 'emoji' => '🌱', 'color' => '#e8862e',
             'kid' => 'داری یاد می‌گیری! مبحث‌های ضعیف‌تر را دوباره تمرین کن.'],
-        ['key' => 'beginning', 'min' => 0, 'label' => 'نیاز به تمرین', 'emoji' => '💪', 'color' => '#e8505b',
+        ['key' => 'beginning', 'min' => 0, 'label' => 'نیاز به تلاش بیشتر', 'emoji' => '💪', 'color' => '#e8505b',
             'kid' => 'این درس تمرینِ بیشتری لازم دارد؛ از معلمت کمک بگیر و بازی‌ها و مأموریت‌هایش را انجام بده.'],
     ];
 
@@ -227,12 +228,35 @@ class MasteryService
             }
         }
 
-        // ۳) مأموریت‌ها — نتیجه‌ی هر روز (score از total)
+        // ۳الف) پاسخ‌های سؤال‌به‌سؤالِ مأموریت و مرورِ روزانه — با «تلاشِ دوم» و «راهنما»
+        //       (دقیق‌تر از نمره‌ی کلِ روز؛ هر پاسخ به هدفِ درسیِ خودش می‌رود)
+        $detailed = [];
+        if (Schema::hasTable('practice_answers')) {
+            DB::table('practice_answers as p')->join('learning_objectives as o', 'o.id', '=', 'p.objective_id')
+                ->leftJoin('smart_question_bank as b', 'b.id', '=', 'p.bank_id')
+                ->whereIn('p.student_id', $ids)
+                ->select('p.student_id', 'p.source', 'p.source_id', 'p.correct', 'p.first_try', 'p.hinted', 'p.created_at', 'o.subject', 'o.label', 'b.difficulty')
+                ->orderBy('p.id')->get()
+                ->each(function ($r) use ($push, &$detailed) {
+                    $c = \App\Services\LearningService::credit((bool) $r->correct, (bool) $r->first_try, (bool) $r->hinted);
+                    $push($r->student_id, $r->subject, $r->label, $c, 1.0, $r->created_at, 'mission', $r->difficulty);
+                    if ($r->source === 'mission' && $r->source_id) {
+                        $detailed[$r->student_id . '|' . $r->source_id . '|' . Carbon::parse($r->created_at)->toDateString()] = true;
+                    }
+                });
+        }
+
+        // ۳ب) مأموریت‌ها — نتیجه‌ی کلِ روز (فقط وقتی جزئیاتِ سؤال‌به‌سؤال ثبت نشده، تا دوبار شمرده نشود)
         DB::table('mission_completions as c')->join('missions as m', 'm.id', '=', 'c.mission_id')
             ->whereIn('c.student_id', $ids)->where('c.total', '>', 0)
-            ->select('c.student_id', 'c.score', 'c.total', 'c.created_at', 'm.subject', 'm.lesson_no', 'm.difficulty', 'm.title')->get()
-            ->each(fn ($r) => $push($r->student_id, $r->subject ?: self::guessSubject($r->title), $r->lesson_no ? 'درسِ ' . $r->lesson_no : null,
-                $r->score / $r->total, min(10, (int) $r->total), $r->created_at, 'mission', $r->difficulty));
+            ->select('c.student_id', 'c.mission_id', 'c.play_date', 'c.score', 'c.total', 'c.created_at', 'm.subject', 'm.lesson_no', 'm.difficulty', 'm.title')->get()
+            ->each(function ($r) use ($push, $detailed) {
+                if (isset($detailed[$r->student_id . '|' . $r->mission_id . '|' . Carbon::parse($r->play_date)->toDateString()])) {
+                    return;
+                }
+                $push($r->student_id, $r->subject ?: self::guessSubject($r->title), $r->lesson_no ? 'درسِ ' . $r->lesson_no : null,
+                    $r->score / $r->total, min(10, (int) $r->total), $r->created_at, 'mission', $r->difficulty);
+            });
 
         // ۴) نمره‌ی معلم در دفترِ نمره
         DB::table('grades as g')->join('grade_columns as c', 'c.id', '=', 'g.grade_column_id')
@@ -360,6 +384,12 @@ class MasteryService
     }
 
     /* ================= کمکی ================= */
+
+    /** همان یکسان‌سازیِ نامِ مبحث که در گزارش‌ها به کار می‌رود. */
+    public static function cleanTopic(?string $s): string
+    {
+        return (string) self::clean($s);
+    }
 
     private static function clean(?string $s): ?string
     {

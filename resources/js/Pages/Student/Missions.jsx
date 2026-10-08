@@ -18,7 +18,7 @@ const meta = (t) => TYPE_META[t] || TYPE_META.quiz;
 
 /** مأموریت‌های روزانه — تخته‌ی مأموریتِ دانش‌آموز با رشته‌ی روزها و جعبه‌ی گنج. */
 export default function Missions() {
-    const { missions = [], streak = 0, combo = {}, history = [], flash } = usePage().props;
+    const { missions = [], streak = 0, combo = {}, history = [], review = null, mastery = [], flash } = usePage().props;
     const [banner, setBanner] = useState(null);
     useEffect(() => { if (flash?.flash) { setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); window.scrollTo({ top: 0, behavior: 'smooth' }); } }, [flash]);
 
@@ -58,6 +58,12 @@ export default function Missions() {
                 )}
             </div>
 
+            {/* ── مرورِ امروز (مرورِ فاصله‌دار) ── */}
+            {review && (review.available || review.done_today) && <ReviewCard review={review} streak={streak} />}
+
+            {/* ── سطحِ من در هر مبحث (همان چهار سطحِ ارزشیابیِ توصیفی) ── */}
+            {mastery.length > 0 && <MyLevels list={mastery} />}
+
             {/* ── جعبه‌ی گنجِ روزانه ── */}
             {missions.length > 0 && <TreasureChest combo={combo} />}
 
@@ -77,6 +83,59 @@ export default function Missions() {
             {done.length > 0 && <Section t="✅ انجام‌شده‌های امروز" n={done.length} />}
             <Grid list={done} />
         </ThemedDash>
+    );
+}
+
+/* ═══════════════════ مرورِ امروز ═══════════════════ */
+function ReviewCard({ review, streak }) {
+    return (
+        <div className="k3-card" style={{ marginTop: 14, border: 0, background: review.done_today ? 'linear-gradient(135deg,#0f9d58,#0a6e3d)' : 'linear-gradient(135deg,#7c3aed,#2e8bff)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 30 }}>{review.done_today ? '✅' : '🔁'}</span>
+                <b style={{ fontSize: 19, flex: 1 }}>مرورِ امروز</b>
+                {streak > 0 && <span className="k3-chip">🔥 {fa(streak)} روزِ پیاپی</span>}
+            </div>
+            {review.done_today ? (
+                <div style={{ fontSize: 14, lineHeight: 1.9, marginTop: 6 }}>مرورِ امروز را انجام دادی! فردا دوباره سؤال‌هایی که وقتِ مرورشان رسیده می‌آیند 🧠</div>
+            ) : (
+                <>
+                    <div style={{ fontSize: 14, lineHeight: 1.9, marginTop: 6, opacity: .95 }}>
+                        این‌ها را چند روز پیش یاد گرفتی. مرورشان کن تا همیشه یادت بماند!
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', fontSize: 12.5 }}>
+                        <span className="k3-chip">{fa(review.count)} سؤال</span>
+                        <span className="k3-chip">حدودِ {fa(Math.max(2, Math.round(review.count * 0.75)))} دقیقه</span>
+                        <span className="k3-chip">از {fa(review.objectives)} مبحث</span>
+                        <span className="k3-chip">⚡ {fa(review.xp)}</span>
+                    </div>
+                    <Link href={route('missions.review.play')} className="k3-btn" style={{ width: '100%', marginTop: 12, background: 'linear-gradient(180deg,#ffd23f,#e9a400)', color: '#2b1d00' }}>▶ شروعِ مرور</Link>
+                </>
+            )}
+        </div>
+    );
+}
+
+/* ═══════════════════ سطحِ من ═══════════════════ */
+function MyLevels({ list }) {
+    return (
+        <div className="k3-card" style={{ marginTop: 14 }}>
+            <div style={{ fontWeight: 900, fontSize: 15.5, marginBottom: 4 }}>📈 سطحِ من</div>
+            {list.map((t, k) => (
+                <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderTop: k ? '1px solid rgba(255,255,255,.08)' : 0 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 700 }}>{t.topic}
+                            <span style={{ fontSize: 11, opacity: .6, fontWeight: 500 }}> · {t.subject}{t.due ? ' · وقتِ مرور' : ''}</span>
+                        </div>
+                        <div style={{ display: 'flex', height: 5, borderRadius: 3, background: 'rgba(255,255,255,.14)', marginTop: 5, overflow: 'hidden' }}>
+                            <div style={{ width: `${t.mastery ?? 0}%`, background: t.level?.color || '#8896ad' }} />
+                        </div>
+                    </div>
+                    {t.mastery != null
+                        ? <span style={{ fontSize: 11.5, fontWeight: 800, borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap', color: '#fff', background: t.level?.color }}>{t.level?.emoji} {t.level?.label}</span>
+                        : <span style={{ fontSize: 11, opacity: .7, whiteSpace: 'nowrap' }}>هنوز کافی نیست</span>}
+                </div>
+            ))}
+        </div>
     );
 }
 

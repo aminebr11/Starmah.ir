@@ -2,6 +2,7 @@ import { usePage, router } from '@inertiajs/react';
 import { useRef } from 'react';
 import PointsTrend from '@/Components/PointsTrend';
 import { MasteryTag } from '@/Components/MasteryPanel';
+import MasteryGrid from '@/Components/MasteryGrid';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import { AreaTrend, Donut, Heatmap, PAL } from '@/Components/Charts';
 import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
@@ -9,7 +10,7 @@ import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 export default function Reports() {
-    const { classroom, report, crossSubject = {}, studentCount = 0, trend = [], heatmap = null, studentTrend = null, trendStudent = null } = usePage().props;
+    const { classroom, report, crossSubject = {}, studentCount = 0, trend = [], heatmap = null, studentTrend = null, trendStudent = null, masteryGrid = null } = usePage().props;
     const trendRef = useRef(null);
     // نمودارِ روندِ یک دانش‌آموز، بدونِ بارگذاریِ دوباره‌ی کلِ صفحه
     const showTrend = (id) => router.get(route('teacher.reports'), id ? { student: id } : {}, {
@@ -46,6 +47,8 @@ export default function Reports() {
                     {heatmap ? <Heatmap weeks={heatmap.weeks} days={heatmap.days} legend="فعالیت" /> : <p style={{ color: 'var(--muted)' }}>داده‌ای نیست.</p>}
                 </div>
             </div>
+
+            {masteryGrid && <MasteryGrid data={masteryGrid} />}
 
             <TeacherCrossSubject data={crossSubject} studentCount={studentCount} />
 
