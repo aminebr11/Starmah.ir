@@ -134,7 +134,7 @@ class SmartExamController extends Controller
                         'type' => $q->type, 'prompt' => $q->prompt, 'choices' => $q->choices ?? [],
                         'answer' => $q->answer, 'explanation' => $q->explanation, 'difficulty' => $q->difficulty,
                         'points' => $q->points, 'topic' => $q->topic, 'goal' => $q->goal, 'source' => $q->source,
-                        'bloom' => $q->bloom, 'bank_id' => $q->bank_id,
+                        'bloom' => $q->bloom, 'bank_id' => $q->bank_id, 'chapter_id' => $q->chapter_id,
                     ])->values(),
                 ],
             ]
@@ -253,6 +253,7 @@ class SmartExamController extends Controller
     public function destroy(Request $request, SmartExam $smartExam): RedirectResponse
     {
         abort_unless($smartExam->teacher_id === $request->user()->id, 403);
+        \App\Services\RemediationService::forgetSources('exam', $smartExam->attempts()->pluck('id'));
         $smartExam->delete();
         return back()->with('flash', 'آزمون حذف شد (آزمون‌های قدیمی و نتایجشان دست‌نخورده‌اند).');
     }
@@ -299,6 +300,8 @@ class SmartExamController extends Controller
                 \App\Models\SmartExamReward::whereIn('attempt_id', $attemptIds)->delete();
                 \App\Models\SmartExamAnswer::whereIn('attempt_id', $attemptIds)->delete();
                 SmartExamAttempt::whereIn('id', $attemptIds)->delete();
+                // یادآوری‌های جبرانیِ همین تلاش‌ها و امتیازِ جبرانی‌شان هم پاک می‌شود
+                \App\Services\RemediationService::forgetSources('exam', $attemptIds);
             }
             // آزمون باید واقعاً قابلِ شرکت باشد
             $patch = [];
@@ -444,11 +447,13 @@ class SmartExamController extends Controller
             'template_key' => 'snake', 'title' => 'جبرانیِ ' . $smartExam->title,
             'description' => 'بازیِ جبرانی بر اساس اشتباهاتِ آزمون', 'subject' => $smartExam->subject,
             'grade' => $smartExam->grade, 'difficulty' => 'easy', 'status' => 'draft',
+            'level' => $smartExam->level, 'chapter_id' => $smartExam->chapter_id, 'chapter' => $smartExam->chapter,
         ]);
         foreach ($questions as $i => $q) {
             \App\Models\EduGameQuestion::create([
                 'edu_game_id' => $game->id, 'type' => $q->type, 'prompt' => $q->prompt,
                 'choices' => $q->choices ?? [], 'explanation' => $q->explanation, 'points' => 10, 'sort' => $i,
+                'bank_id' => $q->bank_id, 'chapter_id' => $q->chapter_id ?: $smartExam->chapter_id, 'topic' => $q->topic,
             ]);
         }
         // هدف‌گیریِ همان دانش‌آموزان
@@ -487,12 +492,18 @@ class SmartExamController extends Controller
             'chapter_id' => $exam->chapter_id, 'chapter' => $exam->chapter, 'topic' => $exam->topic, 'goal' => $exam->goal,
             'source' => 'manual',
         ];
+        $chapters = \App\Support\QuestionChapter::labels(array_column($questions, 'chapter_id'));
         foreach (array_values($questions) as $i => $q) {
+            // فصلِ خودِ سؤال (اگر معلم برای این سؤال فصلِ دیگری انتخاب کرده)، وگرنه فصلِ آزمون
+            $qChapter = (int) ($q['chapter_id'] ?? 0);
+            $qChapter = isset($chapters[$qChapter]) ? $qChapter : null;
+            $qMeta = $qChapter ? ['chapter_id' => $qChapter, 'chapter' => $chapters[$qChapter], 'set_chapter' => true] + $meta : $meta;
             // ثبت/پیوند در بانک سؤالات با دسته‌بندیِ کامل (پایه، درس، فصل، مبحث)
             // ثبت در بانک «کارِ جانبی» است: اگر شکست بخورد، سؤالِ آزمون باز هم ذخیره می‌شود
             $bankId = $exam->teacher ? rescue(fn () => \App\Support\BankAccess::autosave($exam->teacher, $q,
-                $meta + ['count_use' => ! in_array($q['bank_id'] ?? null, $linked, false)]), null, true) : null;
+                $qMeta + ['count_use' => ! in_array($q['bank_id'] ?? null, $linked, false)]), null, true) : null;
             SmartExamQuestion::create([
+                'chapter_id' => $qChapter,
                 'smart_exam_id' => $exam->id, 'bank_id' => $bankId, 'type' => $q['type'] ?? 'mc', 'prompt' => $q['prompt'],
                 'choices' => \App\Support\BankAccess::cleanChoices($q['choices'] ?? []), 'answer' => $q['answer'] ?? null,
                 'explanation' => $q['explanation'] ?? null,
@@ -628,6 +639,7 @@ class SmartExamController extends Controller
             'questions.*.difficulty' => ['nullable', 'in:easy,medium,hard'],
             'questions.*.bloom' => ['nullable', 'in:remember,understand,apply,analyze'],
             'questions.*.bank_id' => ['nullable', 'integer'],
+            'questions.*.chapter_id' => ['nullable', 'integer'],
             'questions.*.source' => ['nullable', 'string', 'max:20'],
         ], [
             'title.required' => 'عنوانِ آزمون را بنویسید (گامِ ۱).',

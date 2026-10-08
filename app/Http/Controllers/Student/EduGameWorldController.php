@@ -191,22 +191,30 @@ class EduGameWorldController extends Controller
         $att->update([
             'score' => $bestScore, 'max_score' => $max,
             'progress' => ['answers' => $detail],
-            'status' => 'completed', 'hints_used' => $data['hints_used'] ?? $att->hints_used,
-            'duration_sec' => $data['duration_sec'] ?? $att->duration_sec,
+            'status' => 'completed', 'hints_used' => $data['hints_used'] ?? $att->hints_used ?? 0,
+            'duration_sec' => $data['duration_sec'] ?? $att->duration_sec ?? 0,
             'completed_at' => now(),
         ]);
 
         // زمان‌بندیِ مرورِ فاصله‌دار — فقط بارِ اول (بازی پاسخ‌ها را به مرورگر می‌فرستد، تکرار شاهدِ واقعی نیست)
+        $objOf = [];
         if ($firstCompletion) {
-            $objectiveOf = \App\Models\SmartQuestionBank::withoutGlobalScopes()
-                ->whereIn('id', $eduGame->questions->pluck('bank_id')->filter()->unique())->pluck('objective_id', 'id');
-            $events = [];
-            foreach ($eduGame->questions->values() as $i => $q) {
-                if ($q->bank_id && ! empty($objectiveOf[$q->bank_id]) && isset($detail[$i])) {
-                    $events[] = ['objective_id' => $objectiveOf[$q->bank_id], 'bank_id' => $q->bank_id, 'correct' => $detail[$i]['correct']];
+            rescue(function () use ($eduGame, $detail, $user, $att, &$objOf) {
+                if (! \App\Services\LearningService::bankReady()) {
+                    return;
                 }
-            }
-            app(\App\Services\LearningService::class)->record($user, $events, 'game', $att->id, false);
+                $objectiveOf = \App\Models\SmartQuestionBank::withoutGlobalScopes()
+                    ->whereIn('id', $eduGame->questions->pluck('bank_id')->filter()->unique())->pluck('objective_id', 'id');
+                $events = [];
+                foreach ($eduGame->questions->values() as $i => $q) {
+                    $oid = \App\Support\Objectives::forQuestion($eduGame, $q, $q->bank_id ? ($objectiveOf[$q->bank_id] ?? null) : null);
+                    $objOf[$i] = $oid;
+                    if ($oid && isset($detail[$i])) {
+                        $events[] = ['objective_id' => $oid, 'bank_id' => $q->bank_id, 'correct' => $detail[$i]['correct']];
+                    }
+                }
+                app(\App\Services\LearningService::class)->record($user, $events, 'game', $att->id, false);
+            }, null, true);
         }
 
         // XP فقط بار اولِ تکمیل (idempotent با منبعِ Attempt)
@@ -215,10 +223,27 @@ class EduGameWorldController extends Controller
                 $eduGame->teacher, EduGameAttempt::class, $att->id);
         }
 
+        // یادآوریِ جبرانی برای سؤال‌هایی که اشتباه زده (فقط بارِ اول که امتیاز داده می‌شود)
+        $remedial = 0;
+        if ($firstCompletion) {
+            $remedial = (int) rescue(function () use ($eduGame, $detail, $objOf, $user, $att) {
+                $items = [];
+                foreach ($eduGame->questions->values() as $i => $q) {
+                    if (isset($detail[$i]) && ! $detail[$i]['correct']) {
+                        $items[] = ['q_key' => $q->bank_id ? 'b' . $q->bank_id : 'g' . $q->id, 'bank_id' => $q->bank_id,
+                            'objective_id' => $objOf[$i] ?? null, 'question' => \App\Services\RemediationService::snapshot($q),
+                            'lost_xp' => max(1, (int) $q->points)];
+                    }
+                }
+
+                return app(\App\Services\RemediationService::class)->create($user, 'game', $att->id, $eduGame->id, $eduGame->title, $eduGame->teacher_id, $items);
+            }, 0, true);
+        }
+
         $correctCount = collect($detail)->where('correct', true)->count();
         $total = $eduGame->questions->count();
         return back()->with('flash', $firstCompletion
-            ? "آفرین! {$correctCount} از {$total} درست — +{$bestScore} امتیاز 🎉"
+            ? "آفرین! {$correctCount} از {$total} درست — +{$bestScore} امتیاز 🎉" . ($remedial ? ' — 🔁 برای ' . \App\Support\Jalali::fa((string) $remedial) . ' اشتباه، تمرینِ جبرانی ساخته شد' : '')
             : "دوباره بازی کردی؛ بهترین نتیجه‌ات ثبت است ({$correctCount} از {$total}).");
     }
 

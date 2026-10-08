@@ -39,7 +39,7 @@ class GradebookController extends Controller
         try {
             $impact = $mastery->gradeImpact(
                 $students->pluck('id')->all(),
-                $columns->map(fn ($c) => $c->only('id', 'lesson', 'title', 'topic'))->all()
+                $columns->map(fn ($c) => $c->only('id', 'lesson', 'title', 'topic', 'chapter_id'))->all()
             );
         } catch (\Throwable $e) {
             report($e); // نبودِ تحلیلِ تسلط نباید دفترِ نمره را از کار بیندازد
@@ -50,6 +50,7 @@ class GradebookController extends Controller
                 'id' => $c->id, 'title' => $c->title,
                 'score_type' => $c->score_type ?: $c->type,
                 'lesson' => $c->lesson, 'topic' => $c->topic,
+                'chapter_id' => $c->chapter_id, 'chapter' => $c->chapter_id ? \App\Support\Objectives::chapterName((int) $c->chapter_id) : null,
                 'max' => (float) $c->max,
                 'date' => $c->graded_at?->toDateString(),
                 'jdate' => $c->graded_at ? Jalali::format($c->graded_at) : null,
@@ -60,7 +61,7 @@ class GradebookController extends Controller
             ]);
 
         return Inertia::render('Teacher/Gradebook', [
-            'classroom' => $classroom?->only('name'),
+            'classroom' => $classroom?->only('name', 'grade'),
             'subjects'  => $classroom ? $classroom->subjectNames() : [],
             'students'  => $students,
             'activities'=> $activities,
@@ -81,6 +82,7 @@ class GradebookController extends Controller
             'score_type'           => ['required', 'in:numeric,descriptive,homework'],
             'lesson'               => ['nullable', 'string', 'max:80'],
             'topic'                => ['nullable', 'string', 'max:120'],
+            'chapter_id'           => ['nullable', 'integer'],
             'max'                  => ['nullable', 'numeric', 'min:1', 'max:100'],
             'date'                 => ['nullable', 'date'],
             'grades'               => ['array'],
@@ -100,6 +102,7 @@ class GradebookController extends Controller
                 'score_type'   => $data['score_type'],
                 'lesson'       => $data['lesson'] ?? null,
                 'topic'        => $data['topic'] ?? null,
+                'chapter_id'   => self::validChapter($data['chapter_id'] ?? null),
                 'max'          => $data['max'] ?? 20,
                 'graded_at'    => $data['date'] ?? now(),
             ]);
@@ -107,9 +110,18 @@ class GradebookController extends Controller
             $this->colId = $col->id;
         });
         MasteryService::forgetMany(collect($data['grades'] ?? [])->pluck('student_id')->all());
+        rescue(fn () => \App\Services\LearningService::fromGradeColumn(GradeColumn::find($this->colId)), null, true);
 
         return back()->with('flash', 'فعالیت و نمرات ثبت شد ✅ اثرِ آن در تسلطِ هر دانش‌آموز در «سوابق نمرات» دیده می‌شود.')
             ->with('gradebook_highlight', $this->colId);
+    }
+
+    /** فقط فصلِ موجود پذیرفته می‌شود. */
+    private static function validChapter($id): ?int
+    {
+        $id = (int) $id;
+
+        return $id && \App\Support\QuestionChapter::labels([$id]) ? $id : null;
     }
 
     /** ذخیره/ویرایش نمرات یک فعالیتِ موجود. */
@@ -126,6 +138,7 @@ class GradebookController extends Controller
 
         DB::transaction(fn () => $this->persistGrades($gradeColumn, $data['grades'], $game, $request->user()));
         MasteryService::forgetMany(collect($data['grades'])->pluck('student_id')->all());
+        rescue(fn () => \App\Services\LearningService::fromGradeColumn($gradeColumn->fresh()), null, true);
 
         return back()->with('flash', 'نمرات ذخیره شد ✅')->with('gradebook_highlight', $gradeColumn->id);
     }
@@ -145,6 +158,7 @@ class GradebookController extends Controller
             'score_type'           => ['required', 'in:numeric,descriptive,homework'],
             'lesson'               => ['nullable', 'string', 'max:80'],
             'topic'                => ['nullable', 'string', 'max:120'],
+            'chapter_id'           => ['nullable', 'integer'],
             'max'                  => ['nullable', 'numeric', 'min:1', 'max:100'],
             'date'                 => ['nullable', 'date'],
             'grades'               => ['array'],
@@ -177,6 +191,7 @@ class GradebookController extends Controller
                 'score_type' => $type,
                 'lesson'     => $data['lesson'] ?? null,
                 'topic'      => $data['topic'] ?? null,
+                'chapter_id' => self::validChapter($data['chapter_id'] ?? null),
                 'max'        => $type === 'numeric' ? ($data['max'] ?? $gradeColumn->max ?? 20) : ($gradeColumn->max ?: 20),
                 'graded_at'  => $data['date'] ?? $gradeColumn->graded_at ?? now(),
             ])->save();
@@ -211,6 +226,7 @@ class GradebookController extends Controller
         });
 
         MasteryService::forgetMany($gradeColumn->grades()->pluck('student_id')->merge(collect($grades)->pluck('student_id'))->all());
+        rescue(fn () => \App\Services\LearningService::fromGradeColumn($gradeColumn->fresh()), null, true);
 
         return back()->with('flash', 'فعالیت ویرایش شد ✅ تسلطِ دانش‌آموزان با مشخصاتِ تازه دوباره حساب شد.')
             ->with('gradebook_highlight', $gradeColumn->id);

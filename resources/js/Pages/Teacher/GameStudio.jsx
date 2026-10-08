@@ -6,6 +6,7 @@ import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import CurriculumFields from '@/Components/Questions/CurriculumFields';
 import AiQuestionPanel from '@/Components/Questions/AiQuestionPanel';
 import BankPicker from '@/Components/Questions/BankPicker';
+import QuestionChapter, { useChapters, effectiveChapter } from '@/Components/Questions/QuestionChapter';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const blankQ = () => ({ type: 'mc', prompt: '', points: 10, hint1: '', explanation: '', choices: [{ value: '', correct: true }, { value: '', correct: false }] });
@@ -46,6 +47,8 @@ export default function GameStudio() {
     const setType = (qi, t) => { const qs = [...form.data.questions]; qs[qi] = { ...qs[qi], type: t, choices: t === 'tf' ? [{ value: 'درست', correct: true }, { value: 'نادرست', correct: false }] : (t === 'short' ? [{ value: '', correct: true }] : qs[qi].choices) }; form.setData('questions', qs); };
     // دستیار AI + بانک سؤال برای بازی (کامپوننت‌های مشترک با آزمون‌ساز)
     const flavorTheme = themes.find((t) => t.id === form.data.theme_id);
+    const chapterList = useChapters(form.data.grade, form.data.subject);
+    const noChapter = form.data.questions.filter((q) => (q.prompt || '').trim() && !effectiveChapter(q, form.data.chapter_id)).length;
     const [panel, setPanel] = useState(null); // 'ai' | 'bank' | null
     const setCtx = (patch) => form.setData((d) => ({ ...d, ...patch }));
     const addQuestions = (list, from) => {
@@ -58,6 +61,7 @@ export default function GameStudio() {
                 type, prompt: q.prompt, points: 10, choices, hint1: q.hint || '', explanation: q.explanation || '',
                 difficulty: q.difficulty || form.data.difficulty || 'medium', bloom: q.bloom || null, topic: q.topic || '',
                 source: from === 'bank' ? 'bank' : (q.source || 'ai'), bank_id: from === 'bank' ? q.id : null,
+                chapter_id: from === 'bank' && q.chapter_id && String(q.chapter_id) !== String(form.data.chapter_id) ? q.chapter_id : null,
             };
         });
         form.setData('questions', [...form.data.questions.filter((q) => q.prompt.trim()), ...mapped]);
@@ -235,6 +239,9 @@ export default function GameStudio() {
                                 existingIds={form.data.questions.map((q) => q.bank_id).filter(Boolean)}
                                 onAdd={(rows) => addQuestions(rows, 'bank')} />
                         )}
+                        {noChapter > 0 && (
+                            <div className="qc-warn">📘 {fa(noChapter)} سؤال فصل ندارد. پیشرفتِ دانش‌آموز «فصل‌به‌فصل» رصد می‌شود؛ فصلِ بازی را انتخاب کنید یا برای هر سؤال از منوی 📘 فصلش را بزنید.</div>
+                        )}
                         {form.data.questions.map((q, qi) => (
                             <div key={qi} id={`gq-${qi}`} style={{ border: qErr(qi).length ? '2px solid #e8505b' : '1px solid var(--line)', borderRadius: 14, padding: 12, marginBottom: 10, background: qErr(qi).length ? '#fff5f5' : 'var(--cream)' }}>
                                 {qErr(qi).map((m, k) => <div key={k} style={{ color: '#c0392b', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>⚠️ {m}</div>)}
@@ -244,6 +251,7 @@ export default function GameStudio() {
                                         <option value="mc">چهارگزینه‌ای</option><option value="tf">درست/نادرست</option><option value="short">پاسخ کوتاه</option>
                                     </select>
                                     <input type="number" min={1} max={100} className="input" value={q.points} onChange={(e) => setQ(qi, 'points', +e.target.value)} title="امتیاز" style={{ width: 80, padding: '6px 9px' }} dir="ltr" />
+                                    <QuestionChapter value={q.chapter_id} parentId={form.data.chapter_id} chapters={chapterList} onChange={(v) => setQ(qi, 'chapter_id', v)} />
                                     <span style={{ marginInlineStart: 'auto', display: 'flex', gap: 4 }}>
                                         <button onClick={() => moveQ(qi, -1)} className="btn btn-ghost btn-sm">▲</button>
                                         <button onClick={() => moveQ(qi, 1)} className="btn btn-ghost btn-sm">▼</button>

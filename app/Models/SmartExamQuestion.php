@@ -6,7 +6,7 @@ class SmartExamQuestion extends Model
 {
     protected $fillable = [
         'smart_exam_id', 'bank_id', 'type', 'prompt', 'choices', 'answer', 'explanation',
-        'goal', 'difficulty', 'bloom', 'points', 'time_limit', 'topic', 'tags', 'media_path', 'source', 'sort',
+        'goal', 'difficulty', 'bloom', 'points', 'time_limit', 'topic', 'tags', 'media_path', 'source', 'sort', 'chapter_id',
     ];
     protected $casts = ['choices' => 'array', 'answer' => 'array'];
     public function exam(): BelongsTo { return $this->belongsTo(SmartExam::class, 'smart_exam_id'); }

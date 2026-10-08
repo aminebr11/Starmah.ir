@@ -4,6 +4,7 @@ import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import { MasteryTag } from '@/Components/MasteryPanel';
 import { useSort, SortBar, firstName, lastName } from '@/lib/useSort';
+import { useChapters } from '@/Components/Questions/QuestionChapter';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -34,7 +35,7 @@ export default function Gradebook() {
 
     // فرم فعالیت جدید
     const blank = () => Object.fromEntries(students.map((s) => [s.id, { score: '', text: '', feedback: '' }]));
-    const form = useForm({ title: '', score_type: 'descriptive', lesson: '', topic: '', max: 20, date: '', grades: {} });
+    const form = useForm({ title: '', score_type: 'descriptive', lesson: '', topic: '', chapter_id: '', max: 20, date: '', grades: {} });
     const [rows, setRows] = useState(blank());
     useEffect(() => { setRows(blank()); }, [students.length]);
 
@@ -75,7 +76,7 @@ export default function Gradebook() {
     const startEditAct = (a) => {
         const r = {}; students.forEach((s) => { const g = a.grades?.[s.id]; r[s.id] = { score: g?.score ?? '', text: g?.text ?? '', feedback: g?.feedback ?? '' }; });
         setErows(r); setEerr({});
-        setEmeta({ title: a.title || '', lesson: a.lesson || '', topic: a.topic || '', score_type: a.score_type || 'descriptive', max: a.max || 20, date: a.date || '' });
+        setEmeta({ title: a.title || '', lesson: a.lesson || '', topic: a.topic || '', chapter_id: a.chapter_id || '', score_type: a.score_type || 'descriptive', max: a.max || 20, date: a.date || '' });
         setEditAct(a.id);
     };
     const setERow = (sid, patch) => setErows((r) => ({ ...r, [sid]: { ...r[sid], ...patch } }));
@@ -116,7 +117,10 @@ export default function Gradebook() {
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12 }}>
                             <Field label="📖 درس">
                                 <LessonPicker subjects={subjects} value={form.data.lesson} placeholder="— انتخاب درس —"
-                                    onChange={(v) => { form.setData('lesson', v); if (!form.data.title) form.setData('title', v); }} />
+                                    onChange={(v) => { form.setData((d) => ({ ...d, lesson: v, chapter_id: '', title: d.title || v })); }} />
+                            </Field>
+                            <Field label="📘 فصل (برای رصدِ یادگیری)">
+                                <ChapterPick grade={classroom?.grade} lesson={form.data.lesson} value={form.data.chapter_id} onChange={(v) => form.setData('chapter_id', v)} />
                             </Field>
                             <Field label="📋 موضوع (اختیاری)"><input className="input" value={form.data.topic} onChange={(e) => form.setData('topic', e.target.value)} placeholder="مثلاً: جمع و تفریق" /></Field>
                             <Field label="🎯 نوع نمره">
@@ -232,6 +236,7 @@ export default function Gradebook() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
                                     <b>{a.title}</b>
                                     {a.lesson && <span className="tag tag-info">{a.lesson}</span>}
+                                    {a.chapter && <span className="tag" style={{ background: '#eef4ff', color: '#1d3d8f' }}>📘 {a.chapter}</span>}
                                     {a.topic && <span style={{ color: 'var(--muted)', fontSize: 12 }}>· {a.topic}</span>}
                                     <span className="tag" style={{ background: '#eef2fb', color: 'var(--navy-700)' }}>{TYPES.find((t) => t.v === a.score_type)?.t || a.score_type}</span>
                                     {a.jdate && <span style={{ color: 'var(--muted)', fontSize: 12 }}>📅 {a.jdate}</span>}
@@ -251,7 +256,10 @@ export default function Gradebook() {
                                         <div className="gb-edit-grid">
                                             <Field label="🏷️ عنوان" err={eerr.title}><input className="input" value={emeta.title} onChange={(e) => setEM({ title: e.target.value })} /></Field>
                                             <Field label="📖 درس" err={eerr.lesson}>
-                                                <LessonPicker subjects={lessonOptions(emeta.lesson)} value={emeta.lesson} placeholder="— بدون درس —" onChange={(v) => setEM({ lesson: v })} />
+                                                <LessonPicker subjects={lessonOptions(emeta.lesson)} value={emeta.lesson} placeholder="— بدون درس —" onChange={(v) => setEM({ lesson: v, chapter_id: '' })} />
+                                            </Field>
+                                            <Field label="📘 فصل" err={eerr.chapter_id}>
+                                                <ChapterPick grade={classroom?.grade} lesson={emeta.lesson} value={emeta.chapter_id} onChange={(v) => setEM({ chapter_id: v })} />
                                             </Field>
                                             <Field label="📋 موضوع" err={eerr.topic}><input className="input" value={emeta.topic} onChange={(e) => setEM({ topic: e.target.value })} placeholder="مثلاً: کسرها" /></Field>
                                             <Field label="🎯 نوع نمره" err={eerr.score_type}>
@@ -367,4 +375,15 @@ function Impact({ r }) {
 
 function Field({ label, err, children }) {
     return <div className="field" style={{ margin: 0 }}><label>{label}</label>{children}{err && <div style={{ color: '#e8505b', fontSize: 12, marginTop: 4 }}>{err}</div>}</div>;
+}
+
+/** فصلِ ستونِ نمره — از فهرستِ رسمیِ فصل‌های همان درس و پایه. */
+function ChapterPick({ grade, lesson, value, onChange }) {
+    const chapters = useChapters(grade, lesson);
+    return (
+        <select className="input" value={value || ''} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : '')} disabled={!lesson || !chapters.length}>
+            <option value="">{!lesson ? 'اول درس را انتخاب کن' : chapters.length ? '— همه‌ی درس (بدونِ فصل) —' : 'فصلی برای این درس ثبت نشده'}</option>
+            {chapters.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+        </select>
+    );
 }

@@ -151,7 +151,7 @@ class EduGameController extends Controller
                     'hint1' => $q->hint1, 'hint2' => $q->hint2, 'explanation' => $q->explanation,
                     'points' => $q->points, 'media_url' => $q->media_path,
                     'difficulty' => $q->difficulty, 'bloom' => $q->bloom, 'topic' => $q->topic,
-                    'source' => $q->source, 'bank_id' => $q->bank_id,
+                    'source' => $q->source, 'bank_id' => $q->bank_id, 'chapter_id' => $q->chapter_id,
                 ])->values(),
             ],
         ]));
@@ -312,6 +312,7 @@ class EduGameController extends Controller
                 $removedXp = (int) (clone $xp)->sum('amount');
                 $xp->delete();
                 \App\Models\EduGameAttempt::whereIn('id', $attemptIds)->delete();
+                \App\Services\RemediationService::forgetSources('game', $attemptIds);
             }
             $patch = [];
             if ($eduGame->status !== 'published') $patch['status'] = 'published';
@@ -353,6 +354,7 @@ class EduGameController extends Controller
     {
         abort_unless($eduGame->teacher_id === $request->user()->id, 403);
         if ($eduGame->cover_path) Storage::disk('public')->delete($eduGame->cover_path);
+        \App\Services\RemediationService::forgetSources('game', \App\Models\EduGameAttempt::where('edu_game_id', $eduGame->id)->pluck('id'));
         $eduGame->delete();
         return back()->with('flash', 'بازی حذف شد');
     }
@@ -468,16 +470,22 @@ class EduGameController extends Controller
             'chapter_id' => $game->chapter_id, 'chapter' => $game->chapter, 'topic' => $game->topic,
             'goal' => $game->goal, 'source' => 'manual',
         ];
+        $chapters = \App\Support\QuestionChapter::labels(array_column($questions, 'chapter_id'));
         foreach (array_values($questions) as $i => $q) {
             $type = $q['type'] ?? 'mc';
+            // فصلِ خودِ سؤال (اگر جدا انتخاب شده)، وگرنه فصلِ بازی
+            $qChapter = (int) ($q['chapter_id'] ?? 0);
+            $qChapter = isset($chapters[$qChapter]) ? $qChapter : null;
+            $qMeta = $qChapter ? ['chapter_id' => $qChapter, 'chapter' => $chapters[$qChapter], 'set_chapter' => true] + $meta : $meta;
             // سؤالِ بازی هم در بانک ثبت/پیوند می‌شود — با همان پایه، درس و فصل
             // ثبت در بانک «کارِ جانبی» است: اگر شکست بخورد، سؤالِ بازی باز هم ذخیره می‌شود
             $bankId = $game->teacher && in_array($type, ['mc', 'tf', 'short'], true)
                 ? rescue(fn () => \App\Support\BankAccess::autosave($game->teacher, $q + ['hint' => $q['hint1'] ?? null],
-                    $meta + ['count_use' => ! in_array($q['bank_id'] ?? null, $linked, false)]), null, true)
+                    $qMeta + ['count_use' => ! in_array($q['bank_id'] ?? null, $linked, false)]), null, true)
                 : null;
             EduGameQuestion::create([
                 'edu_game_id' => $game->id,
+                'chapter_id' => $qChapter,
                 'bank_id' => $bankId,
                 'type' => $type,
                 'prompt' => $q['prompt'],
@@ -596,6 +604,7 @@ class EduGameController extends Controller
             'questions.*.difficulty' => ['nullable', 'in:easy,medium,hard'],
             'questions.*.bloom' => ['nullable', 'in:remember,understand,apply,analyze'],
             'questions.*.bank_id' => ['nullable', 'integer'],
+            'questions.*.chapter_id' => ['nullable', 'integer'],
             'questions.*.source' => ['nullable', 'string', 'max:20'],
         ], [
             'title.required' => 'عنوانِ بازی را بنویسید (گامِ ۱).',

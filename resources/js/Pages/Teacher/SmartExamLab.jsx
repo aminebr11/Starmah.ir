@@ -6,6 +6,7 @@ import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import CurriculumFields from '@/Components/Questions/CurriculumFields';
 import AiQuestionPanel from '@/Components/Questions/AiQuestionPanel';
 import BankPicker from '@/Components/Questions/BankPicker';
+import QuestionChapter, { useChapters, effectiveChapter } from '@/Components/Questions/QuestionChapter';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const blankQ = () => ({ type: 'mc', prompt: '', points: 1, difficulty: 'medium', explanation: '', source: 'manual', choices: [{ value: '', correct: true }, { value: '', correct: false }] });
@@ -44,6 +45,8 @@ export default function SmartExamLab() {
 
     // نام تیمِ هدف برای «فضای داستانی»ِ سؤال‌ها (اگر گروهی هدف باشد)
     const flavorTheme = themes.find((t) => form.data.target_themes.includes(t.id));
+    const chapterList = useChapters(form.data.grade, form.data.subject);
+    const noChapter = form.data.questions.filter((q) => (q.prompt || '').trim() && !effectiveChapter(q, form.data.chapter_id)).length;
     const setCtx = (patch) => form.setData((d) => ({ ...d, ...patch, ...(patch.subject !== undefined ? { book: patch.subject } : {}) }));
 
     // افزودنِ سؤال از دستیار یا بانک — همه‌ی جزئیات (توضیح، دشواری، سطح، شناسه‌ی بانک) حفظ می‌شود
@@ -54,6 +57,8 @@ export default function SmartExamLab() {
             answer: q.answer || '', explanation: q.explanation || '', difficulty: q.difficulty || 'medium',
             bloom: q.bloom || null, topic: q.topic || '', source: from === 'bank' ? 'bank' : (q.source || 'ai'),
             bank_id: from === 'bank' ? q.id : null,
+            // سؤالِ بانک فصلِ خودش را می‌آورد؛ سؤالِ هوش مصنوعی همان فصلِ آزمون را می‌گیرد
+            chapter_id: from === 'bank' && q.chapter_id && String(q.chapter_id) !== String(form.data.chapter_id) ? q.chapter_id : null,
         }));
         form.setData('questions', [...form.data.questions.filter((q) => q.prompt.trim()), ...mapped]);
         setPanel(null);
@@ -193,6 +198,9 @@ export default function SmartExamLab() {
                                     onAdd={(rows) => addQuestions(rows, 'bank')} />
                             )}
 
+                            {noChapter > 0 && (
+                                <div className="qc-warn">📘 {fa(noChapter)} سؤال فصل ندارد. پیشرفتِ دانش‌آموز «فصل‌به‌فصل» رصد می‌شود؛ در گامِ ۱ فصلِ آزمون را انتخاب کنید یا برای هر سؤال از منوی 📘 فصلش را بزنید. اگر سؤال‌ها از چند فصل‌اند، فصلِ هر کدام را جدا انتخاب کنید.</div>
+                            )}
                             {form.data.questions.map((q, qi) => (
                                 <div key={qi} id={`sq-${qi}`} className="smart-qcard" style={qErr(qi).length ? { border: '2px solid #e8505b', background: '#fff5f5' } : undefined}>
                                     {qErr(qi).map((m, k) => <div key={k} style={{ color: '#c0392b', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>⚠️ {m}</div>)}
@@ -205,6 +213,7 @@ export default function SmartExamLab() {
                                         <select className="smart-input" style={{ width: 'auto', padding: '5px 8px' }} value={q.difficulty || 'medium'} onChange={(e) => setQ(qi, 'difficulty', e.target.value)} title="دشواری (برای آزمونِ تطبیقی)">
                                             <option value="easy">آسان</option><option value="medium">متوسط</option><option value="hard">دشوار</option>
                                         </select>
+                                        <QuestionChapter value={q.chapter_id} parentId={form.data.chapter_id} chapters={chapterList} onChange={(v) => setQ(qi, 'chapter_id', v)} />
                                         <button onClick={() => rmQ(qi)} className="smart-btn ghost sm" style={{ marginInlineStart: 'auto', color: '#e8505b' }}>🗑️</button>
                                     </div>
                                     <input className="smart-input" value={q.prompt} onChange={(e) => setQ(qi, 'prompt', e.target.value)} placeholder="متن سؤال" style={{ marginBottom: 8 }} />

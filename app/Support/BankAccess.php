@@ -225,9 +225,19 @@ class BankAccess
             return null; // بدونِ پاسخِ درست به دردِ بانک نمی‌خورد
         }
 
+        // معلم برای همین سؤال فصلِ مشخصی انتخاب کرده؟ (نه فقط فصلِ کلِ آزمون)
+        $setChapter = ! empty($meta['set_chapter']) && ! empty($meta['chapter_id']);
+        unset($meta['set_chapter']);
+        $moveChapter = function ($row) use ($setChapter, $meta, $teacher) {
+            if ($setChapter && $row->teacher_id === $teacher->id && (int) $row->chapter_id !== (int) $meta['chapter_id']) {
+                $row->update(['chapter_id' => (int) $meta['chapter_id'], 'chapter' => $meta['chapter'] ?? null]);
+            }
+        };
+
         if (! empty($q['bank_id'])) {
             $src = self::visibleQuery($teacher)->whereKey($q['bank_id'])->first();
             if ($src && Curriculum::fingerprint($src->prompt) === Curriculum::fingerprint($prompt)) {
+                $moveChapter($src);
                 if ($meta['count_use'] ?? true) {
                     $src->increment('used_count');
                 }
@@ -270,6 +280,7 @@ class BankAccess
                 }
                 $fill['fingerprint'] = $fp;
                 $dup->update($fill);
+                $moveChapter($dup);
             }
             if ($meta['count_use'] ?? true) {
                 $dup->increment('used_count');

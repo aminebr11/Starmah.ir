@@ -53,25 +53,57 @@ class Objectives
             default => '',
         };
 
-        return sha1(implode('|', [$fp($a['grade'] ?? ''), $fp($a['subject'] ?? ''), $unit, $fp($a['topic'] ?? '')]));
+        // واحدِ رصدِ یادگیری «فصل» است: وقتی فصل معلوم باشد، مبحثِ آزاد (که هر کس جورِ دیگری
+        // می‌نویسد) هدف را تکه‌تکه نمی‌کند. مبحث فقط وقتی فصلی نیست، هدف را مشخص می‌کند.
+        $topic = $unit === '' ? $fp($a['topic'] ?? '') : '';
+
+        return sha1(implode('|', [$fp($a['grade'] ?? ''), $fp($a['subject'] ?? ''), $unit, $topic]));
     }
 
     public static function label(array $a): string
     {
-        if (! empty($a['topic'])) {
-            return mb_substr($a['topic'], 0, 300);
-        }
         if (! empty($a['chapter_id']) && ($c = self::chapterLabel((int) $a['chapter_id']))) {
             return $c;
         }
         if (! empty($a['chapter'])) {
-            return $a['chapter'];
+            return mb_substr($a['chapter'], 0, 300);
         }
         if (! empty($a['lesson_no'])) {
             return 'درس ' . Jalali::fa((string) $a['lesson_no']) . ($a['subject'] ? ' — ' . $a['subject'] : '');
         }
+        if (! empty($a['topic'])) {
+            return mb_substr($a['topic'], 0, 300);
+        }
 
         return $a['subject'] ?: 'عمومی';
+    }
+
+    /**
+     * هدفِ درسیِ یک سؤالِ آزمون/بازی: فصلِ خودِ سؤال، وگرنه فصلِ آزمون/بازی.
+     * سؤالِ بانک اگر نه سؤال و نه آزمون فصل داشته باشند، هدفِ ردیفِ بانکش را می‌گیرد.
+     * بدونِ درس هیچ هدفی ساخته نمی‌شود (null).
+     */
+    public static function forQuestion(object $parent, object $q, ?int $bankObjective = null): ?int
+    {
+        $chapterId = (int) ($q->chapter_id ?? 0) ?: (int) ($parent->chapter_id ?? 0);
+        if (! $chapterId && $bankObjective) {
+            return $bankObjective;
+        }
+        if (! trim((string) ($parent->subject ?? ''))) {
+            return $bankObjective;
+        }
+
+        return self::idFor([
+            'level' => $parent->level ?? null, 'grade' => $parent->grade ?? null, 'subject' => $parent->subject,
+            'chapter_id' => $chapterId ?: null, 'chapter' => $chapterId ? null : ($parent->chapter ?? null),
+            'topic' => ($q->topic ?? null) ?: ($parent->topic ?? null),
+        ]);
+    }
+
+    /** برچسبِ فصل (برای موتورِ تسلط و گزارش‌ها). */
+    public static function chapterName(?int $id): ?string
+    {
+        return $id ? self::chapterLabel($id) : null;
     }
 
     /** شناسه‌ی هدف (اگر نبود ساخته می‌شود). */

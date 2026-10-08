@@ -156,6 +156,10 @@ class TeacherDashboardController extends Controller
             'masteryGrid' => fn () => $classroom
                 ? \App\Support\MasteryGrid::build($classroom->students()->orderBy('users.name')->get(['users.id', 'users.name']))
                 : null,
+            // «جبرانِ اشتباه»: چه کسی چه چیزی را اشتباه زده، جبران کرده یا عقب مانده
+            'remediation' => fn () => $classroom
+                ? rescue(fn () => app(\App\Services\RemediationService::class)->overview($classroom), null, true)
+                : null,
         ]);
     }
 

@@ -10,4 +10,5 @@ class Grade extends Model
     protected $fillable = ['grade_column_id', 'student_id', 'score', 'text', 'feedback'];
 
     public function gradeColumn(): BelongsTo { return $this->belongsTo(GradeColumn::class); }
+    public function student(): BelongsTo { return $this->belongsTo(User::class, 'student_id'); }
 }

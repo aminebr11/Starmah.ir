@@ -316,6 +316,29 @@ class Notifications
                     'ts'    => now()->timestamp + 1,
                 ]);
             }
+
+            // نوبتِ تازه‌ی «جبرانِ اشتباه» رسیده (روزِ ساخت، خودِ اعلانِ ساخت کافی است)
+            if (\App\Services\RemediationService::ready()) {
+                $due = \App\Models\Remediation::where('student_id', $user->id)->where('status', 'open')
+                    ->whereDate('due_on', '<=', now()->toDateString())->whereDate('created_at', '<', now()->toDateString())->get(['id', 'cap_xp', 'recovered_xp']);
+                if ($due->isNotEmpty()) {
+                    $key = 'rm-'.now()->toDateString();
+                    $left = (int) $due->sum(fn ($r) => max(0, $r->cap_xp - $r->recovered_xp));
+                    $items->push([
+                        'id'    => $key,
+                        'kind'  => 'mission',
+                        'group' => 'personal',
+                        'icon'  => '🔁',
+                        'color' => '#e8505b',
+                        'title' => 'نوبتِ جبرانِ اشتباه رسید — '.Jalali::fa((string) $due->count()).' مورد',
+                        'body'  => 'سؤال‌هایی که اشتباه زده بودی دوباره آمده‌اند'.($left > 0 ? '؛ تا '.Jalali::fa((string) $left).' امتیاز را پس بگیر.' : '.'),
+                        'date'  => Jalali::format(now(), true),
+                        'href'  => '/missions/remedial/play',
+                        'read'  => $isRead($key),
+                        'ts'    => now()->timestamp + 2,
+                    ]);
+                }
+            }
         }
 
         return $items->sortByDesc('ts')->take($limit)->values()

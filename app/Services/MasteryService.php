@@ -137,7 +137,8 @@ class MasteryService
         $out = [];
         foreach ($columns as $col) {
             $subject = self::subject($col['lesson'] ?: self::guessSubject($col['title'] ?? null));
-            $topic = self::clean($col['topic'] ?? null);
+            // فصلِ ستون (اگر انتخاب شده) همان واحدی است که شواهدِ این ستون زیرش ثبت شده‌اند
+            $topic = self::clean((! empty($col['chapter_id']) ? \App\Support\Objectives::chapterName((int) $col['chapter_id']) : null) ?: ($col['topic'] ?? null));
             $rows = []; $deltas = [];
             foreach ($studentIds as $sid) {
                 $list = array_values(array_filter($ev[$sid] ?? [], fn ($o) => $o['s'] === $subject));
@@ -190,6 +191,22 @@ class MasteryService
             $E[$sid][] = ['s' => self::subject($subject), 't' => self::clean($topic), 'c' => $c, 'w' => $w, 'at' => Carbon::parse($at ?: now()), 'src' => $src, 'ref' => $ref];
         };
 
+        // واحدِ رصد «فصل» است: فصلِ سؤال ← فصلِ آزمون/بازی/ستون ← (اگر فصلی نبود) مبحث
+        $chapterLabels = [];
+        $unit = function ($qChapter, $pChapter, $pChapterText, $topic) use (&$chapterLabels) {
+            $id = (int) ($qChapter ?: $pChapter);
+            if ($id) {
+                if (! array_key_exists($id, $chapterLabels)) {
+                    $chapterLabels[$id] = \App\Support\Objectives::chapterName($id);
+                }
+                if ($chapterLabels[$id]) {
+                    return $chapterLabels[$id];
+                }
+            }
+
+            return trim((string) $pChapterText) !== '' ? $pChapterText : $topic;
+        };
+
         // ۱) آزمونِ هوشمند — هر سؤال یک مشاهده
         if (Schema::hasTable('smart_exam_answers')) {
             DB::table('smart_exam_answers as a')
@@ -197,21 +214,24 @@ class MasteryService
                 ->join('smart_exams as e', 'e.id', '=', 't.smart_exam_id')
                 ->leftJoin('smart_exam_questions as q', 'q.id', '=', 'a.question_id')
                 ->whereIn('t.student_id', $ids)
-                ->select('t.student_id', 'e.subject', 'e.topic as etopic', 'q.topic', 'q.difficulty', 'q.points', 'a.correct', 'a.awarded', 'a.created_at', 't.finished_at')
+                ->select('t.student_id', 'e.subject', 'e.topic as etopic', 'e.chapter as echapter', 'e.chapter_id as echapter_id', 'q.topic', 'q.difficulty', 'q.points', 'a.correct', 'a.awarded', 'a.created_at', 't.finished_at')
+                ->when(Schema::hasColumn('smart_exam_questions', 'chapter_id'), fn ($q) => $q->addSelect('q.chapter_id'))
                 ->orderBy('a.id')->get()
-                ->each(function ($r) use ($push) {
+                ->each(function ($r) use ($push, $unit) {
                     if ($r->correct !== null) $c = (float) $r->correct;
                     elseif ($r->awarded !== null && $r->points > 0) $c = $r->awarded / $r->points;
                     else return; // تشریحیِ تصحیح‌نشده
-                    $push($r->student_id, $r->subject, $r->topic ?: $r->etopic, $c, 1.0, $r->finished_at ?: $r->created_at, 'exam', $r->difficulty);
+                    $push($r->student_id, $r->subject, $unit($r->chapter_id ?? null, $r->echapter_id, $r->echapter, $r->topic ?: $r->etopic), $c, 1.0, $r->finished_at ?: $r->created_at, 'exam', $r->difficulty);
                 });
         }
 
         // ۲) بازیِ آموزشی — پاسخِ هر سؤال در progress ذخیره است
         $attempts = DB::table('edu_game_attempts as a')->join('edu_games as g', 'g.id', '=', 'a.edu_game_id')
-            ->whereIn('a.student_id', $ids)->select('a.student_id', 'a.edu_game_id', 'a.progress', 'a.score', 'a.max_score', 'a.completed_at', 'a.updated_at', 'g.subject', 'g.topic', 'g.difficulty')->get();
+            ->whereIn('a.student_id', $ids)->select('a.student_id', 'a.edu_game_id', 'a.progress', 'a.score', 'a.max_score', 'a.completed_at', 'a.updated_at', 'g.subject', 'g.topic', 'g.difficulty', 'g.chapter_id as gchapter_id', 'g.chapter as gchapter')->get();
+        $qCols = ['edu_game_id', 'topic', 'difficulty'];
+        if (Schema::hasColumn('edu_game_questions', 'chapter_id')) $qCols[] = 'chapter_id';
         $qs = DB::table('edu_game_questions')->whereIn('edu_game_id', $attempts->pluck('edu_game_id')->unique())
-            ->orderBy('sort')->orderBy('id')->get(['edu_game_id', 'topic', 'difficulty'])->groupBy('edu_game_id');
+            ->orderBy('sort')->orderBy('id')->get($qCols)->groupBy('edu_game_id');
         foreach ($attempts as $a) {
             $answers = json_decode((string) $a->progress, true)['answers'] ?? null;
             $gq = ($qs[$a->edu_game_id] ?? collect())->values();
@@ -219,12 +239,12 @@ class MasteryService
                 foreach ($answers as $i => $ans) {
                     if (! isset($ans['correct'])) continue;
                     $q = $gq[$i] ?? null;
-                    $push($a->student_id, $a->subject, $q->topic ?? $a->topic, $ans['correct'] ? 1 : 0, 1.0, $a->completed_at ?: $a->updated_at, 'game', $q->difficulty ?? $a->difficulty);
+                    $push($a->student_id, $a->subject, $unit($q->chapter_id ?? null, $a->gchapter_id, $a->gchapter, ($q->topic ?? null) ?: $a->topic), $ans['correct'] ? 1 : 0, 1.0, $a->completed_at ?: $a->updated_at, 'game', $q->difficulty ?? $a->difficulty);
                 }
             } elseif ($a->max_score > 0 && $a->completed_at) {
                 // تلاش‌های قدیمی که جزئیات ندارند: کسرِ امتیاز با وزنِ تعدادِ سؤال
                 $n = max(1, min(10, $gq->count()));
-                $push($a->student_id, $a->subject, $a->topic, $a->score / $a->max_score, $n, $a->completed_at, 'game', $a->difficulty);
+                $push($a->student_id, $a->subject, $unit(null, $a->gchapter_id, $a->gchapter, $a->topic), $a->score / $a->max_score, $n, $a->completed_at, 'game', $a->difficulty);
             }
         }
 
@@ -235,6 +255,8 @@ class MasteryService
             DB::table('practice_answers as p')->join('learning_objectives as o', 'o.id', '=', 'p.objective_id')
                 ->leftJoin('smart_question_bank as b', 'b.id', '=', 'p.bank_id')
                 ->whereIn('p.student_id', $ids)
+                // شواهدِ بیش از یک سال پیش اثرِ ناچیزی دارند (وزنِ تازگی) — خواندنشان فقط گزارش‌ها را کند می‌کند
+                ->where('p.created_at', '>=', now()->subDays(400))
                 ->select('p.student_id', 'p.source', 'p.source_id', 'p.correct', 'p.first_try', 'p.hinted', 'p.created_at', 'o.subject', 'o.label', 'b.difficulty')
                 ->orderBy('p.id')->get()
                 ->each(function ($r) use ($push, &$detailed) {
@@ -261,13 +283,14 @@ class MasteryService
         // ۴) نمره‌ی معلم در دفترِ نمره
         DB::table('grades as g')->join('grade_columns as c', 'c.id', '=', 'g.grade_column_id')
             ->whereIn('g.student_id', $ids)
-            ->select('g.student_id', 'g.score', 'g.text', 'g.created_at', 'c.id as col_id', 'c.max', 'c.type', 'c.score_type', 'c.lesson', 'c.topic', 'c.title', 'c.graded_at')->get()
-            ->each(function ($r) use ($push) {
+            ->select('g.student_id', 'g.score', 'g.text', 'g.created_at', 'c.id as col_id', 'c.max', 'c.type', 'c.score_type', 'c.lesson', 'c.topic', 'c.title', 'c.graded_at')
+            ->when(Schema::hasColumn('grade_columns', 'chapter_id'), fn ($q) => $q->addSelect('c.chapter_id'))->get()
+            ->each(function ($r) use ($push, $unit) {
                 $type = $r->score_type ?: $r->type;
                 $c = self::gradeFraction($type, $r->score, $r->text, $r->max);
                 if ($c === null) return; // «غایب» یا خالی شاهدِ یادگیری نیست
                 $w = $type === 'numeric' ? 1.0 : (self::GRADE_TEXT[$r->text][1] ?? 1.0);
-                $push($r->student_id, $r->lesson ?: self::guessSubject($r->title), $r->topic, $c, $w, $r->graded_at ?: $r->created_at, 'grade', null, (int) $r->col_id);
+                $push($r->student_id, $r->lesson ?: self::guessSubject($r->title), $unit($r->chapter_id ?? null, null, null, $r->topic), $c, $w, $r->graded_at ?: $r->created_at, 'grade', null, (int) $r->col_id);
             });
 
         // ۵) تکلیف و آزمونِ کلاسی
@@ -417,7 +440,7 @@ class MasteryService
         return mb_substr($s, 0, 40);
     }
 
-    private static function guessSubject(?string $title): ?string
+    public static function guessSubject(?string $title): ?string
     {
         $t = self::clean($title);
         if (! $t) return null;

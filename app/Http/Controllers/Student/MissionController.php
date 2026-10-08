@@ -114,6 +114,7 @@ class MissionController extends Controller
             'combo' => $this->comboState($user, $cards->all()),
             'history' => $this->recentHistory($user),
             'review' => $this->reviewState($user),
+            'remedial' => rescue(fn () => app(\App\Services\RemediationService::class)->summary($user), ['enabled' => false], true),
             'mastery' => $this->masteryChips($user),
         ]);
     }
@@ -361,6 +362,27 @@ class MissionController extends Controller
         ]);
     }
 
+    /** «جبرانِ اشتباه» — یادآوری‌های سررسیدِ همین دانش‌آموز (همان سؤال‌های اشتباه + مشابه). */
+    public function remedialPlay(Request $request, \App\Services\RemediationService $rem): Response|RedirectResponse
+    {
+        $user = $request->user();
+        $items = $rem->buildSession($user);
+        if (! $items) {
+            $s = $rem->summary($user);
+
+            return redirect()->route('missions')->with('flash', ($s['open'] ?? 0) > 0 && $s['next']
+                ? "تمرینِ جبرانیِ امروز را انجام دادی ✅ نوبتِ بعدی: {$s['next']}"
+                : 'فعلاً تمرینِ جبرانی‌ای نداری — آفرین! 🌟');
+        }
+
+        return $this->startSession($request, 'remedial', null, $items, [
+            'id' => null, 'title' => 'جبرانِ اشتباه',
+            'description' => 'سؤال‌هایی که اشتباه زده بودی و چند سؤالِ شبیهشان — درستشان کن و امتیازت را پس بگیر!',
+            'subject' => null, 'xp_reward' => 0, 'pass_percent' => (int) (\App\Services\RemediationService::PASS * 100),
+            'badge_name' => null, 'badge_icon' => '🔁',
+        ]);
+    }
+
     /** «مرورِ امروز» — سؤال‌های خودکار از هدف‌های جاری و سررسیدِ همین دانش‌آموز. */
     public function reviewPlay(Request $request, ReviewMissionBuilder $builder): Response|RedirectResponse
     {
@@ -403,6 +425,7 @@ class MissionController extends Controller
                 'answer' => $correct['value'] ?? null, 'explanation' => $q->explanation, 'hint' => $q->hint,
                 'choices' => $choices->pluck('value')->all(), 'bank_id' => $q->id, 'objective_id' => $oid,
                 'tries' => 0, 'ok' => null, 'hinted' => false, 'picked' => [],
+                'rem_id' => $it['rem_id'] ?? null,
             ];
         }
         $request->session()->put("mission.$token", ['kind' => $kind, 'mission_id' => $mission?->id, 'items' => $state]);
@@ -494,6 +517,9 @@ class MissionController extends Controller
 
         $user = $request->user();
         $kind = $sess['kind'] ?? 'quiz';
+        if ($kind === 'remedial') {
+            return $this->submitRemedial($user, $sess['items'], $game);
+        }
         $mission = $kind === 'quiz' ? Mission::find($sess['mission_id']) : null;
         abort_if($kind === 'quiz' && ! $mission, 404);
 
@@ -565,6 +591,25 @@ class MissionController extends Controller
             // شواهدِ یادگیری فقط بارِ اولِ روز (تکرارِ بلافاصله بعد از دیدنِ پاسخ‌ها شاهدِ واقعی نیست)
             $learned = $learning->record($user, $events, $kind === 'quiz' ? 'mission' : 'review', $mission?->id);
 
+            // یادآوریِ جبرانی برای سؤال‌هایی که در نهایت اشتباه ماند (فقط مأموریت، نه خودِ مرور)
+            if ($kind === 'quiz') {
+                $remedial = (int) rescue(function () use ($items, $mission, $user, $total) {
+                    $completion = MissionCompletion::where('mission_id', $mission->id)->where('student_id', $user->id)
+                        ->whereDate('play_date', now()->toDateString())->latest('id')->first();
+                    $rows = [];
+                    $banks = \App\Models\SmartQuestionBank::withoutGlobalScopes()->whereIn('id', array_filter(array_column($items, 'bank_id')))->get()->keyBy('id');
+                    foreach ($items as $it) {
+                        if ($it['ok'] === false && ! empty($it['bank_id']) && isset($banks[$it['bank_id']])) {
+                            $rows[] = ['q_key' => 'b' . $it['bank_id'], 'bank_id' => $it['bank_id'], 'objective_id' => $it['objective_id'] ?? null,
+                                'question' => \App\Services\RemediationService::snapshot($banks[$it['bank_id']]),
+                                'lost_xp' => (int) round(($mission->xp_reward ?: 0) / max(1, $total))];
+                        }
+                    }
+
+                    return app(\App\Services\RemediationService::class)->create($user, 'mission', $completion?->id ?? $mission->id, $mission->id, $mission->title, $mission->teacher_id, $rows);
+                }, 0, true);
+            }
+
             if ($prevBest && $total > 0 && $correct / $total > $prevBest->score / $prevBest->total) {
                 $growth[] = ['icon' => '🚀', 'title' => 'رکوردِ شخصیِ تازه!',
                     'sub' => 'دفعه‌ی قبل ' . Jalali::fa((string) $prevBest->score) . ' از ' . Jalali::fa((string) $prevBest->total)
@@ -596,6 +641,43 @@ class MissionController extends Controller
             'badge' => $badge, 'badges' => $badges, 'growth' => $growth,
             'streak' => $this->streak($user),
             'review' => $review,
+            'remedial_made' => $remedial ?? 0,
+        ]);
+    }
+
+    /** پایانِ جلسه‌ی «جبرانِ اشتباه». */
+    private function submitRemedial($user, array $items, GamificationService $game): JsonResponse
+    {
+        $total = count($items);
+        $correct = 0;
+        $credit = 0.0;
+        $review = [];
+        foreach ($items as $i => $it) {
+            $ok = $it['ok'] === true;
+            $correct += $ok ? 1 : 0;
+            $credit += LearningService::credit($ok, $ok && $it['tries'] === 1, (bool) $it['hinted']);
+            $review[] = ['i' => $i, 'ok' => $ok, 'tries' => $it['tries'], 'hinted' => (bool) $it['hinted'],
+                'answer' => $it['answer'], 'explanation' => $it['explanation'] ?? null];
+        }
+        $res = app(\App\Services\RemediationService::class)->settle($user, $items, $game);
+        $growth = [];
+        foreach ($res['band_ups'] as $up) {
+            $growth[] = ['icon' => '⬆️', 'title' => $up['label'] . ' یک سطح بالا رفت!', 'sub' => null, 'xp' => self::XP_LEVEL_UP,
+                'from' => MasteryService::LEVELS[array_search($up['from'], array_column(MasteryService::LEVELS, 'key'))]['label'] ?? null,
+                'to' => MasteryService::LEVELS[array_search($up['to'], array_column(MasteryService::LEVELS, 'key'))]['label'] ?? null];
+        }
+        foreach ($growth as $g) {
+            $game->award($user, $g['xp'], '🌱 پیشرفت — ' . $g['title'], null, 'growth', null);
+        }
+        $passed = collect($res['rows'])->where('passed', true)->count();
+
+        return response()->json([
+            'kind' => 'remedial',
+            'correct' => $correct, 'total' => $total, 'percent' => $total ? (int) round($credit / $total * 100) : 0,
+            'xp' => $res['xp'], 'xp_total' => $res['xp'] + array_sum(array_column($growth, 'xp')),
+            'already' => false, 'passed' => $passed > 0 && $passed === count($res['rows']),
+            'badge' => null, 'badges' => [], 'growth' => $growth, 'streak' => $this->streak($user),
+            'review' => $review, 'remedial' => $res['rows'],
         ]);
     }
 

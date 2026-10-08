@@ -179,6 +179,7 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::post('/missions/hint', [\App\Http\Controllers\Student\MissionController::class, 'hint'])->middleware('throttle:60,1')->name('missions.hint');
     Route::post('/me/a11y', [\App\Http\Controllers\Student\A11yController::class, 'update'])->name('a11y.update');
     Route::get('/missions/review/play', [\App\Http\Controllers\Student\MissionController::class, 'reviewPlay'])->name('missions.review.play');
+    Route::get('/missions/remedial/play', [\App\Http\Controllers\Student\MissionController::class, 'remedialPlay'])->name('missions.remedial.play');
     Route::get('/missions/{mission}/play', [\App\Http\Controllers\Student\MissionController::class, 'play'])->whereNumber('mission')->name('missions.play');
     Route::post('/missions/{mission}/claim', [\App\Http\Controllers\Student\MissionController::class, 'claim'])->whereNumber('mission')->name('missions.claim');
 

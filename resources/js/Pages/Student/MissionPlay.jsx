@@ -34,6 +34,7 @@ export default function MissionPlay() {
     const pct = questions.length ? Math.round(((idx + (s.done ? 1 : 0)) / questions.length) * 100) : 0;
     const shortChoices = q ? q.choices.every((c) => String(c.value).length <= 14) : false;
     const isReview = mission.kind === 'review';
+    const isRemedial = mission.kind === 'remedial';
 
     const patch = (i, p) => setSt((prev) => ({ ...prev, [i]: { ...(prev[i] || {}), ...p } }));
 
@@ -97,14 +98,14 @@ export default function MissionPlay() {
     /* ── نتیجه ── */
     if (result) {
         return (
-            <ThemedDash title={isReview ? 'نتیجه‌ی مرور' : 'نتیجه‌ی مأموریت'} active="practice">
+            <ThemedDash title={isRemedial ? 'نتیجه‌ی جبران' : isReview ? 'نتیجه‌ی مرور' : 'نتیجه‌ی مأموریت'} active="practice">
                 <div style={{ position: 'relative' }}><Confetti fire={confetti} big /></div>
                 <div className="k3-card" style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: 60 }}>{result.passed ? '🏆' : '💪'}</div>
                     <div style={{ fontWeight: 900, fontSize: 22, marginTop: 4 }}>
-                        {isReview ? 'مرورِ امروز تمام شد!' : result.passed ? 'مأموریت انجام شد!' : 'تلاشِ خوبی بود!'}
+                        {isRemedial ? (result.xp > 0 ? 'آفرین! بخشی از امتیازت برگشت 🎉' : 'تمرینِ جبرانی تمام شد') : isReview ? 'مرورِ امروز تمام شد!' : result.passed ? 'مأموریت انجام شد!' : 'تلاشِ خوبی بود!'}
                     </div>
-                    {!result.passed && !isReview && (
+                    {!result.passed && !isReview && !isRemedial && (
                         <div style={{ fontSize: 13, opacity: .85, marginTop: 6, lineHeight: 1.9 }}>
                             برای «قبولی» {fa(mission.pass_percent ?? 60)}٪ لازم است — ولی امتیازِ پاسخ‌های درستت را گرفتی.
                         </div>
@@ -112,7 +113,7 @@ export default function MissionPlay() {
                     <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 16, flexWrap: 'wrap' }}>
                         <Metric v={`${fa(result.correct)} از ${fa(result.total)}`} l="پاسخِ درست" />
                         <Metric v={`${fa(result.percent)}٪`} l="امتیازِ دقت" />
-                        <Metric v={result.already ? '—' : `⚡ ${fa(result.xp_total)}`} l={result.already ? 'امروز قبلاً گرفتی' : 'امتیازِ کل'} />
+                        <Metric v={result.already ? '—' : `⚡ ${fa(result.xp_total)}`} l={result.already ? 'امروز قبلاً گرفتی' : isRemedial ? 'امتیازِ جبران‌شده' : 'امتیازِ کل'} />
                     </div>
                     {result.already && (
                         <div style={{ marginTop: 12, fontSize: 13, background: 'rgba(240,149,46,.22)', border: '1px solid rgba(240,149,46,.5)', borderRadius: 12, padding: '9px 13px', display: 'inline-block', lineHeight: 1.8 }}>
@@ -121,6 +122,23 @@ export default function MissionPlay() {
                     )}
                 </div>
 
+                {isRemedial && result.remedial?.length > 0 && (
+                    <div className="k3-card" style={{ marginTop: 14 }}>
+                        <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 6 }}>🔁 وضعیتِ جبران</div>
+                        {result.remedial.map((r, k) => (
+                            <GrowthRow key={k} icon={r.done ? '🏆' : r.passed ? '✅' : '🔄'} xp={r.xp || undefined}
+                                title={`${r.chapter ? `📘 ${r.chapter} — ` : ''}${r.title || ''}`}
+                                sub={r.done ? `کامل شد! ${fa(r.recovered)} از ${fa(r.cap)} امتیاز برگشت`
+                                    : r.passed ? `نوبتِ ${fa(r.step)} از ${fa(r.steps)} قبول شد — نوبتِ بعد: ${r.next}`
+                                        : `${fa(r.percent)}٪ — فردا دوباره امتحان کن (برای قبولی ${fa(mission.pass_percent)}٪ لازم است)`} />
+                        ))}
+                    </div>
+                )}
+                {result.remedial_made > 0 && (
+                    <div className="k3-card" style={{ marginTop: 14, background: 'linear-gradient(135deg,#ff7a45,#e8505b)', border: 0 }}>
+                        🔁 برای {fa(result.remedial_made)} سؤالی که اشتباه ماند، «جبرانِ اشتباه» ساخته شد — از تخته‌ی مأموریت‌ها انجامش بده و بخشی از امتیاز را پس بگیر.
+                    </div>
+                )}
                 {(result.growth?.length > 0 || result.badge || result.badges?.length > 0) && (
                     <div className="k3-card" style={{ marginTop: 14 }}>
                         <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 6 }}>🌱 پاداش‌های پیشرفت</div>

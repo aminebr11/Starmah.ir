@@ -36,6 +36,40 @@ class LearningService
             && \Illuminate\Support\Facades\Schema::hasTable('practice_answers');
     }
 
+    /** ستونِ «هدفِ درسی» در بانک هم آماده است؟ (پیش از اجرای مایگریشن، ثبتِ آزمون نباید بشکند) */
+    public static function bankReady(): bool
+    {
+        static $ok = null;
+
+        return $ok ??= self::ready() && \Illuminate\Support\Facades\Schema::hasColumn('smart_question_bank', 'objective_id');
+    }
+
+    /**
+     * نمره‌ی معلم در دفترِ نمره → زمان‌بندیِ مرور.
+     * فقط نمره‌ی ضعیف (زیرِ ۵۰٪) فصل را به «مرورِ فردا» می‌برد؛ نمره‌ی خوب جعبه را جلو
+     * نمی‌برد تا ذخیره‌ی دوباره‌ی یک ستون، مرور را بی‌جهت عقب نیندازد. تسلط را خودِ
+     * موتورِ تسلط از نمره‌ها می‌خواند (اینجا شاهدِ تکراری ثبت نمی‌شود).
+     */
+    public static function fromGradeColumn(?\App\Models\GradeColumn $col): void
+    {
+        if (! $col || ! $col->chapter_id || ! self::ready()) {
+            return;
+        }
+        $classroom = \App\Models\Classroom::find($col->classroom_id);
+        $subject = $col->lesson ?: MasteryService::guessSubject($col->title);
+        if (! $subject) {
+            return;
+        }
+        $oid = \App\Support\Objectives::idFor(['grade' => $classroom?->grade, 'subject' => $subject, 'chapter_id' => $col->chapter_id]);
+        $type = $col->score_type ?: $col->type;
+        foreach ($col->grades()->with('student')->get() as $g) {
+            $f = MasteryService::gradeFraction($type, $g->score, $g->text, $col->max);
+            if ($f !== null && $f < 0.5 && $g->student) {
+                app(self::class)->record($g->student, [['objective_id' => $oid, 'correct' => false]], 'grade', $col->id, false);
+            }
+        }
+    }
+
     /** کسرِ ۰ تا ۱ یک پاسخ برای موتورِ تسلط. */
     public static function credit(bool $correct, bool $firstTry, bool $hinted): float
     {

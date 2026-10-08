@@ -18,7 +18,7 @@ const meta = (t) => TYPE_META[t] || TYPE_META.quiz;
 
 /** مأموریت‌های روزانه — تخته‌ی مأموریتِ دانش‌آموز با رشته‌ی روزها و جعبه‌ی گنج. */
 export default function Missions() {
-    const { missions = [], streak = 0, combo = {}, history = [], review = null, mastery = [], flash } = usePage().props;
+    const { missions = [], streak = 0, combo = {}, history = [], review = null, remedial = null, mastery = [], flash } = usePage().props;
     const [banner, setBanner] = useState(null);
     useEffect(() => { if (flash?.flash) { setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); window.scrollTo({ top: 0, behavior: 'smooth' }); } }, [flash]);
 
@@ -59,6 +59,7 @@ export default function Missions() {
             </div>
 
             {/* ── مرورِ امروز (مرورِ فاصله‌دار) ── */}
+            {remedial?.enabled && (remedial.open > 0 || remedial.done > 0) && <RemedialCard r={remedial} />}
             {review && (review.available || review.done_today) && <ReviewCard review={review} streak={streak} />}
 
             {/* ── سطحِ من در هر مبحث (همان چهار سطحِ ارزشیابیِ توصیفی) ── */}
@@ -83,6 +84,37 @@ export default function Missions() {
             {done.length > 0 && <Section t="✅ انجام‌شده‌های امروز" n={done.length} />}
             <Grid list={done} />
         </ThemedDash>
+    );
+}
+
+/* ═══════════════════ جبرانِ اشتباه (فقط برای خودِ دانش‌آموز) ═══════════════════ */
+function RemedialCard({ r }) {
+    const ready = r.due > 0;
+    return (
+        <div className="k3-card" style={{ marginTop: 14, border: 0, background: ready ? 'linear-gradient(135deg,#ff7a45,#e8505b)' : 'linear-gradient(135deg,#0f9d58,#0a6e3d)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 30 }}>{ready ? '🔁' : '✅'}</span>
+                <b style={{ fontSize: 19, flex: 1 }}>جبرانِ اشتباه</b>
+                {r.xp_recovered > 0 && <span className="k3-chip">⚡ {fa(r.xp_recovered)} جبران شد</span>}
+            </div>
+            {ready ? (
+                <>
+                    <div style={{ fontSize: 14, lineHeight: 1.9, marginTop: 6, opacity: .95 }}>
+                        سؤال‌هایی که اشتباه زده بودی و چند سؤالِ شبیهشان. درستشان کن تا هم یاد بگیری و هم بخشی از امتیازت برگردد!
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', fontSize: 12.5 }}>
+                        <span className="k3-chip">{fa(r.due)} اشتباه آماده‌ی جبران</span>
+                        {r.xp_left > 0 && <span className="k3-chip">تا ⚡ {fa(r.xp_left)} امتیاز</span>}
+                        {(r.chapters || []).map((c) => <span key={c} className="k3-chip">📘 {c}</span>)}
+                    </div>
+                    <Link href={route('missions.remedial.play')} className="k3-btn" style={{ width: '100%', marginTop: 12, background: 'linear-gradient(180deg,#ffd23f,#e9a400)', color: '#2b1d00' }}>▶ شروعِ جبران</Link>
+                </>
+            ) : (
+                <div style={{ fontSize: 14, lineHeight: 1.9, marginTop: 6 }}>
+                    {r.open > 0 ? <>تمرینِ جبرانیِ امروز انجام شد ✅ نوبتِ بعدی: <b>{r.next}</b> — با فاصله تکرار می‌شود تا برای همیشه یادت بماند.</> : <>همه‌ی اشتباه‌هایت را جبران کردی! 🌟 ({fa(r.done)} مورد)</>}
+                </div>
+            )}
+        </div>
     );
 }
 

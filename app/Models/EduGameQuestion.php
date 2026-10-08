@@ -10,7 +10,7 @@ class EduGameQuestion extends Model
     protected $fillable = [
         'edu_game_id', 'type', 'prompt', 'media_path', 'choices', 'answer',
         'hint1', 'hint2', 'explanation', 'points', 'penalty', 'time_limit', 'tags', 'sort',
-        'bank_id', 'difficulty', 'bloom', 'topic', 'source',
+        'bank_id', 'difficulty', 'bloom', 'topic', 'source', 'chapter_id',
     ];
     protected $casts = ['choices' => 'array', 'answer' => 'array'];
 

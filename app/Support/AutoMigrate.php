@@ -22,7 +22,10 @@ class AutoMigrate
     {
         $files = glob(database_path('migrations/*.php')) ?: [];
 
-        return substr(md5(implode('|', array_map('basename', $files))), 0, 12);
+        // پایگاه‌داده هم در اثرانگشت است: اگر .env به پایگاهِ دیگری اشاره کند، دوباره بررسی می‌شود
+        $db = config('database.default') . ':' . config('database.connections.' . config('database.default') . '.database');
+
+        return substr(md5(implode('|', array_map('basename', $files)) . '|' . $db), 0, 12);
     }
 
     private static function flag(string $sig): string

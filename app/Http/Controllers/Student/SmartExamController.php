@@ -347,17 +347,26 @@ class SmartExamController extends Controller
             $graded[$i] = $correct;
         }
 
-        // زمان‌بندیِ مرورِ فاصله‌دار (تسلط را موتورِ تسلط از خودِ پاسخ‌های آزمون می‌خواند)
-        $objectiveOf = \App\Models\SmartQuestionBank::withoutGlobalScopes()
-            ->whereIn('id', $questions->pluck('bank_id')->filter()->unique())->pluck('objective_id', 'id');
-        $events = [];
-        foreach ($questions as $i => $q) {
-            $ok = $graded[$i] ?? null;
-            if ($q->bank_id && $ok !== null && ! empty($objectiveOf[$q->bank_id])) {
-                $events[] = ['objective_id' => $objectiveOf[$q->bank_id], 'bank_id' => $q->bank_id, 'correct' => (bool) $ok];
+        // زمان‌بندیِ مرورِ فاصله‌دار — هر پاسخ به فصلِ خودِ سؤال می‌رود
+        // (تسلط را موتورِ تسلط از خودِ پاسخ‌های آزمون می‌خواند). کارِ جانبی است: ثبتِ آزمون نباید بشکند.
+        $objOf = [];
+        rescue(function () use ($questions, $graded, $smartExam, $user, $attempt, &$objOf) {
+            if (! \App\Services\LearningService::bankReady()) {
+                return;
             }
-        }
-        app(\App\Services\LearningService::class)->record($user, $events, 'smart_exam', $attempt->id, false);
+            $objectiveOf = \App\Models\SmartQuestionBank::withoutGlobalScopes()
+                ->whereIn('id', $questions->pluck('bank_id')->filter()->unique())->pluck('objective_id', 'id');
+            $events = [];
+            foreach ($questions as $i => $q) {
+                $oid = \App\Support\Objectives::forQuestion($smartExam, $q, $q->bank_id ? ($objectiveOf[$q->bank_id] ?? null) : null);
+                $objOf[$i] = $oid;
+                $ok = $graded[$i] ?? null;
+                if ($oid && $ok !== null) {
+                    $events[] = ['objective_id' => $oid, 'bank_id' => $q->bank_id, 'correct' => (bool) $ok];
+                }
+            }
+            app(\App\Services\LearningService::class)->record($user, $events, 'smart_exam', $attempt->id, false);
+        }, null, true);
 
         $maxScore = (int) $questions->sum('points');
         $attempt->update([
@@ -380,9 +389,35 @@ class SmartExamController extends Controller
             $game->award($user, $xp, '🧪 آزمون هوشمند — ' . $smartExam->title, $smartExam->teacher, SmartExamReward::class, $attempt->id);
         }
 
+        // یادآوریِ جبرانی برای سؤال‌هایی که اشتباه زده (فقط تلاشی که امتیازش حساب می‌شود)
+        $remedial = 0;
+        if (! $alreadyRewarded && $autoMax > 0) {
+            $remedial = (int) rescue(function () use ($questions, $graded, $objOf, $autoMax, $smartExam, $user, $attempt) {
+                $rules = $smartExam->rules ?? [];
+                $stillOpen = $smartExam->closes_at && $smartExam->closes_at->isFuture();
+                // تا آزمون برای بقیه باز است، پاسخِ درست نباید از راهِ یادآوری لو برود
+                $dueOn = $stillOpen ? $smartExam->closes_at->copy()->addDay()->toDateString() : null;
+                $hideOriginal = ! $stillOpen && empty($rules['show_answer'] ?? true);
+                $items = [];
+                foreach ($questions as $i => $q) {
+                    if (($graded[$i] ?? null) === false) {
+                        $snap = \App\Services\RemediationService::snapshot($q) + ($hideOriginal ? ['no_original' => true] : []);
+                        $items[] = ['q_key' => $q->bank_id ? 'b' . $q->bank_id : 'e' . $q->id, 'bank_id' => $q->bank_id,
+                            'objective_id' => $objOf[$i] ?? null, 'question' => $snap,
+                            'lost_xp' => (int) round(100 * max(1, (int) $q->points) / $autoMax)];
+                    }
+                }
+
+                return app(\App\Services\RemediationService::class)->create($user, 'exam', $attempt->id, $smartExam->id, $smartExam->title, $smartExam->teacher_id, $items, $dueOn);
+            }, 0, true);
+        }
+
         $msg = $hasDesc
             ? 'پاسخ‌هایت ثبت شد؛ بخشِ تشریحی توسط معلم بررسی می‌شود.'
             : "آزمون تمام شد — نتیجه: {$auto} از {$autoMax}" . ($alreadyRewarded ? ' (XP قبلاً محاسبه شده)' : " (+{$xp} امتیاز)");
+        if ($remedial > 0) {
+            $msg .= ' — 🔁 برای ' . \App\Support\Jalali::fa((string) $remedial) . ' اشتباه، تمرینِ جبرانی ساخته شد';
+        }
 
         return redirect()->route('student.smart.result', [$smartExam->id, $attempt->id])->with('flash', $msg);
     }
