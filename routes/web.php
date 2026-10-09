@@ -20,7 +20,9 @@ use App\Http\Controllers\ThemeController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', WelcomeController::class)->name('welcome');
+// کنترلرهای تک‌متدی به‌صورتِ [Class, '__invoke'] ثبت می‌شوند: اگر در به‌روزرسانی فایلشان جا بماند،
+// فقط همان آدرس خطا می‌دهد، نه کلِ سایت («Invalid route action» هنگامِ بارگذاریِ مسیرها).
+Route::get('/', [WelcomeController::class, '__invoke'])->name('welcome');
 
 // صفحه‌ی درباره‌ی معلم/کلاس — عمومی
 Route::get('/about', fn () => Inertia::render('About'))->name('about');
@@ -40,7 +42,7 @@ Route::post('/presence', function (\Illuminate\Http\Request $r) {
     return response()->noContent();
 })->middleware(['auth', 'throttle:10,1'])->name('presence');
 
-Route::get('/dashboard', HomeController::class)->middleware('auth')->name('dashboard');
+Route::get('/dashboard', [HomeController::class, '__invoke'])->middleware('auth')->name('dashboard');
 
 // صفحه‌ی قیمت (عمومی) + بازگشت از درگاهِ پرداخت
 Route::get('/pricing', [\App\Http\Controllers\PricingController::class, 'index'])->name('pricing');
@@ -185,7 +187,7 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::post('/missions/check', [\App\Http\Controllers\Student\MissionController::class, 'check'])->middleware('throttle:120,1')->name('missions.check');
     Route::post('/missions/hint', [\App\Http\Controllers\Student\MissionController::class, 'hint'])->middleware('throttle:60,1')->name('missions.hint');
     Route::post('/me/a11y', [\App\Http\Controllers\Student\A11yController::class, 'update'])->name('a11y.update');
-    Route::post('/speech', \App\Http\Controllers\SpeechController::class)->middleware('throttle:40,1')->name('speech');
+    Route::post('/speech', [\App\Http\Controllers\SpeechController::class, '__invoke'])->middleware('throttle:40,1')->name('speech');
     Route::get('/missions/review/play', [\App\Http\Controllers\Student\MissionController::class, 'reviewPlay'])->name('missions.review.play');
     // «مرورِ اشتباه‌های من» — صفحه‌ی اختصاصی (منو)
     Route::get('/review', [\App\Http\Controllers\Student\MissionController::class, 'reviewBoard'])->name('review');
@@ -194,14 +196,14 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::post('/missions/{mission}/claim', [\App\Http\Controllers\Student\MissionController::class, 'claim'])->whereNumber('mission')->name('missions.claim');
 
     // کارنامه‌ی یکپارچه (خلاصه/درس‌به‌درس/نمرات کلاسی/آزمون هوشمند در یک صفحه‌ی تب‌دار)
-    Route::get('/report', \App\Http\Controllers\Student\ReportHubController::class)->name('report');
+    Route::get('/report', [\App\Http\Controllers\Student\ReportHubController::class, '__invoke'])->name('report');
     // مسیرهای قدیمی به تبِ مربوطه‌ی کارنامه هدایت می‌شوند (لینک‌های قدیمی نشکنند)
     Route::get('/progress', fn () => redirect('/report?tab=overview'))->name('progress');
     Route::get('/my-reports', fn () => redirect('/report?tab=overview'))->name('my.reports');
     Route::get('/my-grades', fn () => redirect('/report?tab=grades'))->name('my.grades');
 
-    Route::get('/leaderboard', LeaderboardController::class)->name('leaderboard');
-    Route::get('/my-team', \App\Http\Controllers\Student\TeamController::class)->name('my.team');
+    Route::get('/leaderboard', [LeaderboardController::class, '__invoke'])->name('leaderboard');
+    Route::get('/my-team', [\App\Http\Controllers\Student\TeamController::class, '__invoke'])->name('my.team');
 
     // بخشِ والدین (قفل‌شده با رمزِ والدین)
     Route::get('/family', [\App\Http\Controllers\Student\FamilyController::class, 'index'])->name('family');
@@ -451,7 +453,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
 
 /* ---------------- والد ---------------- */
 Route::middleware(['auth', 'role:parent'])->group(function () {
-    Route::get('/parent', \App\Http\Controllers\ParentHomeController::class)->name('parent.home');
+    Route::get('/parent', [\App\Http\Controllers\ParentHomeController::class, '__invoke'])->name('parent.home');
 });
 
 /* ---------------- مشترک ---------------- */
@@ -499,7 +501,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/messages/{message}', [MessageController::class, 'destroy'])->name('messages.destroy');
 
     // کارتابل اعلان‌ها/پیام‌ها (معلم و دانش‌آموز)
-    Route::get('/notices', \App\Http\Controllers\NoticeController::class)->name('notices');
+    Route::get('/notices', [\App\Http\Controllers\NoticeController::class, '__invoke'])->name('notices');
     // مسیرهای ثابت پیش از مسیرِ پارامتری ثبت می‌شوند تا بلعیده نشوند
     Route::get('/notices/pulse', [\App\Http\Controllers\NoticeController::class, 'pulse'])->name('notices.pulse');
     Route::post('/notices/read-all', [\App\Http\Controllers\NoticeController::class, 'readAll'])->name('notices.read-all');
@@ -545,7 +547,7 @@ Route::middleware('auth')->group(function () {
  * فایل را پیدا نمی‌کند و درخواست به اینجا می‌رسد. در حالتِ درست هرگز اجرا نمی‌شود.
  * بدونِ auth است، چون همین حالا هم این فایل‌ها با آدرسِ مستقیم عمومی‌اند.
  */
-Route::get('/storage/{path}', \App\Http\Controllers\PublicFileController::class)
+Route::get('/storage/{path}', [\App\Http\Controllers\PublicFileController::class, '__invoke'])
     ->where('path', '.*')->name('storage.file');
 
 require __DIR__.'/auth.php';
