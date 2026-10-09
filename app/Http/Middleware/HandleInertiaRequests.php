@@ -74,12 +74,12 @@ class HandleInertiaRequests extends Middleware
                     ->whereHas('worksheet', fn ($q) => $q->where('teacher_id', $user->id))->count(), 0, false)
                 : 0,
             // مسابقه‌ی زنده‌ی باز برای کلاسِ دانش‌آموز (نوارِ «بپیوند»)
-            'liveNow' => fn () => ($user && $user->isStudent() && \App\Models\LiveContest::ready())
+            'liveNow' => fn () => rescue(fn () => ($user && $user->isStudent() && class_exists(\App\Models\LiveContest::class) && \App\Models\LiveContest::ready())
                 ? \Illuminate\Support\Facades\Cache::remember('live-now:' . $user->id, 15, fn () => rescue(fn () => \App\Models\LiveContest::forStudent($user)
                     ->where(fn ($q) => $q->where(fn ($q) => $q->whereIn('phase', ['question', 'reveal'])->where('updated_at', '>=', now()->subHours(3)))
                         ->orWhere(fn ($q) => $q->where('phase', 'lobby')->whereNotNull('starts_at')->whereBetween('starts_at', [now()->subHours(2), now()->addMinutes(10)])))
                     ->latest('id')->first(['id', 'title'])?->only(['id', 'title']), null, false) ?: false) ?: null
-                : null,
+                : null, null, true),
             // «مرورِ اشتباه‌های من» که امروز آماده است (نشان روی منوی دانش‌آموز)
             'reviewDue' => fn () => ($user && $user->isStudent() && \App\Services\RemediationService::ready())
                 ? (int) rescue(fn () => \App\Models\Remediation::where('student_id', $user->id)->where('status', 'open')

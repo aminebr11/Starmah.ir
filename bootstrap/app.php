@@ -18,13 +18,15 @@ return Application::configure(basePath: dirname(__DIR__))
             // به‌روزرسانیِ تازه با مایگریشنِ اجرانشده → یک‌بار خودکار اجرا شود (جلوی ۵۰۰ را می‌گیرد)
             \App\Http\Middleware\ApplyPendingMigrations::class,
         ]);
-        $middleware->web(append: [
+        // میان‌افزارهای سراسری فقط اگر فایلشان روی سرور باشد ثبت می‌شوند؛ جاماندنِ یک فایل
+        // در به‌روزرسانی نباید کلِ سایت را با «خطای ۵۰۰» از کار بیندازد.
+        $middleware->web(append: array_values(array_filter([
             \App\Http\Middleware\HandleInertiaRequests::class,
             \App\Http\Middleware\EnsurePasswordChanged::class,
             \App\Http\Middleware\EnforceScreenTime::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
             \App\Http\Middleware\TrackVisit::class,
-        ]);
+        ], fn ($class) => class_exists($class))));
 
         // انتخابِ طرحِ ظاهری را خودِ مرورگر هم می‌نویسد، پس رمزنگاری نمی‌شود
         $middleware->encryptCookies(except: ['sm_ui']);

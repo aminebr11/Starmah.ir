@@ -18,8 +18,13 @@ class EnforceScreenTime
 
     public function handle(Request $request, Closure $next): Response
     {
-        $user = $request->user();
-        if (! $user || ! $user->isStudent()) {
+        try {
+            $user = $request->user();
+            $isStudent = $user && $user->isStudent();
+        } catch (\Throwable) {
+            $isStudent = false;
+        }
+        if (! $isStudent) {
             return $next($request);
         }
         $path = $request->path();
