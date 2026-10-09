@@ -78,13 +78,13 @@ export default function LiveContests() {
                     {errors.title && <div className="rm-err">{errors.title}</div>}
 
                     <div className="at-kinds">
-                        {[['manual', '🧑‍🏫', 'خودم روی تخته اجرا می‌کنم', 'شروع و رفتن به سؤالِ بعد با شما'], ['auto', '⏰', 'سرِ ساعت، خودکار', 'در زمانِ تعیین‌شده خودش شروع می‌شود و جلو می‌رود']].map(([k, ic, t, sub]) => (
+                        {[['manual', '🧑‍🏫', 'خودم روی تخته اجرا می‌کنم', 'رفتن به سؤالِ بعد با شما؛ اگر ساعت بگذارید، سرِ همان ساعت خودش شروع می‌شود'], ['auto', '⏰', 'کاملاً خودکار', 'سرِ ساعت شروع می‌شود و بدونِ تخته هم تا آخر جلو می‌رود']].map(([k, ic, t, sub]) => (
                             <button key={k} type="button" className={`at-kind ${d.mode === k ? 'on' : ''}`} onClick={() => form.setData('mode', k)}>
                                 <span>{ic}</span><b>{t}</b><small>{sub}</small>
                             </button>
                         ))}
                     </div>
-                    <label className="at-text">{d.mode === 'auto' ? 'زمانِ شروع' : 'زمانِ شروع (اختیاری؛ فقط برای اطلاعِ بچه‌ها)'}
+                    <label className="at-text">{d.mode === 'auto' ? 'زمانِ شروع' : 'زمانِ شروع (اختیاری؛ سرِ این ساعت مسابقه خودش برای بچه‌ها باز می‌شود)'}
                         <JalaliDatePicker value={d.starts_at} onChange={(v) => form.setData('starts_at', v)} withTime placeholder="انتخابِ تاریخ و ساعت" />
                     </label>
                     {errors.starts_at && <div className="rm-err">{errors.starts_at}</div>}

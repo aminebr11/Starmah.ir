@@ -29,13 +29,14 @@ export default function LiveHost({ contest }) {
     const [left, setLeft] = useState(0);
     const [sound, setSound] = useState(true);
     const [err, setErr] = useState(null);
-    const got = useRef({ at: 0, remaining: 0 });
+    const got = useRef({ at: 0, remaining: 0, lead: 0 });
+    const [lead, setLead] = useState(0);
     const busy = useRef(false);
     const autoRevealed = useRef(-1);
     const lastTick = useRef(-1);
 
     const apply = useCallback((data) => {
-        got.current = { at: performance.now(), remaining: data.remaining };
+        got.current = { at: performance.now(), remaining: data.remaining, lead: data.lead || 0 };
         setS((old) => {
             if (data.phase === 'end' && old?.phase !== 'end') [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => beep(sound, f, 220, 'triangle'), i * 160));
             if (data.phase === 'reveal' && old?.phase === 'question') beep(sound, 880, 200, 'triangle');
@@ -65,8 +66,11 @@ export default function LiveHost({ contest }) {
     // شمارش معکوسِ نرم
     useEffect(() => {
         const id = setInterval(() => {
-            const r = Math.max(0, got.current.remaining - (performance.now() - got.current.at));
+            const since = performance.now() - got.current.at;
+            const ld = Math.max(0, got.current.lead - since);
+            const r = Math.max(0, got.current.remaining - Math.max(0, since - got.current.lead));
             const sec = Math.ceil(r / 1000);
+            setLead(Math.ceil(ld / 1000));
             setLeft(sec);
             if (s?.phase === 'question' && sec <= 5 && sec > 0 && lastTick.current !== sec) { lastTick.current = sec; beep(sound, 520, 70); }
         }, 200);
@@ -75,7 +79,7 @@ export default function LiveHost({ contest }) {
 
     // همه جواب دادند → جواب را نشان بده
     useEffect(() => {
-        if (s?.phase === 'question' && s.online > 0 && s.answered >= s.online && autoRevealed.current !== s.current) {
+        if (s?.phase === 'question' && !s.lead && s.online > 0 && s.answered >= s.online && autoRevealed.current !== s.current) {
             autoRevealed.current = s.current;
             setTimeout(() => go('reveal'), 900);
         }
@@ -114,7 +118,8 @@ export default function LiveHost({ contest }) {
                     <h1>{contest.title}</h1>
                     <p className="lvh-how">بچه‌ها! با گوشی یا تبلت وارد <b>استارماه</b> شوید و از منو <b>«🏆 مسابقه‌ی زنده»</b> را بزنید.</p>
                     <div className="lvh-count"><b>{fa(s.players)}</b><span>نفر آماده‌اند{s.audience ? ` از ${fa(s.audience)}` : ''}</span></div>
-                    {s.starts_in != null && s.mode === 'auto' && <div className="lvh-starts">⏰ شروعِ خودکار تا {mmss(s.starts_in)} دیگر</div>}
+                    {s.starts_in != null && <div className="lvh-starts">⏰ {s.starts_in > 0 ? <>شروعِ خودکار تا <b className="lvh-clock">{mmss(s.starts_in)}</b> دیگر</> : 'الان شروع می‌شود…'}</div>}
+                    {s.starts_in != null && s.mode !== 'auto' && <p className="lvh-how" style={{ fontSize: 'clamp(14px,1.6vw,20px)' }}>سرِ ساعت خودش شروع می‌شود؛ رفتن به سؤالِ بعد با شماست (اگر تخته را ببندید، خودش جلو می‌رود).</p>}
                     <div className="lvh-names">{(s.names || []).map((n, i) => <span key={n + i} style={{ animationDelay: `${(i % 10) * 0.08}s` }}>{n}</span>)}</div>
                 </main>
             ) : s.phase === 'end' ? (
@@ -137,7 +142,9 @@ export default function LiveHost({ contest }) {
                     <button type="button" className="lvh-btn ghost" onClick={() => confirm('مسابقه از نو اجرا شود؟ (امتیازهای این دور پاک می‌شود)') && go('reset')}>🔁 اجرای دوباره</button>
                 </main>
             ) : (
-                <main className="lvh-play">
+                <main className={`lvh-play ${s.golden ? 'golden' : ''}`}>
+                    {s.golden && <div className="lvh-golden">🌟 سؤالِ طلایی — امتیازِ دو برابر!</div>}
+                    {s.phase === 'question' && lead > 0 && <div className="lvh-ready"><span>آماده باشید…</span><b key={lead}>{fa(lead)}</b></div>}
                     <div className="lvh-qrow">
                         {s.phase === 'question' ? (
                             <div className="lvh-timer" style={{ '--p': `${Math.min(100, (left / s.seconds) * 100)}%` }} data-low={left <= 5}>
@@ -147,7 +154,7 @@ export default function LiveHost({ contest }) {
                         <h2 className="lvh-q" dir={dirOf(q?.prompt)}>{q?.prompt}</h2>
                         <div className="lvh-ans"><b>{fa(s.answered)}</b><span>جواب</span></div>
                     </div>
-                    <div className={`lvh-tiles n${q?.choices.length}`}>
+                    <div className={`lvh-tiles n${q?.choices.length} ${s.phase === 'question' && lead > 0 ? 'hidden' : ''}`}>
                         {q?.choices.map((c, k) => {
                             const isOk = s.phase === 'reveal' && s.answer === k;
                             const faded = s.phase === 'reveal' && s.answer !== k;
@@ -169,7 +176,9 @@ export default function LiveHost({ contest }) {
                             {(s.top || []).map((r, i) => (
                                 <div key={r.id} className="lvh-row" style={{ animationDelay: `${i * 0.08}s` }}>
                                     <span className="lvh-rank">{['🥇', '🥈', '🥉'][i] || fa(r.rank)}</span>
-                                    <span className="lvh-name">{r.name}{r.streak >= 2 ? ` 🔥${fa(r.streak)}` : ''}</span>
+                                    <span className="lvh-name">{r.name}{r.streak >= 2 ? ` 🔥${fa(r.streak)}` : ''}
+                                        {r.delta > 0 && <em className="lvh-up">▲{fa(r.delta)}</em>}{r.delta < 0 && <em className="lvh-down">▼{fa(-r.delta)}</em>}
+                                        {r.gained > 0 && <small className="lvh-gain">+{fa(r.gained)}</small>}</span>
                                     <span className="lvh-sbar"><i style={{ width: `${(r.score / topScore) * 100}%` }} /></span>
                                     <b>{fa(r.score)}</b>
                                 </div>

@@ -42,6 +42,7 @@ class LiveContestController extends Controller
         $teacher = $request->user();
         $rooms = Classroom::where('teacher_id', $teacher->id)->orderBy('id')->get(['id', 'name', 'grade']);
         $contests = LiveContest::ready() ? LiveContest::where('teacher_id', $teacher->id)->withCount('players')->latest()->limit(60)->get() : collect();
+        $contests->filter(fn ($c) => $c->phase !== 'end')->each(fn ($c) => rescue(fn () => $c->tick(), null, false));
 
         return Inertia::render('Teacher/LiveContests', [
             'ready' => LiveContest::ready(),
@@ -118,7 +119,7 @@ class LiveContestController extends Controller
         ]);
         $this->announce($contest);
 
-        return redirect()->route('teacher.live')->with('flash', '🏆 «' . $contest->title . '» ساخته شد و به بچه‌ها خبر داده شد.' . ($contest->mode === 'auto' ? ' سرِ ساعت خودش شروع می‌شود.' : ' هر وقت آماده بودید «اجرا روی تخته» را بزنید.'));
+        return redirect()->route('teacher.live')->with('flash', '🏆 «' . $contest->title . '» ساخته شد و به بچه‌ها خبر داده شد.' . ($contest->mode === 'auto' ? ' سرِ ساعت خودش شروع می‌شود.' : ($contest->starts_at ? ' سرِ ساعت خودش شروع می‌شود؛ اگر تخته را باز کنید، رفتن به سؤالِ بعد با شماست.' : ' هر وقت آماده بودید «اجرا روی تخته» را بزنید.')));
     }
 
     private function announce(LiveContest $c): void
@@ -148,6 +149,7 @@ class LiveContestController extends Controller
     public function state(Request $request, LiveContest $contest): JsonResponse
     {
         $this->mine($request, $contest);
+        $contest->markHost();
         $contest->tick();
         $q = $contest->current;
         $question = $contest->live() ? ($contest->questions[$q] ?? null) : null;
@@ -158,8 +160,10 @@ class LiveContestController extends Controller
 
         return response()->json([
             'phase' => $contest->phase, 'current' => $q, 'total' => $contest->total(), 'seconds' => $contest->seconds,
-            'remaining' => $contest->remaining(), 'elapsed' => $contest->elapsed(), 'mode' => $contest->mode,
-            'starts_in' => $contest->starts_at && $contest->phase === 'lobby' ? max(0, now()->diffInSeconds($contest->starts_at, false)) : null,
+            'remaining' => $contest->remaining(), 'elapsed' => $contest->elapsed(), 'mode' => $contest->mode, 'lead' => $contest->lead(),
+            'golden' => $contest->live() && $contest->golden($q),
+            'starts_in' => $contest->starts_at && $contest->phase === 'lobby' && $contest->starts_at->gt(now()->subHours(LiveContest::SCHEDULE_WINDOW_H))
+                ? max(0, (int) now()->diffInSeconds($contest->starts_at, false)) : null,
             'question' => $question ? ['prompt' => $question['prompt'], 'choices' => $question['choices']] : null,
             'answer' => $contest->phase === 'reveal' && $question ? $question['answer'] : null,
             'dist' => $contest->phase === 'reveal' && $question ? $contest->distribution($q) : null,
@@ -192,7 +196,7 @@ class LiveContestController extends Controller
         LiveContestAnswer::where('live_contest_id', $contest->id)->delete();
         LiveContestPlayer::where('live_contest_id', $contest->id)->delete();
         // امتیازِ (XP) دورِ قبل می‌ماند؛ دورِ تازه دوباره امتیاز نمی‌دهد
-        $contest->update(['phase' => 'lobby', 'current' => -1, 'phase_at' => null, 'mode' => 'manual']);
+        $contest->update(['phase' => 'lobby', 'current' => -1, 'phase_at' => null, 'mode' => 'manual', 'starts_at' => null]);
     }
 
     public function destroy(Request $request, LiveContest $contest): RedirectResponse

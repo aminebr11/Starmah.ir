@@ -25,6 +25,8 @@ class PlayController extends Controller
     {
         $user = $request->user();
         $list = LiveContest::ready() ? LiveContest::forStudent($user)->latest()->limit(30)->get() : collect();
+        // سرِ ساعت شروع شود / نیمه‌کاره‌ها تمام شوند، حتی اگر کسی هنوز وارد نشده باشد
+        $list->filter(fn ($c) => $c->phase !== 'end')->each(fn ($c) => rescue(fn () => $c->tick(), null, false));
         $mine = LiveContestPlayer::where('student_id', $user->id)->whereIn('live_contest_id', $list->pluck('id'))->get()->keyBy('live_contest_id');
 
         return Inertia::render('Student/LiveContests', [
@@ -35,6 +37,7 @@ class PlayController extends Controller
                 return [
                     'id' => $c->id, 'title' => $c->title, 'phase' => $c->phase, 'questions' => $c->total(),
                     'when' => LiveContestController::when($c), 'date' => Jalali::format($c->created_at),
+                    'starts_in' => $c->phase === 'lobby' && $c->starts_at ? max(0, (int) now()->diffInSeconds($c->starts_at, false)) : null,
                     'score' => $p?->score, 'correct' => $p?->correct, 'rank' => $rank,
                 ];
             })->values(),
@@ -66,20 +69,32 @@ class PlayController extends Controller
         $q = $contest->current;
         $question = $contest->live() ? ($contest->questions[$q] ?? null) : null;
         $mine = $question ? LiveContestAnswer::where('live_contest_id', $contest->id)->where('student_id', $user->id)->where('q_index', $q)->first() : null;
-        $rank = $player && in_array($contest->phase, ['reveal', 'end'], true)
-            ? LiveContestPlayer::where('live_contest_id', $contest->id)->where('score', '>', (int) $player->score)->count() + 1 : null;
+        $ranking = $player && in_array($contest->phase, ['reveal', 'end'], true) ? $contest->ranking() : null;
+        $row = $ranking?->firstWhere('id', $user->id);
+        $above = $row && $row['rank'] > 1 ? $ranking[$row['rank'] - 2] : null;
+        $online = $contest->live() ? LiveContestPlayer::where('live_contest_id', $contest->id)->where('last_seen_at', '>=', now()->subSeconds(20))->count() : null;
 
         return response()->json([
             'phase' => $contest->phase, 'current' => $q, 'total' => $contest->total(), 'seconds' => $contest->seconds,
-            'remaining' => $contest->remaining(),
-            'starts_in' => $contest->starts_at && $contest->phase === 'lobby' ? max(0, now()->diffInSeconds($contest->starts_at, false)) : null,
+            'remaining' => $contest->remaining(), 'lead' => $contest->lead(),
+            'golden' => $contest->live() && $contest->golden($q),
+            'starts_in' => $contest->starts_at && $contest->phase === 'lobby' && $contest->starts_at->gt(now()->subHours(LiveContest::SCHEDULE_WINDOW_H))
+                ? max(0, (int) now()->diffInSeconds($contest->starts_at, false)) : null,
             'question' => $question ? ['prompt' => $question['prompt'], 'choices' => $question['choices']] : null,
             'answer' => $contest->phase === 'reveal' && $question ? $question['answer'] : null,
             'mine' => $mine ? ['choice' => $mine->choice, 'correct' => $contest->phase === 'reveal' ? $mine->correct : null,
                 'points' => $contest->phase === 'reveal' ? $mine->points : null] : null,
-            'me' => $player ? ['score' => (int) $player->score, 'correct' => (int) $player->correct, 'streak' => (int) $player->streak, 'rank' => $rank] : null,
+            'me' => $player ? [
+                'score' => (int) $player->score, 'correct' => (int) $player->correct, 'streak' => (int) $player->streak,
+                'rank' => $row['rank'] ?? null, 'delta' => $row['delta'] ?? 0,
+                'gap' => $above ? max(1, $above['score'] - $row['score']) : null, 'above' => $above['name'] ?? null,
+            ] : null,
+            'answered' => $question ? LiveContestAnswer::where('live_contest_id', $contest->id)->where('q_index', $q)->count() : null,
+            'online' => $online,
             'players' => $contest->phase === 'lobby' || $contest->phase === 'end' ? $contest->players()->count() : null,
-            'podium' => $contest->phase === 'end' ? $contest->ranking()->take(3)->values() : null,
+            'names' => $contest->phase === 'lobby' ? $contest->players()->with('student:id,name')->latest('id')->limit(24)->get()->map(fn ($p) => $p->student?->name)->filter()->values() : null,
+            'podium' => $contest->phase === 'end' ? $ranking?->take(3)->values() ?? $contest->ranking()->take(3)->values() : null,
+            'summary' => $contest->phase === 'end' && $row ? $contest->summaryFor($user->id, $row['rank']) : null,
         ]);
     }
 

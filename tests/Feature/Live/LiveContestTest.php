@@ -51,6 +51,9 @@ class LiveContestTest extends TestCase
         $this->actingAs($student)->postJson(route('live.answer', $c), ['q' => 0, 'choice' => 1])->assertStatus(422);
 
         $this->actingAs($teacher)->postJson(route('teacher.live.go', $c), ['action' => 'start'])->assertJsonPath('phase', 'question');
+        // «۳، ۲، ۱»: هنوز گزینه‌ها باز نیستند
+        $this->actingAs($student)->postJson(route('live.answer', $c), ['q' => 0, 'choice' => 1])->assertStatus(422);
+        $this->travel(4)->seconds();
         // دانش‌آموز جواب را پیش از نمایش نمی‌بیند
         $poll = $this->actingAs($student)->getJson(route('live.poll', $c))->assertOk()->json();
         $this->assertNull($poll['answer']);
@@ -72,6 +75,7 @@ class LiveContestTest extends TestCase
 
         // سؤالِ دوم و پایان
         $this->actingAs($teacher)->postJson(route('teacher.live.go', $c), ['action' => 'next'])->assertJsonPath('current', 1);
+        $this->travel(4)->seconds();
         $this->actingAs($student)->postJson(route('live.answer', $c), ['q' => 1, 'choice' => 0])->assertOk();
         $this->actingAs($teacher)->postJson(route('teacher.live.go', $c), ['action' => 'reveal']);
         $end = $this->actingAs($teacher)->postJson(route('teacher.live.go', $c), ['action' => 'next'])->json();
@@ -130,5 +134,57 @@ class LiveContestTest extends TestCase
         $this->assertSame(4, count($got[0]['choices']));
         $this->assertStringStartsWith('درست', $got[0]['choices'][$got[0]['answer']]);
         $this->actingAs($teacher)->get(route('teacher.live'))->assertOk();
+    }
+
+    public function test_manual_contest_with_time_starts_itself_and_runs_to_the_end_without_the_board(): void
+    {
+        [$teacher, , $student, $c] = $this->make(['starts_at' => now()->addMinutes(5)->format('Y-m-d H:i')]);
+        $this->actingAs($student)->getJson(route('live.poll', $c))->assertJsonPath('phase', 'lobby');
+
+        // سرِ ساعت، بدونِ اینکه معلم تخته را باز کند
+        $this->travel(5)->minutes();
+        $this->actingAs($student)->getJson(route('live.poll', $c))->assertJsonPath('phase', 'question')->assertJsonPath('current', 0);
+        $this->travel(4)->seconds();
+        $this->actingAs($student)->postJson(route('live.answer', $c), ['q' => 0, 'choice' => 1])->assertOk();
+        // تنها شرکت‌کننده جواب داد → جواب نشان داده می‌شود، بعد خودش می‌رود سؤالِ بعد
+        $this->actingAs($student)->getJson(route('live.poll', $c))->assertJsonPath('phase', 'reveal');
+        $this->travel(8)->seconds();
+        $this->actingAs($student)->getJson(route('live.poll', $c))->assertJsonPath('current', 1);
+        $this->travel(4)->seconds();
+        $this->actingAs($student)->postJson(route('live.answer', $c), ['q' => 1, 'choice' => 0])->assertOk();
+        $this->actingAs($student)->getJson(route('live.poll', $c));
+        $this->travel(8)->seconds();
+        $end = $this->actingAs($student)->getJson(route('live.poll', $c))->assertJsonPath('phase', 'end')->json();
+
+        $this->assertSame(1, $end['me']['rank']);
+        $this->assertSame(2, $end['summary']['correct']);
+        $this->assertSame(100, $end['summary']['accuracy']);
+        $this->assertSame(23, $end['summary']['xp']);
+        $this->assertSame(23, (int) XpEntry::where('student_id', $student->id)->where('source_type', 'live_contest')->sum('amount'));
+    }
+
+    public function test_abandoned_contest_is_finished_and_points_are_recorded(): void
+    {
+        [$teacher, , $student, $c] = $this->make();
+        $this->actingAs($teacher)->postJson(route('teacher.live.go', $c), ['action' => 'start']);
+        $this->travel(4)->seconds();
+        $this->actingAs($student)->postJson(route('live.answer', $c), ['q' => 0, 'choice' => 1])->assertOk();
+        $this->actingAs($teacher)->postJson(route('teacher.live.go', $c), ['action' => 'reveal']);
+
+        // معلم تخته را بست؛ کسی هم دیگر وارد نشد
+        $this->travel(LiveContest::STALE_MIN + 1)->minutes();
+        $this->actingAs($student)->get(route('live'))->assertOk();
+        $this->assertSame('end', $c->fresh()->phase);
+        $this->assertTrue(XpEntry::where('student_id', $student->id)->where('source_type', 'live_contest')->exists());
+    }
+
+    public function test_last_question_is_golden_and_worth_double(): void
+    {
+        $qs = array_merge($this->questions(), [['prompt' => '۹ − ۴ = ?', 'choices' => ['۵', '۶'], 'answer' => 0]]);
+        [$teacher, , $student, $c] = $this->make(['questions' => $qs]);
+        $c->update(['phase' => 'question', 'current' => 2, 'phase_at' => LiveContest::nowMs()]);
+        $this->actingAs($teacher)->getJson(route('teacher.live.state', $c))->assertJsonPath('golden', true);
+        $this->actingAs($student)->postJson(route('live.answer', $c), ['q' => 2, 'choice' => 0])->assertOk();
+        $this->assertGreaterThanOrEqual(1900, (int) LiveContestPlayer::where('student_id', $student->id)->value('score'));
     }
 }

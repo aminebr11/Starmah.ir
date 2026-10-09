@@ -19,6 +19,31 @@ function speakDevice(text, rate) {
     });
 }
 
+/** سرعتِ پخشِ سه‌حالته: عادی → آهسته → خیلی آهسته (بدونِ بم‌شدنِ صدا). */
+const SPEEDS = [
+    { rate: 1, label: '🐇 سرعتِ عادی' },
+    { rate: 0.8, label: '🐢 آهسته' },
+    { rate: 0.6, label: '🐌 خیلی آهسته' },
+];
+function applyRate(a, rate) {
+    if (!a) return;
+    try {
+        a.preservesPitch = true; a.webkitPreservesPitch = true; a.mozPreservesPitch = true;
+        // مرورگر با بارگذاریِ فایلِ تازه سرعت را به defaultPlaybackRate برمی‌گرداند؛ پس هر دو تنظیم می‌شوند
+        a.defaultPlaybackRate = rate;
+        a.playbackRate = rate;
+    } catch { /* */ }
+}
+function SpeedButton({ speed, onChange }) {
+    const next = (speed + 1) % SPEEDS.length;
+    return (
+        <button type="button" className={`sp-speed s${speed}`} onClick={() => onChange(next)} aria-label="تغییرِ سرعت" title="بزن تا سرعت عوض شود">
+            {SPEEDS[speed].label}
+            <span className="sp-speed-dots">{SPEEDS.map((_, k) => <i key={k} className={k === speed ? 'on' : ''} />)}</span>
+        </button>
+    );
+}
+
 /**
  * پخش‌کننده‌ی «املا/روخوانی».
  * - جمله‌به‌جمله: دکمه‌ی بزرگِ پخش، «دوباره»، قبلی/بعدی، سرعتِ آهسته؛
@@ -30,7 +55,7 @@ export default function SentencePlayer({ task, onPlayed, dark = true }) {
     const whole = task.audio;
     const [i, setI] = useState(0);
     const [playing, setPlaying] = useState(false);
-    const [slow, setSlow] = useState(false);
+    const [speed, setSpeed] = useState(0);
     const [auto, setAuto] = useState(false);
     const [wait, setWait] = useState(0);
     const [msg, setMsg] = useState(null);
@@ -41,7 +66,8 @@ export default function SentencePlayer({ task, onPlayed, dark = true }) {
     const autoRef = useRef(false);
     const rateRef = useRef(1);
     autoRef.current = auto;
-    rateRef.current = slow ? 0.8 : 1;
+    rateRef.current = SPEEDS[speed].rate;
+    const changeSpeed = (k) => { setSpeed(k); rateRef.current = SPEEDS[k].rate; applyRate(audio.current, SPEEDS[k].rate); };
 
     const count = () => { if (!counted.current) { counted.current = true; onPlayed?.(); } };
     useEffect(() => () => { clearInterval(timer.current); window.speechSynthesis?.cancel(); audio.current?.pause(); }, []);
@@ -125,7 +151,7 @@ export default function SentencePlayer({ task, onPlayed, dark = true }) {
                 ))}
             </div>
             <div className="sp-opts">
-                <label><input type="checkbox" checked={slow} onChange={(e) => setSlow(e.target.checked)} /> 🐢 آهسته‌تر</label>
+                <SpeedButton speed={speed} onChange={changeSpeed} />
                 {task.kind === 'dictation' && (
                     <label>
                         <input type="checkbox" checked={auto} onChange={(e) => { setAuto(e.target.checked); if (!e.target.checked) { clearInterval(timer.current); setWait(0); } }} />
@@ -143,7 +169,7 @@ export default function SentencePlayer({ task, onPlayed, dark = true }) {
  * دانلود و از حافظه‌ی گوشی پخش می‌شود. اگر باز هم نشد، یعنی این گوشی این قالب را نمی‌شناسد.
  */
 async function playSafe(a, src, rate, setMsg) {
-    a.playbackRate = rate;
+    applyRate(a, rate);
     try {
         await a.play();
         return true;
@@ -153,7 +179,7 @@ async function playSafe(a, src, rate, setMsg) {
     try {
         const { data } = await axios.get(src, { responseType: 'blob' });
         a.src = URL.createObjectURL(data);
-        a.playbackRate = rate;
+        applyRate(a, rate);
         await a.play();
         return true;
     } catch {
@@ -173,7 +199,7 @@ function FailMsg({ src }) {
 
 export function WholeAudio({ src, onPlay, dark, title = '🎧 صدای معلم' }) {
     const a = useRef(null);
-    const [slow, setSlow] = useState(false);
+    const [speed, setSpeed] = useState(0);
     const [playing, setPlaying] = useState(false);
     const [pos, setPos] = useState({ t: 0, d: 0 });
     const [msg, setMsg] = useState(null);
@@ -185,7 +211,7 @@ export function WholeAudio({ src, onPlay, dark, title = '🎧 صدای معلم'
         if (!el.paused) { el.pause(); return; }
         setMsg(null);
         onPlay?.();
-        await playSafe(el, src, slow ? 0.8 : 1, setMsg);
+        await playSafe(el, src, SPEEDS[speed].rate, setMsg);
     };
     // خطای بارگذاری (مثلاً نوعِ فایل): یک بار از مسیرِ دانلودِ کامل امتحان کن
     const onError = async () => {
@@ -202,7 +228,7 @@ export function WholeAudio({ src, onPlay, dark, title = '🎧 صدای معلم'
             <audio ref={a} preload="metadata" playsInline src={src} onError={onError}
                 onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)}
                 onTimeUpdate={(e) => setPos({ t: e.target.currentTime, d: e.target.duration })}
-                onLoadedMetadata={(e) => setPos({ t: 0, d: e.target.duration })} />
+                onLoadedMetadata={(e) => { applyRate(e.target, SPEEDS[speed].rate); setPos({ t: 0, d: e.target.duration }); }} />
             <div className="sp-stage">
                 <button type="button" className={`sp-big ${playing ? 'on' : ''}`} onClick={toggle} aria-label={playing ? 'توقف' : 'پخش'}>
                     {playing ? <span className="sp-waves"><i /><i /><i /><i /><i /></span> : '▶'}
@@ -219,7 +245,7 @@ export function WholeAudio({ src, onPlay, dark, title = '🎧 صدای معلم'
             </div>
             <div className="sp-controls">
                 <button type="button" onClick={() => skip(-5)}>⏪ ۵ ثانیه عقب</button>
-                <button type="button" onClick={() => { const s = !slow; setSlow(s); if (a.current) a.current.playbackRate = s ? 0.8 : 1; }}>{slow ? '🐇 سرعتِ عادی' : '🐢 آهسته‌تر'}</button>
+                <SpeedButton speed={speed} onChange={(k) => { setSpeed(k); applyRate(a.current, SPEEDS[k].rate); }} />
                 <button type="button" onClick={() => skip(5)}>۵ ثانیه جلو ⏩</button>
             </div>
             {msg === 'fail' ? <FailMsg src={src} /> : msg && <div className="sp-msg">{msg}</div>}
