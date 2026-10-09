@@ -3,15 +3,56 @@ import { useEffect, useRef, useState } from 'react';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const mmss = (s) => fa(`${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`);
 
-/** بهترین قالبِ ضبطِ مرورگر (کروم: webm، سافاری: mp4). */
+/**
+ * بهترین قالبِ ضبطِ مرورگر. اولویت با AAC (mp4) است چون روی همه‌ی گوشی‌ها (آیفون، اندروید) و
+ * کامپیوترها پخش می‌شود؛ webm/ogg روی آیفون و بعضی گوشی‌ها پخش نمی‌شود و بعد از ضبط به WAV تبدیل می‌شود.
+ */
 function pickMime() {
     if (typeof MediaRecorder === 'undefined') return null;
-    for (const m of ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus', 'audio/ogg']) {
+    for (const m of ['audio/mp4;codecs=mp4a.40.2', 'audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg']) {
         if (MediaRecorder.isTypeSupported?.(m)) return m;
     }
     return '';
 }
 const extOf = (mime) => (mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? 'ogg' : 'webm');
+const universal = (mime) => mime.includes('mp4') || mime.includes('mpeg') || mime.includes('wav');
+
+/** صدای webm/ogg → WAVِ تک‌کاناله‌ی ۱۶ کیلوهرتز (روی همه‌ی دستگاه‌ها پخش می‌شود؛ هر دقیقه حدودِ ۲ مگابایت). */
+async function toWav(blob, rate = 16000) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!AC || !OAC) return null;
+    const ctx = new AC();
+    try {
+        const src = await ctx.decodeAudioData(await blob.arrayBuffer());
+        const off = new OAC(1, Math.max(1, Math.ceil(src.duration * rate)), rate);
+        const node = off.createBufferSource();
+        node.buffer = src;
+        node.connect(off.destination);
+        node.start();
+        const pcm = (await off.startRendering()).getChannelData(0);
+        // بلندیِ صدا را یکنواخت کن تا صدای آرامِ معلم هم واضح شنیده شود
+        let peak = 0;
+        for (let k = 0; k < pcm.length; k++) peak = Math.max(peak, Math.abs(pcm[k]));
+        const gain = peak > 0.01 ? Math.min(4, 0.9 / peak) : 1;
+        const buf = new ArrayBuffer(44 + pcm.length * 2);
+        const v = new DataView(buf);
+        const str = (o, t) => { for (let k = 0; k < t.length; k++) v.setUint8(o + k, t.charCodeAt(k)); };
+        str(0, 'RIFF'); v.setUint32(4, 36 + pcm.length * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
+        v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+        v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+        str(36, 'data'); v.setUint32(40, pcm.length * 2, true);
+        for (let k = 0; k < pcm.length; k++) {
+            const x = Math.max(-1, Math.min(1, pcm[k] * gain));
+            v.setInt16(44 + k * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true);
+        }
+        return new Blob([buf], { type: 'audio/wav' });
+    } catch {
+        return null;
+    } finally {
+        ctx.close?.().catch(() => {});
+    }
+}
 
 /**
  * ضبطِ صدا در همین صفحه (معلم: صدای خودش برای املا؛ دانش‌آموز: روخوانی).
@@ -19,7 +60,7 @@ const extOf = (mime) => (mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? '
  * onDone(File|null) — هر بار ضبط کامل شد یا پاک شد.
  */
 export default function AudioRecorder({ onDone, max = 600, label = 'ضبط کن', dark = false }) {
-    const [state, setState] = useState('idle'); // idle | rec | done | error
+    const [state, setState] = useState('idle'); // idle | rec | busy | done | error
     const [secs, setSecs] = useState(0);
     const [url, setUrl] = useState(null);
     const [err, setErr] = useState(null);
@@ -74,14 +115,20 @@ export default function AudioRecorder({ onDone, max = 600, label = 'ضبط کن'
             chunks.current = [];
             const r = new MediaRecorder(s, mime ? { mimeType: mime } : undefined);
             r.ondataavailable = (e) => { if (e.data?.size) chunks.current.push(e.data); };
-            r.onstop = () => {
-                const type = r.mimeType || mime || 'audio/webm';
-                const blob = new Blob(chunks.current, { type });
+            r.onstop = async () => {
+                cleanup();
+                let type = r.mimeType || mime || 'audio/webm';
+                let blob = new Blob(chunks.current, { type });
+                let ext = extOf(type);
+                if (!universal(type)) {
+                    setState('busy');
+                    const wav = await toWav(blob);
+                    if (wav) { blob = wav; type = 'audio/wav'; ext = 'wav'; }
+                }
                 const u = URL.createObjectURL(blob);
                 setUrl((old) => { if (old) URL.revokeObjectURL(old); return u; });
                 setState('done');
-                onDone?.(new File([blob], `voice-${Date.now()}.${extOf(type)}`, { type }));
-                cleanup();
+                onDone?.(new File([blob], `voice-${Date.now()}.${ext}`, { type }));
             };
             rec.current = r;
             r.start(1000);
@@ -111,9 +158,14 @@ export default function AudioRecorder({ onDone, max = 600, label = 'ضبط کن'
                         <small>تمام شد؟ دکمه‌ی مربع را بزن.</small>
                     </div>
                 </>
+            ) : state === 'busy' ? (
+                <div className="rec-live">
+                    <b>⏳ در حالِ آماده‌کردنِ صدا…</b>
+                    <small>چند ثانیه صبر کنید تا صدا برای پخش روی همه‌ی گوشی‌ها آماده شود.</small>
+                </div>
             ) : state === 'done' ? (
                 <div className="rec-done">
-                    <audio controls src={url} preload="metadata" />
+                    <audio controls src={url} preload="metadata" playsInline />
                     <div className="rec-row">
                         <span>✅ {mmss(secs)} ضبط شد</span>
                         <button type="button" className="rec-again" onClick={reset}>🔁 دوباره ضبط کن</button>

@@ -13,6 +13,7 @@ use App\Models\GradeColumn;
 use App\Models\User;
 use App\Services\GamificationService;
 use App\Support\Jalali;
+use App\Support\MediaFile;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -124,6 +125,7 @@ class AudioSubmissionController extends Controller
         $sub->file_path = $this->storeUpload($file, 'audio-submissions') ?: null;
         $sub->file_kind = $task->kind === 'reading' ? 'audio' : ($ext === 'pdf' ? 'pdf' : 'image');
         $sub->note = $request->input('note');
+        $again = (bool) $sub->submitted_at;
         $sub->submitted_at = now();
         // نسخه‌ی تازه بعد از تصحیح → دوباره «منتظرِ تصحیح» (نمره‌ی قبلی در دفتر می‌ماند تا معلم دوباره ببیند)
         if ($sub->graded_at) {
@@ -145,7 +147,27 @@ class AudioSubmissionController extends Controller
             }, null, true);
         }
 
+        $this->notifyTeacher($task, $user, $again);
+
         return back()->with('flash', '✅ برای معلم فرستاده شد' . ($xp ? ' و +' . Jalali::fa((string) self::SUBMIT_XP) . ' امتیاز گرفتی' : ''));
+    }
+
+    /** اعلان برای معلم: «املا/روخوانیِ تازه رسید» با لینکِ مستقیم به صفحه‌ی تصحیح. */
+    private function notifyTeacher(AudioTask $task, User $student, bool $again): void
+    {
+        rescue(function () use ($task, $student, $again) {
+            if (! $task->teacher_id || ! ($school = $task->school_id ?: $student->school_id)) {
+                return;
+            }
+            $what = $task->kind === 'dictation' ? 'املای' : 'روخوانیِ';
+            $ann = Announcement::create([
+                'school_id' => $school, 'sender_id' => $student->id, 'audience' => 'personal',
+                'title' => ($task->kind === 'dictation' ? '📝 ' : '🎙️ ') . $what . ' ' . $student->name . ($again ? ' (نسخه‌ی تازه)' : '') . ' — ' . mb_substr($task->title, 0, 100),
+                'body' => ($task->kind === 'dictation' ? 'عکسِ برگه‌ی املا رسید' : 'صدای روخوانی رسید') . ' و منتظرِ تصحیحِ شماست.',
+                'link' => route('teacher.audio.show', $task->id, false),
+            ]);
+            $ann->recipients()->sync([$task->teacher_id]);
+        }, null, true);
     }
 
     /* ─────────────── فایل‌ها ─────────────── */
@@ -158,7 +180,7 @@ class AudioSubmissionController extends Controller
         $path = $which === 'marked' ? $submission->marked_path : $submission->file_path;
         abort_unless($path && Storage::disk('public')->exists($path), 404, 'فایل روی سرور پیدا نشد.');
 
-        return response()->file(Storage::disk('public')->path($path), ['Cache-Control' => 'private, max-age=86400', 'X-Content-Type-Options' => 'nosniff']);
+        return MediaFile::response($path, ($which === 'marked' ? 'marked-' : 'submission-') . $submission->id);
     }
 
     /** صدای ضبط‌شده/بارگذاری‌شده‌ی معلم. */
@@ -167,7 +189,7 @@ class AudioSubmissionController extends Controller
         abort_unless($this->inClass($request->user(), $task) || $this->teaches($request->user(), $task), 403);
         abort_unless($task->audio_path && Storage::disk('public')->exists($task->audio_path), 404, 'فایلِ صوتی پیدا نشد.');
 
-        return response()->file(Storage::disk('public')->path($task->audio_path), ['Cache-Control' => 'private, max-age=86400']);
+        return MediaFile::response($task->audio_path, 'audio-task-' . $task->id);
     }
 
     /* ─────────────── تصحیحِ معلم ─────────────── */

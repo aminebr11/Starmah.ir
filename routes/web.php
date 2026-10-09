@@ -387,6 +387,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/audio', [\App\Http\Controllers\Teacher\AudioTaskController::class, 'store'])->middleware('throttle:20,1')->name('audio.store');
     Route::get('/audio/{task}', [\App\Http\Controllers\Teacher\AudioTaskController::class, 'show'])->name('audio.show');
     Route::post('/audio/{task}/publish', [\App\Http\Controllers\Teacher\AudioTaskController::class, 'publish'])->name('audio.publish');
+    Route::post('/audio/{task}/audio', [\App\Http\Controllers\Teacher\AudioTaskController::class, 'replaceAudio'])->middleware('throttle:20,1')->name('audio.replace');
     Route::delete('/audio/{task}', [\App\Http\Controllers\Teacher\AudioTaskController::class, 'destroy'])->name('audio.destroy');
     Route::get('/worksheet-inbox', [\App\Http\Controllers\Teacher\WorksheetController::class, 'inbox'])->name('worksheets.inbox');
     Route::get('/worksheets/{worksheet}', [\App\Http\Controllers\Teacher\WorksheetController::class, 'show'])->name('worksheets.show');

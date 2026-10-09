@@ -13,7 +13,7 @@
 
 // با هر تغییرِ راهبردِ کش این عدد بالا می‌رود تا کشِ قدیمی پاک شود.
 // v2: فونت‌ها محلی شدند و باید مثلِ دارایی‌های build کش‌اول باشند.
-const VERSION = 'v3';   // v3: آیکون‌های تازه‌ی برند
+const VERSION = 'v4';   // v4: صدا و ویدیو از سرویس‌ورکر رد نمی‌شوند
 const SHELL_CACHE = `starmah-shell-${VERSION}`;
 const ASSET_CACHE = `starmah-assets-${VERSION}`;
 const PAGE_CACHE = `starmah-pages-${VERSION}`;
@@ -62,6 +62,11 @@ self.addEventListener('fetch', (event) => {
     const url = new URL(request.url);
 
     if (!isCacheable(request, url)) return;
+
+    // صدا/ویدیو مستقیم از شبکه: پخش روی آیفون درخواستِ Range (۲۰۶) می‌خواهد و پاسخِ کش‌شده‌ی کامل
+    // یا بازفرستادنِ آن از سرویس‌ورکر باعثِ «پخش نمی‌شود» می‌شد.
+    if (request.headers.has('range') || request.destination === 'audio' || request.destination === 'video'
+        || /^\/(audio-task-audio|audio-files)\//.test(url.pathname) || /\.(mp3|m4a|mp4|wav|webm|ogg|oga|aac)$/i.test(url.pathname)) return;
 
     /* ---- ۱) دارایی‌های build و برند: کش‌اول (نامشان هَش‌دار است) ---- */
     // fonts هم مثلِ build نامِ ثابت و محتوای تغییرناپذیر دارد

@@ -73,6 +73,11 @@ class HandleInertiaRequests extends Middleware
                 ? (int) rescue(fn () => \App\Models\WorksheetSubmission::whereNotNull('file_path')->whereNull('graded_at')
                     ->whereHas('worksheet', fn ($q) => $q->where('teacher_id', $user->id))->count(), 0, false)
                 : 0,
+            // املا/روخوانی‌های رسیده که معلم هنوز تصحیح نکرده (نشان روی منوی «املا و روخوانی»)
+            'audioPending' => fn () => ($user && $user->hasRole(\App\Support\Roles::TEACHER) && \App\Models\AudioTask::ready())
+                ? (int) rescue(fn () => \App\Models\AudioSubmission::whereNotNull('file_path')->whereNull('graded_at')
+                    ->whereHas('task', fn ($q) => $q->where('teacher_id', $user->id))->count(), 0, false)
+                : 0,
             // مسابقه‌ی زنده‌ی باز برای کلاسِ دانش‌آموز (نوارِ «بپیوند»)
             'liveNow' => fn () => rescue(fn () => ($user && $user->isStudent() && class_exists(\App\Models\LiveContest::class) && \App\Models\LiveContest::ready())
                 ? \Illuminate\Support\Facades\Cache::remember('live-now:' . $user->id, 15, fn () => rescue(fn () => \App\Models\LiveContest::forStudent($user)

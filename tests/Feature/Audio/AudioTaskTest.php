@@ -132,4 +132,36 @@ class AudioTaskTest extends TestCase
         $this->actingAs($teacher)->post(route('audio.grade', $sub), ['grade' => 'خیلی خوب', 'feedback' => 'شمرده و رسا'])->assertOk();
         $this->assertSame('خیلی خوب', Grade::firstOrFail()->text);
     }
+
+    public function test_teacher_audio_is_served_as_audio_and_can_be_replaced(): void
+    {
+        [$teacher, , $student, $task] = $this->dictation();
+        $res = $this->actingAs($student)->get(route('audio.task-audio', $task))->assertOk();
+        $this->assertSame('audio/webm', $res->headers->get('Content-Type'));
+        $this->assertTrue($this->actingAs($teacher)->get(route('teacher.audio.show', $task))->viewData('page')['props']['task']['audio_legacy']);
+
+        $this->actingAs($teacher)->post(route('teacher.audio.replace', $task), [
+            'audio' => UploadedFile::fake()->create('voice.m4a', 40, 'audio/mp4'),
+        ])->assertSessionHasNoErrors()->assertRedirect();
+        $res = $this->actingAs($student)->get(route('audio.task-audio', $task->fresh()))->assertOk();
+        $this->assertSame('audio/mp4', $res->headers->get('Content-Type'));
+        $this->assertFalse($this->actingAs($teacher)->get(route('teacher.audio.show', $task))->viewData('page')['props']['task']['audio_legacy']);
+        $this->actingAs($student)->post(route('teacher.audio.replace', $task), [
+            'audio' => UploadedFile::fake()->create('x.m4a', 10, 'audio/mp4'),
+        ])->assertForbidden();
+    }
+
+    public function test_teacher_is_notified_when_student_submits(): void
+    {
+        [$teacher, , $student, $task] = $this->dictation();
+        $this->actingAs($student)->post(route('listen.submit', $task), [
+            'file' => UploadedFile::fake()->image('sheet.jpg'),
+        ])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('announcement_recipients', ['user_id' => $teacher->id]);
+        $ann = \App\Models\Announcement::where('sender_id', $student->id)->latest('id')->firstOrFail();
+        $this->assertStringContainsString($student->name, $ann->title);
+        $this->assertSame(route('teacher.audio.show', $task->id, false), $ann->link);
+        $this->assertSame(1, $this->actingAs($teacher)->get(route('teacher.audio'))->viewData('page')['props']['audioPending']);
+    }
 }

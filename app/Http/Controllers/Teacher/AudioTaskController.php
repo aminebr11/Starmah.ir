@@ -167,6 +167,30 @@ class AudioTaskController extends Controller
         return back()->with('flash', $task->fresh()->is_published ? '📣 برای کلاس فرستاده شد' : '⏸️ از دیدِ دانش‌آموزان پنهان شد');
     }
 
+    /** عوض‌کردنِ صدای معلم (ضبطِ دوباره یا فایلِ تازه) بدونِ ساختنِ تکلیفِ تازه؛ پاسخ‌ها و نمره‌ها می‌مانند. */
+    public function replaceAudio(Request $request, AudioTask $task): RedirectResponse
+    {
+        $this->mine($request, $task);
+        $request->validate(['audio' => ['required', 'file', 'max:20480']], [
+            'audio.required' => 'اول صدا را ضبط کنید یا فایل را انتخاب کنید.',
+            'audio.uploaded' => 'فایل به سرور نرسید (خیلی بزرگ است)؛ کوتاه‌تر ضبط کنید.',
+            'audio.max' => 'فایلِ صوتی حداکثر ۲۰ مگابایت.',
+        ]);
+        if (! $this->extensionSafe($request->file('audio'), self::AUDIO_EXT)) {
+            throw ValidationException::withMessages(['audio' => 'فرمتِ صوتی معتبر نیست (mp3، m4a، wav، ogg، webm).']);
+        }
+        $path = $this->storeUpload($request->file('audio'), 'audio-tasks');
+        if (! $path) {
+            throw ValidationException::withMessages(['audio' => 'ذخیره‌ی فایل انجام نشد؛ دوباره امتحان کنید.']);
+        }
+        if ($task->audio_path) {
+            Storage::disk('public')->delete($task->audio_path);
+        }
+        $task->update(['audio_path' => $path, 'source' => $task->source === 'tts' ? 'voice' : $task->source]);
+
+        return back()->with('flash', '✅ صدای تازه جایگزین شد؛ بچه‌ها از همین حالا صدای تازه را می‌شنوند.');
+    }
+
     public function destroy(Request $request, AudioTask $task): RedirectResponse
     {
         $this->mine($request, $task);
@@ -215,7 +239,10 @@ class AudioTaskController extends Controller
 
         return [
             'id' => $task->id, 'kind' => $task->kind, 'title' => $task->title, 'source' => $task->source,
-            'audio' => $task->audio_path ? route('audio.task-audio', $task->id) : null,
+            // ?v= تا بعد از عوض‌کردنِ صدا، مرورگر نسخه‌ی کش‌شده‌ی قبلی را پخش نکند
+            'audio' => $task->audio_path ? route('audio.task-audio', $task->id) . '?v=' . ($task->updated_at?->timestamp ?? 0) : null,
+            // ضبطِ قدیمیِ webm/ogg روی آیفون و برخی گوشی‌ها پخش نمی‌شود → به معلم پیشنهادِ ضبطِ دوباره
+            'audio_legacy' => $task->audio_path && in_array(strtolower(pathinfo($task->audio_path, PATHINFO_EXTENSION)), ['webm', 'ogg', 'oga'], true),
             'sentences' => $sentences->all(),
             'reading_text' => $task->kind === 'reading' ? $task->text : null,
             'score_type' => $task->score_type, 'penalty' => (float) $task->penalty,

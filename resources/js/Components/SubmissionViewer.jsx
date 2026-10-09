@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { pushOverlay, closeOverlay } from '@/lib/overlayBack';
+import { WholeAudio } from '@/Components/Audio/SentencePlayer';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const QUICK = ['آفرین! 🌟', 'عالی بود 👏', 'دقتت را بیشتر کن', 'جواب‌های قرمز را دوباره ببین', 'خط خواناتر بنویس'];
@@ -199,9 +200,7 @@ function Sheet({ item, canGrade, grades, maxXp, onSaved, audio = null }) {
             <div className={`sv-stage ${zoom ? 'zoom' : ''} ${tool ? 'drawing' : ''}`}>
                 {item.audio ? (
                     <div className="sv-audio">
-                        <div className="sv-audio-ic">🎙️</div>
-                        <b>صدای {item.student || 'دانش‌آموز'}</b>
-                        <audio controls preload="metadata" src={item.url} />
+                        <WholeAudio src={item.url} dark={false} title={`🎙️ صدای ${item.student || 'دانش‌آموز'}`} />
                         {audio?.text && <div className="sv-reading-text">{audio.text}</div>}
                     </div>
                 ) : item.pdf ? (

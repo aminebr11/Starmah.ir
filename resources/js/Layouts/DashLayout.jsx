@@ -13,13 +13,13 @@ import UiSwitch from '@/Components/UiSwitch';
  * props: title, roleLabel, menu:[{key,label,icon,href}], active, children
  */
 export default function DashLayout({ title, roleLabel, menu = [], active = '', children, actions = null }) {
-    const { auth, unreadNotices = 0, smartLab = false, avatarUrl = null, school = null, ui = 'classic', worksheetsPending = 0 } = usePage().props;
+    const { auth, unreadNotices = 0, smartLab = false, avatarUrl = null, school = null, ui = 'classic', worksheetsPending = 0, audioPending = 0 } = usePage().props;
     const [open, setOpen] = useState(false);
     // آیتم‌هایی که flag: 'smart' دارند فقط وقتی ماژول فعال است نمایش داده می‌شوند
     menu = menu.filter((m) => !m.flag || (m.flag === 'smart' && smartLab));
 
     if (ui === 'clay') {
-        return <ClayDash {...{ title, roleLabel, menu, active, children, actions }} badges={{ wsinbox: worksheetsPending }} />;
+        return <ClayDash {...{ title, roleLabel, menu, active, children, actions }} badges={{ wsinbox: worksheetsPending, audio: audioPending }} />;
     }
 
     return (
@@ -48,6 +48,7 @@ export default function DashLayout({ title, roleLabel, menu = [], active = '', c
                                 <span className="ic">{m.icon}</span>{m.label}
                                 {m.key === 'notices' && unreadNotices > 0 && <span className="nav-badge">{unreadNotices}</span>}
                                 {m.key === 'wsinbox' && worksheetsPending > 0 && <span className="nav-badge">{worksheetsPending}</span>}
+                                {m.key === 'audio' && audioPending > 0 && <span className="nav-badge">{audioPending}</span>}
                             </Link>
                         )
                     ))}

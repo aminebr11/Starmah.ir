@@ -1,6 +1,8 @@
-import { usePage, Link, router } from '@inertiajs/react';
+import { useState } from 'react';
+import { usePage, Link, router, useForm } from '@inertiajs/react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import SentencePlayer from '@/Components/Audio/SentencePlayer';
+import AudioRecorder from '@/Components/Audio/AudioRecorder';
 import SubmissionsBoard from '@/Components/SubmissionsBoard';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
@@ -30,7 +32,8 @@ export default function AudioTaskView() {
             <div className="at-two">
                 <div className="panel">
                     <h3 style={{ marginTop: 0 }}>🎧 همان چیزی که بچه‌ها می‌شنوند</h3>
-                    <SentencePlayer task={task} dark={false} />
+                    <SentencePlayer key={task.audio || 'tts'} task={task} dark={false} />
+                    <ReplaceAudio task={task} />
                     {task.text && (
                         <details style={{ marginTop: 10 }}>
                             <summary style={{ cursor: 'pointer', fontWeight: 700 }}>📄 متنِ {dictation ? 'املا (فقط برای شما)' : 'روخوانی'}</summary>
@@ -52,5 +55,44 @@ export default function AudioTaskView() {
                     audio={{ kind: task.kind, score_type: task.score_type, penalty: task.penalty, text: task.text, gradeUrl: (it) => route('audio.grade', it.id) }} />
             </div>
         </DashLayout>
+    );
+}
+
+/** عوض‌کردنِ صدای معلم (ضبطِ دوباره یا فایل) — پاسخ‌ها و نمره‌های بچه‌ها می‌مانند. */
+function ReplaceAudio({ task }) {
+    const { errors = {} } = usePage().props;
+    const [open, setOpen] = useState(!!task.audio_legacy);
+    const [mode, setMode] = useState('voice');
+    const form = useForm({ audio: null });
+    const save = (e) => {
+        e.preventDefault();
+        form.post(route('teacher.audio.replace', task.id), { forceFormData: true, preserveScroll: true, onSuccess: () => { form.reset(); setOpen(false); } });
+    };
+    return (
+        <div style={{ marginTop: 12 }}>
+            {task.audio_legacy && (
+                <div className="rm-err" style={{ marginBottom: 8 }}>
+                    ⚠️ این صدا با قالبِ قدیمی (webm) ضبط شده و روی آیفون و بعضی گوشی‌ها پخش نمی‌شود. یک بار دوباره ضبط کنید؛ صدای تازه روی همه‌ی گوشی‌ها پخش می‌شود و کارهای فرستاده‌شده‌ی بچه‌ها سرِ جایشان می‌مانند.
+                </div>
+            )}
+            {!open ? (
+                <button type="button" className="btn btn-sm btn-ghost" onClick={() => setOpen(true)}>🎤 {task.audio ? 'عوض‌کردنِ صدا (ضبطِ دوباره)' : 'گذاشتنِ صدای خودم'}</button>
+            ) : (
+                <form onSubmit={save} className="panel" style={{ background: 'var(--soft, #f7f7fb)', margin: 0 }}>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                        <button type="button" className={`btn btn-sm ${mode === 'voice' ? '' : 'btn-ghost'}`} onClick={() => { setMode('voice'); form.setData('audio', null); }}>🎤 ضبط</button>
+                        <button type="button" className={`btn btn-sm ${mode === 'upload' ? '' : 'btn-ghost'}`} onClick={() => { setMode('upload'); form.setData('audio', null); }}>📁 فایل</button>
+                    </div>
+                    {mode === 'voice'
+                        ? <AudioRecorder label="دوباره بخوانید" onDone={(f) => form.setData('audio', f)} />
+                        : <input className="input" type="file" accept="audio/*" onChange={(e) => form.setData('audio', e.target.files[0] || null)} />}
+                    {errors.audio && <div className="rm-err">{errors.audio}</div>}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                        <button type="submit" className="btn btn-sm" disabled={!form.data.audio || form.processing}>{form.processing ? 'در حالِ ذخیره…' : '✅ جایگزین کن'}</button>
+                        <button type="button" className="btn btn-sm btn-ghost" onClick={() => setOpen(false)}>انصراف</button>
+                    </div>
+                </form>
+            )}
+        </div>
     );
 }

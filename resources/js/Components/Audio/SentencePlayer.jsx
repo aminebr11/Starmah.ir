@@ -80,9 +80,8 @@ export default function SentencePlayer({ task, onPlayed, dark = true }) {
         if (s.audio) {
             const a = audio.current;
             a.src = s.audio;
-            a.playbackRate = rateRef.current;
             a.onended = () => after(k, a.duration);
-            a.play().catch(() => { setPlaying(false); setMsg('پخش نشد؛ یک بار روی صفحه بزنید و دوباره امتحان کنید.'); });
+            if (!(await playSafe(a, s.audio, rateRef.current, setMsg))) setPlaying(false);
             return;
         }
         // صدای سرور نیست → صدای فارسیِ گوشی با متنِ همان یک جمله
@@ -104,7 +103,7 @@ export default function SentencePlayer({ task, onPlayed, dark = true }) {
 
     return (
         <div className={`sp ${dark ? 'sp-dark' : ''}`}>
-            <audio ref={audio} preload="auto" />
+            <audio ref={audio} preload="auto" playsInline />
             <div className="sp-stage">
                 <button type="button" className={`sp-big ${playing ? 'on' : ''}`} onClick={() => (playing ? pauseAll() : play(i))} aria-label={playing ? 'توقف' : 'پخش'}>
                     {playing ? <span className="sp-waves"><i /><i /><i /><i /><i /></span> : '▶'}
@@ -134,27 +133,96 @@ export default function SentencePlayer({ task, onPlayed, dark = true }) {
                     </label>
                 )}
             </div>
-            {msg && <div className="sp-msg">{msg}</div>}
+            {msg === 'fail' ? <FailMsg src={sentences[i]?.audio} /> : msg && <div className="sp-msg">{msg}</div>}
         </div>
     );
 }
 
-function WholeAudio({ src, onPlay, dark }) {
+/**
+ * پخشِ مطمئن: اگر پخشِ مستقیم شکست خورد (نوعِ فایل، کشِ اپ، اینترنتِ ضعیف)، یک بار کلِ فایل
+ * دانلود و از حافظه‌ی گوشی پخش می‌شود. اگر باز هم نشد، یعنی این گوشی این قالب را نمی‌شناسد.
+ */
+async function playSafe(a, src, rate, setMsg) {
+    a.playbackRate = rate;
+    try {
+        await a.play();
+        return true;
+    } catch (e) {
+        if (e?.name === 'NotAllowedError') { setMsg('پخش نشد؛ یک بار دیگر دکمه‌ی پخش را بزنید.'); return false; }
+    }
+    try {
+        const { data } = await axios.get(src, { responseType: 'blob' });
+        a.src = URL.createObjectURL(data);
+        a.playbackRate = rate;
+        await a.play();
+        return true;
+    } catch {
+        setMsg('fail');
+        return false;
+    }
+}
+
+function FailMsg({ src }) {
+    return (
+        <div className="sp-msg">
+            این گوشی نتوانست صدا را پخش کند. <a href={src} target="_blank" rel="noreferrer" download style={{ fontWeight: 800 }}>⬇️ دانلودِ صدا</a> و پخش با برنامه‌ی موسیقیِ گوشی را امتحان کنید،
+            یا از معلم بخواهید صدا را دوباره ضبط کند.
+        </div>
+    );
+}
+
+export function WholeAudio({ src, onPlay, dark, title = '🎧 صدای معلم' }) {
     const a = useRef(null);
     const [slow, setSlow] = useState(false);
+    const [playing, setPlaying] = useState(false);
+    const [pos, setPos] = useState({ t: 0, d: 0 });
+    const [msg, setMsg] = useState(null);
+    const tried = useRef(false);
     const skip = (d) => { if (a.current) a.current.currentTime = Math.max(0, a.current.currentTime + d); };
+    const toggle = async () => {
+        const el = a.current;
+        if (!el) return;
+        if (!el.paused) { el.pause(); return; }
+        setMsg(null);
+        onPlay?.();
+        await playSafe(el, src, slow ? 0.8 : 1, setMsg);
+    };
+    // خطای بارگذاری (مثلاً نوعِ فایل): یک بار از مسیرِ دانلودِ کامل امتحان کن
+    const onError = async () => {
+        if (tried.current || !a.current) return;
+        tried.current = true;
+        try {
+            const { data } = await axios.get(src, { responseType: 'blob' });
+            a.current.src = URL.createObjectURL(data);
+        } catch { setMsg('fail'); }
+    };
+    const mm = (x) => (Number.isFinite(x) ? fa(`${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`) : '—');
     return (
         <div className={`sp ${dark ? 'sp-dark' : ''}`}>
+            <audio ref={a} preload="metadata" playsInline src={src} onError={onError}
+                onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)}
+                onTimeUpdate={(e) => setPos({ t: e.target.currentTime, d: e.target.duration })}
+                onLoadedMetadata={(e) => setPos({ t: 0, d: e.target.duration })} />
             <div className="sp-stage">
-                <div className="sp-big on" aria-hidden><span className="sp-waves"><i /><i /><i /><i /><i /></span></div>
-                <div className="sp-info"><b>🎧 صدای معلم</b><span>هر جا لازم بود مکث کن و دوباره گوش بده.</span></div>
+                <button type="button" className={`sp-big ${playing ? 'on' : ''}`} onClick={toggle} aria-label={playing ? 'توقف' : 'پخش'}>
+                    {playing ? <span className="sp-waves"><i /><i /><i /><i /><i /></span> : '▶'}
+                </button>
+                <div className="sp-info">
+                    <b>{title}</b>
+                    <span>{playing ? 'گوش بده…' : 'برای شنیدن دکمه را بزن؛ هر جا لازم بود مکث کن.'}</span>
+                    {pos.d > 0 && Number.isFinite(pos.d) && (
+                        <input type="range" min={0} max={pos.d} step={0.1} value={pos.t} aria-label="جای پخش" style={{ width: '100%' }}
+                            onChange={(e) => { if (a.current) a.current.currentTime = Number(e.target.value); }} />
+                    )}
+                    <small>{mm(pos.t)}{Number.isFinite(pos.d) && pos.d > 0 ? ` / ${mm(pos.d)}` : ''}</small>
+                </div>
             </div>
-            <audio ref={a} controls preload="metadata" src={src} onPlay={onPlay} style={{ width: '100%' }} />
             <div className="sp-controls">
                 <button type="button" onClick={() => skip(-5)}>⏪ ۵ ثانیه عقب</button>
                 <button type="button" onClick={() => { const s = !slow; setSlow(s); if (a.current) a.current.playbackRate = s ? 0.8 : 1; }}>{slow ? '🐇 سرعتِ عادی' : '🐢 آهسته‌تر'}</button>
                 <button type="button" onClick={() => skip(5)}>۵ ثانیه جلو ⏩</button>
             </div>
+            {msg === 'fail' ? <FailMsg src={src} /> : msg && <div className="sp-msg">{msg}</div>}
         </div>
     );
 }
