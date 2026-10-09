@@ -21,6 +21,8 @@ const TOOLS = [
  */
 export default function SubmissionViewer({ items, index = 0, onClose, canGrade = false, grades = {}, maxXp = 50, onSaved }) {
     const [i, setI] = useState(index);
+    const [list, setList] = useState(false);
+    const [toast, setToast] = useState(null);
     const item = items[i];
     const me = useRef({ close: () => {} });
     me.current.close = onClose;
@@ -44,21 +46,42 @@ export default function SubmissionViewer({ items, index = 0, onClose, canGrade =
     return (
         <div className="sv" dir="rtl" role="dialog" aria-modal="true">
             <header className="sv-bar">
-                <button type="button" className="sv-x" onClick={close} aria-label="بستن">✕</button>
+                <button type="button" className="sv-x" onClick={close} aria-label="بستن و بازگشت به فهرست" title="بستن و بازگشت به فهرست">✕</button>
                 <div className="sv-title">
                     <b>{item.student ? `👤 ${item.student}` : 'کاربرگِ من'}</b>
-                    <span>{item.date}{item.graded ? ` · ✅ تصحیح‌شده${item.grade ? ` (${item.grade})` : ''}` : ''}</span>
+                    <span>{item.worksheet ? `📄 ${item.worksheet} · ` : ''}{item.date}{item.graded ? ` · ✅ ${item.grade || 'تصحیح‌شده'}` : ''}</span>
                 </div>
                 {items.length > 1 && (
                     <div className="sv-nav">
                         <button type="button" onClick={() => setI(i - 1)} disabled={i === 0} aria-label="قبلی">→</button>
-                        <span>{fa(i + 1)} از {fa(items.length)}</span>
+                        <button type="button" className="sv-count" onClick={() => setList(!list)} title="فهرستِ کاربرگ‌ها">📋 {fa(i + 1)}/{fa(items.length)}</button>
                         <button type="button" onClick={() => setI(i + 1)} disabled={i === items.length - 1} aria-label="بعدی">←</button>
                     </div>
                 )}
             </header>
+            {list && (
+                <div className="sv-list" onClick={() => setList(false)}>
+                    <div className="sv-list-box" onClick={(e) => e.stopPropagation()}>
+                        <b>📋 کاربرگ‌های این فهرست</b>
+                        {items.map((x, k) => (
+                            <button key={x.id} type="button" className={k === i ? 'on' : ''} onClick={() => { setI(k); setList(false); }}>
+                                <span>{x.graded ? '✅' : '⏳'} {x.student || 'کاربرگ'}</span>
+                                <small>{x.worksheet ? `${x.worksheet} · ` : ''}{x.graded ? (x.grade || 'تصحیح‌شده') : 'منتظرِ تصحیح'}</small>
+                            </button>
+                        ))}
+                        <button type="button" className="sv-list-back" onClick={close}>↩︎ بازگشت به فهرستِ کاربرگ‌ها</button>
+                    </div>
+                </div>
+            )}
             <Sheet key={item.id} item={item} canGrade={canGrade} grades={grades} maxXp={maxXp}
-                onSaved={(s) => { onSaved?.(s); if (i < items.length - 1 && !items[i + 1].graded) setTimeout(() => setI(i + 1), 700); }} />
+                onSaved={(s) => {
+                    onSaved?.(s);
+                    const next = items.findIndex((x, k) => k > i && !x.graded);
+                    setToast(`✅ تصحیحِ ${s.student || item.student || ''} ثبت شد${s.xp > 0 ? ` (+${fa(s.xp)} امتیاز)` : ''}${next > 0 ? ' — کاربرگِ بعدی ←' : ' — همه تصحیح شدند 🎉'}`);
+                    setTimeout(() => setToast(null), 3200);
+                    if (next > 0) setTimeout(() => setI(next), 900);
+                }} />
+            {toast && <div className="sv-toast">{toast}</div>}
         </div>
     );
 }
@@ -250,14 +273,14 @@ function paint(g, m, k) {
     g.restore();
 }
 
-/** عکس + علامت‌ها در اندازه‌ی طبیعی (حداکثر ۲۰۰۰ پیکسل) → JPEG برای ذخیره. */
+/** عکس + علامت‌ها (حداکثر ۱۶۰۰ پیکسل، زیرِ سقفِ آپلودِ هاست) → JPEG برای ذخیره. */
 function composite(img, size, marks) {
-    const scale = Math.min(1, 2000 / Math.max(size.w, size.h));
+    const scale = Math.min(1, 1600 / Math.max(size.w, size.h));
     const c = document.createElement('canvas');
     c.width = Math.round(size.w * scale); c.height = Math.round(size.h * scale);
     const g = c.getContext('2d');
     g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
     g.drawImage(img, 0, 0, c.width, c.height);
     marks.forEach((m) => paint(g, m, scale));
-    return new Promise((res) => c.toBlob((b) => res(b), 'image/jpeg', 0.85));
+    return new Promise((res) => c.toBlob((b) => res(b), 'image/jpeg', 0.8));
 }

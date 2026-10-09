@@ -55,12 +55,62 @@ class WorksheetSubmissionController extends Controller
         ]);
     }
 
+    /** فایل/عکسِ خودِ کاربرگ (خالی) برای دانش‌آموزِ کلاس یا معلم/مدیر. */
+    public function sheet(Request $request, \App\Models\Worksheet $worksheet, string $which): BinaryFileResponse
+    {
+        $user = $request->user();
+        $student = $worksheet->is_published && ($worksheet->classroom_id === null
+            || $user->classrooms()->where('classrooms.id', $worksheet->classroom_id)->exists());
+        abort_unless($student || WorksheetAccess::visibleQuery($user)->whereKey($worksheet->id)->exists(), 403);
+        $path = $which === 'image' ? $worksheet->image_path : $worksheet->file_path;
+        abort_unless($path && Storage::disk('public')->exists($path), 404, 'فایل روی سرور پیدا نشد.');
+
+        return response()->file(Storage::disk('public')->path($path), [
+            'Cache-Control' => 'private, max-age=86400',
+            'Content-Disposition' => 'inline; filename="worksheet-' . $worksheet->id . '.' . pathinfo($path, PATHINFO_EXTENSION) . '"',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     /** ثبتِ تصحیح: نمره‌ی توصیفی + امتیاز + توضیح + (اختیاری) عکسِ علامت‌خورده. */
     public function grade(Request $request, WorksheetSubmission $submission, GamificationService $game): JsonResponse
     {
         $teacher = $request->user();
         $submission->load('worksheet', 'student');
         abort_unless($this->canGrade($teacher, $submission), 403);
+
+        // ستون‌های تصحیح روی هاست هنوز ساخته نشده‌اند (مایگریشن اجرا نشده) → همین‌جا یک‌بار نصب شود
+        if (! self::ready()) {
+            \App\Support\AutoMigrate::ensure(true);
+            \App\Support\DbSchema::forget();
+            if (! self::ready()) {
+                return response()->json(['message' => 'ستون‌های «تصحیحِ کاربرگ» هنوز روی سرور ساخته نشده‌اند. مدیرِ کل از «🩺 سلامتِ سیستم» دکمه‌ی «اجرای مایگریشن‌ها» را بزند.'
+                    . "\n" . \App\Services\RemediationService::whyNotReady()], 503);
+            }
+        }
+
+        try {
+            return $this->saveGrade($request, $submission, $teacher, $game);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            report($e);
+
+            // علتِ دقیق به معلم گفته شود (نه فقط «مشکلی در سرور»)
+            return response()->json(['message' => 'ثبتِ تصحیح انجام نشد: ' . \App\Http\Controllers\Concerns\FriendlySaveErrors::explainError($e)
+                . ' [' . class_basename($e) . ': ' . mb_substr($e->getMessage(), 0, 220) . ']'], 500);
+        }
+    }
+
+    private static function ready(): bool
+    {
+        return \App\Support\DbSchema::hasColumn('worksheet_submissions', 'graded_at')
+            && \App\Support\DbSchema::hasColumn('worksheet_submissions', 'marked_path')
+            && \App\Support\DbSchema::hasColumn('worksheet_submissions', 'grade_xp');
+    }
+
+    private function saveGrade(Request $request, WorksheetSubmission $submission, User $teacher, GamificationService $game): JsonResponse
+    {
 
         $data = $request->validate([
             'grade' => ['nullable', 'string', Rule::in(array_keys(WorksheetSubmission::GRADES))],

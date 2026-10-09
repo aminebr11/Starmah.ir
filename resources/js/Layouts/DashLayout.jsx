@@ -13,13 +13,13 @@ import UiSwitch from '@/Components/UiSwitch';
  * props: title, roleLabel, menu:[{key,label,icon,href}], active, children
  */
 export default function DashLayout({ title, roleLabel, menu = [], active = '', children, actions = null }) {
-    const { auth, unreadNotices = 0, smartLab = false, avatarUrl = null, school = null, ui = 'classic' } = usePage().props;
+    const { auth, unreadNotices = 0, smartLab = false, avatarUrl = null, school = null, ui = 'classic', worksheetsPending = 0 } = usePage().props;
     const [open, setOpen] = useState(false);
     // آیتم‌هایی که flag: 'smart' دارند فقط وقتی ماژول فعال است نمایش داده می‌شوند
     menu = menu.filter((m) => !m.flag || (m.flag === 'smart' && smartLab));
 
     if (ui === 'clay') {
-        return <ClayDash {...{ title, roleLabel, menu, active, children, actions }} />;
+        return <ClayDash {...{ title, roleLabel, menu, active, children, actions }} badges={{ wsinbox: worksheetsPending }} />;
     }
 
     return (
@@ -47,6 +47,7 @@ export default function DashLayout({ title, roleLabel, menu = [], active = '', c
                             <Link key={m.key} href={m.href} className={active === m.key ? 'active' : ''} onClick={() => setOpen(false)}>
                                 <span className="ic">{m.icon}</span>{m.label}
                                 {m.key === 'notices' && unreadNotices > 0 && <span className="nav-badge">{unreadNotices}</span>}
+                                {m.key === 'wsinbox' && worksheetsPending > 0 && <span className="nav-badge">{worksheetsPending}</span>}
                             </Link>
                         )
                     ))}
@@ -311,6 +312,7 @@ export const teacherMenu = [
     { key: 'studio', label: 'استودیوی بازی', icon: '🎮', href: '/teacher/studio' },
     { key: 'missions', label: 'مأموریت‌های روزانه', icon: '🎯', href: '/teacher/missions' },
     { key: 'review', label: 'مرورِ اشتباه‌ها', icon: '🔁', href: '/teacher/review' },
+    { key: 'wsinbox', label: 'کاربرگ‌های ارسالی', icon: '📥', href: '/teacher/worksheet-inbox' },
     { key: 'mybank', label: 'بانکِ سؤالاتِ من', icon: '🗄️', href: '/teacher/my-bank' },
     { key: 'materials', label: 'مطالب و محتوا', icon: '📚', href: '/teacher/materials' },
     { key: 'smart', label: 'آزمون هوشمند 🧪', icon: '🧠', href: '/teacher/smart-exams', flag: 'smart' },

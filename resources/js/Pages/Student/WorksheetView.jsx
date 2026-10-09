@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import axios from 'axios';
 import ThemedDash from '@/Layouts/ThemedDash';
 import SubmissionViewer from '@/Components/SubmissionViewer';
+import FileViewer from '@/Components/FileViewer';
 import shrinkImage from '@/lib/shrinkImage';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
@@ -16,6 +17,7 @@ export default function WorksheetView() {
     const [dlToast, setDlToast] = useState(downloaded ? null : `این کاربرگ را دریافت کن تا +${fa(downloadXp)} امتیاز بگیری`);
     const [gotDl, setGotDl] = useState(downloaded);
     const [viewing, setViewing] = useState(false);
+    const [showFile, setShowFile] = useState(null);
 
     // ثبتِ دریافت (یک‌بار امتیاز) هنگام چاپ یا دانلودِ فایل
     const markDownloaded = async () => {
@@ -42,7 +44,7 @@ export default function WorksheetView() {
             <div className="no-print" style={{ ...card, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <b style={{ fontSize: 16 }}>🎨 {worksheet.title}</b>
                 <span style={{ marginInlineStart: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {worksheet.file && <a href={worksheet.file} target="_blank" rel="noreferrer" onClick={markDownloaded} style={{ background: 'linear-gradient(135deg,#3d7bf0,#2555c0)', color: '#fff', padding: '9px 18px', borderRadius: 12, fontWeight: 800, textDecoration: 'none' }}>⬇️ دانلود فایلِ کاربرگ</a>}
+                    {worksheet.file && <button type="button" onClick={() => { markDownloaded(); setShowFile({ url: worksheet.file, pdf: worksheet.file_pdf }); }} style={{ background: 'linear-gradient(135deg,#3d7bf0,#2555c0)', color: '#fff', padding: '9px 18px', borderRadius: 12, fontWeight: 800, border: 0, cursor: 'pointer', fontFamily: 'inherit' }}>📂 بازکردن / دانلودِ کاربرگ</button>}
                     <button onClick={print} style={{ background: 'linear-gradient(135deg,var(--p1),var(--p2))', color: '#fff', border: 0, padding: '9px 18px', borderRadius: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>🖨️ چاپ کاربرگ</button>
                 </span>
             </div>
@@ -53,9 +55,9 @@ export default function WorksheetView() {
             {worksheet.html
                 ? <div className="ws-sheet" style={{ marginTop: 12 }} dangerouslySetInnerHTML={{ __html: worksheet.html }} />
                 : worksheet.image
-                ? <div className="ws-sheet" style={{ marginTop: 12, textAlign: 'center' }}><img src={worksheet.image} alt={worksheet.title} style={{ maxWidth: '100%', borderRadius: 16 }} /></div>
+                ? <div className="ws-sheet" style={{ marginTop: 12, textAlign: 'center' }}><img src={worksheet.image} alt={worksheet.title} onClick={() => setShowFile({ url: worksheet.image, pdf: false })} style={{ maxWidth: '100%', borderRadius: 16, cursor: 'zoom-in' }} /></div>
                 : worksheet.file
-                    ? <div className="ws-sheet no-print" style={{ marginTop: 12, textAlign: 'center', padding: 30 }}><div style={{ fontSize: 40 }}>📄</div><p style={{ opacity: .85 }}>این کاربرگ یک فایلِ آماده است. با دکمه‌ی «دانلود فایلِ کاربرگ» آن را بگیر، چاپ کن و پر کن.</p></div>
+                    ? <div className="ws-sheet no-print" style={{ marginTop: 12, textAlign: 'center', padding: 30 }}><div style={{ fontSize: 40 }}>📄</div><p style={{ opacity: .85 }}>این کاربرگ یک فایلِ آماده است. با دکمه‌ی «بازکردن / دانلودِ کاربرگ» آن را ببین یا بگیر، چاپ کن و پر کن.</p></div>
                     : null}
 
             {/* ارسالِ کاربرگِ پرشده */}
@@ -84,6 +86,7 @@ export default function WorksheetView() {
                 </form>
             </div>
             {viewing && submitted && <SubmissionViewer items={[submitted]} onClose={() => setViewing(false)} />}
+            {showFile && <FileViewer url={showFile.url} pdf={showFile.pdf} title={worksheet.title} onClose={() => setShowFile(null)} />}
         </ThemedDash>
     );
 }

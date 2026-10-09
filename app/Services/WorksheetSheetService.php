@@ -66,7 +66,8 @@ class WorksheetSheetService
             (string) ($worksheet->grade ?? ''),
             (string) ($worksheet->theme ?? 'classic'),
             $questions,
-            $worksheet->image_path ? Storage::disk('public')->url($worksheet->image_path) : null
+            // از مسیرِ سایت (نه لینکِ مستقیمِ /storage که روی بعضی هاست‌ها 403 می‌داد)
+            $worksheet->image_path && $worksheet->id ? route('worksheet.sheet', [$worksheet->id, 'image'], false) : null
         );
     }
 

@@ -67,6 +67,12 @@ class HandleInertiaRequests extends Middleware
             'familyNew' => fn () => ($user && $user->isStudent() && \App\Support\DbSchema::hasTable('parent_notes'))
                 ? \App\Models\ParentNote::where('student_id', $user->id)->where('from_parent', false)->whereNull('read_at')->count()
                 : 0,
+            // کاربرگ‌های پرشده‌ای که معلم هنوز تصحیح نکرده (نشان روی منوی «کاربرگ‌های ارسالی»)
+            'worksheetsPending' => fn () => ($user && $user->hasRole(\App\Support\Roles::TEACHER)
+                && \App\Support\DbSchema::hasColumn('worksheet_submissions', 'graded_at'))
+                ? (int) rescue(fn () => \App\Models\WorksheetSubmission::whereNotNull('file_path')->whereNull('graded_at')
+                    ->whereHas('worksheet', fn ($q) => $q->where('teacher_id', $user->id))->count(), 0, false)
+                : 0,
             // «مرورِ اشتباه‌های من» که امروز آماده است (نشان روی منوی دانش‌آموز)
             'reviewDue' => fn () => ($user && $user->isStudent() && \App\Services\RemediationService::ready())
                 ? (int) rescue(fn () => \App\Models\Remediation::where('student_id', $user->id)->where('status', 'open')

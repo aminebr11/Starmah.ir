@@ -56,7 +56,7 @@ export default function Icon({ name, size = 20, className = '', style }) {
 /** نامِ آیکون برای هر کلیدِ منو (همه‌ی نقش‌ها). */
 export const MENU_ICON = {
     home: 'home', class: 'users', students: 'users', teachers: 'school', attendance: 'check', schedule: 'calendar',
-    gradebook: 'book', studio: 'game', missions: 'target', review: 'repeat', mybank: 'db', bank: 'db', materials: 'book', smart: 'spark',
+    gradebook: 'book', studio: 'game', missions: 'target', review: 'repeat', wsinbox: 'file', mybank: 'db', bank: 'db', materials: 'book', smart: 'spark',
     points: 'zap', activities: 'star', groups: 'trophy', discipline: 'star', levels: 'settings', reports: 'chart', visits: 'eye', ai: 'spark',
     examreports: 'chart', familynotes: 'lock', messages: 'msg', sms: 'send', notices: 'bell', announcements: 'megaphone',
     schools: 'school', plans: 'file', curriculum: 'book', themes: 'palette', 'game-templates': 'game', 'smart-lab': 'spark',

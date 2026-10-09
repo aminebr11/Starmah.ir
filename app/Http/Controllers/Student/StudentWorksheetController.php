@@ -46,8 +46,9 @@ class StudentWorksheetController extends Controller
                 'mode' => $worksheet->mode ?? 'manual',
                 // برگه زنده رندر می‌شود تا تصویر سرلوحه‌اش باشد و سؤال‌ها داخلش
                 'html' => $sheets->sheet($worksheet),
-                'image' => $worksheet->image_path ? Storage::disk('public')->url($worksheet->image_path) : null,
-                'file' => $worksheet->file_path ? Storage::disk('public')->url($worksheet->file_path) : null,
+                'image' => $worksheet->image_path ? route('worksheet.sheet', [$worksheet->id, 'image'], false) : null,
+                'file' => $worksheet->file_path ? route('worksheet.sheet', [$worksheet->id, 'file'], false) : null,
+                'file_pdf' => \App\Models\WorksheetSubmission::isPdf($worksheet->file_path),
             ],
             'downloadXp' => self::DOWNLOAD_XP,
             'submitXp' => self::SUBMIT_XP,

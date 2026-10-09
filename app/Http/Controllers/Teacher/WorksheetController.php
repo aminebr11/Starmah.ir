@@ -354,6 +354,42 @@ class WorksheetController extends Controller
         }
     }
 
+    /**
+     * «📥 کاربرگ‌های ارسالی» — همه‌ی کاربرگ‌های پرشده‌ی همه‌ی کاربرگ‌های معلم در یک فهرست
+     * (منتظرِ تصحیح اول)، تا با بازکردنِ یکی بقیه گم نشوند.
+     */
+    public function inbox(Request $request): Response
+    {
+        $user = $request->user();
+        // ستون‌های تصحیح روی هاست ساخته نشده (مایگریشن اجرا نشده) → همین‌جا یک‌بار نصب شود
+        if (! \App\Support\DbSchema::hasColumn('worksheet_submissions', 'graded_at')) {
+            \App\Support\AutoMigrate::ensure(true);
+            \App\Support\DbSchema::forget();
+        }
+        $sheets = WorksheetAccess::visibleQuery($user)->get(['id', 'title', 'school_id', 'teacher_id', 'created_at'])
+            ->filter(fn ($w) => WorksheetAccess::canEdit($user, $w))->keyBy('id');
+        $subs = $sheets->isEmpty() ? collect() : \App\Models\WorksheetSubmission::whereIn('worksheet_id', $sheets->keys())
+            ->whereNotNull('file_path')->with('student:id,name')
+            ->orderByRaw('COALESCE(submitted_at, updated_at) DESC')->limit(500)->get();
+        $graded = \App\Support\DbSchema::hasColumn('worksheet_submissions', 'graded_at');
+
+        $rows = $subs->map(fn ($s) => $s->viewData() + [
+            'student' => $s->student?->name, 'worksheet_id' => $s->worksheet_id,
+            'worksheet' => $sheets[$s->worksheet_id]->title ?? 'کاربرگ',
+        ])->values();
+
+        return Inertia::render('Teacher/WorksheetInbox', [
+            'submissions' => $rows,
+            'worksheets' => $rows->groupBy('worksheet_id')->map(fn ($g, $id) => [
+                'id' => (int) $id, 'title' => $g->first()['worksheet'],
+                'total' => $g->count(), 'pending' => $g->where('graded', false)->count(),
+            ])->sortByDesc('pending')->values(),
+            'gradingReady' => $graded,
+            'gradeOptions' => \App\Models\WorksheetSubmission::GRADES,
+            'maxXp' => \App\Models\WorksheetSubmission::MAX_XP,
+        ]);
+    }
+
     public function show(Request $request, Worksheet $worksheet): Response
     {
         $user = $request->user();
@@ -371,8 +407,9 @@ class WorksheetController extends Controller
                 'id' => $worksheet->id, 'title' => $worksheet->title,
                 'html' => $this->sheets->sheet($worksheet),
                 // تصویر داخلِ خودِ برگه است؛ این فقط برای حالتی است که برگه‌ای نداریم
-                'image' => $worksheet->image_path ? Storage::disk('public')->url($worksheet->image_path) : null,
-                'file' => $worksheet->file_path ? Storage::disk('public')->url($worksheet->file_path) : null,
+                'image' => $worksheet->image_path ? route('worksheet.sheet', [$worksheet->id, 'image'], false) : null,
+                'file' => $worksheet->file_path ? route('worksheet.sheet', [$worksheet->id, 'file'], false) : null,
+                'file_pdf' => \App\Models\WorksheetSubmission::isPdf($worksheet->file_path),
                 'subject' => $worksheet->subject, 'grade' => $worksheet->grade,
                 'lesson_no' => $worksheet->lesson_no, 'mode' => $worksheet->mode,
                 'theme' => $worksheet->theme,

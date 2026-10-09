@@ -285,7 +285,7 @@ class Notifications
                     'title' => ($s->student?->name ?: 'دانش‌آموز').' کاربرگ فرستاد',
                     'body'  => '«'.($s->worksheet?->title ?: 'کاربرگ').'» — '.(! empty($s->graded_at) ? '✅ تصحیح کردی.' : 'برای دیدن و تصحیح کلیک کن.'),
                     'date'  => Jalali::format($s->submitted_at ?? $s->updated_at, true),
-                    'href'  => '/teacher/worksheets/'.$s->worksheet_id.'?sub='.$s->id,
+                    'href'  => '/teacher/worksheet-inbox?sub='.$s->id,
                     'read'  => $isRead('ws'.$s->id),
                     'ts'    => ($s->submitted_at ?? $s->updated_at)->timestamp,
                 ]);

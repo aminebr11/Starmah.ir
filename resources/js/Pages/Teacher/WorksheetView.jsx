@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { usePage, Link, useForm, router } from '@inertiajs/react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import QuestionEditor, { Q_TYPES, blankQ } from '@/Components/QuestionEditor';
-import SubmissionViewer from '@/Components/SubmissionViewer';
+import SubmissionsBoard from '@/Components/SubmissionsBoard';
+import FileViewer from '@/Components/FileViewer';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -25,6 +26,7 @@ export default function WorksheetView() {
         typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('edit') === '1'
     );
     const [newType, setNewType] = useState('mc');
+    const [showFile, setShowFile] = useState(null);
     const form = useForm({
         title: worksheet.title || '', subject: worksheet.subject || '',
         grade: worksheet.grade || '', lesson_no: worksheet.lesson_no || '',
@@ -107,68 +109,29 @@ export default function WorksheetView() {
             {worksheet.html && <div className="ws-sheet" style={{ marginTop: 12 }} dangerouslySetInnerHTML={{ __html: worksheet.html }} />}
             {!worksheet.html && worksheet.image && (
                 <div className="ws-sheet" style={{ marginTop: 12, textAlign: 'center' }}>
-                    <img src={worksheet.image} alt={worksheet.title} style={{ maxWidth: '100%', borderRadius: 16 }} />
+                    <img src={worksheet.image} alt={worksheet.title} onClick={() => setShowFile({ url: worksheet.image, pdf: false })} style={{ maxWidth: '100%', borderRadius: 16, cursor: 'zoom-in' }} />
                 </div>
             )}
             {!worksheet.html && worksheet.file && (
                 <div className="panel" style={{ marginTop: 12, textAlign: 'center' }}>
                     <div style={{ fontWeight: 800, marginBottom: 8 }}>📄 فایلِ کاربرگ</div>
-                    <a href={worksheet.file} target="_blank" rel="noreferrer" className="btn">⬇️ بازکردن / دانلودِ فایل</a>
+                    <button type="button" onClick={() => setShowFile({ url: worksheet.file, pdf: worksheet.file_pdf })} className="btn">📂 بازکردنِ فایل</button>
+                    <a href={worksheet.file} download className="btn btn-ghost" style={{ marginInlineStart: 8 }}>⬇️ دانلود</a>
                 </div>
             )}
 
             {/* کاربرگ‌های پرشده‌ی دانش‌آموزان — بازکردن و تصحیح داخلِ خودِ سایت */}
-            {canEdit && <Submissions initial={submissions} grades={gradeOptions} maxXp={maxXp} />}
+            {canEdit && (
+                <div className="panel no-print" style={{ marginTop: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
+                        <h3 style={{ margin: 0, flex: 1 }}>📥 کاربرگ‌های ارسالیِ همین کاربرگ ({fa(submissions.length)})</h3>
+                        <Link href={route('teacher.worksheets.inbox')} className="btn btn-sm">📥 همه‌ی کاربرگ‌های ارسالی ←</Link>
+                    </div>
+                    <SubmissionsBoard initial={submissions} grades={gradeOptions} maxXp={maxXp} />
+                </div>
+            )}
+            {showFile && <FileViewer url={showFile.url} pdf={showFile.pdf} title={worksheet.title} onClose={() => setShowFile(null)} />}
         </DashLayout>
     );
 }
 
-function Submissions({ initial, grades, maxXp }) {
-    const [list, setList] = useState(initial);
-    // از اعلانِ زنگوله (?sub=…) همان کاربرگ مستقیم باز شود
-    const [open, setOpen] = useState(() => {
-        const id = typeof window !== 'undefined' ? Number(new URLSearchParams(window.location.search).get('sub')) : 0;
-        const k = id ? initial.findIndex((x) => x.id === id) : -1;
-        return k >= 0 ? { items: initial, index: k } : null;
-    });
-    const [filter, setFilter] = useState('all');
-    const pending = list.filter((s) => !s.graded).length;
-    const shown = filter === 'todo' ? list.filter((s) => !s.graded) : filter === 'done' ? list.filter((s) => s.graded) : list;
-    const merge = (arr, sub) => arr.map((x) => (x.id === sub.id ? { ...x, ...sub } : x));
-    // نمایشگر فهرستِ ثابتِ لحظه‌ی بازشدن را می‌گیرد (با فیلترِ «منتظرِ تصحیح» موردِ تصحیح‌شده از زیرِ دستش نپرد)
-    const saved = (sub) => { setList((l) => merge(l, sub)); setOpen((o) => (o ? { ...o, items: merge(o.items, sub) } : o)); };
-
-    return (
-        <div className="panel no-print" style={{ marginTop: 16 }}>
-            <h3 style={{ marginTop: 0 }}>📥 کاربرگ‌های ارسالی دانش‌آموزان ({fa(list.length)})</h3>
-            {list.length === 0 ? <p style={{ color: 'var(--muted)' }}>هنوز کسی کاربرگِ پرشده نفرستاده است.</p> : (
-                <>
-                    <p style={{ color: 'var(--muted)', fontSize: 12.5, margin: '0 0 8px' }}>روی هر کاربرگ بزنید: همان‌جا باز می‌شود، روی برگه تیک/ضربدر بزنید و نمره و امتیاز بدهید.</p>
-                    <div className="ws-filter">
-                        <button type="button" className={filter === 'all' ? 'on' : ''} onClick={() => setFilter('all')}>همه ({fa(list.length)})</button>
-                        <button type="button" className={filter === 'todo' ? 'on' : ''} onClick={() => setFilter('todo')}>منتظرِ تصحیح ({fa(pending)})</button>
-                        <button type="button" className={filter === 'done' ? 'on' : ''} onClick={() => setFilter('done')}>تصحیح‌شده ({fa(list.length - pending)})</button>
-                    </div>
-                    <div className="ws-subs">
-                        {shown.map((s) => (
-                            <button key={s.id} type="button" className="ws-sub" onClick={() => setOpen({ items: shown, index: shown.indexOf(s) })}>
-                                <div className="ws-sub-thumb" style={!s.pdf ? { backgroundImage: `url("${s.marked_url || s.url}")` } : undefined}>
-                                    {s.pdf && '📄'}
-                                    <span className={`ws-sub-badge ${s.graded ? 'done' : ''}`}>{s.graded ? `✅ ${s.grade || 'تصحیح شد'}` : '⏳ تصحیح نشده'}</span>
-                                </div>
-                                <div className="ws-sub-b">
-                                    <b>👤 {s.student}</b>
-                                    <span>{s.date}{s.graded && s.xp > 0 ? ` · ⚡ ${fa(s.xp)}` : ''}</span>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                </>
-            )}
-            {open && (
-                <SubmissionViewer items={open.items} index={open.index} canGrade grades={grades} maxXp={maxXp}
-                    onSaved={saved} onClose={() => setOpen(null)} />
-            )}
-        </div>
-    );
-}

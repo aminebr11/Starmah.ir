@@ -345,6 +345,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/worksheets/ai', [\App\Http\Controllers\Teacher\WorksheetController::class, 'ai'])->name('worksheets.ai');
     Route::post('/worksheets/art-preview', [\App\Http\Controllers\Teacher\WorksheetController::class, 'artPreview'])->name('worksheets.art');
     Route::post('/worksheets', [\App\Http\Controllers\Teacher\WorksheetController::class, 'store'])->name('worksheets.store');
+    Route::get('/worksheet-inbox', [\App\Http\Controllers\Teacher\WorksheetController::class, 'inbox'])->name('worksheets.inbox');
     Route::get('/worksheets/{worksheet}', [\App\Http\Controllers\Teacher\WorksheetController::class, 'show'])->name('worksheets.show');
     Route::post('/worksheets/{worksheet}/publish', [\App\Http\Controllers\Teacher\WorksheetController::class, 'publish'])->name('worksheets.publish');
     Route::post('/worksheets/{worksheet}/update', [\App\Http\Controllers\Teacher\WorksheetController::class, 'update'])->name('worksheets.update');
@@ -417,6 +418,9 @@ Route::middleware('auth')->group(function () {
     // کاربرگِ پرشده: فایل از مسیرِ خودِ سایت (نه لینکِ مستقیم) + تصحیحِ معلم
     Route::get('/worksheet-files/{submission}/{which?}', [\App\Http\Controllers\WorksheetSubmissionController::class, 'file'])
         ->whereIn('which', ['file', 'marked'])->name('worksheet.file');
+    // خودِ کاربرگ (خالی): عکس/فایلِ معلم — هم از مسیرِ سایت تا 403 نگیرد
+    Route::get('/worksheet-sheet/{worksheet}/{which}', [\App\Http\Controllers\WorksheetSubmissionController::class, 'sheet'])
+        ->whereIn('which', ['file', 'image'])->name('worksheet.sheet');
     Route::post('/worksheet-submissions/{submission}/grade', [\App\Http\Controllers\WorksheetSubmissionController::class, 'grade'])
         ->middleware('throttle:60,1')->name('worksheet.grade');
     // سقفِ نرخ: هزینه‌ی کلیدِ هوش مصنوعی را از تکرارِ پرشتاب حفظ می‌کند

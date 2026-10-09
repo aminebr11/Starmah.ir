@@ -4,6 +4,7 @@ import axios from 'axios';
 import ThemedDash from '@/Layouts/ThemedDash';
 import ListSearch, { normalizeFa } from '@/Components/ListSearch';
 import AlbumGallery from '@/Components/AlbumGallery';
+import FileViewer, { viewable } from '@/Components/FileViewer';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -156,6 +157,7 @@ export default function ClassContent() {
 
 /* ═══════════════════════ کارتِ تکلیف ═══════════════════════ */
 function HwCard({ it, dim }) {
+    const [showFile, setShowFile] = useState(false);
     return (
         <div className="k3-card" style={{ marginTop: 12, opacity: dim ? .72 : 1, borderInlineStart: `5px solid ${it.overdue ? '#e8505b' : '#2bb673'}` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -170,13 +172,17 @@ function HwCard({ it, dim }) {
                 {it.overdue && <span className="tag" style={{ background: 'rgba(232,80,91,.25)', color: '#ffb3b3', flex: 'none' }}>گذشته</span>}
             </div>
             {it.description && <div style={{ fontSize: 13.5, opacity: .9, marginTop: 10, lineHeight: 2 }}>{it.description}</div>}
-            {it.url && <a href={it.url} target="_blank" rel="noreferrer" className="k3-btn ghost" style={{ marginTop: 12, fontSize: 13 }}>{it.is_file ? '⬇️ دریافت فایل تکلیف' : '🔗 مشاهده'}</a>}
+            {it.url && (it.is_file && viewable(it.url)
+                ? <button type="button" onClick={() => setShowFile(true)} className="k3-btn ghost" style={{ marginTop: 12, fontSize: 13 }}>📂 دیدن / دریافت فایل تکلیف</button>
+                : <a href={it.url} target="_blank" rel="noreferrer" className="k3-btn ghost" style={{ marginTop: 12, fontSize: 13 }}>{it.is_file ? '⬇️ دریافت فایل تکلیف' : '🔗 مشاهده'}</a>)}
+            {showFile && <FileViewer url={it.url} title={it.title} onClose={() => setShowFile(false)} />}
         </div>
     );
 }
 
 /* ═══════════════════════ کارتِ یک محتوا ═══════════════════════ */
 function ContentCard({ it }) {
+    const [showFile, setShowFile] = useState(false);
     const t = TYPE[it.type] ?? TYPE.material;
 
     const [percent, setPercent] = useState(it.percent || 0);
@@ -321,11 +327,16 @@ function ContentCard({ it }) {
             {/* ── دانلود / لینک ── */}
             {it.url && !isImage && (
                 <div className="cc-actions">
-                    <a href={it.url} target="_blank" rel="noreferrer" className="cc-link" onClick={markViewed}>
-                        {isPlayable ? '⬇️ دریافتِ فایل' : '📂 بازکردن'}
-                    </a>
+                    {!isPlayable && viewable(it.url) ? (
+                        <button type="button" className="cc-link" onClick={() => { markViewed(); setShowFile(true); }} style={{ border: 0, cursor: 'pointer', font: 'inherit' }}>📂 بازکردن</button>
+                    ) : (
+                        <a href={it.url} target="_blank" rel="noreferrer" className="cc-link" onClick={markViewed}>
+                            {isPlayable ? '⬇️ دریافتِ فایل' : '📂 بازکردن'}
+                        </a>
+                    )}
                 </div>
             )}
+            {showFile && <FileViewer url={it.url} title={it.title} onClose={() => setShowFile(false)} />}
         </article>
     );
 }

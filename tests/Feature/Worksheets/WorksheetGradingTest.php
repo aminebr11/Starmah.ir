@@ -82,4 +82,43 @@ class WorksheetGradingTest extends TestCase
         $this->actingAs($teacher)->postJson(route('worksheet.grade', $sub), ['xp' => 500])->assertStatus(422);
         $this->assertSame(0, XpEntry::where('source_type', WorksheetSubmission::GRADE_SOURCE)->count());
     }
+
+    public function test_inbox_lists_submissions_of_all_worksheets(): void
+    {
+        [$teacher, $classroom, $student, $ws] = $this->setUpSheet();
+        $ws2 = Worksheet::create(['school_id' => $teacher->school_id, 'teacher_id' => $teacher->id, 'classroom_id' => $classroom->id,
+            'title' => 'کاربرگِ دوم', 'mode' => 'manual', 'is_published' => true, 'published_at' => now()]);
+        $this->actingAs($student)->post(route('my.worksheet.submit', $ws2), ['file' => UploadedFile::fake()->image('p2.jpg', 300, 400)]);
+
+        $props = $this->actingAs($teacher)->get(route('teacher.worksheets.inbox'))->assertOk()->viewData('page')['props'];
+        $this->assertCount(2, $props['submissions']);
+        $this->assertEqualsCanonicalizing(['کاربرگِ عددنویسی', 'کاربرگِ دوم'], collect($props['worksheets'])->pluck('title')->all());
+        $this->assertSame(2, $props['worksheetsPending']);
+        // کاربرگِ دیگری از معلمِ دیگر دیده نمی‌شود؛ دانش‌آموز به صندوق راه ندارد
+        $this->actingAs($student)->get(route('teacher.worksheets.inbox'))->assertForbidden();
+    }
+
+    public function test_blank_sheet_file_is_served_through_the_app(): void
+    {
+        [$teacher, $classroom, $student, $ws] = $this->setUpSheet();
+        $ws->update(['file_path' => UploadedFile::fake()->create('sheet.pdf', 20, 'application/pdf')->store('worksheets', 'public')]);
+        $outsider = $this->makeUser($this->makeSchool('other-school'), \App\Support\Roles::STUDENT);
+
+        $this->actingAs($student)->get(route('worksheet.sheet', [$ws->id, 'file']))->assertOk();
+        $this->actingAs($teacher)->get(route('worksheet.sheet', [$ws->id, 'file']))->assertOk();
+        // مدرسه‌ی دیگر: اصلاً پیدا نمی‌شود (404) یا اجازه ندارد (403) — در هر حال فایل نمی‌گیرد
+        $this->assertContains($this->actingAs($outsider)->get(route('worksheet.sheet', [$ws->id, 'file']))->status(), [403, 404]);
+        $props = $this->actingAs($student)->get(route('my.worksheet', $ws))->viewData('page')['props'];
+        $this->assertStringContainsString('/worksheet-sheet/' . $ws->id . '/file', $props['worksheet']['file']);
+        $this->assertTrue($props['worksheet']['file_pdf']);
+    }
+
+    public function test_grading_explains_when_the_server_is_missing_columns(): void
+    {
+        [$teacher, , , , $sub] = $this->setUpSheet();
+        \Illuminate\Support\Facades\Schema::table('worksheet_submissions', fn ($t) => $t->dropColumn(['graded_at']));
+        \App\Support\DbSchema::forget();
+        $res = $this->actingAs($teacher)->postJson(route('worksheet.grade', $sub), ['xp' => 5])->assertStatus(503);
+        $this->assertStringContainsString('مایگریشن', $res->json('message'));
+    }
 }
