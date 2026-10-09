@@ -129,7 +129,7 @@ export default function Diagnostics() {
                 <div className="dg-env">
                     {[['PHP', env.php], ['Laravel', env.laravel], ['پایگاه‌داده', env.db], ['نامِ پایگاه‌داده', env.database], ['منطقه‌ی زمانی', env.timezone],
                         ['حالتِ دیباگ', env.debug ? 'روشن (روی سایتِ اصلی خاموش باشد)' : 'خاموش'], ['opcache', env.opcache], ['بازخوانیِ فایل‌ها در opcache', env.opcache_revalidate],
-                        ['حداکثر زمانِ اجرا', `${fa(env.max_execution_time)} ثانیه`], ['حافظه', env.memory_limit]].map(([k, v]) => (
+                        ['حداکثر زمانِ اجرا', `${fa(env.max_execution_time)} ثانیه`], ['حافظه', env.memory_limit], ['فایل‌های ظاهری (build)', env.build]].map(([k, v]) => (
                         <div key={k}><span>{k}</span><b dir="auto">{v ?? '—'}</b></div>
                     ))}
                 </div>

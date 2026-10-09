@@ -94,8 +94,27 @@ class DiagnosticsController extends Controller
             'opcache_revalidate' => ini_get('opcache.validate_timestamps') === '0' ? 'خاموش (فایل‌های تازه بدونِ پاک‌کردنِ کش دیده نمی‌شوند!)' : 'روشن',
             'max_execution_time' => ini_get('max_execution_time'),
             'memory_limit' => ini_get('memory_limit'),
+            'build' => $this->buildProblem(),
             'last_commit' => rescue(fn () => trim((string) @file_get_contents(base_path('.git/HEAD'))), null, false),
         ];
+    }
+
+    /** صفحه‌هایی که در public/build نیستند (پوشه‌ی build با به‌روزرسانی آپلود نشده) — هر کدام «خطای ۵۰۰» می‌دادند. */
+    private function buildProblem(): string
+    {
+        return rescue(function () {
+            $manifest = public_path('build/manifest.json');
+            if (! is_file($manifest)) {
+                return 'نیست! پوشه‌ی public/build را آپلود کنید';
+            }
+            $built = array_keys(json_decode((string) file_get_contents($manifest), true) ?: []);
+            $pages = glob(resource_path('js/Pages/{,*/,*/*/}*.jsx'), GLOB_BRACE) ?: [];
+            $missing = array_values(array_filter(array_map(fn ($f) => Str::after($f, base_path() . DIRECTORY_SEPARATOR), $pages), fn ($p) => ! in_array(str_replace('\\', '/', $p), $built, true)));
+
+            return $missing
+                ? 'قدیمی است — ' . count($missing) . ' صفحه در آن نیست (مثلاً ' . basename($missing[0], '.jsx') . '). پوشه‌ی public/build را دوباره آپلود کنید'
+                : 'به‌روز';
+        }, '—', false);
     }
 
     private function pendingMigrations(): array

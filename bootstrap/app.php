@@ -47,6 +47,35 @@ return Application::configure(basePath: dirname(__DIR__))
             // چیزی برنمی‌گردانیم تا گزارشِ عادیِ خطا هم انجام شود
         });
 
+        // فایل‌های PHPِ به‌روزرسانی آپلود شده ولی پوشه‌ی public/build قدیمی است (یا نیست):
+        // صفحه‌های تازه در manifest نیستند و Vite «خطای ۵۰۰» می‌داد. به‌جایش پیامِ روشن.
+        $staleBuild = function (\Throwable $e): ?\Illuminate\Foundation\ViteException {
+            for ($x = $e; $x; $x = $x->getPrevious()) {
+                if ($x instanceof \Illuminate\Foundation\ViteException) {
+                    return $x;
+                }
+            }
+
+            return null;
+        };
+        $exceptions->render(function (\Throwable $e, Request $request) use ($staleBuild) {
+            if (! $vite = $staleBuild($e)) {
+                return null;
+            }
+            $fa = ['title' => 'این بخش هنوز کامل نصب نشده', 'text' => 'فایل‌های ظاهریِ به‌روزرسانیِ تازه روی سرور نیست. مدیرِ سایت باید پوشه‌ی public/build را از بسته‌ی تازه دوباره آپلود کند.'
+                . (config('app.debug') ? ' (' . $vite->getMessage() . ')' : '')];
+            if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+                return response()->json(['message' => $fa['text']], 503);
+            }
+            try {
+                return \Inertia\Inertia::render('Error', ['status' => 503] + $fa)->toResponse($request)->setStatusCode(503);
+            } catch (\Throwable) {
+                // حتی صفحه‌ی خطا هم در build نیست → HTMLِ ساده
+                return response('<!doctype html><meta charset="utf-8"><title>' . e($fa['title']) . '</title><div dir="rtl" style="font-family:Tahoma,sans-serif;max-width:560px;margin:15vh auto;padding:24px;text-align:center"><h1>'
+                    . e($fa['title']) . '</h1><p>' . e($fa['text']) . '</p><p><a href="/">صفحه‌ی اصلی</a></p></div>', 503);
+            }
+        });
+
         // خطاها برای درخواست‌هایی که JSON می‌خواهند (axios، نه Inertia) هم JSON باشد.
         // قبلاً فقط api/* بود؛ پس خطای اعتبارسنجی یا نشستِ منقضی در /teacher/... به
         // «ریدایرکت» تبدیل می‌شد، مرورگر صفحه‌ی HTML می‌گرفت و طراحیِ سؤال می‌شکست.
@@ -56,7 +85,10 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // همه‌ی خطاها به فارسی — هم صفحه‌ی خطا، هم پاسخِ JSON.
         // پیش از این کاربر «404 NOT FOUND» یا «CSRF token mismatch.» می‌دید.
-        $exceptions->respond(function (\Symfony\Component\HttpFoundation\Response $response, \Throwable $e, Request $request) {
+        $exceptions->respond(function (\Symfony\Component\HttpFoundation\Response $response, \Throwable $e, Request $request) use ($staleBuild) {
+            if ($staleBuild($e)) {
+                return $response; // پیامِ «build قدیمی» بالا ساخته شده
+            }
             $status = $response->getStatusCode();
             $fa = \App\Support\ErrorMessages::for($status);
             if ($fa === null || $e instanceof \Illuminate\Validation\ValidationException) {
