@@ -271,8 +271,10 @@ class Notifications
             $subs = \App\Models\WorksheetSubmission::with(['student:id,name', 'worksheet:id,title,teacher_id'])
                 ->whereHas('worksheet', fn ($q) => $q->where('teacher_id', $user->id))
                 ->whereNotNull('file_path')
-                ->where('updated_at', '>=', now()->subDays(14))
-                ->latest('updated_at')->limit($limit)->get();
+                // زمانِ ارسال، نه updated_at (تصحیحِ معلم updated_at را عوض می‌کند و اعلان دوباره بالا می‌آمد)
+                ->where(fn ($q) => $q->where('submitted_at', '>=', now()->subDays(14))
+                    ->orWhere(fn ($w) => $w->whereNull('submitted_at')->where('updated_at', '>=', now()->subDays(14))))
+                ->orderByRaw('COALESCE(submitted_at, updated_at) DESC')->limit($limit)->get();
             foreach ($subs as $s) {
                 $items->push([
                     'id'    => 'ws'.$s->id,
@@ -281,9 +283,9 @@ class Notifications
                     'icon'  => '🎨',
                     'color' => '#2bb673',
                     'title' => ($s->student?->name ?: 'دانش‌آموز').' کاربرگ فرستاد',
-                    'body'  => '«'.($s->worksheet?->title ?: 'کاربرگ').'» — برای دیدنِ فایل کلیک کن.',
+                    'body'  => '«'.($s->worksheet?->title ?: 'کاربرگ').'» — '.(! empty($s->graded_at) ? '✅ تصحیح کردی.' : 'برای دیدن و تصحیح کلیک کن.'),
                     'date'  => Jalali::format($s->submitted_at ?? $s->updated_at, true),
-                    'href'  => '/teacher/worksheets/'.$s->worksheet_id,
+                    'href'  => '/teacher/worksheets/'.$s->worksheet_id.'?sub='.$s->id,
                     'read'  => $isRead('ws'.$s->id),
                     'ts'    => ($s->submitted_at ?? $s->updated_at)->timestamp,
                 ]);

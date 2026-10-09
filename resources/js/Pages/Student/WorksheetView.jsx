@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import axios from 'axios';
 import ThemedDash from '@/Layouts/ThemedDash';
 import SubmissionViewer from '@/Components/SubmissionViewer';
+import shrinkImage from '@/lib/shrinkImage';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const card = { background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 18, padding: 16, color: '#fff' };
@@ -74,7 +75,7 @@ export default function WorksheetView() {
                     </div>
                 )}
                 <form onSubmit={send} style={{ marginTop: 10 }}>
-                    <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={(e) => form.setData('file', e.target.files[0] || null)}
+                    <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={async (e) => form.setData('file', await shrinkImage(e.target.files[0] || null))}
                         style={{ width: '100%', background: '#fff', color: '#1b2742', borderRadius: 12, padding: 10, border: 0 }} />
                     {form.errors.file && <div style={{ color: '#ff8f9a', fontSize: 12.5, marginTop: 4 }}>{form.errors.file}</div>}
                     <input value={form.data.note} onChange={(e) => form.setData('note', e.target.value)} placeholder="توضیح (اختیاری)"

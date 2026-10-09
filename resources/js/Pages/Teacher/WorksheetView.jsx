@@ -125,7 +125,12 @@ export default function WorksheetView() {
 
 function Submissions({ initial, grades, maxXp }) {
     const [list, setList] = useState(initial);
-    const [open, setOpen] = useState(null);
+    // از اعلانِ زنگوله (?sub=…) همان کاربرگ مستقیم باز شود
+    const [open, setOpen] = useState(() => {
+        const id = typeof window !== 'undefined' ? Number(new URLSearchParams(window.location.search).get('sub')) : 0;
+        const k = id ? initial.findIndex((x) => x.id === id) : -1;
+        return k >= 0 ? { items: initial, index: k } : null;
+    });
     const [filter, setFilter] = useState('all');
     const pending = list.filter((s) => !s.graded).length;
     const shown = filter === 'todo' ? list.filter((s) => !s.graded) : filter === 'done' ? list.filter((s) => s.graded) : list;
