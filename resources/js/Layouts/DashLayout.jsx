@@ -290,6 +290,7 @@ export const schoolMenu = [
     { key: 'messages', label: 'ارتباط با والدین/معلم', icon: '💬', href: '/messages' },
     { key: 'sms', label: 'سامانه‌ی پیامک', icon: '📩', href: '/school/sms' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/school/reports' },
+    { key: 'early', label: 'هشدارِ زودهنگام', icon: '🚨', href: '/school/early-warning' },
     { key: 'visits', label: 'بازدید و مشارکت', icon: '👁️', href: '/school/visits' },
 ];
 
@@ -313,6 +314,8 @@ export const teacherMenu = [
     { key: 'missions', label: 'مأموریت‌های روزانه', icon: '🎯', href: '/teacher/missions' },
     { key: 'review', label: 'مرورِ اشتباه‌ها', icon: '🔁', href: '/teacher/review' },
     { key: 'wsinbox', label: 'کاربرگ‌های ارسالی', icon: '📥', href: '/teacher/worksheet-inbox' },
+    { key: 'audio', label: 'املا و روخوانی', icon: '🎧', href: '/teacher/audio' },
+    { key: 'live', label: 'مسابقه‌ی زنده', icon: '🏆', href: '/teacher/live' },
     { key: 'mybank', label: 'بانکِ سؤالاتِ من', icon: '🗄️', href: '/teacher/my-bank' },
     { key: 'materials', label: 'مطالب و محتوا', icon: '📚', href: '/teacher/materials' },
     { key: 'smart', label: 'آزمون هوشمند 🧪', icon: '🧠', href: '/teacher/smart-exams', flag: 'smart' },
@@ -325,6 +328,8 @@ export const teacherMenu = [
     { key: 'levels', label: 'تنظیم مرحله‌ها', icon: '🎚️', href: '/teacher/levels' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/teacher/reports' },
     { key: 'visits', label: 'بازدید و مشارکت', icon: '👁️', href: '/teacher/visits' },
+    { key: 'weekly', label: 'گزارشِ هفتگیِ والدین', icon: '📬', href: '/teacher/weekly-reports' },
+    { key: 'wellbeing', label: 'سلامتِ دیجیتال', icon: '🌿', href: '/teacher/wellbeing' },
 
     { divider: 'ارتباط' },
     { key: 'birthdays', label: 'تولدِ دانش‌آموزان', icon: '🎂', href: '/teacher/birthdays' },

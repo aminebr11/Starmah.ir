@@ -32,6 +32,11 @@ Route::get('/install', fn () => Inertia::render('Install'))->name('install');
 // ضربانِ حضور: آنلاین‌بودن و زمانِ فعالِ کاربرانِ واردشده
 Route::post('/presence', function (\Illuminate\Http\Request $r) {
     \App\Support\VisitTracker::hit($r, false);
+    // دانش‌آموز: زمانِ استفاده (سلامتِ دیجیتال) — یادآوریِ استراحت و قفلِ بعد از سقف
+    if ($r->user()?->isStudent()) {
+        $wb = rescue(fn () => app(\App\Services\WellbeingService::class)->beat($r->user()), null, true);
+        if ($wb) return response()->json(['wellbeing' => $wb]);
+    }
     return response()->noContent();
 })->middleware(['auth', 'throttle:10,1'])->name('presence');
 
@@ -142,6 +147,7 @@ Route::middleware(['auth', 'role:school_admin'])->prefix('school')->name('school
     Route::get('/schedule-overview', [\App\Http\Controllers\ScheduleController::class, 'schoolView'])->name('schedule.overview');
     Route::get('/reports', [SchoolDashboardController::class, 'reports'])->name('reports');
     Route::get('/visits', [\App\Http\Controllers\SchoolAdmin\VisitReportController::class, 'index'])->name('visits');
+    Route::get('/early-warning', [\App\Http\Controllers\SchoolAdmin\EarlyWarningController::class, 'index'])->name('early.warning');
     // ثبت حضور و غیاب توسط مدیر مدرسه (همه‌ی کلاس‌ها)
     Route::get('/attendance', [\App\Http\Controllers\AttendanceController::class, 'record'])->name('attendance');
     Route::post('/attendance', [\App\Http\Controllers\AttendanceController::class, 'store'])->name('attendance.store');
@@ -202,12 +208,26 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     Route::post('/family/unlock', [\App\Http\Controllers\Student\FamilyController::class, 'unlock'])->name('family.unlock');
     Route::post('/family/lock', [\App\Http\Controllers\Student\FamilyController::class, 'lock'])->name('family.lock');
     Route::post('/family/reply', [\App\Http\Controllers\Student\FamilyController::class, 'reply'])->name('family.reply');
+    Route::post('/family/screen-time', [\App\Http\Controllers\Student\TimeUpController::class, 'family'])->name('family.screen');
+    // 🌿 سلامتِ دیجیتال: «وقتِ استراحت» و بازکردن با رمزِ والدین
+    Route::get('/time-up', [\App\Http\Controllers\Student\TimeUpController::class, 'show'])->name('time-up');
+    Route::post('/time-up/unlock', [\App\Http\Controllers\Student\TimeUpController::class, 'unlock'])->middleware('throttle:10,1')->name('time-up.unlock');
     Route::get('/schedule', [\App\Http\Controllers\ScheduleController::class, 'studentView'])->name('schedule');
     Route::get('/my-discipline', [\App\Http\Controllers\StudentDisciplineController::class, 'index'])->name('my.discipline');
     // کارت‌های صفحه‌ی خانه: محتوای کلاس، تکالیف، فعالیت‌ها، گزارش‌ها
     Route::get('/class-content', [\App\Http\Controllers\Student\StudentHubController::class, 'content'])->name('my.content');
     Route::post('/class-content/{classContent}/progress', [\App\Http\Controllers\Student\StudentHubController::class, 'contentProgress'])->name('my.content.progress');
     Route::get('/homework', [\App\Http\Controllers\Student\StudentHubController::class, 'homework'])->name('my.homework');
+    // «🎧 املا و روخوانی»
+    Route::get('/listen', [\App\Http\Controllers\AudioSubmissionController::class, 'index'])->name('listen');
+    Route::get('/listen/{task}', [\App\Http\Controllers\AudioSubmissionController::class, 'show'])->name('listen.show');
+    Route::post('/listen/{task}/submit', [\App\Http\Controllers\AudioSubmissionController::class, 'submit'])->middleware('throttle:20,1')->name('listen.submit');
+    Route::post('/listen/{task}/played', [\App\Http\Controllers\AudioSubmissionController::class, 'played'])->middleware('throttle:120,1')->name('listen.played');
+    // 🏆 مسابقه‌ی زنده
+    Route::get('/live', [\App\Http\Controllers\Live\PlayController::class, 'index'])->name('live');
+    Route::get('/live/{contest}', [\App\Http\Controllers\Live\PlayController::class, 'show'])->name('live.play');
+    Route::get('/live/{contest}/poll', [\App\Http\Controllers\Live\PlayController::class, 'poll'])->middleware('throttle:150,1')->name('live.poll');
+    Route::post('/live/{contest}/answer', [\App\Http\Controllers\Live\PlayController::class, 'answer'])->middleware('throttle:60,1')->name('live.answer');
     Route::get('/worksheets/{worksheet}', [\App\Http\Controllers\Student\StudentWorksheetController::class, 'show'])->name('my.worksheet');
     Route::post('/worksheets/{worksheet}/download', [\App\Http\Controllers\Student\StudentWorksheetController::class, 'download'])->name('my.worksheet.download');
     Route::post('/worksheets/{worksheet}/submit', [\App\Http\Controllers\Student\StudentWorksheetController::class, 'submit'])->name('my.worksheet.submit');
@@ -345,6 +365,27 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/worksheets/ai', [\App\Http\Controllers\Teacher\WorksheetController::class, 'ai'])->name('worksheets.ai');
     Route::post('/worksheets/art-preview', [\App\Http\Controllers\Teacher\WorksheetController::class, 'artPreview'])->name('worksheets.art');
     Route::post('/worksheets', [\App\Http\Controllers\Teacher\WorksheetController::class, 'store'])->name('worksheets.store');
+    // «🎧 املا و روخوانی»
+    Route::get('/wellbeing', [\App\Http\Controllers\Teacher\WellbeingController::class, 'index'])->name('wellbeing');
+    Route::post('/wellbeing/settings', [\App\Http\Controllers\Teacher\WellbeingController::class, 'settings'])->name('wellbeing.settings');
+    Route::post('/wellbeing/{student}/reset', [\App\Http\Controllers\Teacher\WellbeingController::class, 'reset'])->name('wellbeing.reset');
+    Route::get('/weekly-reports', [\App\Http\Controllers\Teacher\WeeklyReportController::class, 'index'])->name('weekly');
+    Route::post('/weekly-reports/settings', [\App\Http\Controllers\Teacher\WeeklyReportController::class, 'settings'])->name('weekly.settings');
+    Route::post('/weekly-reports/build', [\App\Http\Controllers\Teacher\WeeklyReportController::class, 'build'])->middleware('throttle:20,1')->name('weekly.build');
+    Route::post('/weekly-reports/send', [\App\Http\Controllers\Teacher\WeeklyReportController::class, 'send'])->middleware('throttle:20,1')->name('weekly.send');
+    Route::patch('/weekly-reports/{report}', [\App\Http\Controllers\Teacher\WeeklyReportController::class, 'update'])->name('weekly.update');
+    Route::get('/live', [\App\Http\Controllers\Teacher\LiveContestController::class, 'index'])->name('live');
+    Route::post('/live', [\App\Http\Controllers\Teacher\LiveContestController::class, 'store'])->name('live.store');
+    Route::get('/live/import', [\App\Http\Controllers\Teacher\LiveContestController::class, 'import'])->name('live.import');
+    Route::get('/live/{contest}/host', [\App\Http\Controllers\Teacher\LiveContestController::class, 'host'])->name('live.host');
+    Route::get('/live/{contest}/state', [\App\Http\Controllers\Teacher\LiveContestController::class, 'state'])->middleware('throttle:200,1')->name('live.state');
+    Route::post('/live/{contest}/go', [\App\Http\Controllers\Teacher\LiveContestController::class, 'go'])->name('live.go');
+    Route::delete('/live/{contest}', [\App\Http\Controllers\Teacher\LiveContestController::class, 'destroy'])->name('live.destroy');
+    Route::get('/audio', [\App\Http\Controllers\Teacher\AudioTaskController::class, 'index'])->name('audio');
+    Route::post('/audio', [\App\Http\Controllers\Teacher\AudioTaskController::class, 'store'])->middleware('throttle:20,1')->name('audio.store');
+    Route::get('/audio/{task}', [\App\Http\Controllers\Teacher\AudioTaskController::class, 'show'])->name('audio.show');
+    Route::post('/audio/{task}/publish', [\App\Http\Controllers\Teacher\AudioTaskController::class, 'publish'])->name('audio.publish');
+    Route::delete('/audio/{task}', [\App\Http\Controllers\Teacher\AudioTaskController::class, 'destroy'])->name('audio.destroy');
     Route::get('/worksheet-inbox', [\App\Http\Controllers\Teacher\WorksheetController::class, 'inbox'])->name('worksheets.inbox');
     Route::get('/worksheets/{worksheet}', [\App\Http\Controllers\Teacher\WorksheetController::class, 'show'])->name('worksheets.show');
     Route::post('/worksheets/{worksheet}/publish', [\App\Http\Controllers\Teacher\WorksheetController::class, 'publish'])->name('worksheets.publish');
@@ -418,6 +459,13 @@ Route::middleware('auth')->group(function () {
     // کاربرگِ پرشده: فایل از مسیرِ خودِ سایت (نه لینکِ مستقیم) + تصحیحِ معلم
     Route::get('/worksheet-files/{submission}/{which?}', [\App\Http\Controllers\WorksheetSubmissionController::class, 'file'])
         ->whereIn('which', ['file', 'marked'])->name('worksheet.file');
+    // املا و روخوانی: فایل‌ها از مسیرِ سایت + تصحیح
+    Route::get('/audio-files/{submission}/{which?}', [\App\Http\Controllers\AudioSubmissionController::class, 'file'])
+        ->whereIn('which', ['file', 'marked'])->name('audio.file');
+    Route::get('/audio-task-audio/{task}', [\App\Http\Controllers\AudioSubmissionController::class, 'taskAudio'])->name('audio.task-audio');
+    Route::get('/audio-task-sentence/{task}/{i}', [\App\Http\Controllers\AudioSubmissionController::class, 'sentence'])->whereNumber('i')->name('audio.sentence');
+    Route::post('/audio-submissions/{submission}/grade', [\App\Http\Controllers\AudioSubmissionController::class, 'grade'])
+        ->middleware('throttle:60,1')->name('audio.grade');
     // خودِ کاربرگ (خالی): عکس/فایلِ معلم — هم از مسیرِ سایت تا 403 نگیرد
     Route::get('/worksheet-sheet/{worksheet}/{which}', [\App\Http\Controllers\WorksheetSubmissionController::class, 'sheet'])
         ->whereIn('which', ['file', 'image'])->name('worksheet.sheet');

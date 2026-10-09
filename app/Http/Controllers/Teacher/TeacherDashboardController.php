@@ -18,6 +18,8 @@ class TeacherDashboardController extends Controller
     {
         $teacher = $request->user();
         app(\App\Services\BirthdayService::class)->runForSchool($teacher->school_id);
+        // گزارشِ هفتگیِ والدین سرِ موعد (بعد از پاسخ، حداکثر هر ۳۰ دقیقه یک بار برای هر مدرسه)
+        \Illuminate\Support\defer(fn () => rescue(fn () => app(\App\Services\WeeklyReportService::class)->runDue($teacher->school_id), null, false));
 
         $classrooms = Classroom::withCount('students')
             ->where('teacher_id', $teacher->id)

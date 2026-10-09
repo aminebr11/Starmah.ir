@@ -7,7 +7,7 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
  * فهرستِ کاربرگ‌های پرشده با عکسِ کوچک + فیلترِ «منتظرِ تصحیح / تصحیح‌شده» (و در صندوقِ کلی،
  * فیلترِ هر کاربرگ). بازکردنِ هر کدام نمایشگرِ تصحیح را باز می‌کند؛ ✕ دوباره به همین فهرست برمی‌گردد.
  */
-export default function SubmissionsBoard({ initial = [], grades = {}, maxXp = 50, worksheets = null }) {
+export default function SubmissionsBoard({ initial = [], grades = {}, maxXp = 50, worksheets = null, audio = null }) {
     const [list, setList] = useState(initial);
     const [open, setOpen] = useState(() => {
         // از اعلانِ زنگوله (?sub=…) همان کاربرگ مستقیم باز شود
@@ -53,21 +53,21 @@ export default function SubmissionsBoard({ initial = [], grades = {}, maxXp = 50
                 <div className="ws-subs">
                     {shown.map((s, k) => (
                         <button key={s.id} type="button" className="ws-sub" onClick={() => setOpen({ items: shown, index: k })}>
-                            <div className="ws-sub-thumb" style={!s.pdf ? { backgroundImage: `url("${s.marked_url || s.url}")` } : undefined}>
-                                {s.pdf && '📄'}
-                                <span className={`ws-sub-badge ${s.graded ? 'done' : ''}`}>{s.graded ? `✅ ${s.grade || 'تصحیح شد'}` : '⏳ تصحیح نشده'}</span>
+                            <div className="ws-sub-thumb" style={!s.pdf && !s.audio ? { backgroundImage: `url("${s.marked_url || s.url}")` } : undefined}>
+                                {s.pdf && '📄'}{s.audio && '🎙️'}
+                                <span className={`ws-sub-badge ${s.graded ? 'done' : ''}`}>{s.graded ? `✅ ${s.grade || (s.score != null ? `${fa(s.score)} از ۲۰` : 'تصحیح شد')}` : '⏳ تصحیح نشده'}</span>
                             </div>
                             <div className="ws-sub-b">
                                 <b>👤 {s.student}</b>
                                 {s.worksheet && worksheets && <span style={{ display: 'block' }}>📄 {s.worksheet}</span>}
-                                <span>{s.date}{s.graded && s.xp > 0 ? ` · ⚡ ${fa(s.xp)}` : ''}</span>
+                                <span>{s.date}{s.graded && s.xp > 0 ? ` · ⚡ ${fa(s.xp)}` : ''}{s.plays > 0 ? ` · 🎧 ${fa(s.plays)} بار شنید` : ''}</span>
                             </div>
                         </button>
                     ))}
                 </div>
             )}
             {open && (
-                <SubmissionViewer items={open.items} index={open.index} canGrade grades={grades} maxXp={maxXp}
+                <SubmissionViewer items={open.items} index={open.index} canGrade grades={grades} maxXp={maxXp} audio={audio}
                     onSaved={saved} onClose={() => setOpen(null)} />
             )}
         </>

@@ -61,5 +61,5 @@ export const MENU_ICON = {
     examreports: 'chart', familynotes: 'lock', messages: 'msg', sms: 'send', notices: 'bell', announcements: 'megaphone',
     schools: 'school', plans: 'file', curriculum: 'book', themes: 'palette', 'game-templates': 'game', 'smart-lab': 'spark',
     integrations: 'settings', settings: 'settings', profile: 'user', users: 'users', birthdays: 'gift',
-    practice: 'target', gameworld: 'game', report: 'chart', team: 'trophy', board: 'trophy', content: 'book', homework: 'file', family: 'lock',
+    practice: 'target', gameworld: 'game', report: 'chart', team: 'trophy', board: 'trophy', content: 'book', homework: 'file', family: 'lock', audio: 'headphones', listen: 'headphones', live: 'trophy', weekly: 'send', early: 'bell', wellbeing: 'heart',
 };

@@ -10,13 +10,13 @@ const lightPanel = { background: '#fff', color: '#1a2440', borderRadius: 18, pad
 
 /** «بخشِ والدین» — پشتِ رمزِ والدین: گزارشِ محرمانه + پیام‌های معلم/مدیر + پاسخِ والد. */
 export default function Family() {
-    const { unlocked = false, hasPin = true, report = null, notes = [], flash } = usePage().props;
+    const { unlocked = false, hasPin = true, report = null, notes = [], screen = null, flash } = usePage().props;
     const [banner, setBanner] = useState(null);
     useEffect(() => { if (flash?.flash) setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); }, [flash]);
 
     return (
         <ThemedDash title="بخشِ والدین" active="family">
-            {!unlocked ? <LockScreen hasPin={hasPin} /> : <ParentArea r={report} notes={notes} banner={banner} />}
+            {!unlocked ? <LockScreen hasPin={hasPin} /> : <ParentArea r={report} notes={notes} banner={banner} screen={screen} />}
         </ThemedDash>
     );
 }
@@ -57,7 +57,7 @@ function LockScreen({ hasPin }) {
 }
 
 /* ---------- ناحیه‌ی بازشده‌ی والدین ---------- */
-function ParentArea({ r, notes, banner }) {
+function ParentArea({ r, notes, banner, screen }) {
     const reply = useForm({ body: '' });
     const send = (e) => { e.preventDefault(); reply.post(route('family.reply'), { preserveScroll: true, onSuccess: () => reply.setData('body', '') }); };
     const weekDelta = r ? r.week_xp - r.prev_week_xp : 0;
@@ -71,6 +71,8 @@ function ParentArea({ r, notes, banner }) {
             </div>
             {banner && <div style={{ ...card, borderColor: 'rgba(43,182,115,.5)', marginBottom: 12, padding: '10px 14px' }}><b>{banner}</b></div>}
 
+            {screen && <ScreenTimeCard s={screen} />}
+
             {/* پیام‌های محرمانه */}
             <div style={{ ...lightPanel, marginBottom: 14 }}>
                 <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 4 }}>💌 پیام‌های محرمانه‌ی معلم و مدیر</div>
@@ -78,7 +80,7 @@ function ParentArea({ r, notes, banner }) {
                 {notes.length === 0 && <div style={{ color: '#6b7794', fontSize: 13 }}>هنوز پیامی ارسال نشده است.</div>}
                 <div style={{ display: 'grid', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
                     {notes.map((n) => (
-                        <div key={n.id} style={{ borderRadius: 12, padding: '10px 13px', fontSize: 13.5, lineHeight: 1.9,
+                        <div key={n.id} style={{ borderRadius: 12, padding: '10px 13px', fontSize: 13.5, lineHeight: 1.9, whiteSpace: 'pre-line',
                             background: n.from_parent ? '#eef7ff' : '#fff8e8',
                             border: `1px solid ${n.from_parent ? '#cfe3fa' : '#f3ddaa'}` }}>
                             <div style={{ display: 'flex', gap: 8, fontSize: 12, color: '#6b7794', marginBottom: 3 }}>
@@ -160,6 +162,38 @@ function MiniStat({ l, v, sub, tone }) {
         <div style={{ ...card, padding: '11px 14px' }}>
             <div style={{ fontSize: 11.5, opacity: .75 }}>{l}</div>
             <div style={{ fontWeight: 900, fontSize: 18, color: c }}>{v} {sub && <small style={{ fontSize: 11, opacity: .9 }}>{sub}</small>}</div>
+        </div>
+    );
+}
+
+/* ---------- ⏱️ زمانِ استفاده (سلامتِ دیجیتال) — فقط برای والدین ---------- */
+function ScreenTimeCard({ s }) {
+    const l = s.limits;
+    const f = useForm({ daily: l.parent_daily || 0, session: l.parent_session || 0, reset: false });
+    const opts = (max) => [0, 15, 20, 30, 45, 60, 90, 120].filter((m) => m === 0 || !max || m <= max);
+    const save = (reset) => { f.transform((d) => ({ ...d, reset })); f.post(route('family.screen'), { preserveScroll: true }); };
+    return (
+        <div style={{ ...lightPanel, marginBottom: 14 }}>
+            <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 4 }}>⏱️ زمانِ استفاده‌ی امروز: {fa(Math.round(s.used / 60))} دقیقه</div>
+            <div style={{ color: '#6b7794', fontSize: 12.5, lineHeight: 1.9, marginBottom: 10 }}>
+                سقفِ معلم: روزانه {l.class_daily ? `${fa(l.class_daily)} دقیقه` : 'ندارد'} · هر بار حضور {l.class_session ? `${fa(l.class_session)} دقیقه` : 'ندارد'}
+                {l.break_every ? ` · یادآوریِ استراحت هر ${fa(l.break_every)} دقیقه` : ''}.
+                شما می‌توانید سقفی <b>کمتر</b> از سقفِ معلم بگذارید.
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'end' }}>
+                <label style={{ display: 'grid', gap: 4, fontSize: 12.5, fontWeight: 700 }}>سقفِ روزانه‌ی شما
+                    <select className="input" value={f.data.daily} onChange={(e) => f.setData('daily', Number(e.target.value))}>
+                        {opts(l.class_daily).map((m) => <option key={m} value={m}>{m ? `${fa(m)} دقیقه` : 'همان سقفِ معلم'}</option>)}
+                    </select>
+                </label>
+                <label style={{ display: 'grid', gap: 4, fontSize: 12.5, fontWeight: 700 }}>هر بار حضور
+                    <select className="input" value={f.data.session} onChange={(e) => f.setData('session', Number(e.target.value))}>
+                        {opts(l.class_session).map((m) => <option key={m} value={m}>{m ? `${fa(m)} دقیقه` : 'همان سقفِ معلم'}</option>)}
+                    </select>
+                </label>
+                <button type="button" className="btn btn-sm" disabled={f.processing} onClick={() => save(false)}>💾 ذخیره</button>
+                <button type="button" className="btn btn-sm btn-ghost" disabled={f.processing} onClick={() => save(true)}>🔄 صفر کردنِ زمانِ امروز</button>
+            </div>
         </div>
     );
 }

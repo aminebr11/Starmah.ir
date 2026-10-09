@@ -31,6 +31,12 @@ class ParentHomeController extends Controller
             'report' => $child ? $analytics->childReport($child) : null,
             // روندِ هفته‌به‌هفته‌ی امتیاز و رتبه (نمودارِ کارنامه)
             'pointsTrend' => $child ? app(\App\Services\PointsAnalytics::class)->studentTrend($child) : null,
+            // «📬 گزارشِ هفتگی» + «۱۰ دقیقه با فرزندم»
+            'weekly' => $child && \App\Models\WeeklyReport::ready()
+                ? \App\Models\WeeklyReport::where('student_id', $child->id)->where('status', 'sent')->latest('week_start')->limit(4)->get()
+                    ->map(fn ($w) => ['id' => $w->id, 'range' => ($w->data['from'] ?? '') . ' تا ' . ($w->data['to'] ?? ''), 'highlights' => $w->data['highlights'] ?? [],
+                        'note' => $w->teacher_note, 'activity' => $w->activity])->values()
+                : [],
         ]);
     }
 }

@@ -1,15 +1,17 @@
 import { router } from '@inertiajs/react';
+import { handleWellbeing } from './wellbeing';
 
 /**
  * ضربانِ حضور — هر دقیقه، فقط وقتی کاربر وارد شده و صفحه جلوی چشمش است.
- * «آنلاین‌بودن» و «زمانِ فعال» در گزارشِ بازدیدها از همین می‌آید.
+ * «آنلاین‌بودن» و «زمانِ فعال» در گزارشِ بازدیدها از همین می‌آید؛
+ * برای دانش‌آموز پاسخ، وضعیتِ «سلامتِ دیجیتال» (استراحت/سقفِ زمان) را هم دارد.
  */
 let authed = false;
 let timer = null;
 
 function beat() {
     if (!authed || document.visibilityState !== 'visible') return;
-    window.axios?.post('/presence').catch(() => {});
+    window.axios?.post('/presence').then((r) => { if (r?.data?.wellbeing) handleWellbeing(r.data.wellbeing); }).catch(() => {});
 }
 
 export function initPresence(initialPage) {

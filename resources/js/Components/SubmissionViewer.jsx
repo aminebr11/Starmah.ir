@@ -19,7 +19,7 @@ const TOOLS = [
  *   علامت‌ها روی خودِ عکس ذخیره می‌شوند و دانش‌آموز همان برگه‌ی تصحیح‌شده را می‌بیند.
  * - جابه‌جایی بینِ کاربرگ‌های بچه‌ها با «قبلی/بعدی».
  */
-export default function SubmissionViewer({ items, index = 0, onClose, canGrade = false, grades = {}, maxXp = 50, onSaved }) {
+export default function SubmissionViewer({ items, index = 0, onClose, canGrade = false, grades = {}, maxXp = 50, onSaved, audio = null }) {
     const [i, setI] = useState(index);
     const [list, setList] = useState(false);
     const [toast, setToast] = useState(null);
@@ -73,7 +73,7 @@ export default function SubmissionViewer({ items, index = 0, onClose, canGrade =
                     </div>
                 </div>
             )}
-            <Sheet key={item.id} item={item} canGrade={canGrade} grades={grades} maxXp={maxXp}
+            <Sheet key={item.id} item={item} canGrade={canGrade} grades={grades} maxXp={maxXp} audio={audio}
                 onSaved={(s) => {
                     onSaved?.(s);
                     const next = items.findIndex((x, k) => k > i && !x.graded);
@@ -86,7 +86,11 @@ export default function SubmissionViewer({ items, index = 0, onClose, canGrade =
     );
 }
 
-function Sheet({ item, canGrade, grades, maxXp, onSaved }) {
+/**
+ * audio (اختیاری): «املا/روخوانی» — {kind, score_type, penalty, text, gradeUrl}
+ * به‌جای امتیازِ دستی، نمره‌ی توصیفی/عددی و «تعدادِ غلط» ثبت می‌شود (امتیاز از قاعده‌ی دفترِ نمره).
+ */
+function Sheet({ item, canGrade, grades, maxXp, onSaved, audio = null }) {
     const [tool, setTool] = useState(null);          // null = فقط دیدن/بزرگ‌نمایی
     const [marks, setMarks] = useState([]);         // در مختصاتِ طبیعیِ عکس
     const [showOriginal, setShowOriginal] = useState(false);
@@ -95,6 +99,17 @@ function Sheet({ item, canGrade, grades, maxXp, onSaved }) {
     const [grade, setGrade] = useState(item.grade || '');
     const [xp, setXp] = useState(item.graded ? item.xp : 0);
     const [feedback, setFeedback] = useState(item.feedback || '');
+    const [mistakes, setMistakes] = useState(item.mistakes ?? '');
+    const [score, setScore] = useState(item.score ?? '');
+    const [showText, setShowText] = useState(false);
+    const gradeList = Array.isArray(grades) ? grades : Object.keys(grades);
+    // تعدادِ غلط → نمره‌ی پیشنهادی (همان قاعده‌ی سرور)
+    const suggest = (m) => {
+        const n = Math.max(0, Number(m) || 0);
+        setGrade(n <= 1 ? 'خیلی خوب' : n <= 3 ? 'خوب' : n <= 6 ? 'قابل قبول' : 'نیاز به تلاش');
+        setScore(Math.max(0, Math.round((20 - n * (audio?.penalty || 0.5)) * 100) / 100));
+    };
+    const setMist = (v) => { setMistakes(v); if (v !== '') suggest(v); };
     const [busy, setBusy] = useState(false);
     const [msg, setMsg] = useState(null);
     const [failed, setFailed] = useState(false);
@@ -155,15 +170,20 @@ function Sheet({ item, canGrade, grades, maxXp, onSaved }) {
         setBusy(true); setMsg(null);
         try {
             const fd = new FormData();
-            fd.append('xp', String(Math.max(0, Math.min(maxXp, Number(xp) || 0))));
-            if (grade) fd.append('grade', grade);
+            if (audio) {
+                if (mistakes !== '' && mistakes !== null) fd.append('mistakes', String(Math.max(0, Number(mistakes) || 0)));
+                if (audio.score_type === 'numeric' && score !== '' && score !== null) fd.append('score', String(score));
+            } else {
+                fd.append('xp', String(Math.max(0, Math.min(maxXp, Number(xp) || 0))));
+            }
+            if (grade && (!audio || audio.score_type !== 'numeric')) fd.append('grade', grade);
             if (feedback.trim()) fd.append('feedback', feedback.trim());
             if (marks.length && size && !item.pdf) {
                 const blob = await composite(imgRef.current, size, marks);
                 if (blob) fd.append('marked', blob, 'marked.jpg');
             }
-            const { data } = await axios.post(route('worksheet.grade', item.id), fd);
-            setMsg({ ok: true, text: '✅ تصحیح ثبت شد' + (Number(xp) > 0 ? ` و ${fa(xp)} امتیاز به دانش‌آموز رسید` : '') });
+            const { data } = await axios.post(audio ? audio.gradeUrl(item) : route('worksheet.grade', item.id), fd);
+            setMsg({ ok: true, text: audio ? '✅ نمره ثبت شد و در دفترِ نمره رفت' : '✅ تصحیح ثبت شد' + (Number(xp) > 0 ? ` و ${fa(xp)} امتیاز به دانش‌آموز رسید` : '') });
             setMarks([]);
             setShowOriginal(false);
             onSaved?.(data.submission);
@@ -172,12 +192,19 @@ function Sheet({ item, canGrade, grades, maxXp, onSaved }) {
         } finally { setBusy(false); }
     };
 
-    const pickGrade = (g) => { setGrade(g); setXp(grades[g] ?? xp); };
+    const pickGrade = (g) => { setGrade(g); if (!audio) setXp(grades[g] ?? xp); };
 
     return (
         <div className={`sv-body ${canGrade ? 'with-panel' : ''}`}>
             <div className={`sv-stage ${zoom ? 'zoom' : ''} ${tool ? 'drawing' : ''}`}>
-                {item.pdf ? (
+                {item.audio ? (
+                    <div className="sv-audio">
+                        <div className="sv-audio-ic">🎙️</div>
+                        <b>صدای {item.student || 'دانش‌آموز'}</b>
+                        <audio controls preload="metadata" src={item.url} />
+                        {audio?.text && <div className="sv-reading-text">{audio.text}</div>}
+                    </div>
+                ) : item.pdf ? (
                     <div className="sv-pdf">
                         <iframe title="کاربرگ" src={item.url} />
                         <a href={item.url} target="_blank" rel="noreferrer" className="btn btn-sm">📄 بازکردنِ PDF در برنامه‌ی دیگر</a>
@@ -198,7 +225,7 @@ function Sheet({ item, canGrade, grades, maxXp, onSaved }) {
 
             {canGrade ? (
                 <aside className="sv-panel">
-                    {!item.pdf && !failed && (
+                    {!item.pdf && !item.audio && !failed && (
                         <div className="sv-tools">
                             <button type="button" className={!tool ? 'on' : ''} onClick={() => setTool(null)} title="دیدن و بزرگ‌نمایی">🔍</button>
                             {TOOLS.map((t) => (
@@ -214,30 +241,65 @@ function Sheet({ item, canGrade, grades, maxXp, onSaved }) {
                     )}
                     {tool && <div className="sv-hint">{tool === 'pen' ? 'روی برگه بکشید' : 'روی جای جواب ضربه بزنید'}</div>}
 
-                    <div className="sv-grades">
-                        {Object.keys(grades).map((g) => (
-                            <button key={g} type="button" className={grade === g ? 'on' : ''} onClick={() => pickGrade(g)}>{g}</button>
-                        ))}
-                    </div>
-                    <label className="sv-xp">
-                        <span>امتیاز</span>
-                        <button type="button" onClick={() => setXp(Math.max(0, (Number(xp) || 0) - 1))}>−</button>
-                        <input type="number" inputMode="numeric" min="0" max={maxXp} value={xp} onChange={(e) => setXp(e.target.value)} />
-                        <button type="button" onClick={() => setXp(Math.min(maxXp, (Number(xp) || 0) + 1))}>+</button>
-                    </label>
+                    {audio?.kind === 'dictation' && audio.text && (
+                        <div className="sv-ref">
+                            <button type="button" onClick={() => setShowText(!showText)}>{showText ? '🙈 پنهان‌کردنِ متنِ املا' : '📄 دیدنِ متنِ املا برای مقایسه'}</button>
+                            {showText && <div className="sv-reading-text small">{audio.text}</div>}
+                        </div>
+                    )}
+                    {audio?.kind === 'dictation' && (
+                        <label className="sv-xp">
+                            <span>تعدادِ غلط</span>
+                            <button type="button" onClick={() => setMist(Math.max(0, (Number(mistakes) || 0) - 1))}>−</button>
+                            <input type="number" inputMode="numeric" min="0" value={mistakes} onChange={(e) => setMist(e.target.value)} />
+                            <button type="button" onClick={() => setMist((Number(mistakes) || 0) + 1)}>+</button>
+                        </label>
+                    )}
+                    {(!audio || audio.score_type !== 'numeric') && (
+                        <div className="sv-grades">
+                            {gradeList.map((g) => (
+                                <button key={g} type="button" className={grade === g ? 'on' : ''} onClick={() => pickGrade(g)}>{g}</button>
+                            ))}
+                        </div>
+                    )}
+                    {audio?.score_type === 'numeric' && (
+                        <label className="sv-xp">
+                            <span>نمره از ۲۰</span>
+                            <button type="button" onClick={() => setScore(Math.max(0, (Number(score) || 0) - 0.25))}>−</button>
+                            <input type="number" inputMode="decimal" step="0.25" min="0" max="20" value={score} onChange={(e) => setScore(e.target.value)} />
+                            <button type="button" onClick={() => setScore(Math.min(20, (Number(score) || 0) + 0.25))}>+</button>
+                        </label>
+                    )}
+                    {audio?.kind === 'reading' && (
+                        <div className="sv-quick">
+                            {['روان و رسا 🌟', 'مکث‌های زیاد', 'چند کلمه را اشتباه خواند', 'نشانه‌ها را رعایت کن', 'بلندتر و شمرده‌تر بخوان'].map((q) => (
+                                <button key={q} type="button" onClick={() => setFeedback((f) => (f ? f + ' ' : '') + q)}>{q}</button>
+                            ))}
+                        </div>
+                    )}
+                    {!audio && (
+                        <label className="sv-xp">
+                            <span>امتیاز</span>
+                            <button type="button" onClick={() => setXp(Math.max(0, (Number(xp) || 0) - 1))}>−</button>
+                            <input type="number" inputMode="numeric" min="0" max={maxXp} value={xp} onChange={(e) => setXp(e.target.value)} />
+                            <button type="button" onClick={() => setXp(Math.min(maxXp, (Number(xp) || 0) + 1))}>+</button>
+                        </label>
+                    )}
                     <textarea rows={2} maxLength={500} placeholder="توضیحِ شما برای دانش‌آموز (اختیاری)" value={feedback} onChange={(e) => setFeedback(e.target.value)} />
                     <div className="sv-quick">
                         {QUICK.map((q) => <button key={q} type="button" onClick={() => setFeedback((f) => (f ? f + ' ' : '') + q)}>{q}</button>)}
                     </div>
                     {msg && <div className={`sv-msg ${msg.ok ? 'ok' : 'bad'}`}>{msg.text}</div>}
                     <button type="button" className="btn sv-save" onClick={save} disabled={busy}>
-                        {busy ? 'در حالِ ثبت…' : item.graded ? '💾 به‌روزرسانیِ تصحیح' : '💾 ثبتِ تصحیح و امتیاز'}
+                        {busy ? 'در حالِ ثبت…' : item.graded ? '💾 به‌روزرسانیِ تصحیح' : audio ? '💾 ثبتِ نمره در دفتر' : '💾 ثبتِ تصحیح و امتیاز'}
                     </button>
                     {item.note && <div className="sv-note">📝 یادداشتِ دانش‌آموز: {item.note}</div>}
                 </aside>
             ) : (item.graded || item.feedback) && (
                 <aside className="sv-panel sv-result">
                     {item.grade && <div className="sv-grade-big">{item.grade}</div>}
+                    {item.score !== null && item.score !== undefined && item.score !== '' && <div className="sv-grade-big">{fa(item.score)} از ۲۰</div>}
+                    {item.mistakes !== null && item.mistakes !== undefined && <div>✏️ تعدادِ غلط: {fa(item.mistakes)}</div>}
                     {item.xp > 0 && <div>⚡ {fa(item.xp)} امتیاز</div>}
                     {item.feedback && <div className="sv-feedback">💬 {item.feedback}</div>}
                     {item.marked_url && (

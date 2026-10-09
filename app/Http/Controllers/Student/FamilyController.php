@@ -56,6 +56,10 @@ class FamilyController extends Controller
                 ])->values();
         }
 
+        if ($unlocked && \App\Models\ScreenTime::ready()) {
+            $payload['screen'] = rescue(fn () => app(\App\Services\WellbeingService::class)->status($user), null, false);
+        }
+
         return Inertia::render('Student/Family', $payload);
     }
 

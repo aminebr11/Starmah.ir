@@ -9,7 +9,7 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
 
 /** داشبوردِ والد — «وضعیتِ فرزندِ من» با نمودارهای BI و توصیه‌ی قابل‌فهم. */
 export default function Dashboard() {
-    const { children = [], selectedId, report, pointsTrend = null } = usePage().props;
+    const { children = [], selectedId, report, pointsTrend = null, weekly = [] } = usePage().props;
     const pick = (id) => router.get(route('parent.home'), { child: id }, { preserveScroll: true });
 
     if (!children.length) {
@@ -141,6 +141,27 @@ export default function Dashboard() {
                             <h3 style={{ margin: '0 0 10px' }}>🎯 تسلطِ درس‌به‌درس</h3>
                             <MasteryPanel data={r.mastery_detail} levels={r.mastery_levels} who="parent" />
                             {pointsTrend && <div style={{ marginTop: 14 }}><PointsTrend data={pointsTrend} title="📊 روندِ امتیاز و رتبه" /></div>}
+                        </div>
+                    )}
+                    {weekly.length > 0 && (
+                        <div style={{ marginTop: 16 }}>
+                            <h3 style={{ margin: '0 0 10px' }}>📬 گزارش‌های هفتگی</h3>
+                            <div className="wr-grid">
+                                {weekly.map((w) => (
+                                    <div key={w.id} className="wr-card">
+                                        <div className="wr-head"><b>{w.range}</b></div>
+                                        <ul className="wr-hl">{w.highlights.map((h, i) => <li key={i}>{h}</li>)}</ul>
+                                        {w.note && <div className="wr-act" style={{ background: '#eef7ff', borderColor: '#cfe3fa' }}>💬 {w.note}</div>}
+                                        {w.activity && (
+                                            <div className="wr-act">
+                                                <b>⏱️ ۱۰ دقیقه با فرزندم: {w.activity.emoji} {w.activity.title}</b>
+                                                <ol>{w.activity.steps.map((st, i) => <li key={i}>{st}</li>)}</ol>
+                                                <div>💡 {w.activity.tip}</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </>

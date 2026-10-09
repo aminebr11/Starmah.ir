@@ -32,7 +32,12 @@ class SchoolDashboardController extends Controller
             ->orderByDesc('xp_sum')->limit(5)->get()
             ->map(fn ($s) => ['name' => $s->name, 'avatar' => $s->avatar_url, 'xp' => $s->totalXp()])->values();
 
+        // «🚨 هشدارِ زودهنگام» (کش‌شده ۱۰ دقیقه) + خبرِ روزانه به مدیر
+        $warning = $schoolId ? rescue(fn () => app(\App\Services\EarlyWarningService::class)->forSchool($schoolId), null, true) : null;
+        if ($schoolId) \Illuminate\Support\defer(fn () => rescue(fn () => app(\App\Services\EarlyWarningService::class)->notifyDaily($schoolId), null, false));
+
         return Inertia::render('SchoolAdmin/Overview', [
+            'warning' => $warning ? ['counts' => $warning['counts'], 'top' => array_slice($warning['alerts'], 0, 3)] : null,
             'school' => $school ? array_merge(
                 $school->only('name', 'city', 'plan', 'status', 'seats'),
                 ['logo_url' => $school->logo ? \Illuminate\Support\Facades\Storage::url($school->logo) : null]

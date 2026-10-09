@@ -34,7 +34,11 @@ function PreviewRibbon({ preview }) {
  * لوگوی سایت بالا قرار دارد. ریسپانسیو.
  */
 export default function ThemedDash({ title, active = '', children, actions = null }) {
-    const { auth, theme, unreadNotices = 0, smartLab = false, avatarUrl = null, familyNew = 0, reviewDue = 0, preview = null, ui = 'classic' } = usePage().props;
+    const { auth, theme, unreadNotices = 0, smartLab = false, avatarUrl = null, familyNew = 0, reviewDue = 0, liveNow = null, preview = null, ui = 'classic' } = usePage().props;
+    // مسابقه‌ی زنده‌ای که همین حالا باز است → نوارِ «بپیوند»
+    const liveBar = liveNow && active !== 'live' ? (
+        <Link href={route('live.play', liveNow.id)} className="lv-now">🔴 مسابقه‌ی زنده: «{liveNow.title}» — بپیوند! ←</Link>
+    ) : null;
     const skin = theme?.skin ?? {};
     const vars = useMemo(() => cssVars(skin), [theme?.id]);
     const [open, setOpen] = useState(false);
@@ -45,6 +49,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
         { key: 'practice', label: 'مأموریت‌های من', icon: '🎯', href: '/missions' },
         { key: 'review', label: 'مرورِ اشتباه‌های من', icon: '🔁', href: '/review' },
         { key: 'gameworld', label: 'دنیای بازی‌ها', icon: '🎮', href: '/game-world' },
+        { key: 'live', label: 'مسابقه‌ی زنده', icon: '🏆', href: '/live' },
         ...(smartLab ? [{ key: 'smart', label: 'آزمون هوشمند 🧪', icon: '🧠', href: '/student/smart-exams' }] : []),
         { divider: 'عملکردِ من' },
         { key: 'report', label: 'کارنامه', icon: '📊', href: '/report' },
@@ -56,6 +61,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
         // تکالیف و کاربرگ‌ها تبی از «محتوای کلاس» هستند، نه منویی جدا
         { key: 'content', label: 'محتوای کلاس', icon: '📚', href: '/class-content' },
         { key: 'homework', label: 'تکالیف و کاربرگ', icon: '📝', href: '/class-content?tab=homework' },
+        { key: 'listen', label: 'املا و روخوانی', icon: '🎧', href: '/listen' },
         { key: 'schedule', label: 'برنامه کلاسی', icon: '🗓️', href: '/schedule' },
         { divider: 'ارتباط' },
         { key: 'messages', label: 'ارتباط با معلم', icon: '💬', href: '/messages' },
@@ -84,6 +90,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
                 menu={menu.filter((m) => m.divider !== null && m.key !== 'profile')} active={active} actions={actions}
                 kids kidsStyle={{ ...vars }} bottomKeys={bottomNav.map((m) => m.key)} badges={{ family: familyNew, review: reviewDue }}
                 ribbon={preview ? <PreviewRibbon preview={preview} /> : null} locked={!!preview}>
+                {liveBar}
                 {children}
             </ClayDash>
         );
@@ -150,6 +157,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
                         </button>
                     </div>
                 </div>
+                {liveBar}
                 {children}
             </main>
 

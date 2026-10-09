@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\HandleInertiaRequests::class,
             \App\Http\Middleware\EnsurePasswordChanged::class,
+            \App\Http\Middleware\EnforceScreenTime::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
             \App\Http\Middleware\TrackVisit::class,
         ]);

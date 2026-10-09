@@ -17,6 +17,8 @@ class DashboardController extends Controller
     {
         $user = $request->user();
         app(\App\Services\BirthdayService::class)->runForSchool($user->school_id);
+        // گزارشِ هفتگیِ والدین سرِ موعد (بعد از پاسخ، حداکثر هر ۳۰ دقیقه یک بار برای هر مدرسه)
+        if ($user->school_id) \Illuminate\Support\defer(fn () => rescue(fn () => app(\App\Services\WeeklyReportService::class)->runDue($user->school_id), null, false));
         $theme = $engine->for($user);
         $classroom = $user->classrooms()->with('teacher')->first();
 

@@ -6,7 +6,7 @@ import { useSort, SortTh } from '@/lib/useSort';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
 export default function Overview() {
-    const { auth, school, stats = {}, classes = [], topStudents = [], flash } = usePage().props;
+    const { auth, school, stats = {}, classes = [], topStudents = [], flash, warning = null } = usePage().props;
     const name = auth?.user?.name || 'مدیر';
     const cs = useSort(classes, { name: 'name', teacher: 'teacher', students: 'students', code: 'code' }, { id: 'school-overview-classes', firstDir: { students: 'desc' } });
     const fileRef = useRef(null);
@@ -37,6 +37,20 @@ export default function Overview() {
     return (
         <DashLayout title={`پیشخوان مدرسه${school ? ` — ${school.name}` : ''}`} roleLabel="مدیر مدرسه" menu={schoolMenu} active="home"
             actions={<Link href={route('school.teachers')} className="btn btn-sm">➕ معلم جدید</Link>}>
+
+            {/* 🚨 هشدارِ زودهنگام */}
+            {warning && (
+                <Link href={route('school.early.warning')} className={`ew-card ${warning.counts.crit ? 'crit' : warning.counts.warn ? 'warn' : 'ok'}`}>
+                    <span className="ew-card-ic">{warning.counts.crit ? '🚨' : warning.counts.warn ? '⚠️' : '✅'}</span>
+                    <span className="ew-card-b">
+                        <b>هشدارِ زودهنگام</b>
+                        {warning.counts.crit + warning.counts.warn === 0
+                            ? <small>همه‌ی کلاس‌ها روالِ عادی دارند؛ افتِ مشارکت یا تسلطی دیده نشد.</small>
+                            : <small>{warning.top.map((a) => `${a.classroom}: ${a.title}`).join(' · ')}</small>}
+                    </span>
+                    <span className="ew-card-n">{warning.counts.crit > 0 && <em className="crit">{fa(warning.counts.crit)} جدی</em>}{warning.counts.warn > 0 && <em className="warn">{fa(warning.counts.warn)} مهم</em>} ←</span>
+                </Link>
+            )}
 
             {/* خوش‌آمد + پلن */}
             <div className="panel" style={{ background: 'linear-gradient(135deg,#16264f,#0a1836)', border: 0, color: '#fff' }}>
