@@ -10,7 +10,7 @@ const clock = (s) => {
 
 /** دانش‌آموز: فهرستِ «🏆 مسابقه‌های زنده». */
 export default function LiveContests() {
-    const { contests = [] } = usePage().props;
+    const { contests = [], history = [] } = usePage().props;
     const t0 = useMemo(() => Date.now(), [contests]); // eslint-disable-line react-hooks/exhaustive-deps
     const [, tick] = useState(0);
     // شمارشِ معکوس زنده + تازه‌سازیِ فهرست (مسابقه سرِ ساعت «الان!» می‌شود)
@@ -30,6 +30,7 @@ export default function LiveContests() {
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 900, fontSize: 16 }}>{c.title}</div>
                 <div style={{ fontSize: 12.5, opacity: .85 }}>{fa(c.questions)} سؤال · {c.when ? `🗓️ ${c.when}` : c.date}</div>
+                {c.ends && c.phase !== 'end' && <div className="lv-left" style={{ color: '#ffb3b3' }}>🏁 پایان: {c.ends}</div>}
                 {c.phase === 'lobby' && left(c) != null && <div className="lv-left">⏳ {left(c) > 0 ? <>شروع تا <b>{clock(left(c))}</b></> : 'الان شروع می‌شود؛ وارد شو!'}</div>}
                 {c.phase === 'end' && c.score != null && <div style={{ fontWeight: 800, marginTop: 3 }}>رتبه‌ی {fa(c.rank)} · {fa(c.score)} امتیاز · {fa(c.correct)} درست</div>}
             </div>
@@ -52,6 +53,30 @@ export default function LiveContests() {
             {now.length > 0 && <><h3 className="lv-sh">🔴 همین الان</h3><div className="lt-list">{now.map((c) => <Card key={c.id} c={c} />)}</div></>}
             {soon.length > 0 && <><h3 className="lv-sh">⏳ به‌زودی</h3><div className="lt-list">{soon.map((c) => <Card key={c.id} c={c} />)}</div></>}
             {past.length > 0 && <><h3 className="lv-sh">🏁 مسابقه‌های قبلی</h3><div className="lt-list">{past.map((c) => <Card key={c.id} c={c} />)}</div></>}
+            {history.length > 0 && (
+                <>
+                    <h3 className="lv-sh">📜 سوابقِ من (هر مسابقه و هر دور)</h3>
+                    <div className="lv-hist">
+                        {history.map((h) => (
+                            <div key={h.id} className="k3-card lv-hrow">
+                                <div className="lv-hmedal">{h.rank === 1 ? '🥇' : h.rank === 2 ? '🥈' : h.rank === 3 ? '🥉' : '🏅'}</div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <b>{h.title}{h.round > 1 ? ` · دورِ ${fa(h.round)}` : ''}</b>
+                                    <small>{h.date}</small>
+                                    <div className="lv-hstats">
+                                        <span>رتبه‌ی {fa(h.rank)} از {fa(h.players)}</span>
+                                        <span>⭐ {fa(h.score)}</span>
+                                        <span>✅ {fa(h.correct)}/{fa(h.total)}</span>
+                                        <span>🎯 {fa(h.accuracy)}٪</span>
+                                        {h.best_streak > 1 && <span>🔥 {fa(h.best_streak)}</span>}
+                                        {h.xp > 0 && <span>+{fa(h.xp)} امتیاز</span>}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
         </ThemedDash>
     );
 }

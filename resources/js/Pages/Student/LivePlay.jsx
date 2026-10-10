@@ -33,7 +33,7 @@ export default function LivePlay({ contest }) {
     const load = useCallback(async () => {
         try {
             const { data } = await axios.get(route('live.poll', contest.id));
-            got.current = { at: performance.now(), remaining: data.remaining, lead: data.lead || 0, starts: data.starts_in };
+            got.current = { at: performance.now(), remaining: data.remaining, lead: data.lead || 0, starts: data.starts_in, ends: data.ends_in };
             setTrackId(data.music || null);
             setS((old) => {
                 // لرزشِ گوشی: درست/نادرست
@@ -93,6 +93,7 @@ export default function LivePlay({ contest }) {
     const remMs = Math.max(0, got.current.remaining - Math.max(0, since - got.current.lead));
     const left = Math.ceil(remMs / 1000);
     const startsIn = got.current.starts != null ? Math.max(0, Math.ceil(got.current.starts - since / 1000)) : null;
+    const endsIn = got.current.ends != null ? Math.max(0, Math.ceil(got.current.ends - since / 1000)) : null;
 
     if (s && (last.current.phase !== s.phase || last.current.q !== s.current)) last.current = { phase: s.phase, q: s.current };
 
@@ -141,6 +142,7 @@ export default function LivePlay({ contest }) {
                     ) : (
                         <h2>چشمت به تخته باشد؛ معلم به‌زودی شروع می‌کند.</h2>
                     )}
+                    {s.ends && <div className="lvp-ends">🏁 پایانِ مسابقه: {s.ends}</div>}
                     <div className="lvp-players">👥 {fa(s.players)} نفر آماده‌اند</div>
                     {s.names?.length > 0 && (
                         <div className="lvp-names">{s.names.map((nm, i) => <span key={nm + i} style={{ animationDelay: `${(i % 8) * 0.06}s` }}>{nm}</span>)}</div>
@@ -152,6 +154,7 @@ export default function LivePlay({ contest }) {
                 <main className="lvp-center lvp-end">
                     {s.me?.rank <= 3 && <div className="lvp-confetti" aria-hidden>{Array.from({ length: 28 }, (_, i) => <i key={i} style={{ left: `${(i * 37) % 100}%`, animationDelay: `${(i % 9) * 0.3}s`, background: ['#ffd23f', '#e8505b', '#2e8bff', '#2bb673'][i % 4] }} />)}</div>}
                     <div className="lvp-big pop">{s.me?.rank === 1 ? '🥇' : s.me?.rank === 2 ? '🥈' : s.me?.rank === 3 ? '🥉' : '🏁'}</div>
+                    {s.timed_out && <div className="lvp-ends">⏰ زمانِ مسابقه تمام شد؛ رتبه‌ها نهایی است.</div>}
                     <h2>{s.me?.rank ? `رتبه‌ی ${fa(s.me.rank)} از ${fa(s.players)}` : 'مسابقه تمام شد'}</h2>
                     {s.summary && (
                         <div className="lvp-stats">
@@ -212,6 +215,7 @@ export default function LivePlay({ contest }) {
                 <main className="lvp-q">
                     <div className="lvp-qhead">
                         <span className="lvp-qn">سؤالِ {fa(s.current + 1)} از {fa(s.total)}</span>
+                        {endsIn != null && <span className={`lvp-endsin ${endsIn <= 60 ? 'low' : ''}`}>🏁 {clock(endsIn)}</span>}
                         {s.golden && <span className="lvp-golden-tag">🌟 طلایی ×۲</span>}
                         {leadMs === 0 && <span className={`lvp-time ${left <= 5 ? 'low' : ''}`}>⏱ {fa(left)}</span>}
                     </div>

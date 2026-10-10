@@ -800,3 +800,20 @@ em.warn, .ew-tag.warn { background: #f0952e; color: #fff; }
 .lvp-mus { flex: 0 0 auto; width: 42px; height: 38px; border-radius: 12px; border: 0; background: rgba(255,255,255,.18); color: #fff; font-size: 18px; cursor: pointer; }
 .lvp-mus.off { opacity: .7; }
 .lvp-mus.blocked { width: auto; padding: 0 10px; background: #ffd23f; color: #2b1d00; animation: lvGlow 1.4s ease-in-out infinite; }
+
+/* ═══ 🏁 زمانِ پایانِ مسابقه + سوابق ═══ */
+.lve-pick { background: #fff7ed; border: 1px dashed #f5c38b; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.lve-pick small { color: #666; font-size: 12px; line-height: 1.8; }
+.lvc-round { background: #fafafd; border-radius: 12px; padding: 6px 10px; }
+.lvc-round summary { cursor: pointer; font-weight: 800; font-size: 13.5px; padding: 4px 0; }
+.lvh-ends.low { background: #e8505b; animation: lvShake .6s infinite; }
+.lvp-ends { background: rgba(255,255,255,.14); border-radius: 14px; padding: 6px 14px; font-weight: 800; font-size: 14px; }
+.lvp-endsin { background: rgba(232,80,91,.35); border-radius: 99px; padding: 2px 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.lvp-endsin.low { background: #e8505b; animation: lvShake .6s infinite; }
+.lv-hist { display: grid; gap: 8px; }
+.lv-hrow { display: flex; align-items: center; gap: 12px; }
+.lv-hrow b { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lv-hrow small { opacity: .8; font-size: 12px; }
+.lv-hmedal { font-size: 34px; flex: 0 0 auto; }
+.lv-hstats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.lv-hstats span { background: rgba(255,255,255,.14); border-radius: 10px; padding: 1px 8px; font-size: 12px; font-weight: 700; }

@@ -35,12 +35,13 @@ export default function LiveHost({ contest }) {
     const [blocked, setBlocked] = useState(false);
     const got = useRef({ at: 0, remaining: 0, lead: 0 });
     const [lead, setLead] = useState(0);
+    const [endLeft, setEndLeft] = useState(0);
     const busy = useRef(false);
     const autoRevealed = useRef(-1);
     const lastTick = useRef(-1);
 
     const apply = useCallback((data) => {
-        got.current = { at: performance.now(), remaining: data.remaining, lead: data.lead || 0 };
+        got.current = { at: performance.now(), remaining: data.remaining, lead: data.lead || 0, ends: data.ends_in };
         setS((old) => {
             if (data.phase === 'end' && old?.phase !== 'end') [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => beep(sound, f, 220, 'triangle'), i * 160));
             if (data.phase === 'reveal' && old?.phase === 'question') beep(sound, 880, 200, 'triangle');
@@ -101,6 +102,7 @@ export default function LiveHost({ contest }) {
             const r = Math.max(0, got.current.remaining - Math.max(0, since - got.current.lead));
             const sec = Math.ceil(r / 1000);
             setLead(Math.ceil(ld / 1000));
+            if (got.current.ends != null) setEndLeft(Math.max(0, Math.ceil(got.current.ends - since / 1000)));
             setLeft(sec);
             if (s?.phase === 'question' && sec <= 5 && sec > 0 && lastTick.current !== sec) { lastTick.current = sec; beep(sound, 520, 70); }
         }, 200);
@@ -137,6 +139,7 @@ export default function LiveHost({ contest }) {
                 <b className="lvh-title">🏆 {contest.title}</b>
                 {s && s.phase !== 'lobby' && s.phase !== 'end' && <span className="lvh-pill">سؤالِ {fa(s.current + 1)} از {fa(s.total)}</span>}
                 {s && <span className="lvh-pill">👥 {fa(s.online)} آنلاین</span>}
+                {s?.ends_in != null && <span className={`lvh-pill lvh-ends ${endLeft <= 60 ? 'low' : ''}`}>🏁 {endLeft > 0 ? `${mmss(endLeft)} تا پایان` : 'پایان!'}</span>}
                 {contest.music && (
                     <button type="button" className={`lvh-pill lvh-music ${blocked ? 'blocked' : ''}`} title={contest.music.title}
                         onClick={() => (blocked ? playMusic() : setMuted(!muted))}>

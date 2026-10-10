@@ -17,9 +17,9 @@ use Illuminate\Support\Facades\DB;
  */
 class LiveContest extends Model
 {
-    protected $fillable = ['school_id', 'teacher_id', 'classroom_id', 'title', 'code', 'mode', 'starts_at', 'phase', 'current', 'phase_at', 'seconds', 'questions', 'rewarded', 'music_track_id'];
+    protected $fillable = ['school_id', 'teacher_id', 'classroom_id', 'title', 'code', 'mode', 'starts_at', 'phase', 'current', 'phase_at', 'seconds', 'questions', 'rewarded', 'music_track_id', 'ends_at', 'duration_min', 'started_at', 'round'];
 
-    protected $casts = ['questions' => 'array', 'starts_at' => 'datetime', 'rewarded' => 'boolean', 'current' => 'integer', 'phase_at' => 'integer', 'seconds' => 'integer'];
+    protected $casts = ['questions' => 'array', 'starts_at' => 'datetime', 'ends_at' => 'datetime', 'started_at' => 'datetime', 'duration_min' => 'integer', 'round' => 'integer', 'rewarded' => 'boolean', 'current' => 'integer', 'phase_at' => 'integer', 'seconds' => 'integer'];
 
     public const REVEAL_MS = 7000;   // نمایشِ جواب در حالتِ خودکار
     public const GRACE_MS = 1500;    // تأخیرِ شبکه‌ی گوشیِ بچه‌ها
@@ -80,6 +80,29 @@ class LiveContest extends Model
         return $this->mode === 'auto' || ! $this->hostOnline();
     }
 
+    /** زمانِ پایان: تاریخ و ساعتِ دقیق، یا «چند دقیقه بعد از شروع». null = بدونِ پایانِ زمانی. */
+    public function endsAt(): ?\Illuminate\Support\Carbon
+    {
+        if ($this->ends_at) {
+            return $this->ends_at;
+        }
+        if ($this->duration_min) {
+            $from = $this->started_at ?? $this->starts_at;
+
+            return $from?->copy()->addMinutes($this->duration_min);
+        }
+
+        return null;
+    }
+
+    /** ثانیه‌های باقی‌مانده تا پایان (null = پایانِ زمانی ندارد). */
+    public function endsIn(): ?int
+    {
+        $end = $this->endsAt();
+
+        return $end && $this->phase !== 'end' ? max(0, (int) now()->diffInSeconds($end, false)) : null;
+    }
+
     /** زمانِ تعیین‌شده رسیده و هنوز شروع نشده (در هر دو حالت). */
     public function due(): bool
     {
@@ -119,11 +142,15 @@ class LiveContest extends Model
         $current ??= $this->current;
         // سؤالِ تازه با چند ثانیه «آماده باش» شروع می‌شود (phase_at در آینده)
         $at = self::nowMs() + ($phase === 'question' ? self::LEAD_MS : 0);
-        $n = static::whereKey($this->id)->where('phase', $this->phase)->where('current', $this->current)
-            ->update(['phase' => $phase, 'current' => $current, 'phase_at' => $at, 'updated_at' => now()]);
+        $set = ['phase' => $phase, 'current' => $current, 'phase_at' => $at, 'updated_at' => now()];
+        if ($phase === 'question' && in_array($this->phase, ['lobby', 'draft'], true) && \App\Support\DbSchema::hasColumn('live_contests', 'started_at')) {
+            $set['started_at'] = now(); // «۵ دقیقه بعد از شروع» از همین لحظه حساب می‌شود
+        }
+        $n = static::whereKey($this->id)->where('phase', $this->phase)->where('current', $this->current)->update($set);
         $this->refresh();
         if ($n && $phase === 'end') {
             $this->reward();
+            $this->recordResults();
         }
 
         return (bool) $n;
@@ -139,6 +166,11 @@ class LiveContest extends Model
     public function tick(): void
     {
         for ($guard = 0; $guard < 4; $guard++) {
+            // زمانِ پایان رسید → همین حالا تمام (رتبه‌ها نهایی و امتیازها ثبت می‌شود)
+            if ($this->phase !== 'end' && ($end = $this->endsAt()) && $end->lte(now()) && ($this->live() || $this->ends_at || $this->started_at)) {
+                if (! $this->moveTo('end')) return;
+                continue;
+            }
             // سرِ ساعتِ تعیین‌شده خودش شروع می‌شود (چه دستی، چه خودکار)
             if ($this->due()) {
                 if (! $this->moveTo('question', 0)) return;
@@ -259,6 +291,31 @@ class LiveContest extends Model
         ];
     }
 
+    /** سابقه‌ی ماندگارِ این دور برای هر شرکت‌کننده (با «اجرای دوباره» پاک نمی‌شود). */
+    public function recordResults(): void
+    {
+        if (! LiveContestResult::ready()) {
+            return;
+        }
+        rescue(function () {
+            $ranking = $this->ranking();
+            $players = $ranking->count();
+            foreach ($ranking as $r) {
+                $sum = $this->summaryFor($r['id'], $r['rank']);
+                LiveContestResult::updateOrCreate(
+                    ['live_contest_id' => $this->id, 'round' => (int) ($this->round ?: 1), 'student_id' => $r['id']],
+                    ['rank' => $r['rank'], 'players' => $players, 'score' => $r['score'], 'correct' => $r['correct'], 'answered' => $sum['answered'],
+                        'total' => $this->total(), 'accuracy' => $sum['accuracy'], 'best_streak' => $sum['best_streak'],
+                        'avg_ms' => $sum['avg_s'] !== null ? (int) round($sum['avg_s'] * 1000) : null, 'xp' => $this->rewarded_now ? $sum['xp'] : 0,
+                        'finished_at' => now()],
+                );
+            }
+        }, null, true);
+    }
+
+    /** آیا XPِ همین پایان داده شد؟ (دورهای بعدی XPِ دوباره نمی‌دهند) */
+    public bool $rewarded_now = false;
+
     /** امتیازِ کارنامه (XP): شرکت ۲، هر پاسخِ درست ۳، سکو ۱۵/۱۰/۵. */
     public static function xpFor(int $correct, int $rank): int
     {
@@ -281,6 +338,7 @@ class LiveContest extends Model
         if (! static::whereKey($this->id)->where('rewarded', false)->update(['rewarded' => true])) {
             return;
         }
+        $this->rewarded_now = true;
         rescue(function () {
             $game = app(GamificationService::class);
             $teacher = User::find($this->teacher_id);

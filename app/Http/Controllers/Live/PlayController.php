@@ -29,7 +29,18 @@ class PlayController extends Controller
         $list->filter(fn ($c) => $c->phase !== 'end')->each(fn ($c) => rescue(fn () => $c->tick(), null, false));
         $mine = LiveContestPlayer::where('student_id', $user->id)->whereIn('live_contest_id', $list->pluck('id'))->get()->keyBy('live_contest_id');
 
+        $history = \App\Models\LiveContestResult::ready()
+            ? \App\Models\LiveContestResult::where('student_id', $user->id)->with('contest:id,title')->latest('finished_at')->limit(50)->get()
+                ->map(fn ($r) => [
+                    'id' => $r->id, 'contest' => $r->live_contest_id, 'title' => $r->contest?->title ?? 'مسابقه', 'round' => $r->round,
+                    'date' => $r->finished_at ? Jalali::format($r->finished_at, true) . ' ' . Jalali::fa($r->finished_at->format('H:i')) : null,
+                    'rank' => $r->rank, 'players' => $r->players, 'score' => $r->score, 'correct' => $r->correct, 'total' => $r->total,
+                    'accuracy' => $r->accuracy, 'best_streak' => $r->best_streak, 'xp' => $r->xp,
+                ])->values()
+            : collect();
+
         return Inertia::render('Student/LiveContests', [
+            'history' => $history,
             'contests' => $list->map(function ($c) use ($mine) {
                 $p = $mine[$c->id] ?? null;
                 $rank = $p && $c->phase === 'end' ? LiveContestPlayer::where('live_contest_id', $c->id)->where('score', '>', (int) $p->score)->count() + 1 : null;
@@ -38,6 +49,7 @@ class PlayController extends Controller
                     'id' => $c->id, 'title' => $c->title, 'phase' => $c->phase, 'questions' => $c->total(),
                     'when' => LiveContestController::when($c), 'date' => Jalali::format($c->created_at),
                     'starts_in' => $c->phase === 'lobby' && $c->starts_at ? max(0, (int) now()->diffInSeconds($c->starts_at, false)) : null,
+                    'ends' => LiveContestController::endLabel($c),
                     'score' => $p?->score, 'correct' => $p?->correct, 'rank' => $rank,
                 ];
             })->values(),
@@ -78,6 +90,8 @@ class PlayController extends Controller
         return response()->json([
             'phase' => $contest->phase, 'current' => $q, 'total' => $contest->total(), 'seconds' => $contest->seconds,
             'remaining' => $contest->remaining(), 'lead' => $contest->lead(), 'music' => $this->trackId($contest),
+            'ends_in' => $contest->endsIn(), 'ends' => LiveContestController::endLabel($contest),
+            'timed_out' => $contest->phase === 'end' && ($e = $contest->endsAt()) && $e->lte($contest->updated_at ?? now()) && $contest->current + 1 < $contest->total(),
             'golden' => $contest->live() && $contest->golden($q),
             'starts_in' => $contest->starts_at && $contest->phase === 'lobby' && $contest->starts_at->gt(now()->subHours(LiveContest::SCHEDULE_WINDOW_H))
                 ? max(0, (int) now()->diffInSeconds($contest->starts_at, false)) : null,

@@ -31,6 +31,21 @@ class LiveContestController extends Controller
         abort_unless($contest->teacher_id === $request->user()->id, 403);
     }
 
+    /** متنِ زمانِ پایان: «۵ دقیقه بعد از شروع» یا تاریخ و ساعت. */
+    public static function endLabel(LiveContest $c): ?string
+    {
+        if ($c->ends_at) {
+            return Jalali::format($c->ends_at, true) . ' ساعت ' . Jalali::fa($c->ends_at->format('H:i'));
+        }
+        if ($c->duration_min) {
+            $end = $c->endsAt();
+
+            return Jalali::fa((string) $c->duration_min) . ' دقیقه بعد از شروع' . ($end && $c->started_at ? ' (تا ساعت ' . Jalali::fa($end->format('H:i')) . ')' : '');
+        }
+
+        return null;
+    }
+
     public static function when(LiveContest $c): ?string
     {
         return $c->starts_at ? Jalali::format($c->starts_at, true) . ' ساعت ' . Jalali::fa($c->starts_at->format('H:i')) : null;
@@ -57,6 +72,7 @@ class LiveContestController extends Controller
                 'winner' => $c->phase === 'end' ? $c->players()->with('student:id,name')->orderByDesc('score')->first()?->student?->name : null,
                 'started' => $c->phase !== 'lobby' || (int) $c->players_count > 0,
                 'music' => $c->music_track_id,
+                'ends' => self::endLabel($c), 'round' => (int) ($c->round ?: 1),
             ])->values(),
             'classrooms' => $rooms,
             'tracks' => LiveTrack::ready() ? LiveTrack::where('teacher_id', $teacher->id)->latest()->get()->map->data()->values() : [],
@@ -105,7 +121,12 @@ class LiveContestController extends Controller
             'questions.*.choices' => ['required', 'array', 'min:2', 'max:4'],
             'questions.*.answer' => ['required', 'integer', 'min:0', 'max:3'],
             'music_track_id' => ['nullable', 'integer'],
+            'end_type' => ['nullable', 'in:none,duration,at'],
+            'duration_min' => ['nullable', 'integer', 'min:1', 'max:600', 'required_if:end_type,duration'],
+            'ends_at' => ['nullable', 'date', 'required_if:end_type,at'],
         ], [
+            'duration_min.required_if' => 'چند دقیقه بعد از شروع تمام شود؟',
+            'ends_at.required_if' => 'تاریخ و ساعتِ پایان را انتخاب کنید.',
             'title.required' => 'عنوانِ مسابقه را بنویسید.',
             'questions.required' => 'دست‌کم یک سؤال بگذارید.',
             'questions.min' => 'دست‌کم یک سؤال بگذارید.',
@@ -114,6 +135,13 @@ class LiveContestController extends Controller
         ]);
         if (! empty($data['classroom_id'])) {
             Classroom::where('teacher_id', $teacher->id)->findOrFail($data['classroom_id']);
+        }
+        $endType = $data['end_type'] ?? 'none';
+        if ($endType === 'at') {
+            $end = \Illuminate\Support\Carbon::parse($data['ends_at']);
+            if ($end->lte(now()) || (! empty($data['starts_at']) && $end->lte(\Illuminate\Support\Carbon::parse($data['starts_at'])))) {
+                throw ValidationException::withMessages(['ends_at' => 'زمانِ پایان باید بعد از زمانِ شروع (و بعد از الان) باشد.']);
+            }
         }
         $qs = LiveContest::normalize($data['questions']);
         if (count($qs) !== count($data['questions'])) {
@@ -124,7 +152,10 @@ class LiveContestController extends Controller
             'school_id' => $teacher->school_id, 'teacher_id' => $teacher->id, 'classroom_id' => $data['classroom_id'] ?: null,
             'title' => $data['title'], 'code' => LiveContest::newCode(), 'mode' => $data['mode'],
             'starts_at' => $data['starts_at'] ?? null, 'phase' => 'lobby', 'seconds' => $data['seconds'], 'questions' => $qs,
-        ] + ($this->ownTrack($teacher->id, $data['music_track_id'] ?? null) !== false ? ['music_track_id' => $this->ownTrack($teacher->id, $data['music_track_id'] ?? null)] : []));
+        ] + (\App\Models\LiveContestResult::ready() ? [
+            'duration_min' => $endType === 'duration' ? (int) $data['duration_min'] : null,
+            'ends_at' => $endType === 'at' ? $data['ends_at'] : null,
+        ] : []) + ($this->ownTrack($teacher->id, $data['music_track_id'] ?? null) !== false ? ['music_track_id' => $this->ownTrack($teacher->id, $data['music_track_id'] ?? null)] : []));
         $this->announce($contest);
 
         return redirect()->route('teacher.live')->with('flash', '🏆 «' . $contest->title . '» ساخته شد و به بچه‌ها خبر داده شد.' . ($contest->mode === 'auto' ? ' سرِ ساعت خودش شروع می‌شود.' : ($contest->starts_at ? ' سرِ ساعت خودش شروع می‌شود؛ اگر تخته را باز کنید، رفتن به سؤالِ بعد با شماست.' : ' هر وقت آماده بودید «اجرا روی تخته» را بزنید.')));
@@ -170,6 +201,7 @@ class LiveContestController extends Controller
         return response()->json([
             'phase' => $contest->phase, 'current' => $q, 'total' => $contest->total(), 'seconds' => $contest->seconds,
             'remaining' => $contest->remaining(), 'elapsed' => $contest->elapsed(), 'mode' => $contest->mode, 'lead' => $contest->lead(),
+            'ends_in' => $contest->endsIn(), 'ends' => self::endLabel($contest),
             'golden' => $contest->live() && $contest->golden($q),
             'starts_in' => $contest->starts_at && $contest->phase === 'lobby' && $contest->starts_at->gt(now()->subHours(LiveContest::SCHEDULE_WINDOW_H))
                 ? max(0, (int) now()->diffInSeconds($contest->starts_at, false)) : null,
@@ -205,7 +237,10 @@ class LiveContestController extends Controller
         LiveContestAnswer::where('live_contest_id', $contest->id)->delete();
         LiveContestPlayer::where('live_contest_id', $contest->id)->delete();
         // امتیازِ (XP) دورِ قبل می‌ماند؛ دورِ تازه دوباره امتیاز نمی‌دهد
-        $contest->update(['phase' => 'lobby', 'current' => -1, 'phase_at' => null, 'mode' => 'manual', 'starts_at' => null]);
+        // سابقه‌ی دورِ قبل در live_contest_results می‌ماند؛ این یک دورِ تازه است
+        $contest->update(['phase' => 'lobby', 'current' => -1, 'phase_at' => null, 'mode' => 'manual', 'starts_at' => null]
+            + (\App\Models\LiveContestResult::ready() ? ['round' => (int) ($contest->round ?: 1) + 1, 'started_at' => null,
+                'ends_at' => $contest->ends_at && $contest->ends_at->isPast() ? null : $contest->ends_at] : []));
     }
 
     /* ─────────────── 🎵 آهنگِ مسابقه ─────────────── */
@@ -311,6 +346,13 @@ class LiveContestController extends Controller
                 'avg_s' => ($byQ[$i] ?? collect())->count() ? round(($byQ[$i])->avg('ms') / 1000, 1) : null,
             ]),
             'audience' => count($contest->audienceIds()),
+            'ends' => self::endLabel($contest),
+            'rounds' => \App\Models\LiveContestResult::ready() ? \App\Models\LiveContestResult::where('live_contest_id', $contest->id)->with('student:id,name')
+                ->orderByDesc('round')->orderBy('rank')->get()->groupBy('round')->map(fn ($rows, $round) => [
+                    'round' => (int) $round, 'date' => Jalali::format($rows->first()->finished_at, true) . ' ' . Jalali::fa($rows->first()->finished_at?->format('H:i') ?? ''),
+                    'players' => $rows->count(), 'avg_accuracy' => (int) round($rows->avg('accuracy')),
+                    'rows' => $rows->map(fn ($r) => ['rank' => $r->rank, 'name' => $r->student?->name ?? '—', 'score' => $r->score, 'correct' => $r->correct, 'accuracy' => $r->accuracy])->values(),
+                ])->values() : [],
         ]);
     }
 

@@ -17,7 +17,7 @@ export default function LiveContests() {
     const [imp, setImp] = useState({ source: 'bank', id: '', subject: subjects[0] || '', topic: '', n: 10 });
     const [busy, setBusy] = useState(false);
     const [note, setNote] = useState(null);
-    const form = useForm({ title: '', classroom_id: classrooms[0]?.id ?? '', mode: 'manual', starts_at: '', seconds: 20, questions: [blank()], music_track_id: tracks[0]?.id ?? '' });
+    const form = useForm({ title: '', classroom_id: classrooms[0]?.id ?? '', mode: 'manual', starts_at: '', seconds: 20, questions: [blank()], music_track_id: tracks[0]?.id ?? '', end_type: 'none', duration_min: 5, ends_at: '' });
     const d = form.data;
     const qs = d.questions;
     const setQ = (i, patch) => form.setData('questions', qs.map((q, k) => (k === i ? { ...q, ...patch } : q)));
@@ -89,6 +89,22 @@ export default function LiveContests() {
                         <JalaliDatePicker value={d.starts_at} onChange={(v) => form.setData('starts_at', v)} withTime placeholder="انتخابِ تاریخ و ساعت" />
                     </label>
                     {errors.starts_at && <div className="rm-err">{errors.starts_at}</div>}
+                    <div className="lve-pick">
+                        <b>🏁 زمانِ پایانِ مسابقه</b>
+                        <div className="lvm-opts">
+                            {[['none', '♾️ بدونِ زمانِ پایان'], ['duration', '⏱ چند دقیقه بعد از شروع'], ['at', '📅 تاریخ و ساعتِ دقیق']].map(([k, t]) => (
+                                <button key={k} type="button" className={`lvm-opt ${d.end_type === k ? 'on' : ''}`} onClick={() => form.setData('end_type', k)}>{t}</button>
+                            ))}
+                        </div>
+                        {d.end_type === 'duration' && (
+                            <select className="input" value={d.duration_min} onChange={(e) => form.setData('duration_min', Number(e.target.value))}>
+                                {[2, 3, 5, 7, 10, 15, 20, 30, 45, 60].map((m) => <option key={m} value={m}>{fa(m)} دقیقه بعد از شروع</option>)}
+                            </select>
+                        )}
+                        {d.end_type === 'at' && <JalaliDatePicker value={d.ends_at} onChange={(v) => form.setData('ends_at', v)} withTime placeholder="تاریخ و ساعتِ پایان" />}
+                        {(errors.duration_min || errors.ends_at) && <div className="rm-err">{errors.duration_min || errors.ends_at}</div>}
+                        <small>{d.end_type === 'none' ? 'مسابقه وقتی تمام می‌شود که همه‌ی سؤال‌ها پرسیده شوند.' : 'سرِ این زمان مسابقه برای همه تمام می‌شود، رتبه‌ها نهایی و امتیازها ثبت می‌شود؛ بچه‌ها شمارشِ معکوسِ پایان را می‌بینند.'}</small>
+                    </div>
                     {musicReady && <MusicPicker tracks={tracks} value={d.music_track_id} onChange={(v) => form.setData('music_track_id', v)} />}
 
                     <div className="lv-import">
@@ -185,6 +201,8 @@ function ContestCard({ c, tracks = [], musicReady = false }) {
                 <span>❓ {fa(c.questions)} سؤال</span>
                 <span>⏱ {fa(c.seconds)} ثانیه</span>
                 <span>{c.mode === 'auto' ? '⏰ خودکار' : '🧑‍🏫 دستی'}</span>
+                {c.ends && <span>🏁 پایان: {c.ends}</span>}
+                {c.round > 1 && <span>🔁 دورِ {fa(c.round)}</span>}
             </div>
             <div className="lvc-meta">
                 <span>🗓️ {c.when || c.date}</span>
@@ -225,6 +243,21 @@ function ContestCard({ c, tracks = [], musicReady = false }) {
                                         </li>
                                     ))}
                                 </ol>
+                            )}
+                            {res.rounds?.length > 0 && (
+                                <>
+                                    <h4>📜 سوابقِ همه‌ی دورها</h4>
+                                    {res.rounds.map((r) => (
+                                        <details key={r.round} className="lvc-round" open={res.rounds.length === 1}>
+                                            <summary>دورِ {fa(r.round)} · {r.date} · {fa(r.players)} نفر · میانگینِ درستی {fa(r.avg_accuracy)}٪</summary>
+                                            <ol className="lvc-rank">
+                                                {r.rows.map((x) => (
+                                                    <li key={x.rank + x.name}><span className="r">{['🥇', '🥈', '🥉'][x.rank - 1] || fa(x.rank)}</span><span className="n">{x.name}</span><span className="c">{fa(x.accuracy)}٪</span><b>{fa(x.score)}</b></li>
+                                                ))}
+                                            </ol>
+                                        </details>
+                                    ))}
+                                </>
                             )}
                             <h4>❓ سؤال‌ها</h4>
                             <ol className="lvc-qs">

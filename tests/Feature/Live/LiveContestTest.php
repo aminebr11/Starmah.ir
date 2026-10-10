@@ -257,4 +257,55 @@ class LiveContestTest extends TestCase
             'track' => $this->clientUpload('msf999', 'application/octet-stream'),
         ])->assertStatus(422);
     }
+
+    public function test_contest_ends_after_chosen_minutes_and_history_survives_rerun(): void
+    {
+        $qs = array_merge($this->questions(), [['prompt' => '۹ − ۴ = ?', 'choices' => ['۵', '۶'], 'answer' => 0]]);
+        [$teacher, , $student, $c] = $this->make(['questions' => $qs, 'end_type' => 'duration', 'duration_min' => 5]);
+        $this->assertSame(5, $c->duration_min);
+        $this->assertNull($c->endsAt()); // هنوز شروع نشده
+
+        $this->assertGreaterThanOrEqual(298, $this->actingAs($teacher)->postJson(route('teacher.live.go', $c), ['action' => 'start'])->json('ends_in'));
+        $this->travel(4)->seconds();
+        $this->actingAs($student)->postJson(route('live.answer', $c), ['q' => 0, 'choice' => 1])->assertOk();
+        $poll = $this->actingAs($student)->getJson(route('live.poll', $c))->json();
+        $this->assertLessThanOrEqual(300, $poll['ends_in']);
+        $this->assertStringContainsString('۵ دقیقه بعد از شروع', $poll['ends']);
+
+        // ۵ دقیقه گذشت؛ هنوز سؤال مانده بود → پایان، رتبه نهایی، سابقه ثبت
+        $this->travel(5)->minutes();
+        $end = $this->actingAs($student)->getJson(route('live.poll', $c))->assertJsonPath('phase', 'end')->json();
+        $this->assertTrue($end['timed_out']);
+        $row = \App\Models\LiveContestResult::where('student_id', $student->id)->firstOrFail();
+        $this->assertSame([1, 1, 1], [$row->round, $row->rank, $row->correct]);
+        $this->assertGreaterThan(0, $row->xp);
+
+        // اجرای دوباره: سابقه‌ی دورِ ۱ می‌ماند و دورِ ۲ جدا ثبت می‌شود
+        $this->actingAs($teacher)->postJson(route('teacher.live.go', $c), ['action' => 'reset'])->assertJsonPath('phase', 'lobby');
+        $this->assertSame(2, $c->fresh()->round);
+        $this->assertNull($c->fresh()->endsAt());
+        $this->actingAs($student)->get(route('live.play', $c))->assertOk();
+        $this->actingAs($teacher)->postJson(route('teacher.live.go', $c), ['action' => 'start']);
+        $this->actingAs($teacher)->postJson(route('teacher.live.go', $c), ['action' => 'end']);
+        $this->assertSame(2, \App\Models\LiveContestResult::where('live_contest_id', $c->id)->count());
+
+        $res = $this->actingAs($teacher)->getJson(route('teacher.live.results', $c))->json();
+        $this->assertSame([2, 1], array_column($res['rounds'], 'round'));
+        $hist = $this->actingAs($student)->get(route('live'))->viewData('page')['props']['history'];
+        $this->assertSame(1, collect($hist)->where('round', 1)->first()['rank']);
+    }
+
+    public function test_contest_with_exact_end_time(): void
+    {
+        [$teacher, , $student, $c] = $this->make(['end_type' => 'at', 'ends_at' => now()->addMinutes(10)->format('Y-m-d H:i')]);
+        $this->assertNotNull($c->ends_at);
+        $this->actingAs($student)->get(route('live.play', $c))->assertOk();
+        $this->actingAs($teacher)->postJson(route('teacher.live.go', $c), ['action' => 'start']);
+        $this->travel(11)->minutes();
+        $this->actingAs($student)->getJson(route('live.poll', $c))->assertJsonPath('phase', 'end');
+        // زمانِ پایانِ گذشته پذیرفته نمی‌شود
+        $this->actingAs($teacher)->post(route('teacher.live.store'), [
+            'title' => 'x', 'mode' => 'manual', 'seconds' => 20, 'questions' => $this->questions(), 'end_type' => 'at', 'ends_at' => now()->subHour()->format('Y-m-d H:i'),
+        ])->assertSessionHasErrors('ends_at');
+    }
 }
