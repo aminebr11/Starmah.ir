@@ -57,7 +57,8 @@ export default function LivePlay({ contest }) {
     useEffect(() => { const id = setInterval(() => setNow(performance.now()), 200); return () => clearInterval(id); }, []);
     useEffect(() => { const id = setInterval(() => setTip((x) => (x + 1) % TIPS.length), 4500); return () => clearInterval(id); }, []);
 
-    const since = now - got.current.at;
+    // «now» هر ۲۰۰ میلی‌ثانیه به‌روز می‌شود و ممکن است از زمانِ آخرین پاسخِ سرور عقب‌تر باشد
+    const since = Math.max(0, now - got.current.at);
     const leadMs = Math.max(0, got.current.lead - since);
     const remMs = Math.max(0, got.current.remaining - Math.max(0, since - got.current.lead));
     const left = Math.ceil(remMs / 1000);

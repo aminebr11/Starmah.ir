@@ -346,8 +346,9 @@
 .sp-info b { font-size: 17px; }
 .sp-wait { color: #ffd23f; font-weight: 800; }
 .sp-line { margin-top: 6px; background: rgba(255,255,255,.9); color: #2b2410; border-radius: 12px; padding: 8px 12px; font-size: 17px; line-height: 2; }
-.sp-controls { display: flex; gap: 8px; flex-wrap: wrap; }
-.sp-controls button { flex: 1 1 90px; min-height: 44px; border-radius: 14px; border: 0; background: rgba(255,255,255,.18); color: inherit; font: inherit; font-weight: 800; cursor: pointer; }
+.sp-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.sp-controls .sp-speed { grid-column: 1 / -1; justify-content: center; }
+.sp-controls button { min-height: 44px; white-space: nowrap; padding: 0 10px; border-radius: 14px; border: 0; background: rgba(255,255,255,.18); color: inherit; font: inherit; font-weight: 800; cursor: pointer; }
 .sp:not(.sp-dark) .sp-controls button { background: #e6ecfa; }
 .sp-controls button:disabled { opacity: .4; }
 .sp-dots { display: flex; flex-wrap: wrap; gap: 6px; }
