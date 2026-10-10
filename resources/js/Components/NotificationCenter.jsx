@@ -21,6 +21,8 @@ export default function NotificationCenter({ notices = [], tone = 'light' }) {
     const [filter, setFilter] = useState('all');
     const [q, setQ] = useState('');
     const [open, setOpen] = useState(null);
+    const [picking, setPicking] = useState(false);
+    const [picked, setPicked] = useState({});
 
     const match = (n, v) => {
         if (v === 'unread') return !n.read;
@@ -46,7 +48,14 @@ export default function NotificationCenter({ notices = [], tone = 'light' }) {
         }
         return router.visit(n.href);
     };
-    const dismiss = (n) => router.post(route('notices.dismiss', n.ann), {}, { preserveScroll: true });
+    const remove = (keys, all = false) => router.post(route('notices.remove'), all ? { all: true } : { keys }, {
+        preserveScroll: true, onSuccess: () => { setPicked({}); setPicking(false); },
+    });
+    const dismiss = (n) => remove([n.id]);
+    const pickedKeys = Object.keys(picked).filter((k) => picked[k]);
+    const togglePick = (n) => setPicked((p) => ({ ...p, [n.id]: !p[n.id] }));
+    const allPicked = list.length > 0 && list.every((n) => picked[n.id]);
+    const pickAll = () => setPicked(allPicked ? {} : Object.fromEntries(list.map((n) => [n.id, true])));
 
     const unread = notices.filter((n) => !n.read).length;
 
@@ -77,6 +86,24 @@ export default function NotificationCenter({ notices = [], tone = 'light' }) {
                         <button onClick={readAll} style={{ ...chip(false), fontWeight: 800 }}>✓ همه را خواندم</button>
                     )}
                 </div>
+                {notices.length > 0 && (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10, alignItems: 'center' }}>
+                        <button onClick={() => { setPicking(!picking); setPicked({}); }} style={chip(picking)}>{picking ? '✕ لغوِ انتخاب' : '☑️ انتخاب و حذف'}</button>
+                        {picking && (
+                            <>
+                                <button onClick={pickAll} style={chip(false)}>{allPicked ? '◻️ هیچ‌کدام' : '✅ انتخابِ همه'}</button>
+                                <button disabled={!pickedKeys.length} onClick={() => remove(pickedKeys)}
+                                    style={{ ...chip(false), opacity: pickedKeys.length ? 1 : .5, background: dark ? 'rgba(232,80,91,.3)' : '#fdecee', color: dark ? '#ffd0d0' : '#b0333f' }}>
+                                    🗑️ حذفِ انتخاب‌شده‌ها ({fa(pickedKeys.length)})
+                                </button>
+                            </>
+                        )}
+                        <button onClick={() => confirm('همه‌ی اعلان‌ها از کارتابلِ شما حذف شوند؟') && remove([], true)}
+                            style={{ ...chip(false), marginInlineStart: 'auto', background: dark ? 'rgba(232,80,91,.3)' : '#fdecee', color: dark ? '#ffd0d0' : '#b0333f' }}>
+                            🧹 حذفِ همه
+                        </button>
+                    </div>
+                )}
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
                     {FILTERS.map((f) => (
                         <button key={f.v} onClick={() => setFilter(f.v)} style={chip(filter === f.v)}>
@@ -98,6 +125,10 @@ export default function NotificationCenter({ notices = [], tone = 'light' }) {
                     return (
                         <div key={n.id} style={{ border, borderInlineStart: `5px solid ${n.color}`, borderRadius: 14, background: cardBg(n), overflow: 'hidden' }}>
                             <div style={{ padding: '13px 15px', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                                {picking && (
+                                    <input type="checkbox" checked={!!picked[n.id]} onChange={() => togglePick(n)} aria-label="انتخاب"
+                                        style={{ width: 22, height: 22, flex: 'none', marginTop: 2, accentColor: '#e8505b' }} />
+                                )}
                                 <span style={{ fontSize: 21, flex: 'none' }}>{n.icon}</span>
                                 <button onClick={() => setOpen(isOpen ? null : n.id)}
                                     style={{ flex: 1, minWidth: 0, textAlign: 'start', background: 'none', border: 0, cursor: 'pointer', fontFamily: 'inherit', color: 'inherit', padding: 0 }}>
@@ -120,7 +151,7 @@ export default function NotificationCenter({ notices = [], tone = 'light' }) {
                             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '0 15px 13px 15px' }}>
                                 <button onClick={() => openIt(n)} style={{ ...chip(true), padding: '7px 15px' }}>← رفتن به این مورد</button>
                                 {!n.read && <button onClick={() => markRead(n)} style={chip(false)}>✓ مطالعه شد</button>}
-                                {n.ann && (
+                                {(
                                     <button onClick={() => dismiss(n)} title="حذفِ این اعلان"
                                         style={{ ...chip(false), marginInlineStart: 'auto', background: dark ? 'rgba(232,80,91,.25)' : '#fdecee', color: dark ? '#ffb3b3' : '#b0333f' }}>
                                         🗑️ حذف

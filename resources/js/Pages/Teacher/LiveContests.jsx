@@ -147,23 +147,90 @@ export default function LiveContests() {
                 </form>
             )}
 
-            <div className="at-list">
-                {contests.length === 0 ? <div className="panel" style={{ color: 'var(--muted)' }}>هنوز مسابقه‌ای نساخته‌اید.</div> : contests.map((c) => (
-                    <div key={c.id} className="at-card lv-card">
-                        <div className="at-card-ic">{c.phase === 'end' ? '🏁' : '🏆'}</div>
-                        <div className="at-card-b">
-                            <b>{c.title}</b>
-                            <span>{c.classroom} · {fa(c.questions)} سؤال · {fa(c.seconds)} ثانیه · {c.mode === 'auto' ? '⏰ خودکار' : '🧑‍🏫 دستی'}</span>
-                            <span>{c.when ? `🗓️ ${c.when}` : c.date}{c.players ? ` · 👥 ${fa(c.players)} شرکت‌کننده` : ''}{c.winner ? ` · 🥇 ${c.winner}` : ''}</span>
-                        </div>
-                        <span className={`at-pub ${c.phase !== 'end' ? 'on' : ''}`}>{PHASE[c.phase]}</span>
-                        <div className="lv-card-act">
-                            <a href={route('teacher.live.host', c.id)} className="btn btn-sm">📺 {c.phase === 'end' ? 'نتیجه روی تخته' : 'اجرا روی تخته'}</a>
-                            <button type="button" className="btn btn-sm btn-ghost" onClick={() => confirm('این مسابقه حذف شود؟') && router.delete(route('teacher.live.destroy', c.id))}>🗑️</button>
-                        </div>
-                    </div>
-                ))}
+            <div className="lvc-list">
+                {contests.length === 0 ? <div className="panel" style={{ color: 'var(--muted)' }}>هنوز مسابقه‌ای نساخته‌اید.</div> : contests.map((c) => <ContestCard key={c.id} c={c} />)}
             </div>
         </DashLayout>
+    );
+}
+
+/** کارتِ یک مسابقه در فهرستِ معلم (موبایل‌پسند) با «نتایج» بازشونده. */
+function ContestCard({ c }) {
+    const [open, setOpen] = useState(false);
+    const [res, setRes] = useState(null);
+    const [err, setErr] = useState(null);
+    const toggle = async () => {
+        const next = !open;
+        setOpen(next);
+        if (next && !res) {
+            try { setRes((await axios.get(route('teacher.live.results', c.id))).data); } catch { setErr('نتایج بارگذاری نشد.'); }
+        }
+    };
+    const live = c.phase === 'question' || c.phase === 'reveal';
+    return (
+        <div className={`lvc ${c.phase}`}>
+            <div className="lvc-head">
+                <div className="lvc-ic">{c.phase === 'end' ? '🏁' : live ? '🔴' : '🏆'}</div>
+                <div className="lvc-title">
+                    <b>{c.title}</b>
+                    <span className={`lvc-status ${c.phase}`}>{PHASE[c.phase]}</span>
+                </div>
+            </div>
+            <div className="lvc-chips">
+                <span>👥 {c.classroom}</span>
+                <span>❓ {fa(c.questions)} سؤال</span>
+                <span>⏱ {fa(c.seconds)} ثانیه</span>
+                <span>{c.mode === 'auto' ? '⏰ خودکار' : '🧑‍🏫 دستی'}</span>
+            </div>
+            <div className="lvc-meta">
+                <span>🗓️ {c.when || c.date}</span>
+                {c.players > 0 && <span>🙋 {fa(c.players)} شرکت‌کننده</span>}
+                {c.winner && <span>🥇 {c.winner}</span>}
+            </div>
+            <div className="lvc-act">
+                <a href={route('teacher.live.host', c.id)} className="btn btn-sm">📺 {c.phase === 'end' ? 'نتیجه روی تخته' : 'اجرا روی تخته'}</a>
+                {c.started && <button type="button" className="btn btn-sm btn-ghost" onClick={toggle}>📊 {open ? 'بستنِ نتایج' : 'سوابق و نتایج'}</button>}
+                <button type="button" className="btn btn-sm btn-ghost lvc-del" aria-label="حذف" onClick={() => confirm('این مسابقه و اعلان‌هایش حذف شود؟') && router.delete(route('teacher.live.destroy', c.id))}>🗑️</button>
+            </div>
+            {open && (
+                <div className="lvc-res">
+                    {err ? <div className="rm-err">{err}</div> : !res ? <div className="lvc-loading">در حالِ بارگذاری…</div> : (
+                        <>
+                            <div className="lvc-sum">
+                                <div><b>{fa(res.ranking.length)}</b><span>از {fa(res.audience)} نفر شرکت کردند</span></div>
+                                <div><b>{fa(res.ranking.length ? Math.round(res.ranking.reduce((x, r) => x + r.accuracy, 0) / res.ranking.length) : 0)}٪</b><span>میانگینِ درستی</span></div>
+                                <div><b>{res.ranking[0] ? fa(res.ranking[0].score) : '—'}</b><span>بالاترین امتیاز</span></div>
+                            </div>
+                            <h4>🏅 رتبه‌بندی</h4>
+                            {res.ranking.length === 0 ? <p className="lvc-empty">کسی شرکت نکرد.</p> : (
+                                <ol className="lvc-rank">
+                                    {res.ranking.map((r) => (
+                                        <li key={r.id}>
+                                            <span className="r">{['🥇', '🥈', '🥉'][r.rank - 1] || fa(r.rank)}</span>
+                                            <span className="n">{r.name}</span>
+                                            <span className="c">{fa(r.correct)}/{fa(c.questions)} درست</span>
+                                            <b>{fa(r.score)}</b>
+                                        </li>
+                                    ))}
+                                </ol>
+                            )}
+                            <h4>❓ سؤال‌ها</h4>
+                            <ol className="lvc-qs">
+                                {res.questions.map((q, i) => {
+                                    const pct = q.answered ? Math.round((100 * q.correct) / q.answered) : 0;
+                                    return (
+                                        <li key={i}>
+                                            <div className="p"><span>{fa(i + 1)}. </span><span dir="auto">{q.prompt}</span></div>
+                                            <div className="bar"><i style={{ width: `${pct}%`, background: pct >= 70 ? '#2bb673' : pct >= 40 ? '#f5a524' : '#e8505b' }} /></div>
+                                            <small>✅ {q.answer} · {fa(q.correct)} از {fa(q.answered)} درست ({fa(pct)}٪){q.avg_s != null ? ` · میانگینِ ${fa(q.avg_s)} ثانیه` : ''}</small>
+                                        </li>
+                                    );
+                                })}
+                            </ol>
+                        </>
+                    )}
+                </div>
+            )}
+        </div>
     );
 }

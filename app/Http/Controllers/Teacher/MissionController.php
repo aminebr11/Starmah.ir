@@ -386,6 +386,7 @@ class MissionController extends Controller
             if (\App\Support\DbSchema::hasColumn('announcements', 'link')) {
                 $payload['link'] = '/missions';
             }
+            $payload += Announcement::about($mission);
             $ann = Announcement::create($payload);
             $ann->recipients()->sync($ids);
 

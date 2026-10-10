@@ -17,10 +17,28 @@ class Announcement extends Model
 
     public const AUDIENCES = ['teachers', 'students', 'all', 'personal'];
 
-    protected $fillable = ['school_id', 'sender_id', 'title', 'body', 'link', 'audience', 'grade'];
+    protected $fillable = ['school_id', 'sender_id', 'title', 'body', 'link', 'audience', 'grade', 'source_type', 'source_id'];
+
+    /** موضوعِ اعلان (برای پاک‌شدنِ خودکار با حذفِ موضوع): ['source_type' => …, 'source_id' => …]. */
+    public static function about(Model $model): array
+    {
+        return ['source_type' => get_class($model), 'source_id' => $model->getKey()];
+    }
 
     protected static function booted(): void
     {
+        static::creating(function (Announcement $a) {
+            if (! \App\Support\DbSchema::hasColumn('announcements', 'source_type')) {
+                // مایگریشن هنوز اجرا نشده: ستون‌های تازه نفرستاده شوند
+                unset($a->source_type, $a->source_id);
+
+                return;
+            }
+            if (! $a->source_type && ($src = \App\Support\NoticeCleanup::sourceFromLink($a->link))) {
+                [$a->source_type, $a->source_id] = $src;
+            }
+        });
+
         // اطلاعیه‌ی عمومیِ مدرسه‌ها در زنگوله‌ی ادمینِ کل هم می‌نشیند ← پیامک
         static::created(function (Announcement $a) {
             if ($a->audience !== 'all') {

@@ -8,7 +8,7 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
 
 const SOURCES = {
     voice: { ic: '🎤', t: 'صدای خودم', d: 'همین‌جا ضبط کنید؛ بچه‌ها صدای خودِ شما را می‌شنوند.' },
-    tts: { ic: '🤖', t: 'متن ← صدای سیستم', d: 'متن را بنویسید؛ سیستم جمله‌به‌جمله و شمرده می‌خواند.' },
+    tts: { ic: '🤖', t: 'متن ← صدای سیستم', d: 'متن را بنویسید؛ سیستم یک‌جا تا آخر می‌خواند و سرِ هر نقطه مکث می‌کند.' },
     upload: { ic: '📁', t: 'فایلِ صوتی', d: 'فایلِ آماده (mp3، m4a، wav…) را بارگذاری کنید.' },
 };
 
@@ -19,7 +19,7 @@ export default function AudioTasks() {
     const form = useForm({
         kind: classrooms.some((c) => c.dictation) ? 'dictation' : 'reading',
         classroom_id: classrooms[0]?.id ?? '', title: '', source: tts ? 'tts' : 'voice', text: '', audio: null,
-        score_type: 'descriptive', penalty: 0.5, due_at: '', publish: true,
+        score_type: 'descriptive', penalty: 0.5, due_at: '', publish: true, pace: 'normal',
     });
     const d = form.data;
     const room = classrooms.find((c) => String(c.id) === String(d.classroom_id));
@@ -92,12 +92,26 @@ export default function AudioTasks() {
 
                     <label className="at-text">
                         {d.kind === 'reading' ? 'متنِ روخوانی (بچه‌ها همین را می‌بینند و می‌خوانند)'
-                            : d.source === 'tts' ? 'متنِ املا (به دانش‌آموز نشان داده نمی‌شود؛ هر جمله جدا خوانده می‌شود)'
+                            : d.source === 'tts' ? 'متنِ املا (به دانش‌آموز نشان داده نمی‌شود؛ هر جا نقطه بگذارید، صدا آن‌جا مکث می‌کند)'
                                 : 'متنِ املا برای مقایسه هنگامِ تصحیح (اختیاری؛ به دانش‌آموز نشان داده نمی‌شود)'}
                         <textarea className="input" rows={6} value={d.text} onChange={(e) => form.setData('text', e.target.value)}
                             placeholder={d.kind === 'dictation' ? 'نوروز جشنِ آغازِ بهار است. مردم خانه‌هایشان را تمیز می‌کنند…' : 'متنِ درس را اینجا بنویسید یا بچسبانید…'} />
                     </label>
                     {errors.text && <div className="rm-err">{errors.text}</div>}
+                    {d.source === 'tts' && (
+                        <div className="at-grid">
+                            <label>مکث بعد از هر نقطه
+                                <select className="input" value={d.pace} onChange={(e) => form.setData('pace', e.target.value)}>
+                                    {d.kind === 'dictation' ? (
+                                        <><option value="short">کوتاه (بچه‌های تندنویس)</option><option value="normal">متوسط (پیشنهادی)</option><option value="long">بلند (پایه‌های پایین)</option></>
+                                    ) : (
+                                        <><option value="short">کوتاه</option><option value="normal">معمولی</option><option value="long">بلند</option></>
+                                    )}
+                                </select>
+                            </label>
+                            <p className="at-tip" style={{ alignSelf: 'end' }}>💡 متن یک‌جا و تا آخر خوانده می‌شود؛ سرِ هر نقطه {d.kind === 'dictation' ? 'به اندازه‌ی طولِ جمله' : 'کمی'} مکث می‌کند. بچه‌ها هر جا خواستند مکث می‌کنند و ادامه می‌دهند.</p>
+                        </div>
+                    )}
 
                     <div className="at-grid">
                         <label>نوعِ نمره

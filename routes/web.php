@@ -380,6 +380,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/live', [\App\Http\Controllers\Teacher\LiveContestController::class, 'store'])->name('live.store');
     Route::get('/live/import', [\App\Http\Controllers\Teacher\LiveContestController::class, 'import'])->name('live.import');
     Route::get('/live/{contest}/host', [\App\Http\Controllers\Teacher\LiveContestController::class, 'host'])->name('live.host');
+    Route::get('/live/{contest}/results', [\App\Http\Controllers\Teacher\LiveContestController::class, 'results'])->name('live.results');
     Route::get('/live/{contest}/state', [\App\Http\Controllers\Teacher\LiveContestController::class, 'state'])->middleware('throttle:200,1')->name('live.state');
     Route::post('/live/{contest}/go', [\App\Http\Controllers\Teacher\LiveContestController::class, 'go'])->name('live.go');
     Route::delete('/live/{contest}', [\App\Http\Controllers\Teacher\LiveContestController::class, 'destroy'])->name('live.destroy');
@@ -510,6 +511,7 @@ Route::middleware('auth')->group(function () {
         ->where('key', '[A-Za-z0-9_:.\-]{1,60}')->name('notices.read');
     Route::post('/notices/{announcement}/dismiss', [\App\Http\Controllers\NoticeController::class, 'dismiss'])->name('notices.dismiss');
     Route::post('/notices/clear', [\App\Http\Controllers\NoticeController::class, 'clear'])->name('notices.clear');
+    Route::post('/notices/remove', [\App\Http\Controllers\NoticeController::class, 'remove'])->name('notices.remove');
 
     // بانک سؤالاتِ حرفه‌ای — ادمین کل (کلِ بانک) + مدیر مدرسه (بانکِ مدرسه)
     Route::middleware('role:super_admin|school_admin')->prefix('question-bank')->name('bank.')->group(function () {

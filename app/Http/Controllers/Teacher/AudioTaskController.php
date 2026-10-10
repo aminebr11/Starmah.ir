@@ -81,6 +81,7 @@ class AudioTaskController extends Controller
             'penalty' => ['nullable', 'numeric', 'min:0', 'max:5'],
             'due_at' => ['nullable', 'date'],
             'publish' => ['nullable', 'boolean'],
+            'pace' => ['nullable', 'in:short,normal,long'],
         ], [
             'title.required' => 'عنوان را بنویسید.',
             'audio.max' => 'فایلِ صوتی حداکثر ۲۰ مگابایت.',
@@ -105,22 +106,27 @@ class AudioTaskController extends Controller
             $audioPath = $this->storeUpload($request->file('audio'), 'audio-tasks') ?: null;
         }
 
-        // متن → صدای فارسیِ سرور، جمله‌به‌جمله (برای املا آهسته و کلمه‌به‌کلمه)
-        $sentences = [];
-        if ($text !== '') {
-            foreach (AudioTask::splitSentences($text) as $s) {
-                $sentences[] = ['text' => $s, 'audio' => $data['source'] === 'tts'
-                    ? rescue(fn () => $speech->pathFor($s, $data['kind'] === 'dictation' ? 'dictation' : 'reading'), null, true) : null];
+        // متن → یک صدای پیوسته‌ی فارسی: تا آخرِ متن خوانده می‌شود و سرِ هر نقطه چند ثانیه مکث می‌کند.
+        // بچه‌ها هر جا خواستند مکث می‌کنند، ادامه می‌دهند یا از اول گوش می‌دهند.
+        $pace = $data['pace'] ?? 'normal';
+        $sentences = $text !== '' ? array_map(fn ($s) => ['text' => $s, 'audio' => null], AudioTask::speechSentences($text)) : [];
+        $missing = 0;
+        if ($data['source'] === 'tts' && $sentences) {
+            $built = rescue(fn () => $speech->continuousPath(array_column($sentences, 'text'), $data['kind'] === 'dictation' ? 'dictation' : 'reading', $pace), null, true);
+            // کپیِ جدا برای این تکلیف (فایلِ کش ممکن است مالِ تکلیفِ دیگری هم باشد)
+            if ($built) {
+                $copy = 'audio-tasks/tts-' . \Illuminate\Support\Str::random(24) . '.wav';
+                $audioPath = Storage::disk('public')->copy($built, $copy) ? $copy : null;
             }
+            $missing = $audioPath ? 0 : count($sentences);
         }
-        $missing = $data['source'] === 'tts' ? collect($sentences)->whereNull('audio')->count() : 0;
 
         $task = AudioTask::create([
             'school_id' => $teacher->school_id, 'teacher_id' => $teacher->id, 'classroom_id' => $room->id,
             'kind' => $data['kind'], 'title' => $data['title'], 'grade' => $room->grade,
             'subject' => $data['kind'] === 'dictation' ? 'املا' : 'فارسی',
             'text' => $text ?: null, 'sentences' => $sentences, 'source' => $data['source'], 'audio_path' => $audioPath,
-            'score_type' => $data['score_type'], 'penalty' => $data['penalty'] ?? 0.5,
+            'score_type' => $data['score_type'], 'penalty' => $data['penalty'] ?? 0.5, 'pace' => $pace,
             'due_at' => $data['due_at'] ?? null,
         ]);
         if (! empty($data['publish'])) {
@@ -129,7 +135,7 @@ class AudioTaskController extends Controller
 
         $msg = '✅ «' . $task->title . '» ساخته شد' . (! empty($data['publish']) ? ' و برای کلاس فرستاده شد' : ' (پیش‌نویس)');
         if ($missing) {
-            $msg .= ' — ⚠️ صدای فارسیِ سرور برای ' . Jalali::fa((string) $missing) . ' جمله ساخته نشد؛ دانش‌آموزان با صدای گوشیِ خودشان می‌شنوند. برای صدای بهتر، صدای خودتان را ضبط کنید یا کلیدِ صدا را در «مرکزِ هوش مصنوعی» ثبت کنید.';
+            $msg .= ' — ⚠️ صدای فارسیِ سرور ساخته نشد؛ دانش‌آموزان با صدای گوشیِ خودشان می‌شنوند. برای صدای بهتر، صدای خودتان را ضبط کنید یا کلیدِ صدا را در «مرکزِ هوش مصنوعی» ثبت کنید.';
         }
 
         return redirect()->route('teacher.audio.show', $task)->with('flash', $msg);

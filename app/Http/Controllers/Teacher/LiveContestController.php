@@ -52,6 +52,7 @@ class LiveContestController extends Controller
                 'questions' => $c->total(), 'seconds' => $c->seconds, 'players' => (int) $c->players_count,
                 'when' => self::when($c), 'date' => Jalali::format($c->created_at),
                 'winner' => $c->phase === 'end' ? $c->players()->with('student:id,name')->orderByDesc('score')->first()?->student?->name : null,
+                'started' => $c->phase !== 'lobby' || (int) $c->players_count > 0,
             ])->values(),
             'classrooms' => $rooms,
             'exams' => SmartExam::where('teacher_id', $teacher->id)->latest()->limit(40)->get(['id', 'title']),
@@ -197,6 +198,30 @@ class LiveContestController extends Controller
         LiveContestPlayer::where('live_contest_id', $contest->id)->delete();
         // امتیازِ (XP) دورِ قبل می‌ماند؛ دورِ تازه دوباره امتیاز نمی‌دهد
         $contest->update(['phase' => 'lobby', 'current' => -1, 'phase_at' => null, 'mode' => 'manual', 'starts_at' => null]);
+    }
+
+    /** سوابقِ نتیجه‌ی یک مسابقه برای معلم: رتبه‌بندیِ کامل و درصدِ درستیِ هر سؤال. */
+    public function results(Request $request, LiveContest $contest): JsonResponse
+    {
+        $this->mine($request, $contest);
+        $total = max(1, $contest->total());
+        $answers = LiveContestAnswer::where('live_contest_id', $contest->id)->get(['student_id', 'q_index', 'correct', 'ms']);
+        $byQ = $answers->groupBy('q_index');
+
+        return response()->json([
+            'phase' => $contest->phase,
+            'ranking' => $contest->ranking()->map(fn ($r) => $r + [
+                'accuracy' => (int) round(100 * $r['correct'] / $total),
+                'answered' => $answers->where('student_id', $r['id'])->count(),
+            ])->values(),
+            'questions' => collect($contest->questions ?? [])->values()->map(fn ($q, $i) => [
+                'prompt' => $q['prompt'], 'answer' => $q['choices'][$q['answer']] ?? null,
+                'answered' => ($byQ[$i] ?? collect())->count(),
+                'correct' => ($byQ[$i] ?? collect())->where('correct', true)->count(),
+                'avg_s' => ($byQ[$i] ?? collect())->count() ? round(($byQ[$i])->avg('ms') / 1000, 1) : null,
+            ]),
+            'audience' => count($contest->audienceIds()),
+        ]);
     }
 
     public function destroy(Request $request, LiveContest $contest): RedirectResponse

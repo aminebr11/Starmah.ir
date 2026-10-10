@@ -85,6 +85,15 @@ class AudioTask extends Model
         return array_slice($out, 0, 40);
     }
 
+    /** متن → جمله‌ها فقط سرِ نقطه/علامت (برای صدای پیوسته؛ ویرگول شکسته نمی‌شود و خودِ صدا مکثِ کوتاهش را دارد). */
+    public static function speechSentences(string $text): array
+    {
+        $text = trim(preg_replace('/[ \t]+/u', ' ', $text) ?? $text);
+        $parts = preg_split('/(?<=[.!؟?…])\s+|\n+/u', $text) ?: [];
+
+        return array_slice(array_values(array_filter(array_map('trim', $parts), fn ($p) => $p !== '')), 0, 60);
+    }
+
     /** نمره‌ی پیشنهادی از تعدادِ غلط (توصیفی و عددیِ ۲۰). */
     public function suggest(int $mistakes): array
     {

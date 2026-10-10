@@ -56,7 +56,7 @@ export default function SentencePlayer({ task, onPlayed, dark = true }) {
     const [i, setI] = useState(0);
     const [playing, setPlaying] = useState(false);
     const [speed, setSpeed] = useState(0);
-    const [auto, setAuto] = useState(false);
+    const [auto, setAuto] = useState(task.kind === 'dictation');
     const [wait, setWait] = useState(0);
     const [msg, setMsg] = useState(null);
     const [done, setDone] = useState({});
@@ -123,8 +123,9 @@ export default function SentencePlayer({ task, onPlayed, dark = true }) {
         }
     };
 
-    if (!sentences.length || (whole && task.source !== 'tts')) {
-        return whole ? <WholeAudio src={whole} onPlay={count} dark={dark} /> : <div className="sp-empty">صدایی برای پخش نیست.</div>;
+    // یک صدای کامل (صدای معلم، فایل، یا متنِ تبدیل‌شده به صدای پیوسته) → یک پخش‌کننده‌ی پیوسته
+    if (whole || !sentences.length) {
+        return whole ? <WholeAudio src={whole} onPlay={count} dark={dark} title={task.source === 'tts' ? '🎧 گوش بده' : undefined} /> : <div className="sp-empty">صدایی برای پخش نیست.</div>;
     }
 
     return (
@@ -244,6 +245,7 @@ export function WholeAudio({ src, onPlay, dark, title = '🎧 صدای معلم'
                 </div>
             </div>
             <div className="sp-controls">
+                <button type="button" onClick={async () => { if (!a.current) return; a.current.currentTime = 0; setMsg(null); onPlay?.(); await playSafe(a.current, src, SPEEDS[speed].rate, setMsg); }}>⏮ از اول</button>
                 <button type="button" onClick={() => skip(-5)}>⏪ ۵ ثانیه عقب</button>
                 <SpeedButton speed={speed} onChange={(k) => { setSpeed(k); applyRate(a.current, SPEEDS[k].rate); }} />
                 <button type="button" onClick={() => skip(5)}>۵ ثانیه جلو ⏩</button>

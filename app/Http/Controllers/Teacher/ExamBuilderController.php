@@ -167,7 +167,7 @@ class ExamBuilderController extends Controller
             'audience'  => 'personal',
             'body'      => "یک آزمون جدید برای شما منتشر شد: «{$assignment->title}».\nبرای شرکت، روی همین اعلان بزنید.",
             'link'      => '/exams',
-        ]);
+        ] + Announcement::about($assignment));
         $ann->recipients()->sync($ids);
 
         // Assignment رابطه‌ی teacher ندارد، پس مستقیم می‌خوانیمش
@@ -363,7 +363,7 @@ class ExamBuilderController extends Controller
             'school_id' => $assignment->school_id, 'sender_id' => $assignment->teacher_id,
             'title' => '✅ تصحیح آزمون — ' . $assignment->title, 'audience' => 'personal',
             'body' => "آزمونِ «{$assignment->title}» تصحیح شد.\nنمره‌ی نهایی: {$total} از {$maxTotal} ({$accuracy}٪)",
-        ]);
+        ] + Announcement::about($assignment));
         $ann->recipients()->sync([$data['student_id']]);
 
         return back()->with('flash', 'پاسخ‌های تشریحی تصحیح و نتیجه اعلام شد ✅');

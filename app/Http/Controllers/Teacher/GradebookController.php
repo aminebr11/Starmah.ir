@@ -279,6 +279,7 @@ class GradebookController extends Controller
         if (\App\Support\DbSchema::hasColumn('announcements', 'link')) {
             $payload['link'] = '/report?tab=grades';
         }
+        $payload += \App\Models\Announcement::about($col);
 
         $ann = \App\Models\Announcement::create($payload);
         $ann->recipients()->sync([$grade->student_id]);

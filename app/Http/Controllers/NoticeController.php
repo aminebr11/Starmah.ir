@@ -97,6 +97,15 @@ class NoticeController extends Controller
         return back()->with('flash', 'اعلان حذف شد');
     }
 
+    /** حذفِ چند ردیف (انتخاب‌شده) یا همه، از کارتابلِ همین کاربر. */
+    public function remove(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $data = $request->validate(['keys' => ['nullable', 'array', 'max:500'], 'keys.*' => ['string', 'max:60'], 'all' => ['nullable', 'boolean']]);
+        $n = \App\Support\Notifications::hide($request->user(), ! empty($data['all']) ? null : ($data['keys'] ?? []));
+
+        return back(303)->with('flash', $n ? (! empty($data['all']) ? 'همه‌ی اعلان‌ها حذف شدند 🗑️' : \App\Support\Jalali::fa((string) $n) . ' اعلان حذف شد 🗑️') : 'چیزی انتخاب نشده بود');
+    }
+
     /** حذف/پنهان‌کردنِ همه‌ی اعلان‌های فعلیِ کاربر. */
     public function clear(Request $request): \Illuminate\Http\RedirectResponse
     {

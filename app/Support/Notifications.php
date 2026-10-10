@@ -82,6 +82,35 @@ class Notifications
         self::markSeen($user);
     }
 
+    /**
+     * حذفِ ردیف‌ها از کارتابلِ همین کاربر (برای بقیه می‌مانند). $keys = null یعنی «حذفِ همه».
+     *
+     * @param  array<string>|null  $keys
+     */
+    public static function hide(User $user, ?array $keys = null): int
+    {
+        $keys ??= array_column(self::build($user), 'id');
+        $keys = array_values(array_unique(array_filter(array_map(fn ($k) => Str::limit(trim((string) $k), 60, ''), $keys))));
+        if (! $keys) {
+            return 0;
+        }
+        $now = now();
+        foreach (array_chunk($keys, 500) as $chunk) {
+            DB::table('notification_hides')->insertOrIgnore(array_map(fn ($k) => [
+                'user_id' => $user->id, 'key' => $k, 'created_at' => $now, 'updated_at' => $now,
+            ], $chunk));
+            // اطلاعیه‌ی شخصی «خوانده» هم بشود تا شمارنده‌ها بخوابند
+            $ann = array_map(fn ($k) => (int) substr($k, 1), array_filter($chunk, fn ($k) => preg_match('/^a\d+$/', $k)));
+            if ($ann) {
+                DB::table('announcement_recipients')->where('user_id', $user->id)->whereIn('announcement_id', $ann)
+                    ->whereNull('read_at')->update(['read_at' => $now]);
+            }
+        }
+        self::forget($user);
+
+        return count($keys);
+    }
+
     /** کلیدهایی که این کاربر خوانده است. */
     private static function readKeys(User $user): \Illuminate\Support\Collection
     {
@@ -340,6 +369,14 @@ class Notifications
                         'ts'    => now()->timestamp + 2,
                     ]);
                 }
+            }
+        }
+
+        // ردیف‌هایی که کاربر از کارتابلش حذف کرده (هر نوعی: اطلاعیه، انضباطی، پیام، …)
+        if (\App\Support\DbSchema::hasTable('notification_hides')) {
+            $hidden = DB::table('notification_hides')->where('user_id', $user->id)->pluck('key')->flip();
+            if ($hidden->isNotEmpty()) {
+                $items = $items->reject(fn ($i) => $hidden->has($i['id']));
             }
         }
 

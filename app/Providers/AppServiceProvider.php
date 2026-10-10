@@ -20,6 +20,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // حذفِ یک موضوع (املا، مسابقه، کاربرگ، بازی، آزمون، مأموریت، محتوا…) → اعلان‌هایش هم کامل پاک شوند
+        foreach (\App\Support\NoticeCleanup::MODELS as $model) {
+            if (class_exists($model)) {
+                $model::deleted(fn ($m) => rescue(fn () => \App\Support\NoticeCleanup::purge($m), null, true));
+            }
+        }
+
         // روی سرورِ واقعی، هشدار و Deprecatedِ PHP نباید وسطِ پاسخ چاپ شود؛ روی بعضی
         // هاست‌ها display_errors روشن است و همین JSONِ پاسخ‌ها را خراب می‌کرد
         // (مثلاً «پاسخِ نامعتبر از سرور (200)» در طراحیِ سؤال). خطاها همچنان در لاگ ثبت می‌شوند.

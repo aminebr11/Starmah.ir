@@ -90,10 +90,86 @@ class SpeechService
         return $path;
     }
 
-    private function openai(string $text, string $style = 'kid'): ?string
+    /** مکث (ثانیه) بعد از هر نقطه، بر حسبِ سرعتِ انتخابیِ معلم. */
+    public const PAUSES = [
+        'dictation' => ['short' => [2.0, 0.45], 'normal' => [3.0, 0.7], 'long' => [4.0, 1.0]],   // پایه + هر کلمه
+        'reading' => ['short' => [0.7, 0], 'normal' => [1.2, 0], 'long' => [2.0, 0]],
+    ];
+
+    /**
+     * «یک صدای پیوسته» از کلِ متن: متن تا آخر خوانده می‌شود و سرِ هر نقطه (. ! ؟) چند ثانیه مکث می‌شود
+     * (املا: به اندازه‌ی طولِ جمله، تا بچه‌ها بنویسند). خروجی یک فایلِ WAV روی دیسکِ public است.
+     * بدونِ ffmpeg: صدای هر جمله به‌صورتِ PCM گرفته و با سکوت پشتِ هم چسبانده می‌شود.
+     *
+     * @param  string[]  $sentences
+     */
+    public function continuousPath(array $sentences, string $style = 'reading', string $pace = 'normal'): ?string
+    {
+        $engine = self::engine();
+        $sentences = array_values(array_filter(array_map(fn ($x) => self::clean((string) $x), $sentences)));
+        if (! $sentences || ! $engine || ! self::available()) {
+            return null;
+        }
+        $style = isset(self::PAUSES[$style]) ? $style : 'reading';
+        [$base, $perWord] = self::PAUSES[$style][$pace] ?? self::PAUSES[$style]['normal'];
+        $hash = sha1('cont|' . $engine . '|' . $style . '|' . $pace . '|' . implode("\n", $sentences));
+        $path = 'tts/' . substr($hash, 0, 2) . '/' . $hash . '.wav';
+        $disk = Storage::disk('public');
+        if ($disk->exists($path)) {
+            return $path;
+        }
+        $rate = 24000;
+        $pcm = str_repeat("\0", (int) ($rate * 0.4) * 2); // کمی سکوت در آغاز
+        foreach ($sentences as $i => $sentence) {
+            $part = $this->pcmFor($sentence, $style);
+            if ($part === null) {
+                return null;
+            }
+            $pcm .= $part;
+            if ($i < count($sentences) - 1) {
+                $words = count(preg_split('/\s+/u', $sentence) ?: []);
+                $gap = min(12, $base + $perWord * $words);
+                $pcm .= str_repeat("\0", (int) ($rate * $gap) * 2);
+            }
+        }
+        $pcm .= str_repeat("\0", (int) ($rate * 0.6) * 2);
+        $disk->put($path, self::wav($pcm, $rate));
+
+        return $path;
+    }
+
+    /** PCMِ خامِ ۲۴ کیلوهرتزِ یک جمله (با کش؛ ساختِ دوباره‌ی یک متن هزینه ندارد). */
+    private function pcmFor(string $text, string $style): ?string
+    {
+        $engine = self::engine();
+        $hash = sha1('pcm|' . $engine . '|' . $style . '|' . $text);
+        $path = 'tts/pcm/' . substr($hash, 0, 2) . '/' . $hash . '.pcm';
+        $disk = Storage::disk('public');
+        if ($disk->exists($path)) {
+            return $disk->get($path);
+        }
+        $prev = AiUsage::$feature;
+        AiUsage::$feature = 'tts';
+        try {
+            $pcm = $engine === 'gemini' ? $this->geminiPcm($text, $style) : $this->openai($text, $style, 'pcm');
+        } finally {
+            AiUsage::$feature = $prev;
+        }
+        if (! $pcm) {
+            return null;
+        }
+        if (strlen($pcm) % 2) {
+            $pcm .= "\0";
+        }
+        $disk->put($path, $pcm);
+
+        return $pcm;
+    }
+
+    private function openai(string $text, string $style = 'kid', string $format = 'mp3'): ?string
     {
         $key = AiConfig::key('openai');
-        $body = ['model' => 'gpt-4o-mini-tts', 'voice' => 'nova', 'input' => $text, 'response_format' => 'mp3',
+        $body = ['model' => 'gpt-4o-mini-tts', 'voice' => 'nova', 'input' => $text, 'response_format' => $format,
             'instructions' => self::STYLES[$style] ?? self::STYLES['kid']];
         $res = Http::withToken($key)->timeout(30)->post('https://api.openai.com/v1/audio/speech', $body);
         if ($res->status() === 400 || $res->status() === 404) {
@@ -109,6 +185,13 @@ class SpeechService
 
     private function gemini(string $text, string $style = 'kid'): ?string
     {
+        $pcm = $this->geminiPcm($text, $style);
+
+        return $pcm ? self::wav($pcm, 24000) : null;
+    }
+
+    private function geminiPcm(string $text, string $style = 'kid'): ?string
+    {
         $key = AiConfig::key('gemini');
         // Gemini دستورِ لحن را از خودِ متن می‌گیرد؛ برای «kid» فقط متن (مثلِ قبل)
         $prompt = $style === 'kid' ? $text : (self::STYLES[$style] . "\n\n" . $text);
@@ -122,7 +205,7 @@ class SpeechService
         $b64 = $res->successful() ? data_get($res->json(), 'candidates.0.content.parts.0.inlineData.data') : null;
         $pcm = $b64 ? base64_decode($b64, true) : null;
 
-        return $pcm ? self::wav($pcm, 24000) : null;
+        return $pcm ?: null;
     }
 
     /** PCMِ ۱۶ بیتیِ تک‌کاناله → WAV. */

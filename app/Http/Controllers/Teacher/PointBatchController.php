@@ -300,7 +300,7 @@ class PointBatchController extends Controller
                 ? ($plus ? "تیمِ شما {$batch->amount} امتیاز گرفت 🏆" : "از امتیازِ تیمِ شما {$batch->amount} کم شد") . " ({$batch->reason})"
                 : ($plus ? "امتیاز جدید گرفتی: +{$batch->amount} XP" : "امتیاز کم شد: {$batch->amount} XP") . " ({$batch->reason})",
             'link'      => $teamOnly ? '/my-team' : '/report?tab=overview',
-        ]);
+        ] + Announcement::about($batch));
         $ann->recipients()->sync($ids->values()->all());
     }
 }

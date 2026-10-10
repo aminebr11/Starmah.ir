@@ -51,6 +51,7 @@ class ContentRelease
                 'title' => $title,
                 'body' => "معلمت " . ($added ? 'عکس‌های تازه‌ای به آلبومِ' : 'آلبومِ تازه‌ای با') . " «{$album->title}» گذاشت. روی همین اعلان بزن تا ببینی 📷",
                 'link' => '/class-content?tab=gallery&album=' . $album->id,
+                'source_type' => \App\Models\GalleryAlbum::class, 'source_id' => $album->id,
                 'classroom_id' => $album->classroom_id,
             ]);
         } catch (\Throwable $e) {
@@ -101,7 +102,7 @@ class ContentRelease
             $payload['link'] = $over['link'] ?? self::linkFor($content);
         }
 
-        $ann = Announcement::create($payload);
+        $ann = Announcement::create($payload + Announcement::about($content));
         $ann->recipients()->sync($ids);
 
         // پیامک — تکلیف رویدادِ جداگانه دارد چون معمولاً مهم‌ترینِ آن‌هاست

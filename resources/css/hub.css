@@ -738,3 +738,43 @@ em.warn, .ew-tag.warn { background: #f0952e; color: #fff; }
 .sp-speed.s1 { background: #fff1c2; color: #6b4a00; } .sp-speed.s2 { background: #ffd6d9; color: #7a1020; }
 .sp-dark .sp-speed { background: rgba(255,255,255,.16); color: #fff; } .sp-dark .sp-speed.s1 { background: #ffd23f; color: #2b1d00; } .sp-dark .sp-speed.s2 { background: #ff8a5b; color: #2b0d00; }
 .sp-speed-dots { display: inline-flex; gap: 3px; } .sp-speed-dots i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .3; } .sp-speed-dots i.on { opacity: 1; }
+
+/* ═══ فهرستِ مسابقه‌های معلم (موبایل‌پسند) + نتایج ═══ */
+.lvc-list { display: grid; gap: 12px; margin-top: 14px; }
+.lvc { background: var(--card, #fff); border-radius: 20px; padding: 14px; box-shadow: 0 6px 18px rgba(30,20,80,.08); display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.lvc.question, .lvc.reveal { box-shadow: 0 0 0 2px #e8505b, 0 6px 18px rgba(232,80,91,.18); }
+.lvc-head { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.lvc-ic { flex: 0 0 48px; height: 48px; border-radius: 14px; background: #f3efff; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+.lvc-title { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.lvc-title b { font-size: 16.5px; line-height: 1.6; overflow-wrap: anywhere; flex: 1 1 180px; }
+.lvc-status { flex: 0 0 auto; font-size: 12px; font-weight: 800; border-radius: 99px; padding: 3px 10px; background: #eef0f6; color: #555; white-space: nowrap; }
+.lvc-status.lobby { background: #fff4cc; color: #7a5600; } .lvc-status.question, .lvc-status.reveal { background: #ffe1e3; color: #b0172a; } .lvc-status.end { background: #e6f7ee; color: #12693f; }
+.lvc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.lvc-chips span { background: #f4f5fa; border-radius: 10px; padding: 3px 9px; font-size: 12.5px; font-weight: 700; color: #444; white-space: nowrap; }
+.lvc-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted, #666); }
+.lvc-act { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.lvc-act .btn { flex: 1 1 auto; text-align: center; justify-content: center; }
+.lvc-act .lvc-del { flex: 0 0 auto; }
+.lvc-res { border-top: 1px dashed #ddd; padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.lvc-res h4 { margin: 6px 0 0; font-size: 14.5px; }
+.lvc-loading, .lvc-empty { color: var(--muted, #777); font-size: 13.5px; }
+.lvc-sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.lvc-sum div { background: #f6f3ff; border-radius: 14px; padding: 8px; text-align: center; display: flex; flex-direction: column; }
+.lvc-sum b { font-size: 20px; color: #5d3fb0; } .lvc-sum span { font-size: 11.5px; color: #555; line-height: 1.6; }
+.lvc-rank, .lvc-qs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.lvc-rank li { display: grid; grid-template-columns: 34px 1fr auto auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 10px; background: #fafafd; font-size: 14px; }
+.lvc-rank .r { text-align: center; font-weight: 900; } .lvc-rank .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+.lvc-rank .c { font-size: 12px; color: #666; white-space: nowrap; } .lvc-rank b { color: #b07800; min-width: 48px; text-align: left; }
+.lvc-qs li { background: #fafafd; border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+.lvc-qs .p { font-weight: 700; font-size: 14px; overflow-wrap: anywhere; line-height: 1.7; }
+.lvc-qs .bar { height: 8px; border-radius: 6px; background: #eceef5; overflow: hidden; } .lvc-qs .bar i { display: block; height: 100%; border-radius: 6px; }
+.lvc-qs small { font-size: 12px; color: #555; }
+@media (max-width: 420px) { .lvc-rank li { grid-template-columns: 28px 1fr auto; } .lvc-rank .c { display: none; } }
+/* تخته روی آیفون: دکمه‌ی بستن زیرِ ناحیه‌ی بریدگی/نوارِ وضعیت نرود */
+.lvh-top { padding-top: calc(12px + env(safe-area-inset-top)); padding-inline: calc(18px + env(safe-area-inset-right)) calc(18px + env(safe-area-inset-left)); position: sticky; top: 0; z-index: 40; background: inherit; }
+.lvh-foot { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+@media (max-width: 700px) {
+    .lvh-top { padding-top: calc(10px + env(safe-area-inset-top)); background: rgba(27,18,64,.92); backdrop-filter: blur(6px); }
+    .lvh-x { width: 44px; height: 44px; font-size: 20px; flex: 0 0 44px; }
+    .lvh-title { flex-basis: calc(100% - 60px); order: 0; font-size: 15px; }
+}
