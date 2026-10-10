@@ -11,12 +11,12 @@ const blank = () => ({ prompt: '', choices: ['', '', '', ''], answer: 0 });
 
 /** معلم: «🏆 مسابقه‌ی زنده» — ساختن و رفتن به تخته. */
 export default function LiveContests() {
-    const { contests = [], classrooms = [], exams = [], games = [], subjects = [], ready = true, errors = {} } = usePage().props;
+    const { contests = [], classrooms = [], exams = [], games = [], subjects = [], ready = true, errors = {}, tracks = [], musicReady = false } = usePage().props;
     const [open, setOpen] = useState(contests.length === 0);
     const [imp, setImp] = useState({ source: 'bank', id: '', subject: subjects[0] || '', topic: '', n: 10 });
     const [busy, setBusy] = useState(false);
     const [note, setNote] = useState(null);
-    const form = useForm({ title: '', classroom_id: classrooms[0]?.id ?? '', mode: 'manual', starts_at: '', seconds: 20, questions: [blank()] });
+    const form = useForm({ title: '', classroom_id: classrooms[0]?.id ?? '', mode: 'manual', starts_at: '', seconds: 20, questions: [blank()], music_track_id: tracks[0]?.id ?? '' });
     const d = form.data;
     const qs = d.questions;
     const setQ = (i, patch) => form.setData('questions', qs.map((q, k) => (k === i ? { ...q, ...patch } : q)));
@@ -88,6 +88,7 @@ export default function LiveContests() {
                         <JalaliDatePicker value={d.starts_at} onChange={(v) => form.setData('starts_at', v)} withTime placeholder="انتخابِ تاریخ و ساعت" />
                     </label>
                     {errors.starts_at && <div className="rm-err">{errors.starts_at}</div>}
+                    {musicReady && <MusicPicker tracks={tracks} value={d.music_track_id} onChange={(v) => form.setData('music_track_id', v)} />}
 
                     <div className="lv-import">
                         <b>📥 آوردنِ سؤال</b>
@@ -147,15 +148,17 @@ export default function LiveContests() {
                 </form>
             )}
 
+            {musicReady && <MusicLibrary tracks={tracks} />}
+
             <div className="lvc-list">
-                {contests.length === 0 ? <div className="panel" style={{ color: 'var(--muted)' }}>هنوز مسابقه‌ای نساخته‌اید.</div> : contests.map((c) => <ContestCard key={c.id} c={c} />)}
+                {contests.length === 0 ? <div className="panel" style={{ color: 'var(--muted)' }}>هنوز مسابقه‌ای نساخته‌اید.</div> : contests.map((c) => <ContestCard key={c.id} c={c} tracks={tracks} musicReady={musicReady} />)}
             </div>
         </DashLayout>
     );
 }
 
 /** کارتِ یک مسابقه در فهرستِ معلم (موبایل‌پسند) با «نتایج» بازشونده. */
-function ContestCard({ c }) {
+function ContestCard({ c, tracks = [], musicReady = false }) {
     const [open, setOpen] = useState(false);
     const [res, setRes] = useState(null);
     const [err, setErr] = useState(null);
@@ -187,6 +190,14 @@ function ContestCard({ c }) {
                 {c.players > 0 && <span>🙋 {fa(c.players)} شرکت‌کننده</span>}
                 {c.winner && <span>🥇 {c.winner}</span>}
             </div>
+            {musicReady && c.phase !== 'end' && (
+                <label className="lvc-music">🎵
+                    <select value={c.music ?? ''} onChange={(e) => router.post(route('teacher.live.music', c.id), { track_id: e.target.value || null }, { preserveScroll: true })}>
+                        <option value="">بدونِ آهنگ</option>
+                        {tracks.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+                    </select>
+                </label>
+            )}
             <div className="lvc-act">
                 <a href={route('teacher.live.host', c.id)} className="btn btn-sm">📺 {c.phase === 'end' ? 'نتیجه روی تخته' : 'اجرا روی تخته'}</a>
                 {c.started && <button type="button" className="btn btn-sm btn-ghost" onClick={toggle}>📊 {open ? 'بستنِ نتایج' : 'سوابق و نتایج'}</button>}
@@ -230,6 +241,87 @@ function ContestCard({ c }) {
                         </>
                     )}
                 </div>
+            )}
+        </div>
+    );
+}
+
+/** آپلودِ آهنگِ تازه (JSON) — برای فرم و کتابخانه. */
+async function uploadTrack(file, title = '') {
+    const fd = new FormData();
+    fd.append('track', file);
+    if (title) fd.append('title', title);
+    const { data } = await axios.post(route('teacher.live.tracks.store'), fd, { headers: { Accept: 'application/json' } });
+    return data.track;
+}
+const uploadError = (e) => e?.response?.data?.errors?.track?.[0] || e?.response?.data?.message || 'آپلود نشد؛ دوباره امتحان کنید.';
+
+/** انتخابِ آهنگِ مسابقه در فرم: بدونِ آهنگ، یکی از آهنگ‌های قبلی، یا آهنگِ تازه. */
+function MusicPicker({ tracks, value, onChange }) {
+    const [busy, setBusy] = useState(false);
+    const [err, setErr] = useState(null);
+    const pick = async (e) => {
+        const f = e.target.files?.[0];
+        e.target.value = '';
+        if (!f) return;
+        setBusy(true); setErr(null);
+        try {
+            const t = await uploadTrack(f);
+            router.reload({ only: ['tracks'], preserveScroll: true, onSuccess: () => onChange(t.id) });
+        } catch (x) { setErr(uploadError(x)); } finally { setBusy(false); }
+    };
+    return (
+        <div className="lvm-pick">
+            <b>🎵 آهنگِ پخش روی تخته</b>
+            <div className="lvm-opts">
+                <button type="button" className={`lvm-opt ${!value ? 'on' : ''}`} onClick={() => onChange('')}>🔇 بدونِ آهنگ</button>
+                {tracks.map((t) => (
+                    <button key={t.id} type="button" className={`lvm-opt ${String(value) === String(t.id) ? 'on' : ''}`} onClick={() => onChange(t.id)}>🎶 {t.title}</button>
+                ))}
+                <label className={`lvm-opt add ${busy ? 'busy' : ''}`}>{busy ? '⏳ در حالِ آپلود…' : '➕ آهنگِ تازه'}
+                    <input type="file" accept="audio/*" hidden onChange={pick} disabled={busy} />
+                </label>
+            </div>
+            {err && <div className="rm-err">{err}</div>}
+            <small>آهنگ‌ها در سیستم می‌مانند و برای مسابقه‌های بعدی هم انتخاب‌شدنی‌اند. روی تخته خودکار پخش می‌شود و دکمه‌ی قطعِ صدا دارد.</small>
+        </div>
+    );
+}
+
+/** «آهنگ‌های من»: پیش‌شنیدن، آپلود و حذف. */
+function MusicLibrary({ tracks }) {
+    const [open, setOpen] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const [err, setErr] = useState(null);
+    const pick = async (e) => {
+        const f = e.target.files?.[0];
+        e.target.value = '';
+        if (!f) return;
+        setBusy(true); setErr(null);
+        try { await uploadTrack(f); router.reload({ only: ['tracks'], preserveScroll: true }); } catch (x) { setErr(uploadError(x)); } finally { setBusy(false); }
+    };
+    return (
+        <div className="panel lvm-lib">
+            <button type="button" className="lvm-head" onClick={() => setOpen(!open)}>
+                <span>🎵 آهنگ‌های مسابقه‌ی من ({fa(tracks.length)})</span><span>{open ? '▲' : '▼'}</span>
+            </button>
+            {open && (
+                <>
+                    {tracks.length === 0 && <p className="lvc-empty">هنوز آهنگی نگذاشته‌اید. یک آهنگِ شاد بگذارید تا هنگامِ مسابقه روی تخته پخش شود.</p>}
+                    <div className="lvm-list">
+                        {tracks.map((t) => (
+                            <div key={t.id} className="lvm-row">
+                                <b>🎶 {t.title}</b>
+                                <audio controls preload="none" src={t.url} />
+                                <button type="button" className="btn btn-sm btn-ghost" onClick={() => confirm(`«${t.title}» حذف شود؟`) && router.delete(route('teacher.live.tracks.destroy', t.id), { preserveScroll: true })}>🗑️</button>
+                            </div>
+                        ))}
+                    </div>
+                    <label className="btn btn-sm" style={{ marginTop: 10, display: 'inline-flex' }}>{busy ? '⏳ در حالِ آپلود…' : '➕ آپلودِ آهنگِ تازه (mp3، حداکثر ۱۵ مگ)'}
+                        <input type="file" accept="audio/*" hidden onChange={pick} disabled={busy} />
+                    </label>
+                    {err && <div className="rm-err">{err}</div>}
+                </>
             )}
         </div>
     );

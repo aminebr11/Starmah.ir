@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\DB;
  */
 class LiveContest extends Model
 {
-    protected $fillable = ['school_id', 'teacher_id', 'classroom_id', 'title', 'code', 'mode', 'starts_at', 'phase', 'current', 'phase_at', 'seconds', 'questions', 'rewarded'];
+    protected $fillable = ['school_id', 'teacher_id', 'classroom_id', 'title', 'code', 'mode', 'starts_at', 'phase', 'current', 'phase_at', 'seconds', 'questions', 'rewarded', 'music_track_id'];
 
     protected $casts = ['questions' => 'array', 'starts_at' => 'datetime', 'rewarded' => 'boolean', 'current' => 'integer', 'phase_at' => 'integer', 'seconds' => 'integer'];
 

@@ -29,6 +29,10 @@ export default function LiveHost({ contest }) {
     const [left, setLeft] = useState(0);
     const [sound, setSound] = useState(true);
     const [err, setErr] = useState(null);
+    // 🎵 آهنگِ مسابقه: خودکار، تکرارشونده، در همه‌ی مرحله‌ها؛ با دکمه‌ی قطع (انتخاب در مرورگر می‌ماند)
+    const music = useRef(null);
+    const [muted, setMuted] = useState(() => { try { return localStorage.getItem('live-music-muted') === '1'; } catch { return false; } });
+    const [blocked, setBlocked] = useState(false);
     const got = useRef({ at: 0, remaining: 0, lead: 0 });
     const [lead, setLead] = useState(0);
     const busy = useRef(false);
@@ -54,6 +58,32 @@ export default function LiveHost({ contest }) {
         busy.current = true;
         try { apply((await axios.post(route('teacher.live.go', contest.id), { action })).data); } catch { setErr('فرمان نرسید؛ دوباره بزنید.'); } finally { busy.current = false; }
     };
+
+    const playMusic = useCallback(() => {
+        const a = music.current;
+        if (!a || muted) return;
+        a.play().then(() => setBlocked(false)).catch(() => setBlocked(true));
+    }, [muted]);
+    useEffect(() => {
+        const a = music.current;
+        if (!a) return;
+        if (muted) { a.pause(); setBlocked(false); } else playMusic();
+        try { localStorage.setItem('live-music-muted', muted ? '1' : '0'); } catch { /* */ }
+    }, [muted, playMusic]);
+    // مرورگر اجازه‌ی پخشِ خودکار نداد؟ با اولین لمس/کلیک روی تخته شروع شود
+    useEffect(() => {
+        if (!blocked) return undefined;
+        const go = () => playMusic();
+        window.addEventListener('pointerdown', go, { once: true });
+        window.addEventListener('keydown', go, { once: true });
+        return () => { window.removeEventListener('pointerdown', go); window.removeEventListener('keydown', go); };
+    }, [blocked, playMusic]);
+    // صدای آهنگ: هنگامِ سؤال آرام‌تر (تمرکز)، در سکوی قهرمانی بلندتر
+    useEffect(() => {
+        const a = music.current;
+        if (!a) return;
+        a.volume = s?.phase === 'question' ? 0.3 : s?.phase === 'end' ? 0.85 : 0.6;
+    }, [s?.phase]);
 
     // نظرسنجیِ هر ثانیه
     useEffect(() => {
@@ -107,10 +137,17 @@ export default function LiveHost({ contest }) {
                 <b className="lvh-title">🏆 {contest.title}</b>
                 {s && s.phase !== 'lobby' && s.phase !== 'end' && <span className="lvh-pill">سؤالِ {fa(s.current + 1)} از {fa(s.total)}</span>}
                 {s && <span className="lvh-pill">👥 {fa(s.online)} آنلاین</span>}
-                <button type="button" className="lvh-pill" onClick={() => setSound(!sound)}>{sound ? '🔊' : '🔇'}</button>
+                {contest.music && (
+                    <button type="button" className={`lvh-pill lvh-music ${blocked ? 'blocked' : ''}`} title={contest.music.title}
+                        onClick={() => (blocked ? playMusic() : setMuted(!muted))}>
+                        {blocked ? '▶ پخشِ آهنگ' : muted ? '🔇 آهنگ' : '🎵 آهنگ'}
+                    </button>
+                )}
+                <button type="button" className="lvh-pill" onClick={() => setSound(!sound)} title="صدای تیک‌تاک و جشن">{sound ? '🔔' : '🔕'}</button>
                 <button type="button" className="lvh-pill" onClick={full}>⛶ تمام‌صفحه</button>
             </header>
             {err && <div className="lvh-err">{err}</div>}
+            {contest.music && <audio ref={music} src={contest.music.url} loop preload="auto" playsInline autoPlay={!muted} onPlay={() => setBlocked(false)} />}
 
             {!s ? <div className="lvh-center"><div className="lvh-spin" /></div> : s.phase === 'lobby' || s.phase === 'draft' ? (
                 <main className="lvh-lobby">

@@ -779,3 +779,21 @@ em.warn, .ew-tag.warn { background: #f0952e; color: #fff; }
     .lvh-x { width: 44px; height: 44px; font-size: 20px; flex: 0 0 44px; }
     .lvh-title { flex-basis: calc(100% - 60px); order: 0; font-size: 15px; }
 }
+
+/* ═══ 🎵 آهنگِ مسابقه‌ی زنده ═══ */
+.lvm-pick { background: #f6f3ff; border: 1px dashed #c7b6f5; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.lvm-pick small { color: #666; font-size: 12px; line-height: 1.8; }
+.lvm-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.lvm-opt { border: 2px solid #ddd3fb; background: #fff; border-radius: 99px; padding: 6px 14px; font: inherit; font-weight: 800; font-size: 13px; cursor: pointer; color: #3b2a7a; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lvm-opt.on { background: #5d3fb0; border-color: #5d3fb0; color: #fff; }
+.lvm-opt.add { border-style: dashed; color: #5d3fb0; }
+.lvm-opt.busy { opacity: .6; }
+.lvm-lib { margin-top: 14px; }
+.lvm-head { width: 100%; display: flex; justify-content: space-between; background: none; border: 0; font: inherit; font-weight: 900; font-size: 15px; cursor: pointer; padding: 0; color: inherit; }
+.lvm-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.lvm-row { display: grid; grid-template-columns: 1fr auto; gap: 6px 8px; align-items: center; background: #fafafd; border-radius: 12px; padding: 8px; }
+.lvm-row b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.lvm-row audio { grid-column: 1 / -1; width: 100%; height: 36px; grid-row: 2; }
+.lvc-music { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; }
+.lvc-music select { flex: 1; min-width: 0; border: 1px solid #e3e5ef; border-radius: 10px; padding: 6px 8px; font: inherit; font-size: 13px; background: #fff; }
+.lvh-music.blocked { background: #ffd23f; color: #2b1d00; animation: lvGlow 1.4s ease-in-out infinite; }

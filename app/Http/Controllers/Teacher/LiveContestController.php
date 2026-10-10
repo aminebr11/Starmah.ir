@@ -9,6 +9,7 @@ use App\Models\EduGame;
 use App\Models\LiveContest;
 use App\Models\LiveContestAnswer;
 use App\Models\LiveContestPlayer;
+use App\Models\LiveTrack;
 use App\Models\SmartExam;
 use App\Services\RemediationService;
 use App\Support\BankAccess;
@@ -23,6 +24,8 @@ use Inertia\Response;
 /** معلم: «🏆 مسابقه‌ی زنده» — ساختن، اجرای روی تخته و تاریخچه. */
 class LiveContestController extends Controller
 {
+    use \App\Http\Controllers\Concerns\StoresUploads;
+
     private function mine(Request $request, LiveContest $contest): void
     {
         abort_unless($contest->teacher_id === $request->user()->id, 403);
@@ -53,8 +56,11 @@ class LiveContestController extends Controller
                 'when' => self::when($c), 'date' => Jalali::format($c->created_at),
                 'winner' => $c->phase === 'end' ? $c->players()->with('student:id,name')->orderByDesc('score')->first()?->student?->name : null,
                 'started' => $c->phase !== 'lobby' || (int) $c->players_count > 0,
+                'music' => $c->music_track_id,
             ])->values(),
             'classrooms' => $rooms,
+            'tracks' => LiveTrack::ready() ? LiveTrack::where('teacher_id', $teacher->id)->latest()->get()->map->data()->values() : [],
+            'musicReady' => LiveTrack::ready(),
             'exams' => SmartExam::where('teacher_id', $teacher->id)->latest()->limit(40)->get(['id', 'title']),
             'games' => EduGame::where('teacher_id', $teacher->id)->latest()->limit(40)->get(['id', 'title']),
             'subjects' => BankAccess::visibleQuery($teacher)->whereIn('type', ['mc', 'tf'])->whereNotNull('subject')
@@ -98,6 +104,7 @@ class LiveContestController extends Controller
             'questions.*.prompt' => ['required', 'string', 'max:500'],
             'questions.*.choices' => ['required', 'array', 'min:2', 'max:4'],
             'questions.*.answer' => ['required', 'integer', 'min:0', 'max:3'],
+            'music_track_id' => ['nullable', 'integer'],
         ], [
             'title.required' => 'عنوانِ مسابقه را بنویسید.',
             'questions.required' => 'دست‌کم یک سؤال بگذارید.',
@@ -117,7 +124,7 @@ class LiveContestController extends Controller
             'school_id' => $teacher->school_id, 'teacher_id' => $teacher->id, 'classroom_id' => $data['classroom_id'] ?: null,
             'title' => $data['title'], 'code' => LiveContest::newCode(), 'mode' => $data['mode'],
             'starts_at' => $data['starts_at'] ?? null, 'phase' => 'lobby', 'seconds' => $data['seconds'], 'questions' => $qs,
-        ]);
+        ] + ($this->ownTrack($teacher->id, $data['music_track_id'] ?? null) !== false ? ['music_track_id' => $this->ownTrack($teacher->id, $data['music_track_id'] ?? null)] : []));
         $this->announce($contest);
 
         return redirect()->route('teacher.live')->with('flash', '🏆 «' . $contest->title . '» ساخته شد و به بچه‌ها خبر داده شد.' . ($contest->mode === 'auto' ? ' سرِ ساعت خودش شروع می‌شود.' : ($contest->starts_at ? ' سرِ ساعت خودش شروع می‌شود؛ اگر تخته را باز کنید، رفتن به سؤالِ بعد با شماست.' : ' هر وقت آماده بودید «اجرا روی تخته» را بزنید.')));
@@ -143,7 +150,8 @@ class LiveContestController extends Controller
         $this->mine($request, $contest);
 
         return Inertia::render('Teacher/LiveHost', ['contest' => ['id' => $contest->id, 'title' => $contest->title, 'code' => $contest->code,
-            'mode' => $contest->mode, 'total' => $contest->total(), 'seconds' => $contest->seconds, 'when' => self::when($contest)]]);
+            'mode' => $contest->mode, 'total' => $contest->total(), 'seconds' => $contest->seconds, 'when' => self::when($contest),
+            'music' => $this->musicFor($contest)]]);
     }
 
     /** وضعیتِ کاملِ تخته (هر ثانیه). */
@@ -198,6 +206,88 @@ class LiveContestController extends Controller
         LiveContestPlayer::where('live_contest_id', $contest->id)->delete();
         // امتیازِ (XP) دورِ قبل می‌ماند؛ دورِ تازه دوباره امتیاز نمی‌دهد
         $contest->update(['phase' => 'lobby', 'current' => -1, 'phase_at' => null, 'mode' => 'manual', 'starts_at' => null]);
+    }
+
+    /* ─────────────── 🎵 آهنگِ مسابقه ─────────────── */
+
+    /** شناسه‌ی آهنگِ خودِ معلم؛ null = بدونِ آهنگ؛ false = ستون هنوز ساخته نشده. */
+    private function ownTrack(int $teacherId, $id): int|null|false
+    {
+        if (! LiveTrack::ready()) {
+            return false;
+        }
+
+        return $id ? LiveTrack::where('teacher_id', $teacherId)->whereKey((int) $id)->value('id') : null;
+    }
+
+    private function musicFor(LiveContest $contest): ?array
+    {
+        if (! LiveTrack::ready() || ! $contest->music_track_id) {
+            return null;
+        }
+
+        return LiveTrack::find($contest->music_track_id)?->data();
+    }
+
+    /** آپلودِ آهنگِ تازه به کتابخانه‌ی معلم (در سیستم می‌ماند). */
+    public function storeTrack(Request $request): RedirectResponse|JsonResponse
+    {
+        abort_unless(LiveTrack::ready(), 503, 'جدول‌های آهنگ هنوز ساخته نشده‌اند.');
+        $teacher = $request->user();
+        $request->validate(['track' => ['required', 'file', 'max:15360'], 'title' => ['nullable', 'string', 'max:120']], [
+            'track.required' => 'فایلِ آهنگ را انتخاب کنید.',
+            'track.max' => 'آهنگ حداکثر ۱۵ مگابایت.',
+            'track.uploaded' => 'فایل به سرور نرسید (خیلی بزرگ است).',
+        ]);
+        $file = $request->file('track');
+        if (! $this->extensionSafe($file, AudioTaskController::AUDIO_EXT)) {
+            throw ValidationException::withMessages(['track' => 'فقط فایلِ صوتی (mp3، m4a، wav، ogg).']);
+        }
+        if (LiveTrack::where('teacher_id', $teacher->id)->count() >= 30) {
+            throw ValidationException::withMessages(['track' => 'حداکثر ۳۰ آهنگ؛ اول چند آهنگِ قدیمی را حذف کنید.']);
+        }
+        $path = $this->storeUpload($file, 'live-music');
+        if (! $path) {
+            throw ValidationException::withMessages(['track' => 'ذخیره‌ی آهنگ انجام نشد؛ دوباره امتحان کنید.']);
+        }
+        $title = trim((string) $request->input('title')) ?: mb_substr(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME), 0, 120);
+        $track = LiveTrack::create(['school_id' => $teacher->school_id, 'teacher_id' => $teacher->id, 'title' => $title ?: 'آهنگِ مسابقه', 'path' => $path, 'size' => (int) $file->getSize()]);
+
+        return $request->expectsJson() && ! $request->header('X-Inertia')
+            ? response()->json(['track' => $track->data()])
+            : back()->with('flash', '🎵 «' . $track->title . '» به آهنگ‌های شما اضافه شد.');
+    }
+
+    public function destroyTrack(Request $request, LiveTrack $track): RedirectResponse
+    {
+        abort_unless($track->teacher_id === $request->user()->id, 403);
+        \Illuminate\Support\Facades\Storage::disk('public')->delete($track->path);
+        LiveContest::where('music_track_id', $track->id)->update(['music_track_id' => null]);
+        $track->delete();
+
+        return back()->with('flash', 'آهنگ حذف شد.');
+    }
+
+    /** پخشِ آهنگ برای تخته (با نوعِ درست و Range). */
+    public function track(Request $request, LiveTrack $track): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        abort_unless($track->teacher_id === $request->user()->id || $request->user()->hasRole(\App\Support\Roles::SUPER_ADMIN), 403);
+        abort_unless(\Illuminate\Support\Facades\Storage::disk('public')->exists($track->path), 404, 'فایلِ آهنگ پیدا نشد.');
+
+        return \App\Support\MediaFile::response($track->path, 'live-music-' . $track->id);
+    }
+
+    /** آهنگِ یک مسابقه را عوض کن (یا بدونِ آهنگ). */
+    public function music(Request $request, LiveContest $contest): RedirectResponse|JsonResponse
+    {
+        $this->mine($request, $contest);
+        $id = $this->ownTrack($request->user()->id, $request->validate(['track_id' => ['nullable', 'integer']])['track_id'] ?? null);
+        abort_if($id === false, 503);
+        $contest->update(['music_track_id' => $id]);
+
+        return $request->expectsJson() && ! $request->header('X-Inertia')
+            ? response()->json(['music' => $this->musicFor($contest->fresh())])
+            : back()->with('flash', $id ? '🎵 آهنگِ مسابقه انتخاب شد.' : '🔇 این مسابقه بدونِ آهنگ برگزار می‌شود.');
     }
 
     /** سوابقِ نتیجه‌ی یک مسابقه برای معلم: رتبه‌بندیِ کامل و درصدِ درستیِ هر سؤال. */

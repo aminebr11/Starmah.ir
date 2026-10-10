@@ -380,6 +380,10 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/live', [\App\Http\Controllers\Teacher\LiveContestController::class, 'store'])->name('live.store');
     Route::get('/live/import', [\App\Http\Controllers\Teacher\LiveContestController::class, 'import'])->name('live.import');
     Route::get('/live/{contest}/host', [\App\Http\Controllers\Teacher\LiveContestController::class, 'host'])->name('live.host');
+    Route::post('/live-tracks', [\App\Http\Controllers\Teacher\LiveContestController::class, 'storeTrack'])->middleware('throttle:20,1')->name('live.tracks.store');
+    Route::delete('/live-tracks/{track}', [\App\Http\Controllers\Teacher\LiveContestController::class, 'destroyTrack'])->name('live.tracks.destroy');
+    Route::get('/live-tracks/{track}', [\App\Http\Controllers\Teacher\LiveContestController::class, 'track'])->name('live.track');
+    Route::post('/live/{contest}/music', [\App\Http\Controllers\Teacher\LiveContestController::class, 'music'])->name('live.music');
     Route::get('/live/{contest}/results', [\App\Http\Controllers\Teacher\LiveContestController::class, 'results'])->name('live.results');
     Route::get('/live/{contest}/state', [\App\Http\Controllers\Teacher\LiveContestController::class, 'state'])->middleware('throttle:200,1')->name('live.state');
     Route::post('/live/{contest}/go', [\App\Http\Controllers\Teacher\LiveContestController::class, 'go'])->name('live.go');

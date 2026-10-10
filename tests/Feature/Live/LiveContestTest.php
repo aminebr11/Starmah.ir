@@ -187,4 +187,42 @@ class LiveContestTest extends TestCase
         $this->actingAs($student)->postJson(route('live.answer', $c), ['q' => 2, 'choice' => 0])->assertOk();
         $this->assertGreaterThanOrEqual(1900, (int) LiveContestPlayer::where('student_id', $student->id)->value('score'));
     }
+
+    public function test_teacher_music_library_and_contest_music(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        [$teacher, $classroom, $student, $c] = $this->make();
+        $up = $this->actingAs($teacher)->postJson(route('teacher.live.tracks.store'), [
+            'track' => \Illuminate\Http\UploadedFile::fake()->create('شاد.mp3', 300, 'audio/mpeg'),
+        ])->assertOk()->json('track');
+        $this->assertSame('شاد', $up['title']);
+        $this->assertCount(1, $this->actingAs($teacher)->get(route('teacher.live'))->viewData('page')['props']['tracks']);
+
+        // ساختِ مسابقه با آهنگ → تخته آهنگ را دارد و پخش با نوعِ صوتی است
+        $this->actingAs($teacher)->post(route('teacher.live.store'), [
+            'title' => 'با آهنگ', 'classroom_id' => $classroom->id, 'mode' => 'manual', 'seconds' => 20, 'questions' => $this->questions(), 'music_track_id' => $up['id'],
+        ])->assertSessionHasNoErrors();
+        $withMusic = LiveContest::where('title', 'با آهنگ')->firstOrFail();
+        $this->assertSame($up['id'], $withMusic->music_track_id);
+        $music = $this->actingAs($teacher)->get(route('teacher.live.host', $withMusic))->viewData('page')['props']['contest']['music'];
+        $this->assertSame($up['url'], $music['url']);
+        $this->assertSame('audio/mpeg', $this->actingAs($teacher)->get($music['url'])->assertOk()->headers->get('Content-Type'));
+        $this->actingAs($student)->get($music['url'])->assertForbidden();
+
+        // بدونِ آهنگ / آهنگِ دیگر
+        $this->actingAs($teacher)->postJson(route('teacher.live.music', $withMusic), ['track_id' => null])->assertOk()->assertJsonPath('music', null);
+        $this->actingAs($teacher)->postJson(route('teacher.live.music', $c), ['track_id' => $up['id']])->assertOk();
+        $this->assertSame($up['id'], $c->fresh()->music_track_id);
+
+        // آهنگِ معلمِ دیگر قابلِ انتخاب نیست
+        $other = $this->makeClass($teacher->school, 'پنجم')[0];
+        $this->actingAs($other)->postJson(route('teacher.live.music', $c), ['track_id' => $up['id']])->assertForbidden();
+
+        // حذفِ آهنگ → از مسابقه‌ها هم برداشته می‌شود
+        $this->actingAs($teacher)->delete(route('teacher.live.tracks.destroy', $up['id']))->assertRedirect();
+        $this->assertNull($c->fresh()->music_track_id);
+        $this->actingAs($teacher)->postJson(route('teacher.live.tracks.store'), [
+            'track' => \Illuminate\Http\UploadedFile::fake()->create('virus.exe', 10),
+        ])->assertStatus(422);
+    }
 }
