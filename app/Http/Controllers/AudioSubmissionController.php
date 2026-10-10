@@ -113,7 +113,7 @@ class AudioSubmissionController extends Controller
         ]);
         $file = $request->file('file');
         $allowed = $task->kind === 'dictation' ? ['jpg', 'jpeg', 'png', 'webp', 'pdf'] : AudioTaskController::AUDIO_EXT;
-        if (! $this->extensionSafe($file, $allowed)) {
+        if ($task->kind === 'reading' ? ! $this->audioExtension($file, $allowed) : ! $this->extensionSafe($file, $allowed)) {
             throw ValidationException::withMessages(['file' => $task->kind === 'dictation' ? 'فقط عکس (jpg/png/webp) یا PDF.' : 'فرمتِ صدا معتبر نیست.']);
         }
         $sub = AudioSubmission::firstOrNew(['audio_task_id' => $task->id, 'student_id' => $user->id]);
@@ -122,7 +122,7 @@ class AudioSubmissionController extends Controller
             $disk->delete($sub->file_path);
         }
         $ext = strtolower($file->getClientOriginalExtension());
-        $sub->file_path = $this->storeUpload($file, 'audio-submissions') ?: null;
+        $sub->file_path = ($task->kind === 'reading' ? $this->storeAudio($file, 'audio-submissions', $allowed) : $this->storeUpload($file, 'audio-submissions')) ?: null;
         $sub->file_kind = $task->kind === 'reading' ? 'audio' : ($ext === 'pdf' ? 'pdf' : 'image');
         $sub->note = $request->input('note');
         $again = (bool) $sub->submitted_at;

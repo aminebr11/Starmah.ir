@@ -225,4 +225,30 @@ class LiveContestTest extends TestCase
             'track' => \Illuminate\Http\UploadedFile::fake()->create('virus.exe', 10),
         ])->assertStatus(422);
     }
+
+    /** فایلی مثلِ آپلودِ واقعیِ مرورگر: نام و نوعی که خودِ کاربر/مرورگر گزارش داده. */
+    private function clientUpload(string $name, string $mime): \Illuminate\Http\UploadedFile
+    {
+        $tmp = tempnam(sys_get_temp_dir(), 'up');
+        file_put_contents($tmp, str_repeat("\xff\xfb\x90\x00", 5000));
+
+        return new \Illuminate\Http\UploadedFile($tmp, $name, $mime, null, true);
+    }
+
+    public function test_song_without_extension_is_accepted_by_its_audio_type(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        [$teacher] = $this->make();
+        // بعضی انتخابگرهای اندروید نامِ بی‌پسوند می‌فرستند (مثلِ msf:1234)
+        $t = $this->actingAs($teacher)->postJson(route('teacher.live.tracks.store'), [
+            'track' => $this->clientUpload('msf1234', 'audio/mpeg'), 'title' => 'آهنگِ شاد',
+        ])->assertOk()->json('track');
+        $path = \App\Models\LiveTrack::findOrFail($t['id'])->path;
+        $this->assertStringEndsWith('.mp3', $path);
+        $this->assertSame('audio/mpeg', $this->actingAs($teacher)->get($t['url'])->headers->get('Content-Type'));
+        // نامِ بی‌پسوند با نوعِ غیرِصوتی رد می‌شود
+        $this->actingAs($teacher)->postJson(route('teacher.live.tracks.store'), [
+            'track' => $this->clientUpload('msf999', 'application/octet-stream'),
+        ])->assertStatus(422);
+    }
 }

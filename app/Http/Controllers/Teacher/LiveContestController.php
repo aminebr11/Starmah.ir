@@ -240,13 +240,13 @@ class LiveContestController extends Controller
             'track.uploaded' => 'فایل به سرور نرسید (خیلی بزرگ است).',
         ]);
         $file = $request->file('track');
-        if (! $this->extensionSafe($file, AudioTaskController::AUDIO_EXT)) {
+        if (! $this->audioExtension($file, AudioTaskController::AUDIO_EXT)) {
             throw ValidationException::withMessages(['track' => 'فقط فایلِ صوتی (mp3، m4a، wav، ogg).']);
         }
         if (LiveTrack::where('teacher_id', $teacher->id)->count() >= 30) {
             throw ValidationException::withMessages(['track' => 'حداکثر ۳۰ آهنگ؛ اول چند آهنگِ قدیمی را حذف کنید.']);
         }
-        $path = $this->storeUpload($file, 'live-music');
+        $path = $this->storeAudio($file, 'live-music', AudioTaskController::AUDIO_EXT);
         if (! $path) {
             throw ValidationException::withMessages(['track' => 'ذخیره‌ی آهنگ انجام نشد؛ دوباره امتحان کنید.']);
         }

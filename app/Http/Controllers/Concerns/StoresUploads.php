@@ -61,6 +61,37 @@ trait StoresUploads
             && in_array($ext, $allowed, true);
     }
 
+    /** نوعِ فایلِ صوتی از نظرِ مرورگر → پسوند (برای فایل‌هایی که نامشان پسوند ندارد، مثلِ برخی انتخابگرهای اندروید). */
+    private const AUDIO_MIME_EXT = [
+        'audio/mpeg' => 'mp3', 'audio/mp3' => 'mp3', 'audio/mpeg3' => 'mp3', 'audio/x-mpeg' => 'mp3', 'audio/x-mp3' => 'mp3',
+        'audio/mp4' => 'm4a', 'audio/x-m4a' => 'm4a', 'audio/m4a' => 'm4a', 'audio/aac' => 'aac', 'audio/x-aac' => 'aac',
+        'audio/wav' => 'wav', 'audio/x-wav' => 'wav', 'audio/wave' => 'wav', 'audio/ogg' => 'ogg', 'audio/opus' => 'ogg', 'audio/webm' => 'webm',
+    ];
+
+    /** پسوندِ فایلِ صوتی (از نام، وگرنه از نوعِ اعلام‌شده)؛ null یعنی صوتی نیست. */
+    protected function audioExtension(UploadedFile $file, array $allowed): ?string
+    {
+        $ext = strtolower((string) $file->getClientOriginalExtension());
+        if ($ext !== '' && in_array($ext, $allowed, true)) {
+            return $ext;
+        }
+        if ($ext !== '' && in_array($ext, $this->blockedExtensions, true)) {
+            return null;
+        }
+        $mime = strtolower(trim(explode(';', (string) $file->getClientMimeType())[0]));
+        $guess = self::AUDIO_MIME_EXT[$mime] ?? null;
+
+        return $guess && in_array($guess, $allowed, true) ? $guess : null;
+    }
+
+    /** ذخیره‌ی فایلِ صوتی با پسوندِ درست (حتی اگر نامِ فایل پسوند نداشت). */
+    protected function storeAudio(UploadedFile $file, string $dir, array $allowed, string $disk = 'public'): string|false
+    {
+        $ext = $this->audioExtension($file, $allowed);
+
+        return $ext ? $file->storeAs($dir, Str::random(40) . '.' . $ext, $disk) : false;
+    }
+
     /** بررسیِ پسوندِ مجاز بدونِ fileinfo (جایگزینِ قاعده‌ی mimes). */
     protected function extensionAllowed(UploadedFile $file, array $allowed): bool
     {

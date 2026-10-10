@@ -3,6 +3,7 @@ import { usePage, useForm, Link } from '@inertiajs/react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import AudioRecorder from '@/Components/Audio/AudioRecorder';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
+import AudioFilePicker from '@/Components/Audio/AudioFilePicker';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -86,7 +87,7 @@ export default function AudioTasks() {
                         </div>
                     )}
                     {d.source === 'upload' && (
-                        <input className="input" type="file" accept="audio/*" style={{ marginTop: 10 }} onChange={(e) => form.setData('audio', e.target.files[0] || null)} />
+                        <AudioFilePicker style={{ marginTop: 10 }} file={d.audio} onPick={(f) => form.setData('audio', f)} label="📁 انتخابِ فایلِ صوتی (mp3، m4a، wav)" />
                     )}
                     {errors.audio && <div className="rm-err">{errors.audio}</div>}
 

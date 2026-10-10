@@ -100,10 +100,10 @@ class AudioTaskController extends Controller
 
         $audioPath = null;
         if ($request->hasFile('audio')) {
-            if (! $this->extensionSafe($request->file('audio'), self::AUDIO_EXT)) {
+            if (! $this->audioExtension($request->file('audio'), self::AUDIO_EXT)) {
                 throw ValidationException::withMessages(['audio' => 'فرمتِ صوتی معتبر نیست (mp3، m4a، wav، ogg، webm).']);
             }
-            $audioPath = $this->storeUpload($request->file('audio'), 'audio-tasks') ?: null;
+            $audioPath = $this->storeAudio($request->file('audio'), 'audio-tasks', self::AUDIO_EXT) ?: null;
         }
 
         // متن → یک صدای پیوسته‌ی فارسی: تا آخرِ متن خوانده می‌شود و سرِ هر نقطه چند ثانیه مکث می‌کند.
@@ -182,10 +182,10 @@ class AudioTaskController extends Controller
             'audio.uploaded' => 'فایل به سرور نرسید (خیلی بزرگ است)؛ کوتاه‌تر ضبط کنید.',
             'audio.max' => 'فایلِ صوتی حداکثر ۲۰ مگابایت.',
         ]);
-        if (! $this->extensionSafe($request->file('audio'), self::AUDIO_EXT)) {
+        if (! $this->audioExtension($request->file('audio'), self::AUDIO_EXT)) {
             throw ValidationException::withMessages(['audio' => 'فرمتِ صوتی معتبر نیست (mp3، m4a، wav، ogg، webm).']);
         }
-        $path = $this->storeUpload($request->file('audio'), 'audio-tasks');
+        $path = $this->storeAudio($request->file('audio'), 'audio-tasks', self::AUDIO_EXT);
         if (! $path) {
             throw ValidationException::withMessages(['audio' => 'ذخیره‌ی فایل انجام نشد؛ دوباره امتحان کنید.']);
         }

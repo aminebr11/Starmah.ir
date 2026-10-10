@@ -95,6 +95,8 @@ class DiagnosticsController extends Controller
             'opcache_revalidate' => ini_get('opcache.validate_timestamps') === '0' ? 'خاموش (فایل‌های تازه بدونِ پاک‌کردنِ کش دیده نمی‌شوند!)' : 'روشن',
             'max_execution_time' => ini_get('max_execution_time'),
             'memory_limit' => ini_get('memory_limit'),
+            // حدِ آپلود (آهنگِ مسابقه تا ۱۵ مگ، صدای املا تا ۲۰ مگ)؛ اگر کم است از cPanel → MultiPHP INI Editor بالا ببرید
+            'upload' => ini_get('upload_max_filesize') . ' (فرم: ' . ini_get('post_max_size') . ')',
             'build' => $this->buildProblem(),
             'last_commit' => rescue(fn () => trim((string) @file_get_contents(base_path('.git/HEAD'))), null, false),
         ];

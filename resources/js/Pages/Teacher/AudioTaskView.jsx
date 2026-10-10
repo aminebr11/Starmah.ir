@@ -4,6 +4,7 @@ import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import SentencePlayer from '@/Components/Audio/SentencePlayer';
 import AudioRecorder from '@/Components/Audio/AudioRecorder';
 import SubmissionsBoard from '@/Components/SubmissionsBoard';
+import AudioFilePicker from '@/Components/Audio/AudioFilePicker';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -85,7 +86,7 @@ function ReplaceAudio({ task }) {
                     </div>
                     {mode === 'voice'
                         ? <AudioRecorder label="دوباره بخوانید" onDone={(f) => form.setData('audio', f)} />
-                        : <input className="input" type="file" accept="audio/*" onChange={(e) => form.setData('audio', e.target.files[0] || null)} />}
+                        : <AudioFilePicker file={form.data.audio} onPick={(f) => form.setData('audio', f)} />}
                     {errors.audio && <div className="rm-err">{errors.audio}</div>}
                     <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                         <button type="submit" className="btn btn-sm" disabled={!form.data.audio || form.processing}>{form.processing ? 'در حالِ ذخیره…' : '✅ جایگزین کن'}</button>

@@ -3,6 +3,7 @@ import { usePage, useForm, Link, router } from '@inertiajs/react';
 import axios from 'axios';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
+import AudioFilePicker from '@/Components/Audio/AudioFilePicker';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const SHAPES = ['▲', '◆', '●', '■'];
@@ -260,9 +261,7 @@ const uploadError = (e) => e?.response?.data?.errors?.track?.[0] || e?.response?
 function MusicPicker({ tracks, value, onChange }) {
     const [busy, setBusy] = useState(false);
     const [err, setErr] = useState(null);
-    const pick = async (e) => {
-        const f = e.target.files?.[0];
-        e.target.value = '';
+    const pick = async (f) => {
         if (!f) return;
         setBusy(true); setErr(null);
         try {
@@ -278,9 +277,7 @@ function MusicPicker({ tracks, value, onChange }) {
                 {tracks.map((t) => (
                     <button key={t.id} type="button" className={`lvm-opt ${String(value) === String(t.id) ? 'on' : ''}`} onClick={() => onChange(t.id)}>🎶 {t.title}</button>
                 ))}
-                <label className={`lvm-opt add ${busy ? 'busy' : ''}`}>{busy ? '⏳ در حالِ آپلود…' : '➕ آهنگِ تازه'}
-                    <input type="file" accept="audio/*" hidden onChange={pick} disabled={busy} />
-                </label>
+                <AudioFilePicker className={`lvm-opt add ${busy ? 'busy' : ''}`} busy={busy} onPick={pick} label={busy ? '⏳ در حالِ آپلود…' : '➕ آهنگِ تازه'} />
             </div>
             {err && <div className="rm-err">{err}</div>}
             <small>آهنگ‌ها در سیستم می‌مانند و برای مسابقه‌های بعدی هم انتخاب‌شدنی‌اند. روی تخته خودکار پخش می‌شود و دکمه‌ی قطعِ صدا دارد.</small>
@@ -293,9 +290,7 @@ function MusicLibrary({ tracks }) {
     const [open, setOpen] = useState(false);
     const [busy, setBusy] = useState(false);
     const [err, setErr] = useState(null);
-    const pick = async (e) => {
-        const f = e.target.files?.[0];
-        e.target.value = '';
+    const pick = async (f) => {
         if (!f) return;
         setBusy(true); setErr(null);
         try { await uploadTrack(f); router.reload({ only: ['tracks'], preserveScroll: true }); } catch (x) { setErr(uploadError(x)); } finally { setBusy(false); }
@@ -317,9 +312,7 @@ function MusicLibrary({ tracks }) {
                             </div>
                         ))}
                     </div>
-                    <label className="btn btn-sm" style={{ marginTop: 10, display: 'inline-flex' }}>{busy ? '⏳ در حالِ آپلود…' : '➕ آپلودِ آهنگِ تازه (mp3، حداکثر ۱۵ مگ)'}
-                        <input type="file" accept="audio/*" hidden onChange={pick} disabled={busy} />
-                    </label>
+                    <AudioFilePicker style={{ marginTop: 10 }} busy={busy} onPick={pick} label={busy ? '⏳ در حالِ آپلود…' : '➕ آپلودِ آهنگِ تازه (mp3، حداکثر ۱۵ مگ)'} />
                     {err && <div className="rm-err">{err}</div>}
                 </>
             )}
