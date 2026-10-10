@@ -51,7 +51,8 @@ class PlayController extends Controller
             LiveContestPlayer::firstOrCreate(['live_contest_id' => $contest->id, 'student_id' => $request->user()->id], ['last_seen_at' => now()]);
         }
 
-        return Inertia::render('Student/LivePlay', ['contest' => ['id' => $contest->id, 'title' => $contest->title, 'total' => $contest->total(), 'seconds' => $contest->seconds]]);
+        return Inertia::render('Student/LivePlay', ['contest' => ['id' => $contest->id, 'title' => $contest->title, 'total' => $contest->total(), 'seconds' => $contest->seconds,
+            'music' => $this->trackId($contest)]]);
     }
 
     /** وضعیتِ سبک برای گوشیِ دانش‌آموز (هر ۱٫۵ ثانیه). */
@@ -76,7 +77,7 @@ class PlayController extends Controller
 
         return response()->json([
             'phase' => $contest->phase, 'current' => $q, 'total' => $contest->total(), 'seconds' => $contest->seconds,
-            'remaining' => $contest->remaining(), 'lead' => $contest->lead(),
+            'remaining' => $contest->remaining(), 'lead' => $contest->lead(), 'music' => $this->trackId($contest),
             'golden' => $contest->live() && $contest->golden($q),
             'starts_in' => $contest->starts_at && $contest->phase === 'lobby' && $contest->starts_at->gt(now()->subHours(LiveContest::SCHEDULE_WINDOW_H))
                 ? max(0, (int) now()->diffInSeconds($contest->starts_at, false)) : null,
@@ -96,6 +97,22 @@ class PlayController extends Controller
             'podium' => $contest->phase === 'end' ? $ranking?->take(3)->values() ?? $contest->ranking()->take(3)->values() : null,
             'summary' => $contest->phase === 'end' && $row ? $contest->summaryFor($user->id, $row['rank']) : null,
         ]);
+    }
+
+    /** آهنگِ مسابقه (اگر معلم گذاشته) — شناسه‌ی آهنگ تا گوشی بفهمد عوض شده است. */
+    private function trackId(LiveContest $contest): ?int
+    {
+        return \App\Models\LiveTrack::ready() && $contest->music_track_id ? (int) $contest->music_track_id : null;
+    }
+
+    /** پخشِ آهنگِ مسابقه روی گوشیِ دانش‌آموز (فقط برای شرکت‌کننده‌های همین مسابقه). */
+    public function music(Request $request, LiveContest $contest): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        $this->allowed($request, $contest);
+        $track = $this->trackId($contest) ? \App\Models\LiveTrack::find($contest->music_track_id) : null;
+        abort_unless($track && \Illuminate\Support\Facades\Storage::disk('public')->exists($track->path), 404);
+
+        return \App\Support\MediaFile::response($track->path, 'live-music-' . $track->id);
     }
 
     public function answer(Request $request, LiveContest $contest): JsonResponse

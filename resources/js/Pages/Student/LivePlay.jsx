@@ -23,12 +23,18 @@ export default function LivePlay({ contest }) {
     const [msg, setMsg] = useState(null);
     const [tip, setTip] = useState(0);
     const got = useRef({ at: 0, remaining: 0, lead: 0, starts: null });
+    // 🎵 آهنگِ مسابقه (اگر معلم گذاشته): خودکار پخش، هنگامِ سؤال آرام‌تر، با دکمه‌ی قطع که در گوشی می‌ماند
+    const music = useRef(null);
+    const [trackId, setTrackId] = useState(contest.music || null);
+    const [muted, setMuted] = useState(() => { try { return localStorage.getItem('live-music-muted-student') === '1'; } catch { return false; } });
+    const [blocked, setBlocked] = useState(false);
     const last = useRef({ phase: null, q: -1 });
 
     const load = useCallback(async () => {
         try {
             const { data } = await axios.get(route('live.poll', contest.id));
             got.current = { at: performance.now(), remaining: data.remaining, lead: data.lead || 0, starts: data.starts_in };
+            setTrackId(data.music || null);
             setS((old) => {
                 // لرزشِ گوشی: درست/نادرست
                 if (data.phase === 'reveal' && old?.phase !== 'reveal' && data.mine) buzz(data.mine.correct ? [40, 60, 40] : 160);
@@ -55,6 +61,30 @@ export default function LivePlay({ contest }) {
     }, [load]);
 
     useEffect(() => { const id = setInterval(() => setNow(performance.now()), 200); return () => clearInterval(id); }, []);
+
+    const playMusic = useCallback(() => {
+        const a = music.current;
+        if (!a || muted) return;
+        a.play().then(() => setBlocked(false)).catch(() => setBlocked(true));
+    }, [muted]);
+    useEffect(() => {
+        const a = music.current;
+        if (!a) return;
+        if (muted) { a.pause(); setBlocked(false); } else playMusic();
+        try { localStorage.setItem('live-music-muted-student', muted ? '1' : '0'); } catch { /* */ }
+    }, [muted, playMusic, trackId]);
+    // مرورگر پخشِ خودکار را نگذاشت → با اولین لمس شروع شود
+    useEffect(() => {
+        if (!blocked) return undefined;
+        const go = () => playMusic();
+        window.addEventListener('pointerdown', go, { once: true });
+        return () => window.removeEventListener('pointerdown', go);
+    }, [blocked, playMusic]);
+    useEffect(() => {
+        const a = music.current;
+        if (!a) return;
+        a.volume = s?.phase === 'question' ? 0.25 : s?.phase === 'end' ? 0.8 : 0.5;
+    }, [s?.phase, trackId]);
     useEffect(() => { const id = setInterval(() => setTip((x) => (x + 1) % TIPS.length), 4500); return () => clearInterval(id); }, []);
 
     // «now» هر ۲۰۰ میلی‌ثانیه به‌روز می‌شود و ممکن است از زمانِ آخرین پاسخِ سرور عقب‌تر باشد
@@ -90,9 +120,15 @@ export default function LivePlay({ contest }) {
             <header className="lvp-top">
                 <Link href={route('live')} className="lvp-x" aria-label="خروج">✕</Link>
                 <b className="lvp-title">{contest.title}</b>
+                {trackId && (
+                    <button type="button" className={`lvp-mus ${blocked ? 'blocked' : ''} ${muted ? 'off' : ''}`} aria-label={muted ? 'پخشِ آهنگ' : 'قطعِ آهنگ'}
+                        onClick={() => (blocked ? playMusic() : setMuted(!muted))}>{blocked ? '▶🎵' : muted ? '🔇' : '🎵'}</button>
+                )}
                 {s?.me && <span className="lvp-score"><small>امتیاز</small>{fa(s.me.score)}</span>}
             </header>
             {msg && <div className="lvp-msg">{msg}</div>}
+            {trackId && <audio key={trackId} ref={music} src={route('live.music', contest.id) + '?t=' + trackId} loop preload="auto" playsInline
+                autoPlay={!muted} onPlay={() => setBlocked(false)} onCanPlay={() => { if (!muted && music.current?.paused) playMusic(); }} />}
 
             {!s ? <div className="lvp-center"><div className="lvh-spin" /></div> : s.phase === 'lobby' || s.phase === 'draft' ? (
                 <main className="lvp-center lvp-lobby">

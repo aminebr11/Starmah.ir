@@ -797,3 +797,6 @@ em.warn, .ew-tag.warn { background: #f0952e; color: #fff; }
 .lvc-music { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; }
 .lvc-music select { flex: 1; min-width: 0; border: 1px solid #e3e5ef; border-radius: 10px; padding: 6px 8px; font: inherit; font-size: 13px; background: #fff; }
 .lvh-music.blocked { background: #ffd23f; color: #2b1d00; animation: lvGlow 1.4s ease-in-out infinite; }
+.lvp-mus { flex: 0 0 auto; width: 42px; height: 38px; border-radius: 12px; border: 0; background: rgba(255,255,255,.18); color: #fff; font-size: 18px; cursor: pointer; }
+.lvp-mus.off { opacity: .7; }
+.lvp-mus.blocked { width: auto; padding: 0 10px; background: #ffd23f; color: #2b1d00; animation: lvGlow 1.4s ease-in-out infinite; }

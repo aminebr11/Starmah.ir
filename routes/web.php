@@ -228,6 +228,7 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     // 🏆 مسابقه‌ی زنده
     Route::get('/live', [\App\Http\Controllers\Live\PlayController::class, 'index'])->name('live');
     Route::get('/live/{contest}', [\App\Http\Controllers\Live\PlayController::class, 'show'])->name('live.play');
+    Route::get('/live/{contest}/music', [\App\Http\Controllers\Live\PlayController::class, 'music'])->name('live.music');
     Route::get('/live/{contest}/poll', [\App\Http\Controllers\Live\PlayController::class, 'poll'])->middleware('throttle:150,1')->name('live.poll');
     Route::post('/live/{contest}/answer', [\App\Http\Controllers\Live\PlayController::class, 'answer'])->middleware('throttle:60,1')->name('live.answer');
     Route::get('/worksheets/{worksheet}', [\App\Http\Controllers\Student\StudentWorksheetController::class, 'show'])->name('my.worksheet');

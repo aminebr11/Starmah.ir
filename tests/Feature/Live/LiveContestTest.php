@@ -207,7 +207,13 @@ class LiveContestTest extends TestCase
         $music = $this->actingAs($teacher)->get(route('teacher.live.host', $withMusic))->viewData('page')['props']['contest']['music'];
         $this->assertSame($up['url'], $music['url']);
         $this->assertSame('audio/mpeg', $this->actingAs($teacher)->get($music['url'])->assertOk()->headers->get('Content-Type'));
-        $this->actingAs($student)->get($music['url'])->assertForbidden();
+        $this->actingAs($student)->get($music['url'])->assertForbidden(); // کتابخانه‌ی معلم نه
+        // ولی دانش‌آموزِ همین مسابقه آهنگ را روی گوشی‌اش می‌شنود
+        $this->assertSame($up['id'], $this->actingAs($student)->get(route('live.play', $withMusic))->viewData('page')['props']['contest']['music']);
+        $this->actingAs($student)->getJson(route('live.poll', $withMusic))->assertJsonPath('music', $up['id']);
+        $this->assertSame('audio/mpeg', $this->actingAs($student)->get(route('live.music', $withMusic))->assertOk()->headers->get('Content-Type'));
+        $outsider = $this->makeClass($this->makeSchool('دیگر'))[2];
+        $this->actingAs($outsider)->get(route('live.music', $withMusic))->assertForbidden();
 
         // بدونِ آهنگ / آهنگِ دیگر
         $this->actingAs($teacher)->postJson(route('teacher.live.music', $withMusic), ['track_id' => null])->assertOk()->assertJsonPath('music', null);
