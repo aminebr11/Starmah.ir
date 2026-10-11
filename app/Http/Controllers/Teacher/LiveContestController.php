@@ -73,6 +73,14 @@ class LiveContestController extends Controller
                 'started' => $c->phase !== 'lobby' || (int) $c->players_count > 0,
                 'music' => $c->music_track_id,
                 'ends' => self::endLabel($c), 'round' => (int) ($c->round ?: 1),
+                'edit' => [
+                    'title' => $c->title, 'classroom_id' => $c->classroom_id ?? '', 'mode' => $c->mode, 'seconds' => $c->seconds,
+                    'starts_at' => $c->starts_at?->format('Y-m-d H:i') ?? '', 'music_track_id' => $c->music_track_id ?? '',
+                    'end_type' => $c->ends_at ? 'at' : ($c->duration_min ? 'duration' : 'none'), 'duration_min' => $c->duration_min ?: 5,
+                    'ends_at' => $c->ends_at?->format('Y-m-d H:i') ?? '',
+                    'questions' => collect($c->questions ?? [])->map(fn ($q) => ['prompt' => $q['prompt'], 'choices' => $q['choices'], 'answer' => $q['answer']])->values(),
+                    'locked' => $c->live() ? $c->current + 1 : 0,
+                ],
             ])->values(),
             'classrooms' => $rooms,
             'tracks' => LiveTrack::ready() ? LiveTrack::where('teacher_id', $teacher->id)->latest()->get()->map->data()->values() : [],
@@ -107,7 +115,11 @@ class LiveContestController extends Controller
         return response()->json(['questions' => array_slice($qs, 0, $n)]);
     }
 
-    public function store(Request $request): RedirectResponse
+    /**
+     * اعتبارسنجیِ فرمِ ساخت/ویرایش → ویژگی‌های مسابقه.
+     * ویرایشِ مسابقه‌ی در حالِ اجرا: سؤال‌هایی که پرسیده شده‌اند دست نمی‌خورند (پاسخ‌ها و رتبه‌ها به آن‌ها گره خورده‌اند).
+     */
+    private function attributes(Request $request, ?LiveContest $editing = null): array
     {
         $teacher = $request->user();
         $data = $request->validate([
@@ -139,7 +151,8 @@ class LiveContestController extends Controller
         $endType = $data['end_type'] ?? 'none';
         if ($endType === 'at') {
             $end = \Illuminate\Support\Carbon::parse($data['ends_at']);
-            if ($end->lte(now()) || (! empty($data['starts_at']) && $end->lte(\Illuminate\Support\Carbon::parse($data['starts_at'])))) {
+            $mustBeFuture = ! $editing || $editing->phase !== 'end';
+            if (($mustBeFuture && $end->lte(now())) || (! empty($data['starts_at']) && $end->lte(\Illuminate\Support\Carbon::parse($data['starts_at'])))) {
                 throw ValidationException::withMessages(['ends_at' => 'زمانِ پایان باید بعد از زمانِ شروع (و بعد از الان) باشد.']);
             }
         }
@@ -147,29 +160,65 @@ class LiveContestController extends Controller
         if (count($qs) !== count($data['questions'])) {
             throw ValidationException::withMessages(['questions' => 'هر سؤال باید متن، دست‌کم دو گزینه‌ی پر و یک جوابِ درست داشته باشد.']);
         }
+        if ($editing && $editing->live()) {
+            $asked = $editing->current + 1;
+            if (count($qs) < $asked) {
+                throw ValidationException::withMessages(['questions' => 'مسابقه در حالِ اجراست؛ ' . Jalali::fa((string) $asked) . ' سؤالِ اول پرسیده شده و نمی‌شود حذفشان کرد.']);
+            }
+            $qs = array_merge(array_slice($editing->questions ?? [], 0, $asked), array_slice($qs, $asked));
+        }
+        $attrs = [
+            'classroom_id' => $data['classroom_id'] ?: null, 'title' => $data['title'], 'mode' => $data['mode'],
+            'starts_at' => $data['starts_at'] ?? null, 'seconds' => $data['seconds'], 'questions' => $qs,
+        ];
+        if (\App\Models\LiveContestResult::ready()) {
+            $attrs['duration_min'] = $endType === 'duration' ? (int) $data['duration_min'] : null;
+            $attrs['ends_at'] = $endType === 'at' ? $data['ends_at'] : null;
+        }
+        if (($track = $this->ownTrack($teacher->id, $data['music_track_id'] ?? null)) !== false) {
+            $attrs['music_track_id'] = $track;
+        }
 
-        $contest = LiveContest::create([
-            'school_id' => $teacher->school_id, 'teacher_id' => $teacher->id, 'classroom_id' => $data['classroom_id'] ?: null,
-            'title' => $data['title'], 'code' => LiveContest::newCode(), 'mode' => $data['mode'],
-            'starts_at' => $data['starts_at'] ?? null, 'phase' => 'lobby', 'seconds' => $data['seconds'], 'questions' => $qs,
-        ] + (\App\Models\LiveContestResult::ready() ? [
-            'duration_min' => $endType === 'duration' ? (int) $data['duration_min'] : null,
-            'ends_at' => $endType === 'at' ? $data['ends_at'] : null,
-        ] : []) + ($this->ownTrack($teacher->id, $data['music_track_id'] ?? null) !== false ? ['music_track_id' => $this->ownTrack($teacher->id, $data['music_track_id'] ?? null)] : []));
+        return $attrs;
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $teacher = $request->user();
+        $contest = LiveContest::create($this->attributes($request) + [
+            'school_id' => $teacher->school_id, 'teacher_id' => $teacher->id, 'code' => LiveContest::newCode(), 'phase' => 'lobby',
+        ]);
         $this->announce($contest);
 
         return redirect()->route('teacher.live')->with('flash', '🏆 «' . $contest->title . '» ساخته شد و به بچه‌ها خبر داده شد.' . ($contest->mode === 'auto' ? ' سرِ ساعت خودش شروع می‌شود.' : ($contest->starts_at ? ' سرِ ساعت خودش شروع می‌شود؛ اگر تخته را باز کنید، رفتن به سؤالِ بعد با شماست.' : ' هر وقت آماده بودید «اجرا روی تخته» را بزنید.')));
     }
 
-    private function announce(LiveContest $c): void
+    /** ویرایش در هر زمان (پیش از شروع، در حالِ اجرا یا بعد از پایان برای دورِ بعد). */
+    public function update(Request $request, LiveContest $contest): RedirectResponse
     {
-        rescue(function () use ($c) {
+        $this->mine($request, $contest);
+        $before = [$contest->starts_at?->timestamp, $contest->endsAt()?->timestamp];
+        $attrs = $this->attributes($request, $contest);
+        $contest->update($attrs);
+        $contest->refresh();
+        $timeChanged = $before !== [$contest->starts_at?->timestamp, $contest->endsAt()?->timestamp];
+        if ($request->boolean('notify') && $contest->phase !== 'end') {
+            $this->announce($contest, true);
+        }
+        $note = $contest->live() ? ' سؤال‌های پرسیده‌شده دست نخورد؛ تغییرها از سؤالِ بعد اعمال می‌شود.' : ($contest->phase === 'end' ? ' در «اجرای دوباره» با همین تغییرها برگزار می‌شود.' : '');
+
+        return redirect()->route('teacher.live')->with('flash', '✏️ «' . $contest->title . '» ویرایش شد.' . $note . ($timeChanged && ! $request->boolean('notify') && $contest->phase !== 'end' ? ' (زمان عوض شد؛ اگر لازم است «اعلان به بچه‌ها» را هم بزنید.)' : ''));
+    }
+
+    private function announce(LiveContest $c, bool $updated = false): void
+    {
+        rescue(function () use ($c, $updated) {
             $ids = $c->audienceIds();
             if (! $ids) return;
             $ann = Announcement::create([
                 'school_id' => $c->school_id, 'sender_id' => $c->teacher_id, 'audience' => 'personal',
-                'title' => '🏆 مسابقه‌ی زنده — ' . $c->title,
-                'body' => ($c->starts_at ? 'زمانِ شروع: ' . self::when($c) . '. ' : '') . 'سؤال‌ها روی تخته می‌آید و تو با گوشی یا تبلت جواب می‌دهی. هر چه سریع‌تر و درست‌تر، امتیازِ بیشتر! ⚡',
+                'title' => ($updated ? '✏️ تغییر در مسابقه‌ی زنده — ' : '🏆 مسابقه‌ی زنده — ') . $c->title,
+                'body' => ($c->starts_at ? 'زمانِ شروع: ' . self::when($c) . '. ' : '') . (self::endLabel($c) ? 'پایان: ' . self::endLabel($c) . '. ' : '') . 'سؤال‌ها روی تخته می‌آید و تو با گوشی یا تبلت جواب می‌دهی. هر چه سریع‌تر و درست‌تر، امتیازِ بیشتر! ⚡',
                 'link' => route('live.play', $c->id, false),
             ]);
             $ann->recipients()->sync($ids);

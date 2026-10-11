@@ -817,3 +817,12 @@ em.warn, .ew-tag.warn { background: #f0952e; color: #fff; }
 .lv-hmedal { font-size: 34px; flex: 0 0 auto; }
 .lv-hstats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .lv-hstats span { background: rgba(255,255,255,.14); border-radius: 10px; padding: 1px 8px; font-size: 12px; font-weight: 700; }
+
+/* ✏️ ویرایشِ مسابقه */
+.lv-editing { box-shadow: 0 0 0 3px #f5a524, 0 10px 30px rgba(245,165,36,.18); }
+.lv-edit-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; background: #fff7e6; border-radius: 14px; padding: 10px 12px; margin-bottom: 10px; }
+.lv-edit-head b { flex: 1; font-size: 15px; }
+.lv-edit-head small { flex-basis: 100%; color: #7a5600; font-size: 12.5px; line-height: 1.8; }
+fieldset.lv-q { border: 0; margin: 0; min-width: 0; }
+.lv-q.locked { opacity: .6; }
+.at-form { scroll-margin-top: 96px; }

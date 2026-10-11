@@ -14,6 +14,7 @@ const blank = () => ({ prompt: '', choices: ['', '', '', ''], answer: 0 });
 export default function LiveContests() {
     const { contests = [], classrooms = [], exams = [], games = [], subjects = [], ready = true, errors = {}, tracks = [], musicReady = false } = usePage().props;
     const [open, setOpen] = useState(contests.length === 0);
+    const [editing, setEditing] = useState(null); // {id, title, locked}
     const [imp, setImp] = useState({ source: 'bank', id: '', subject: subjects[0] || '', topic: '', n: 10 });
     const [busy, setBusy] = useState(false);
     const [note, setNote] = useState(null);
@@ -42,8 +43,25 @@ export default function LiveContests() {
             const filled = q.choices.map((c, k) => [c.trim(), k]).filter(([c]) => c);
             return { prompt: q.prompt, choices: filled.map(([c]) => c), answer: Math.max(0, filled.findIndex(([, k]) => k === q.answer)) };
         }) }));
-        form.post(route('teacher.live.store'), { preserveScroll: true, onSuccess: () => { form.reset(); setOpen(false); } });
+        const done = { preserveScroll: true, onSuccess: () => { form.reset(); setOpen(false); setEditing(null); } };
+        if (editing) form.put(route('teacher.live.update', editing.id), done);
+        else form.post(route('teacher.live.store'), done);
     };
+    // «✏️ ویرایش»: همان فرم با داده‌ی مسابقه
+    const startEdit = (c) => {
+        const e = c.edit;
+        form.clearErrors();
+        form.setData({
+            title: e.title, classroom_id: e.classroom_id ?? '', mode: e.mode, starts_at: e.starts_at || '', seconds: e.seconds,
+            music_track_id: e.music_track_id ?? '', end_type: e.end_type, duration_min: e.duration_min || 5, ends_at: e.ends_at || '', notify: false,
+            questions: e.questions.map((q) => ({ prompt: q.prompt, choices: [...q.choices, '', '', '', ''].slice(0, 4), answer: q.answer })),
+        });
+        setEditing({ id: c.id, title: c.title, locked: e.locked || 0, phase: c.phase });
+        setOpen(true);
+        setTimeout(() => document.querySelector('.at-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    };
+    const cancelEdit = () => { setEditing(null); form.reset(); setOpen(false); };
+    const locked = editing?.locked || 0;
     const firstErr = Object.entries(errors).find(([k]) => k.startsWith('questions'))?.[1];
 
     return (
@@ -54,12 +72,20 @@ export default function LiveContests() {
                     <h2>مسابقه‌ی زنده‌ی کلاس</h2>
                     <p>سؤال روی تخته‌ی هوشمند یا ویدئوپروژکتور می‌آید و بچه‌ها با گوشی یا تبلت جواب می‌دهند. نمودارِ زنده‌ی پاسخ‌ها، جدولِ امتیاز و سکوی قهرمانی؛ برای شروع یا پایانِ درس، یا یک مسابقه‌ی همگانی سرِ یک ساعتِ مشخص.</p>
                 </div>
-                <button type="button" className="btn" onClick={() => setOpen(!open)}>{open ? '✕ بستنِ فرم' : '➕ مسابقه‌ی تازه'}</button>
+                <button type="button" className="btn" onClick={() => { if (open) cancelEdit(); else { setEditing(null); form.reset(); setOpen(true); } }}>{open ? '✕ بستنِ فرم' : '➕ مسابقه‌ی تازه'}</button>
             </div>
             {!ready && <div className="panel" style={{ background: '#fff4f4' }}>جدول‌های این بخش هنوز روی سرور ساخته نشده‌اند؛ مدیرِ کل از «🩺 سلامتِ سیستم» مایگریشن‌ها را اجرا کند.</div>}
 
             {open && (
-                <form className="panel at-form" onSubmit={submit}>
+                <form className={`panel at-form ${editing ? 'lv-editing' : ''}`} onSubmit={submit}>
+                    {editing && (
+                        <div className="lv-edit-head">
+                            <b>✏️ ویرایشِ «{editing.title}»</b>
+                            <button type="button" className="btn btn-sm btn-ghost" onClick={cancelEdit}>انصراف</button>
+                            {(editing.phase === 'question' || editing.phase === 'reveal') && <small>🔴 مسابقه در حالِ اجراست: {fa(locked)} سؤالِ اول پرسیده شده و قفل است؛ بقیه‌ی تغییرها از سؤالِ بعد اعمال می‌شود.</small>}
+                            {editing.phase === 'end' && <small>🏁 این مسابقه تمام شده؛ تغییرها در «اجرای دوباره» به کار می‌رود و سوابقِ قبلی دست نمی‌خورد.</small>}
+                        </div>
+                    )}
                     <div className="at-grid">
                         <label>عنوان
                             <input className="input" value={d.title} onChange={(e) => form.setData('title', e.target.value)} placeholder="مثلاً مسابقه‌ی ضربِ دو رقمی" />
@@ -137,13 +163,13 @@ export default function LiveContests() {
 
                     <div className="lv-qs">
                         {qs.map((q, i) => (
-                            <div key={i} className="lv-q">
+                            <fieldset key={i} className={`lv-q ${i < locked ? 'locked' : ''}`} disabled={i < locked}>
                                 <div className="lv-q-head">
-                                    <b>سؤالِ {fa(i + 1)}</b>
+                                    <b>سؤالِ {fa(i + 1)}{i < locked ? ' · 🔒 پرسیده شده' : ''}</b>
                                     <span>
-                                        <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label="بالا">↑</button>
-                                        <button type="button" onClick={() => move(i, 1)} disabled={i === qs.length - 1} aria-label="پایین">↓</button>
-                                        <button type="button" onClick={() => drop(i)} disabled={qs.length === 1} aria-label="حذف">🗑️</button>
+                                        <button type="button" onClick={() => move(i, -1)} disabled={i <= locked} aria-label="بالا">↑</button>
+                                        <button type="button" onClick={() => move(i, 1)} disabled={i === qs.length - 1 || i < locked} aria-label="پایین">↓</button>
+                                        <button type="button" onClick={() => drop(i)} disabled={qs.length === 1 || i < locked} aria-label="حذف">🗑️</button>
                                     </span>
                                 </div>
                                 <textarea className="input" rows={2} value={q.prompt} onChange={(e) => setQ(i, { prompt: e.target.value })} placeholder="متنِ سؤال…" />
@@ -156,26 +182,29 @@ export default function LiveContests() {
                                         </label>
                                     ))}
                                 </div>
-                            </div>
+                            </fieldset>
                         ))}
                     </div>
                     <button type="button" className="btn btn-ghost" onClick={() => form.setData('questions', [...qs, blank()])} disabled={qs.length >= 40}>➕ سؤالِ دیگر</button>
                     {(firstErr || errors.questions) && <div className="rm-err">{errors.questions || firstErr}</div>}
-                    <button type="submit" className="btn at-go" disabled={form.processing}>{form.processing ? 'در حالِ ذخیره…' : `🏆 ساختنِ مسابقه (${fa(qs.length)} سؤال)`}</button>
+                    {editing && editing.phase !== 'end' && (
+                        <label className="at-check"><input type="checkbox" checked={!!d.notify} onChange={(e) => form.setData('notify', e.target.checked)} /> اعلانِ تغییر برای بچه‌ها (مثلاً وقتی زمان را عوض کرده‌اید)</label>
+                    )}
+                    <button type="submit" className="btn at-go" disabled={form.processing}>{form.processing ? 'در حالِ ذخیره…' : editing ? `💾 ذخیره‌ی تغییرها (${fa(qs.length)} سؤال)` : `🏆 ساختنِ مسابقه (${fa(qs.length)} سؤال)`}</button>
                 </form>
             )}
 
             {musicReady && <MusicLibrary tracks={tracks} />}
 
             <div className="lvc-list">
-                {contests.length === 0 ? <div className="panel" style={{ color: 'var(--muted)' }}>هنوز مسابقه‌ای نساخته‌اید.</div> : contests.map((c) => <ContestCard key={c.id} c={c} tracks={tracks} musicReady={musicReady} />)}
+                {contests.length === 0 ? <div className="panel" style={{ color: 'var(--muted)' }}>هنوز مسابقه‌ای نساخته‌اید.</div> : contests.map((c) => <ContestCard key={c.id} c={c} tracks={tracks} musicReady={musicReady} onEdit={startEdit} />)}
             </div>
         </DashLayout>
     );
 }
 
 /** کارتِ یک مسابقه در فهرستِ معلم (موبایل‌پسند) با «نتایج» بازشونده. */
-function ContestCard({ c, tracks = [], musicReady = false }) {
+function ContestCard({ c, tracks = [], musicReady = false, onEdit }) {
     const [open, setOpen] = useState(false);
     const [res, setRes] = useState(null);
     const [err, setErr] = useState(null);
@@ -219,6 +248,7 @@ function ContestCard({ c, tracks = [], musicReady = false }) {
             )}
             <div className="lvc-act">
                 <a href={route('teacher.live.host', c.id)} className="btn btn-sm">📺 {c.phase === 'end' ? 'نتیجه روی تخته' : 'اجرا روی تخته'}</a>
+                {c.edit && <button type="button" className="btn btn-sm btn-ghost" onClick={() => onEdit?.(c)}>✏️ ویرایش</button>}
                 {c.started && <button type="button" className="btn btn-sm btn-ghost" onClick={toggle}>📊 {open ? 'بستنِ نتایج' : 'سوابق و نتایج'}</button>}
                 <button type="button" className="btn btn-sm btn-ghost lvc-del" aria-label="حذف" onClick={() => confirm('این مسابقه و اعلان‌هایش حذف شود؟') && router.delete(route('teacher.live.destroy', c.id))}>🗑️</button>
             </div>

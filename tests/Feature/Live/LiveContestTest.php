@@ -308,4 +308,53 @@ class LiveContestTest extends TestCase
             'title' => 'x', 'mode' => 'manual', 'seconds' => 20, 'questions' => $this->questions(), 'end_type' => 'at', 'ends_at' => now()->subHour()->format('Y-m-d H:i'),
         ])->assertSessionHasErrors('ends_at');
     }
+
+    public function test_teacher_can_edit_contest_any_time_and_asked_questions_stay_locked(): void
+    {
+        [$teacher, $classroom, $student, $c] = $this->make();
+        $base = ['title' => 'مسابقه‌ی تازه', 'classroom_id' => $classroom->id, 'mode' => 'manual', 'seconds' => 30];
+
+        // در انتظار: همه چیز عوض می‌شود و با «اعلان» بچه‌ها خبردار می‌شوند
+        $this->actingAs($teacher)->get(route('teacher.live'))->assertOk()
+            ->assertInertia(fn ($p) => $p->where('contests.0.edit.title', 'مسابقه‌ی ریاضی')->where('contests.0.edit.locked', 0));
+        $qs = $this->questions();
+        $qs[0]['prompt'] = '۳ + ۳ = ?';
+        $this->actingAs($teacher)->put(route('teacher.live.update', $c), $base + [
+            'questions' => $qs, 'end_type' => 'duration', 'duration_min' => 7, 'notify' => true,
+        ])->assertSessionHasNoErrors()->assertRedirect();
+        $c->refresh();
+        $this->assertSame('مسابقه‌ی تازه', $c->title);
+        $this->assertSame(30, (int) $c->seconds);
+        $this->assertSame(7, (int) $c->duration_min);
+        $this->assertSame('۳ + ۳ = ?', $c->questions[0]['prompt']);
+        $this->assertDatabaseHas('announcements', ['title' => '✏️ تغییر در مسابقه‌ی زنده — مسابقه‌ی تازه']);
+
+        // معلمِ دیگر اجازه ندارد
+        $other = $this->makeClass($this->makeSchool('other'))[0];
+        $this->actingAs($other)->put(route('teacher.live.update', $c), $base + ['questions' => $qs])->assertForbidden();
+
+        // در حینِ اجرا: سؤالِ پرسیده‌شده قفل است، بقیه عوض می‌شود
+        $this->actingAs($teacher)->postJson(route('teacher.live.go', $c), ['action' => 'start'])->assertJsonPath('phase', 'question');
+        $this->actingAs($teacher)->get(route('teacher.live'))->assertInertia(fn ($p) => $p->where('contests.0.edit.locked', 1));
+        $changed = [
+            ['prompt' => 'دست‌کاری‌شده', 'choices' => ['الف', 'ب'], 'answer' => 0],
+            ['prompt' => 'سؤالِ دومِ تازه', 'choices' => ['x', 'y', 'z'], 'answer' => 2],
+            ['prompt' => 'سؤالِ سوم', 'choices' => ['۱', '۲'], 'answer' => 1],
+        ];
+        $this->actingAs($teacher)->put(route('teacher.live.update', $c), $base + ['questions' => $changed])->assertSessionHasNoErrors();
+        $c->refresh();
+        $this->assertSame('question', $c->phase);
+        $this->assertCount(3, $c->questions);
+        $this->assertSame('۳ + ۳ = ?', $c->questions[0]['prompt']);
+        $this->assertSame('سؤالِ دومِ تازه', $c->questions[1]['prompt']);
+        $this->assertSame(2, $c->questions[1]['answer']);
+
+        // نمی‌شود سؤال‌ها را کمتر از پرسیده‌شده‌ها کرد
+        $this->actingAs($teacher)->put(route('teacher.live.update', $c), $base + ['questions' => []])->assertSessionHasErrors();
+
+        // پس از پایان هم ویرایش برای «اجرای دوباره» ممکن است
+        $c->update(['phase' => 'end']);
+        $this->actingAs($teacher)->put(route('teacher.live.update', $c), array_merge($base, ['title' => 'دورِ دوم', 'questions' => $this->questions()]))->assertSessionHasNoErrors();
+        $this->assertSame('دورِ دوم', $c->fresh()->title);
+    }
 }

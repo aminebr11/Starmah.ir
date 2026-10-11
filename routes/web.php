@@ -388,6 +388,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::get('/live/{contest}/results', [\App\Http\Controllers\Teacher\LiveContestController::class, 'results'])->name('live.results');
     Route::get('/live/{contest}/state', [\App\Http\Controllers\Teacher\LiveContestController::class, 'state'])->middleware('throttle:200,1')->name('live.state');
     Route::post('/live/{contest}/go', [\App\Http\Controllers\Teacher\LiveContestController::class, 'go'])->name('live.go');
+    Route::put('/live/{contest}', [\App\Http\Controllers\Teacher\LiveContestController::class, 'update'])->name('live.update');
     Route::delete('/live/{contest}', [\App\Http\Controllers\Teacher\LiveContestController::class, 'destroy'])->name('live.destroy');
     Route::get('/audio', [\App\Http\Controllers\Teacher\AudioTaskController::class, 'index'])->name('audio');
     Route::post('/audio', [\App\Http\Controllers\Teacher\AudioTaskController::class, 'store'])->middleware('throttle:20,1')->name('audio.store');
