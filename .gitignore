@@ -36,3 +36,4 @@ Thumbs.db
 
 # نشانه‌های اجرای خودکارِ مایگریشن
 /storage/framework/migrated-*
+__pycache__/
