@@ -490,6 +490,8 @@ Route::middleware('auth')->group(function () {
     });
     Route::post('/assistant/chat', [\App\Http\Controllers\AssistantController::class, 'chat'])
         ->middleware('throttle:20,1')->name('assistant.chat');
+    Route::get('/assistant/hello', [\App\Http\Controllers\AssistantController::class, 'hello'])
+        ->middleware('throttle:30,1')->name('assistant.hello');
 
     // ارتباطِ محرمانه‌ی معلم/مدیر با والدین (کنترلِ نقش داخلِ کنترلر)
     Route::get('/family-notes', [\App\Http\Controllers\ParentNoteController::class, 'index'])->name('family.notes');

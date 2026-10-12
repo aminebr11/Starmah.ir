@@ -92,6 +92,76 @@ class AssistantService
     }
 
     /**
+     * «نمای من» برای صفحه‌ی خوش‌آمدِ دستیار: چند عددِ واقعی و کوتاه، فقط
+     * از داده‌ای که همین کاربر حقِ دیدنش را دارد (دانش‌آموز: خودش؛ والد:
+     * فرزندانش؛ معلم: کلاس‌های خودش؛ مدیر: مدرسه‌ی خودش؛ ادمین: کلِ سامانه).
+     *
+     * @return array<int,array{icon:string,label:string,value:string}>
+     */
+    public function snapshot(User $user): array
+    {
+        $fa = fn ($n) => \App\Support\Jalali::fa((string) $n);
+        $tiles = [];
+        $tile = function (string $icon, string $label, $value) use (&$tiles, $fa) {
+            if ($value !== null && $value !== '') {
+                $tiles[] = ['icon' => $icon, 'label' => $label, 'value' => str_replace(',', '٬', $fa($value))];
+            }
+        };
+
+        if ($user->hasRole(Roles::STUDENT)) {
+            $this->tryOr(function () use ($user, $tile) {
+                [$p] = $this->student($user);
+                $tile('⚡', 'امتیاز', number_format($p['xp']));
+                $tile('🎚️', 'سطح', $p['level']);
+                if ($p['rank']['in_class']) {
+                    $tile('🏅', 'رتبه در کلاس', $p['rank']['in_class'] . ' از ' . $p['rank']['of']);
+                }
+                $tile('🎯', 'مأموریتِ امروز', $p['missions']['pending_today'] ?: 'تمام ✓');
+            }, null, 'نمای دانش‌آموز');
+        } elseif ($user->hasRole(Roles::PARENT)) {
+            $this->tryOr(function () use ($user, $tile) {
+                $child = $user->children()->first();
+                if (! $child) {
+                    return;
+                }
+                $p = $this->insight->profile($child);
+                $tile('👧', 'فرزند', $child->name);
+                $tile('⚡', 'امتیاز', number_format($p['xp']));
+                if ($p['rank']['in_class']) {
+                    $tile('🏅', 'رتبه در کلاس', $p['rank']['in_class'] . ' از ' . $p['rank']['of']);
+                }
+                if ($p['subjects']['rows']) {
+                    $tile('📊', 'میانگینِ درس‌ها', $p['subjects']['overall'] . '٪');
+                }
+            }, null, 'نمای والد');
+        } elseif ($user->hasRole(Roles::TEACHER)) {
+            $this->tryOr(function () use ($user, $tile) {
+                $ids = User::whereHas('classrooms', fn ($q) => $q->where('teacher_id', $user->id))->pluck('id');
+                $tile('🏫', 'کلاس', \App\Models\Classroom::where('teacher_id', $user->id)->count());
+                $tile('🎓', 'دانش‌آموز', $ids->count());
+                $tile('💬', 'پیامِ تازه‌ی والدین', \App\Models\ParentNote::whereIn('student_id', $ids)
+                    ->where('from_parent', true)->whereNull('read_at')->count());
+                $tile('📥', 'کاربرگِ ۲ هفته', \App\Models\WorksheetSubmission::whereHas('worksheet', fn ($q) => $q->where('teacher_id', $user->id))
+                    ->whereNotNull('file_path')->where('updated_at', '>=', now()->subDays(14))->count());
+            }, null, 'نمای معلم');
+        } elseif ($user->hasRole(Roles::SCHOOL_ADMIN)) {
+            $this->tryOr(function () use ($user, $tile) {
+                $tile('🎓', 'دانش‌آموز', User::role(Roles::STUDENT)->where('school_id', $user->school_id)->count());
+                $tile('👩‍🏫', 'معلم', User::role(Roles::TEACHER)->where('school_id', $user->school_id)->count());
+                $tile('🏫', 'کلاس', \App\Models\Classroom::where('school_id', $user->school_id)->count());
+            }, null, 'نمای مدرسه');
+        } elseif ($user->hasRole(Roles::SUPER_ADMIN)) {
+            $this->tryOr(function () use ($tile) {
+                $tile('🏫', 'مدرسه', \App\Models\School::count());
+                $tile('🎓', 'دانش‌آموز', User::role(Roles::STUDENT)->count());
+                $tile('👩‍🏫', 'معلم', User::role(Roles::TEACHER)->count());
+            }, null, 'نمای سامانه');
+        }
+
+        return array_slice($tiles, 0, 4);
+    }
+
+    /**
      * پاسخِ اضطراری — وقتی حتی ساختِ زمینه هم شکست خورده باشد.
      * هرگز استثنا پرتاب نمی‌کند.
      */
@@ -217,7 +287,10 @@ class AssistantService
             . "۲) اگر داده‌ای نداریم، صادقانه بگو نداریم و بگو از کجا ساخته می‌شود.\n"
             . "۳) کوتاه بنویس و از فهرستِ گلوله‌ای استفاده کن؛ بیش از ۱۲۰ کلمه نشو مگر گزارشِ کامل خواسته شود.\n"
             . "۴) هرگز اطلاعاتِ شخصیِ کاربرانِ دیگر را فاش نکن.\n"
-            . "۵) فقط درباره‌ی این سامانه و درس و مدرسه حرف بزن؛ سؤالِ بی‌ربط را مؤدبانه به موضوع برگردان.\n\n"
+            . "۵) فقط درباره‌ی این سامانه و درس و مدرسه حرف بزن؛ سؤالِ بی‌ربط را مؤدبانه به موضوع برگردان.\n"
+            . "۶) نامِ تو «ماهو» است؛ شخصیتِ ماهِ کوچولوی ستاره‌ماه. گرم و زنده حرف بزن و گاهی یک ایموجیِ به‌جا بگذار.\n"
+            . "۷) وقتی به بخشی از سایت اشاره می‌کنی، نامش را دقیقاً همان‌طور که در راهنما آمده داخلِ «» بنویس تا برای کاربر دکمه شود.\n"
+            . "۸) برای تیتر از **پررنگ** و برای فهرست از «• » استفاده کن؛ جدول و کد ننویس.\n\n"
             . "=== راهنمای سایت ===\n{$guide}\n\n=== اطلاعاتِ کاربر ===\n{$context}";
     }
 

@@ -5,6 +5,7 @@ import '../css/smart-exams.css';
 import '../css/theme-clay.css';
 import '../css/visits.css';
 import '../css/hub.css';
+import '../css/assistant.css';
 import '../css/schedule-kids.css';
 import '../css/mastery.css';
 import '../css/gradebook.css';

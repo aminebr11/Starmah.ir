@@ -60,4 +60,29 @@ class AssistantController extends Controller
 
         return response()->json($result);
     }
+
+    /** صفحه‌ی خوش‌آمد: نامِ کوچک، «نمای من» و اینکه پاسخ‌ها زنده (AI) است یا سریع. */
+    public function hello(Request $request, AssistantService $assistant): JsonResponse
+    {
+        $user = $request->user();
+        if (! AssistantAccess::visible($user)) {
+            return response()->json(['blocked' => true], 403);
+        }
+
+        $stats = \Illuminate\Support\Facades\Cache::remember("assistant-hello:{$user->id}", 120, function () use ($assistant, $user) {
+            try {
+                return $assistant->snapshot($user);
+            } catch (\Throwable $e) {
+                Log::warning('assistant hello failed: ' . $e->getMessage());
+
+                return [];
+            }
+        });
+
+        return response()->json([
+            'first' => trim(explode(' ', trim((string) $user->name))[0] ?? ''),
+            'stats' => $stats,
+            'ai'    => app(\App\Services\AiContentService::class)->isConfigured() && AssistantAccess::aiAllowed($user),
+        ]);
+    }
 }

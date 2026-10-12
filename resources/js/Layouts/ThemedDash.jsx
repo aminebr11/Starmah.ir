@@ -172,7 +172,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
                 ))}
             </nav>
 
-            <AssistantWidget />
+            <AssistantWidget menu={menu} />
         </div>
     );
 }

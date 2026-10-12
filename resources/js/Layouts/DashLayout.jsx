@@ -87,7 +87,7 @@ export default function DashLayout({ title, roleLabel, menu = [], active = '', c
                 </div>
                 {children}
             </main>
-            <AssistantWidget />
+            <AssistantWidget menu={menu} />
         </div>
     );
 }
@@ -242,7 +242,7 @@ export function ClayDash({
                 </div>
             )}
 
-            <AssistantWidget />
+            <AssistantWidget menu={menu} />
         </div>
     );
 }

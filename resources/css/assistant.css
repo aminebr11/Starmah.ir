@@ -1,0 +1,221 @@
+/* ═══ «ماهو» — شخصیت و دستیارِ هوشمندِ ستاره‌ماه ═══════════════════════════ */
+
+/* ── شخصیت ─────────────────────────────────────────────────────────── */
+.mahoo{display:block;overflow:visible;flex:none}
+.mahoo .mh-shadow{fill:rgba(42,27,94,.16);transform-box:view-box;transform-origin:60px 113px;animation:mh-shadow 3.4s ease-in-out infinite}
+.mahoo .mh-float{transform-box:view-box;transform-origin:60px 70px;animation:mh-bob 3.4s ease-in-out infinite}
+.mahoo .mh-aura{opacity:.7}
+.mahoo .mh-arm{fill:none;stroke:#f0a428;stroke-width:7;stroke-linecap:round}
+.mahoo .mh-arm-r{transform-box:view-box;transform-origin:95px 80px}
+.mahoo .mh-eyes{transform-box:view-box;transform-origin:60px 71px;animation:mh-blink 5s infinite}
+.mahoo .mh-look{transform:translate(var(--lx,0px),var(--ly,0px));transition:transform .25s ease-out}
+.mahoo .mh-line path{fill:none;stroke:#2a1b5e;stroke-width:3.6;stroke-linecap:round}
+.mahoo .mh-cheek{fill:#ff8fa3;opacity:.55;transition:opacity .3s}
+.mahoo .mh-smile{fill:none;stroke:#7a2e0e;stroke-width:3.2;stroke-linecap:round}
+.mahoo .mh-tassel{transform-box:view-box;transform-origin:60px 31.5px;animation:mh-sway 3s ease-in-out infinite}
+.mahoo .mh-tstar,.mahoo .mh-spark{transform-box:fill-box;transform-origin:center;animation:mh-twinkle 2.6s ease-in-out infinite}
+.mahoo .mh-spark{fill:#ffd84d}
+.mahoo .mh-spark.s2{animation-delay:1.3s}
+.mahoo .mh-dots circle{fill:#fff;stroke:#b9a2f8;stroke-width:1.6;animation:mh-dot 1.5s infinite}
+.mahoo .mh-dots circle:nth-child(2){animation-delay:.2s}
+.mahoo .mh-dots circle:nth-child(3){animation-delay:.4s}
+.mahoo .mh-z text{font:900 15px/1 system-ui,sans-serif;fill:#9d8ce8;animation:mh-z 2.4s ease-out infinite}
+.mahoo .mh-z text:nth-child(2){animation-delay:1.2s;font-size:11px}
+.mahoo :is(.mh-happy-eyes,.mh-sleep-eyes,.mh-talk,.mh-o,.mh-dots,.mh-z){display:none}
+
+.mahoo.is-talk .mh-smile{display:none}
+.mahoo.is-talk .mh-talk{display:inline;transform-box:fill-box;transform-origin:center top;animation:mh-chat .2s ease-in-out infinite alternate}
+.mahoo.is-think .mh-look{transform:translate(2.6px,-3.6px)}
+.mahoo.is-think .mh-smile{display:none}
+.mahoo.is-think :is(.mh-o,.mh-dots){display:inline}
+.mahoo.is-think .mh-tassel{animation-duration:1.3s}
+.mahoo.is-happy .mh-eyes{display:none}
+.mahoo.is-happy .mh-happy-eyes{display:inline}
+.mahoo.is-happy .mh-cheek{opacity:.9}
+.mahoo.is-happy .mh-float{animation:mh-hop .55s ease-out 2,mh-bob 3.4s ease-in-out 1.1s infinite}
+.mahoo.is-wave .mh-arm-r{animation:mh-wave .45s ease-in-out infinite alternate}
+.mahoo.is-sleep .mh-eyes,.mahoo.is-sleep .mh-spark{display:none}
+.mahoo.is-sleep :is(.mh-sleep-eyes,.mh-z){display:inline}
+.mahoo.is-sleep .mh-float{animation-duration:6s}
+.mahoo.is-sleep .mh-tassel{animation-duration:6s}
+
+@keyframes mh-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3.5px)}}
+@keyframes mh-shadow{0%,100%{transform:scaleX(1);opacity:1}50%{transform:scaleX(.86);opacity:.7}}
+@keyframes mh-blink{0%,91%,100%{transform:scaleY(1)}94%{transform:scaleY(.08)}}
+@keyframes mh-sway{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(7deg)}}
+@keyframes mh-twinkle{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.68);opacity:.55}}
+@keyframes mh-chat{from{transform:scaleY(.35)}to{transform:scaleY(1)}}
+@keyframes mh-hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-9px)}}
+@keyframes mh-wave{from{transform:rotate(-14deg)}to{transform:rotate(24deg)}}
+@keyframes mh-dot{0%{opacity:0}30%,80%{opacity:1}100%{opacity:0}}
+@keyframes mh-z{0%{transform:translate(0,4px);opacity:0}35%{opacity:1}100%{transform:translate(5px,-9px);opacity:0}}
+
+/* ── دکمه‌ی شناور ──────────────────────────────────────────────────── */
+.assistant-fab.mahoo-fab{position:fixed;inset-inline-end:18px;bottom:calc(18px + var(--sab,0px));z-index:120;
+  width:66px;height:66px;border-radius:50%;border:3px solid #fff;padding:0;cursor:pointer;display:grid;place-items:center;
+  background:radial-gradient(circle at 22% 28%,#fff 0 1px,transparent 1.6px),radial-gradient(circle at 78% 22%,#fff 0 .8px,transparent 1.4px),
+    radial-gradient(circle at 70% 80%,#ffe9a8 0 .9px,transparent 1.5px),radial-gradient(circle at 35% 30%,#4b33b5,#1c1150 72%);
+  box-shadow:0 5px 0 #140c3a,0 18px 34px -12px rgba(76,47,176,.75);transition:transform .18s ease,box-shadow .18s ease;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.mahoo-fab .mahoo{margin-top:-8px}
+.mahoo-fab:hover{transform:translateY(-3px) rotate(-4deg)}
+.mahoo-fab:active{transform:translateY(3px) scale(.96);box-shadow:0 2px 0 #140c3a,0 10px 20px -10px rgba(76,47,176,.7)}
+.mahoo-fab:focus-visible{outline:3px solid #ffd75e;outline-offset:3px}
+.mahoo-fab-dot{position:absolute;top:2px;inset-inline-start:2px;width:14px;height:14px;border-radius:50%;background:#34d399;border:2.5px solid #fff}
+.mahoo-fab-dot::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:2px solid #34d399;animation:mh-ping 2.2s ease-out infinite}
+@keyframes mh-ping{0%{transform:scale(.8);opacity:.9}100%{transform:scale(2);opacity:0}}
+
+.mahoo-peek{position:fixed;z-index:121;max-width:250px;display:flex;align-items:flex-start;gap:2px;background:#fff;color:#2a1b5e;
+  border-radius:18px;padding:4px;box-shadow:0 5px 0 #e6ddfb,0 18px 40px -16px rgba(42,27,94,.55);animation:mh-pop .35s cubic-bezier(.2,.9,.3,1.25)}
+.mahoo-peek-t{border:0;background:none;font:inherit;font-size:13.5px;font-weight:800;color:inherit;text-align:start;line-height:1.8;padding:6px 10px;cursor:pointer}
+.mahoo-peek-x{border:0;background:#f3effd;color:#7a7398;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:17px;line-height:1;flex:none}
+
+/* ── پنجره ─────────────────────────────────────────────────────────── */
+.mahoo-panel{position:fixed;inset-inline-end:18px;bottom:calc(98px + var(--sab,0px));z-index:130;width:410px;max-width:calc(100vw - 36px);
+  height:min(680px,calc(100vh - 130px));display:flex;flex-direction:column;overflow:hidden;border-radius:28px;background:#f8f6ff;color:#231a45;
+  box-shadow:0 0 0 1px rgba(76,47,176,.08),0 8px 0 #e3dbfa,0 40px 80px -30px rgba(30,16,90,.6);transform-origin:bottom left;
+  animation:mh-pop .32s cubic-bezier(.2,.9,.3,1.15);font-family:inherit}
+.mahoo-panel.is-wide{width:min(760px,calc(100vw - 36px));height:min(860px,calc(100vh - 130px))}
+@keyframes mh-pop{from{opacity:0;transform:translateY(16px) scale(.94)}}
+
+.mh-head{display:flex;align-items:center;gap:10px;padding:12px 14px;color:#fff;flex:none;position:relative;
+  background:radial-gradient(circle at 12% 30%,#fff 0 1px,transparent 1.6px),radial-gradient(circle at 46% 18%,#fff 0 .8px,transparent 1.4px),
+    radial-gradient(circle at 70% 70%,#ffe9a8 0 1px,transparent 1.6px),radial-gradient(circle at 88% 25%,#fff 0 .7px,transparent 1.3px),
+    linear-gradient(135deg,#25165f 0%,#4b2bb8 62%,#7c3aed 100%)}
+.mh-avatar{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;flex:none;
+  background:radial-gradient(circle at 40% 35%,#3e2c94,#1a1048);box-shadow:0 0 0 3px rgba(255,255,255,.16),0 0 22px rgba(255,215,94,.45)}
+.mh-avatar .mahoo{margin-top:-4px}
+.mh-id{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.mh-id b{font-size:17px;font-weight:900;display:flex;align-items:center;gap:6px}
+.mh-badge{font-size:10.5px;font-weight:800;background:rgba(255,255,255,.17);border-radius:99px;padding:2px 8px}
+.mh-status{font-size:12px;opacity:.9;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mh-status i{width:8px;height:8px;border-radius:50%;background:#34d399;box-shadow:0 0 0 3px rgba(52,211,153,.25);flex:none}
+.mh-status.live i{background:#fbbf24;box-shadow:0 0 0 3px rgba(251,191,36,.3);animation:mh-blinkdot .8s ease-in-out infinite alternate}
+@keyframes mh-blinkdot{to{opacity:.35}}
+.mh-hbtn{width:40px;height:40px;border:0;border-radius:13px;background:rgba(255,255,255,.14);color:#fff;display:grid;place-items:center;
+  cursor:pointer;flex:none;transition:background .15s;-webkit-tap-highlight-color:transparent}
+.mh-hbtn:hover{background:rgba(255,255,255,.26)}
+.mh-hbtn:focus-visible{outline:2px solid #ffd75e;outline-offset:2px}
+
+.mh-body{flex:1;overflow-y:auto;padding:16px 14px 8px;overscroll-behavior:contain;
+  background:radial-gradient(circle at 100% 0,#efe8ff 0,transparent 40%),radial-gradient(circle at 0 100%,#fff4d6 0,transparent 35%),#f8f6ff}
+
+/* خوش‌آمد */
+.mh-hero{text-align:center;padding:4px 6px 4px}
+.mh-hero .mahoo{margin:0 auto;animation:mh-rise .5s cubic-bezier(.2,.9,.3,1.3) both}
+.mh-hero h3{margin:6px 0 4px;font-size:22px;font-weight:900;color:#24124f}
+.mh-hero p{margin:0 auto;max-width:340px;font-size:14px;line-height:1.95;color:#5b5675}
+.mh-label{font-size:12px;font-weight:800;color:#8a7fb0;margin:16px 2px 8px}
+.mh-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+.is-wide .mh-stats{grid-template-columns:repeat(4,1fr)}
+.mh-stat{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:9px;align-items:center;background:#fff;border-radius:18px;
+  padding:10px 12px;box-shadow:0 4px 0 #e9e1fc,0 12px 22px -16px rgba(76,47,176,.55);animation:mh-rise .45s cubic-bezier(.2,.9,.3,1.2) both;min-width:0}
+.mh-stat .ic{grid-row:1/3;font-size:24px}
+.mh-stat b{font-size:16.5px;font-weight:900;color:#2a1b5e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mh-stat small{font-size:11.5px;color:#7a7398}
+.mh-stat.sk{height:58px;background:linear-gradient(90deg,#eee9fb 25%,#f8f5ff 50%,#eee9fb 75%);background-size:200% 100%;animation:mh-shimmer 1.2s linear infinite;box-shadow:none}
+@keyframes mh-shimmer{to{background-position:-200% 0}}
+.mh-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.is-wide .mh-cards{grid-template-columns:repeat(4,1fr)}
+.mh-card{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:start;background:#fff;border:1.5px solid #ece6fb;border-radius:20px;
+  padding:12px 13px;min-height:92px;cursor:pointer;font:inherit;color:#24124f;transition:transform .15s,border-color .15s,box-shadow .15s;
+  animation:mh-rise .45s cubic-bezier(.2,.9,.3,1.2) both}
+.mh-card .ic{font-size:23px;line-height:1.2}
+.mh-card b{font-size:14px;font-weight:900}
+.mh-card small{font-size:12px;color:#7a7398;line-height:1.6}
+.mh-card:hover{border-color:#b9a2f8;transform:translateY(-2px);box-shadow:0 12px 24px -16px rgba(76,47,176,.6)}
+.mh-card:active{transform:scale(.97)}
+.mh-card:focus-visible{outline:2px solid #7c3aed;outline-offset:2px}
+@keyframes mh-rise{from{opacity:0;transform:translateY(12px) scale(.94)}}
+
+/* پیام‌ها */
+.mh-row{display:flex;gap:8px;margin:0 0 14px;animation:mh-rise .3s ease-out both}
+.mh-row.me{flex-direction:column;align-items:flex-end}
+.mh-bubble{max-width:86%;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border-radius:20px 20px 20px 6px;padding:10px 14px;
+  font-size:14.5px;line-height:1.85;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 10px 20px -14px rgba(109,40,217,.9)}
+.mh-row time,.mh-tools time{font-size:10.5px;color:#a39dbb;margin:3px 6px 0}
+.mh-row.bot{align-items:flex-start}
+.mh-mini{width:36px;height:36px;border-radius:50%;flex:none;display:grid;place-items:center;background:radial-gradient(circle at 40% 35%,#3e2c94,#1a1048);margin-top:2px}
+.mh-msg{flex:1;min-width:0}
+.mh-text{background:#fff;border:1px solid #eee8fb;border-radius:20px 6px 20px 20px;padding:11px 14px;font-size:14.5px;line-height:1.95;color:#231a45;
+  overflow-wrap:anywhere;box-shadow:0 10px 24px -20px rgba(60,30,140,.55)}
+.mh-row.err .mh-text{background:#fff6f6;border-color:#ffd9d9;color:#7a1d1d}
+.mh-text p{margin:0 0 6px;white-space:pre-wrap}
+.mh-text>:last-child{margin-bottom:0}
+.mh-text ul,.mh-text ol{list-style:none;margin:4px 0 8px;padding:0}
+.mh-text ol{counter-reset:mh}
+.mh-text li{position:relative;padding-inline-start:20px;margin:4px 0}
+.mh-text ul li::before{content:"";position:absolute;inset-inline-start:4px;top:.78em;width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,#a78bfa,#7c3aed)}
+.mh-text ol li{counter-increment:mh;padding-inline-start:28px}
+.mh-text ol li::before{content:counter(mh,persian);position:absolute;inset-inline-start:0;top:.25em;width:21px;height:21px;border-radius:50%;
+  background:#efe9ff;color:#6d28d9;font-size:11.5px;font-weight:900;display:grid;place-items:center;line-height:1}
+.mh-text .as-h{font-size:15px;font-weight:900;color:#4c1d95;margin:6px 0 3px}
+.mh-text .as-gap{height:4px}
+.mh-text b{color:#3b1a8f}
+.as-link{display:inline-flex;align-items:center;gap:2px;padding:0 9px;margin:0 2px;border-radius:99px;background:#f1ebff;color:#6d28d9!important;font-weight:800;
+  text-decoration:none!important;border:1px solid #ddd0ff;transition:background .15s}
+.as-link:hover{background:#e4d9ff}
+.as-caret{display:inline-block;width:8px;height:1.05em;background:#7c3aed;border-radius:2px;vertical-align:-3px;margin-inline-start:3px;animation:mh-caret .9s steps(2) infinite}
+@keyframes mh-caret{to{opacity:0}}
+.mh-diag{margin-top:6px;padding:8px 10px;border:1px dashed #e6c98f;background:#fff8e6;color:#8a6410;border-radius:12px;font-size:12px;line-height:1.8}
+.mh-tools{display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap}
+.mh-tools button{display:inline-flex;align-items:center;gap:4px;border:0;background:none;color:#8a7fb0;font:inherit;font-size:11.5px;font-weight:700;
+  padding:6px 8px;border-radius:9px;cursor:pointer;min-height:32px}
+.mh-tools button:hover{background:#efe9ff;color:#6d28d9}
+.mh-ai{font-size:10.5px;font-weight:800;color:#7c3aed;background:#f5f0ff;border-radius:99px;padding:2px 8px}
+.mh-thinking{display:inline-flex;align-items:center;gap:10px;flex:none;width:auto;background:#fff;border:1px solid #eee8fb;border-radius:20px 6px 20px 20px;padding:12px 14px}
+.mh-dots3{display:inline-flex;gap:4px}
+.mh-dots3 i{width:7px;height:7px;border-radius:50%;background:#8b5cf6;animation:mh-jump 1s ease-in-out infinite}
+.mh-dots3 i:nth-child(2){animation-delay:.15s;background:#a78bfa}
+.mh-dots3 i:nth-child(3){animation-delay:.3s;background:#f5b335}
+@keyframes mh-jump{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+.mh-think-t{font-size:13px;font-weight:700;background:linear-gradient(90deg,#6b6290 0%,#b9a2f8 50%,#6b6290 100%);background-size:200% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;animation:mh-shimmer 1.6s linear infinite,mh-rise .3s ease-out}
+
+.mh-jump{position:absolute;left:50%;bottom:150px;transform:translateX(-50%);width:42px;height:42px;border-radius:50%;border:0;background:#fff;color:#6d28d9;
+  display:grid;place-items:center;cursor:pointer;box-shadow:0 8px 20px -8px rgba(42,27,94,.5);z-index:2}
+
+/* نوشتن */
+.mh-foot{flex:none;background:#fff;border-top:1px solid #efeaf9;padding:8px 10px 8px}
+.mh-chips{display:flex;gap:6px;overflow-x:auto;padding:0 2px 8px;scrollbar-width:none}
+.mh-chips::-webkit-scrollbar{display:none}
+.mh-chips button{flex:none;white-space:nowrap;border:1.5px solid #e4dcfb;background:#fff;color:#5b21b6;border-radius:99px;padding:7px 13px;font:inherit;
+  font-size:12.5px;font-weight:700;cursor:pointer;min-height:36px;transition:background .15s}
+.mh-chips button:hover{background:#f5f0ff}
+.mh-chips button:disabled{opacity:.5;cursor:default}
+.mh-compose{display:flex;align-items:flex-end;gap:8px;background:#f5f2fd;border:1.5px solid #e6defa;border-radius:24px;padding:5px;transition:border-color .15s,box-shadow .15s}
+.mh-compose:focus-within{border-color:#8b5cf6;box-shadow:0 0 0 4px rgba(139,92,246,.15)}
+.mh-compose textarea{flex:1;min-width:0;border:0!important;background:transparent;resize:none;font:inherit;font-size:15px;line-height:1.7;padding:8px 10px;
+  max-height:130px;color:#231a45;outline:none!important;box-shadow:none!important}
+.mh-compose textarea::placeholder{color:#a39dbb}
+.mh-send{width:44px;height:44px;flex:none;border:0;border-radius:50%;display:grid;place-items:center;cursor:pointer;color:#fff;
+  background:linear-gradient(135deg,#a78bfa,#7c3aed);box-shadow:0 4px 0 #5b21b6;transition:transform .12s,box-shadow .12s,background .15s}
+.mh-send svg{transform:scaleX(-1)}
+.mh-send:active{transform:translateY(2px);box-shadow:0 2px 0 #5b21b6}
+.mh-send:disabled{background:#ddd6f3;box-shadow:none;cursor:default}
+.mh-send.stop{background:#2a1b5e;box-shadow:0 4px 0 #120a33}
+.mh-send:focus-visible{outline:2px solid #7c3aed;outline-offset:2px}
+.mh-note{text-align:center;font-size:10.5px;color:#a39dbb;margin-top:6px}
+
+/* ── گوشی: ورقه‌ی تمام‌صفحه، بالای سربرگ و نوارِ پایین ───────────────── */
+@media (max-width:560px){
+  :root:root:root .mahoo-panel.assistant-panel{inset:0!important;top:0!important;bottom:0!important;width:100%!important;max-width:none!important;
+    height:100%!important;height:100dvh!important;max-height:none!important;border-radius:0!important;z-index:1200;animation:mh-up .3s cubic-bezier(.2,.9,.3,1.05)}
+  .mh-head{padding-top:calc(10px + var(--sat,0px))}
+  .mh-foot{padding-bottom:calc(8px + var(--sab,0px))}
+  .mh-hbtn{width:44px;height:44px}
+  .mh-only-desk{display:none}
+  .mh-compose textarea{font-size:16px}
+  .mh-hero h3{font-size:21px}
+  html.mahoo-open,html.mahoo-open body{overflow:hidden}
+}
+@keyframes mh-up{from{opacity:.4;transform:translateY(40px)}}
+
+@media (prefers-reduced-motion:reduce){
+  .mahoo *,.mahoo-panel,.mahoo-panel *,.mahoo-peek,.mahoo-fab-dot::after{animation:none!important;transition:none!important}
+}
+/* سطرهای «عنوان: مقدار» در گزارش‌ها، مثلِ یک کارتِ کوچک */
+.mh-text .as-kv{display:flex;gap:8px;align-items:baseline;padding:5px 0;border-bottom:1px dashed #eee8fb}
+.mh-text .as-kv:last-of-type{border-bottom:0}
+.mh-text .as-k{flex:none;max-width:42%;color:#7a6fae;font-size:12.5px;font-weight:800}
+.mh-text .as-v{min-width:0;flex:1}
