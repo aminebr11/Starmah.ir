@@ -33,6 +33,7 @@ router.on('navigate', (e) => syncUi(e.detail?.page?.props?.ui));
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
+import ErrorBoundary from './Components/ErrorBoundary';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -47,7 +48,8 @@ createInertiaApp({
         const root = createRoot(el);
         initPresence(props.initialPage);
 
-        root.render(<App {...props} />);
+        // خطای نمایش دیگر صفحه را سفید نمی‌کند
+        root.render(<ErrorBoundary><App {...props} /></ErrorBoundary>);
     },
     progress: {
         color: '#4B5563',

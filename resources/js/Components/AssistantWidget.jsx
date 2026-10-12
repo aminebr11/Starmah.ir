@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import axios from 'axios';
 import Mascot from '@/Components/Mascot';
+import ErrorBoundary from '@/Components/ErrorBoundary';
 
 /**
  * «ماهو» — دستیارِ هوشمندِ ستاره‌ماه، در همه‌ی صفحه‌ها.
@@ -100,6 +101,9 @@ const norm = (s) => String(s ?? '').replace(/[ً-ْ‌‏]/g, '').replace(/ي/g,
     .replace(/[^\p{L}\p{N} ]/gu, ' ').replace(/\s+/g, ' ').trim();
 const fa = (n) => String(n).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const reduced = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+// اگر سرور هنوز مسیرِ تازه را نشناسد (فایل‌های قدیمی یا کشِ مسیرها)، route() خطا می‌دهد
+// و پیش از این کلِ صفحه سفید می‌شد؛ حالا نشانیِ ثابت به کار می‌رود.
+const url = (name, path) => { try { return route(name); } catch { return path; } };
 const uid = () => Math.random().toString(36).slice(2, 10);
 const clock = (t) => fa(new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
 
@@ -232,7 +236,12 @@ function Typed({ text, link, onNav, onDone, onTick, stopRef }) {
     return <Rich text={tokens.slice(0, n).join('')} link={link} onNav={onNav} caret={n < tokens.length} />;
 }
 
-export default function AssistantWidget({ menu = [] }) {
+/** هر خطایی در دستیار فقط خودِ دستیار را پنهان می‌کند، نه کلِ سایت را. */
+export default function AssistantWidget(props) {
+    return <ErrorBoundary name="assistant" fallback={null}><Assistant {...props} /></ErrorBoundary>;
+}
+
+function Assistant({ menu = [] }) {
     const { auth, assistantOn = true } = usePage().props;
     const roles = auth?.roles ?? [];
     const role = ROLES.find((r) => roles.includes(r)) ?? 'default';
@@ -278,7 +287,7 @@ export default function AssistantWidget({ menu = [] }) {
     // ── «نمای من» هنگامِ اولین بازشدن
     useEffect(() => {
         if (!open || hello) return;
-        axios.get(route('assistant.hello')).then(({ data }) => setHello(data)).catch(() => setHello({ stats: [] }));
+        axios.get(url('assistant.hello', '/assistant/hello')).then(({ data }) => setHello(data)).catch(() => setHello({ stats: [] }));
     }, [open, hello]);
 
     // ── پیامِ کوتاهِ «سلام» کنارِ حباب، یک‌بار در هر نشست
@@ -380,7 +389,7 @@ export default function AssistantWidget({ menu = [] }) {
         const ctrl = new AbortController();
         abortRef.current = ctrl;
         try {
-            const { data } = await axios.post(route('assistant.chat'), { message, history }, { signal: ctrl.signal });
+            const { data } = await axios.post(url('assistant.chat', '/assistant/chat'), { message, history }, { signal: ctrl.signal });
             const id = uid();
             setMsgs((m) => [...m, { id, role: 'assistant', content: data.reply, diag: data.diag, mode: data.mode, at: Date.now(), fresh: true }]);
             setTyping(id);
