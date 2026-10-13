@@ -205,7 +205,8 @@ class ExamController extends Controller
 
         // XP فقط یک‌بار (اولین تکمیل) — تلاش‌های تکراری امتیاز اضافه نمی‌گیرند
         if ($firstCompletion) {
-            $this->game->awardXp($user, $points, '💻 آزمون آنلاین — ' . $assignment->title);
+            // قاعده‌ی امتیازِ مدرسه (ضریب یا خاموش)
+            $this->game->awardRule('online_exam', $user, $points, '💻 آزمون آنلاین — ' . $assignment->title);
         }
 
         // اعلانِ نتیجه در کارتابلِ دانش‌آموز

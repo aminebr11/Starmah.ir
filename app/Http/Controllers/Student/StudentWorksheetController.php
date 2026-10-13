@@ -8,6 +8,7 @@ use App\Models\WorksheetSubmission;
 use App\Services\GamificationService;
 use App\Services\WorksheetSheetService;
 use App\Support\Jalali;
+use App\Support\XpRules;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -50,10 +51,13 @@ class StudentWorksheetController extends Controller
                 'file' => $worksheet->file_path ? route('worksheet.sheet', [$worksheet->id, 'file'], false) : null,
                 'file_pdf' => \App\Models\WorksheetSubmission::isPdf($worksheet->file_path),
             ],
-            'downloadXp' => self::DOWNLOAD_XP,
-            'submitXp' => self::SUBMIT_XP,
+            // امتیازِ واقعی طبقِ قاعده‌ی امتیازِ مدرسه (۰ = خاموش)
+            'downloadXp' => XpRules::apply($user, 'worksheet_download', self::DOWNLOAD_XP),
+            'submitXp' => XpRules::apply($user, 'worksheet_submit', self::SUBMIT_XP),
             'downloaded' => $mine ? (bool) $mine->download_xp : false,
-            'submitted' => $mine && $mine->file_path ? $mine->viewData() : null,
+            'submitted' => $mine && $mine->file_path
+                ? array_merge($mine->viewData(), ['xp' => XpRules::apply($user, 'worksheet_grade', (int) ($mine->grade_xp ?? 0))])
+                : null,
         ]);
     }
 
@@ -69,12 +73,15 @@ class StudentWorksheetController extends Controller
                 ['worksheet_id' => $worksheet->id, 'student_id' => $user->id]
             );
             if (! $sub->download_xp) {
-                $game->award($user, self::DOWNLOAD_XP, '🎨 دریافتِ کاربرگ — ' . $worksheet->title,
-                    $worksheet->teacher, Worksheet::class, $worksheet->id);
+                $xp = XpRules::apply($user, 'worksheet_download', self::DOWNLOAD_XP);
+                if ($xp !== 0) {
+                    $game->award($user, $xp, '🎨 دریافتِ کاربرگ — ' . $worksheet->title,
+                        $worksheet->teacher, Worksheet::class, $worksheet->id);
+                }
                 $sub->download_xp = true;
                 $sub->downloaded_at = now();
                 $sub->save();
-                $gained = self::DOWNLOAD_XP;
+                $gained = $xp;
             }
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('worksheet download xp failed: ' . $e->getMessage());
@@ -120,21 +127,24 @@ class StudentWorksheetController extends Controller
         $sub->save();
 
         // امتیازِ ارسال (یک‌بار) — best-effort؛ اگر ستون‌های v18 نبودند آپلود نمی‌شکند
-        $awarded = false;
+        $awarded = 0;
         try {
             if (! $sub->submit_xp) {
-                $game->award($user, self::SUBMIT_XP, '🎨 ارسالِ کاربرگ — ' . $worksheet->title,
-                    $worksheet->teacher, WorksheetSubmission::class, $sub->id);
+                $xp = XpRules::apply($user, 'worksheet_submit', self::SUBMIT_XP);
+                if ($xp !== 0) {
+                    $game->award($user, $xp, '🎨 ارسالِ کاربرگ — ' . $worksheet->title,
+                        $worksheet->teacher, WorksheetSubmission::class, $sub->id);
+                }
                 $sub->submit_xp = true;
                 $sub->save();
-                $awarded = true;
+                $awarded = $xp;
             }
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('worksheet submit xp failed: ' . $e->getMessage());
         }
 
-        return back()->with('flash', $awarded
-            ? "کاربرگِ پرشده ارسال شد و +" . self::SUBMIT_XP . " امتیاز گرفتی ✅"
+        return back()->with('flash', $awarded > 0
+            ? "کاربرگِ پرشده ارسال شد و +" . Jalali::fa((string) $awarded) . " امتیاز گرفتی ✅"
             : 'کاربرگِ پرشده ارسال شد ✅');
     }
 }

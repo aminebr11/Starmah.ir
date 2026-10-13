@@ -38,14 +38,14 @@ class GameController extends Controller
         $played = ActivityAward::where('student_id', $user->id)->pluck('class_activity_id')->flip();
 
         $games = $this->playableQuery($user)->latest()->get()
-            ->map(function ($g) use ($played) {
+            ->map(function ($g) use ($played, $user) {
                 $meta = $g->meta ?? [];
                 return [
                     'id'      => $g->id,
                     'title'   => $g->title,
                     'desc'    => $g->description,
                     'subject' => $meta['subject'] ?? null,
-                    'points'  => $g->points,
+                    'points'  => \App\Support\XpRules::apply($user, 'class_game', (int) $g->points),
                     'count'   => count($meta['questions'] ?? []),
                     'live'    => $this->isLive($g),
                     'when'    => ! empty($meta['scheduled_at']) ? Jalali::format($meta['scheduled_at'], true) : null,
@@ -83,7 +83,7 @@ class GameController extends Controller
         return Inertia::render('Student/GamePlay', [
             'game' => [
                 'id' => $classActivity->id, 'title' => $classActivity->title,
-                'desc' => $classActivity->description, 'points' => $classActivity->points,
+                'desc' => $classActivity->description, 'points' => \App\Support\XpRules::apply($user, 'class_game', (int) $classActivity->points),
                 'mode' => $meta['mode'] ?? 'quiz',
                 'questions' => $questions,
             ],
@@ -114,6 +114,8 @@ class GameController extends Controller
             }
         }
         $earned = $total ? (int) round($classActivity->points * $correct / $total) : 0;
+        // قاعده‌ی امتیازِ مدرسه (ضریب یا خاموش)
+        $earned = \App\Support\XpRules::apply($user, 'class_game', $earned);
 
         // فقط بار اول XP می‌دهیم (idempotent با ActivityAward)
         $already = ActivityAward::where('class_activity_id', $classActivity->id)

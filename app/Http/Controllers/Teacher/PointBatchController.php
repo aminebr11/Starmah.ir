@@ -130,7 +130,7 @@ class PointBatchController extends Controller
                 : Jalali::fa((string) $individuals->count()) . ' دانش‌آموز';
         }
 
-        $amount = (int) $data['amount'];
+        $amount = $this->ruleAmount($teacher, (int) $data['amount']);
         $reason = trim($data['reason']);
 
         $batch = DB::transaction(function () use ($teacher, $rooms, $data, $mode, $activity, $studentIds, $teamRows, $labels, $amount, $reason, $game, $allowed) {
@@ -200,7 +200,7 @@ class PointBatchController extends Controller
         ], ['amount.not_in' => 'مقدارِ امتیاز نمی‌تواند صفر باشد.']);
 
         $allowed = $this->classrooms($teacher)->flatMap(fn ($c) => $c->students)->keyBy('id');
-        $amount = (int) $data['amount'];
+        $amount = $this->ruleAmount($teacher, (int) $data['amount']);
         $reason = trim($data['reason']);
 
         DB::transaction(function () use ($batch, $data, $allowed, $amount, $reason, $game, $teacher) {
@@ -282,6 +282,20 @@ class PointBatchController extends Controller
         $teamPoint->update($data);
 
         return back()->with('flash', 'امتیازِ تیم ویرایش شد ✅');
+    }
+
+    /**
+     * قاعده‌ی امتیازِ مدرسه برای «مرکزِ امتیاز»: اگر مدیر خاموشش کرده باشد خطای روشن،
+     * و اگر سقف گذاشته باشد مقدار به سقف محدود می‌شود (علامتِ کسر حفظ می‌شود).
+     */
+    private function ruleAmount(User $teacher, int $amount): int
+    {
+        $adjusted = \App\Support\XpRules::forSchool($teacher->school_id, 'point_batch', $amount);
+        if ($adjusted === 0) {
+            throw ValidationException::withMessages(['amount' => 'امتیازدهی از «مرکزِ امتیاز» در مدرسه‌ی شما توسطِ مدیر غیرفعال شده است.']);
+        }
+
+        return $adjusted;
     }
 
     private function announce(PointBatch $batch, User $teacher, Collection $ids): void

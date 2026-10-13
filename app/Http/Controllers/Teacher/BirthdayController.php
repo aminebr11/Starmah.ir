@@ -60,8 +60,11 @@ class BirthdayController extends Controller
         $notes = [];
         $gift = (int) ($data['gift'] ?? 0);
         if ($gift > 0) {
-            $game->awardXp($user, $gift, '🎁 هدیه‌ی تولد از ' . $teacher->name, $teacher);
-            $notes[] = \App\Support\Jalali::fa((string) $gift) . " امتیاز هدیه";
+            // قاعده‌ی امتیازِ مدرسه (خاموش یا سقف‌دار)
+            $entry = $game->awardRule('birthday_gift', $user, $gift, '🎁 هدیه‌ی تولد از ' . $teacher->name, $teacher);
+            $notes[] = $entry
+                ? \App\Support\Jalali::fa((string) $entry->amount) . " امتیاز هدیه"
+                : 'هدیه‌ی امتیاز در مدرسه غیرفعال است';
         }
         if (! empty($data['to_parent'])) {
             $can = SmsGateway::can($teacher);

@@ -13,10 +13,10 @@ import UiSwitch from '@/Components/UiSwitch';
  * props: title, roleLabel, menu:[{key,label,icon,href}], active, children
  */
 export default function DashLayout({ title, roleLabel, menu = [], active = '', children, actions = null }) {
-    const { auth, unreadNotices = 0, smartLab = false, avatarUrl = null, school = null, ui = 'classic', worksheetsPending = 0, audioPending = 0 } = usePage().props;
+    const { auth, unreadNotices = 0, smartLab = false, onlineClass = false, avatarUrl = null, school = null, ui = 'classic', worksheetsPending = 0, audioPending = 0 } = usePage().props;
     const [open, setOpen] = useState(false);
     // آیتم‌هایی که flag: 'smart' دارند فقط وقتی ماژول فعال است نمایش داده می‌شوند
-    menu = menu.filter((m) => !m.flag || (m.flag === 'smart' && smartLab));
+    menu = menu.filter((m) => !m.flag || (m.flag === 'smart' && smartLab) || (m.flag === 'online' && onlineClass));
 
     if (ui === 'clay') {
         return <ClayDash {...{ title, roleLabel, menu, active, children, actions }} badges={{ wsinbox: worksheetsPending, audio: audioPending }} />;
@@ -263,6 +263,7 @@ export const adminMenu = [
 
     { divider: 'گزارش و تنظیمات' },
     { key: 'reports', label: 'گزارش‌ها', icon: '📈', href: '/admin/reports' },
+    { key: 'online', label: 'کلاسِ آنلاین', icon: '🎥', href: '/admin/online' },
     { key: 'visits', label: 'گزارشِ بازدیدها', icon: '👁️', href: '/admin/visits' },
     { key: 'ai', label: 'مرکزِ هوش مصنوعی', icon: '🤖', href: '/admin/ai' },
     { key: 'users', label: 'کاربران و شماره‌ها', icon: '👥', href: '/admin/users' },
@@ -280,10 +281,12 @@ export const schoolMenu = [
     { key: 'students', label: 'دانش‌آموزان', icon: '🎓', href: '/school/students' },
     { key: 'schedule', label: 'برنامه‌ی کلاس‌ها', icon: '🗓️', href: '/school/schedule' },
     { key: 'attendance', label: 'حضور و غیاب', icon: '✅', href: '/school/attendance' },
+    { key: 'online', label: 'کلاسِ آنلاین', icon: '🎥', href: '/school/online', flag: 'online' },
 
     { divider: 'آموزش و آزمون' },
     { key: 'bank', label: 'بانک سؤالات', icon: '🗄️', href: '/question-bank' },
     { key: 'examreports', label: 'گزارش آزمون‌ها', icon: '📊', href: '/school/exam-reports' },
+    { key: 'xprules', label: 'مدیریتِ امتیازها (XP)', icon: '⚡', href: '/school/xp-rules' },
 
     { divider: 'ارتباط و گزارش' },
     { key: 'familynotes', label: 'پیامِ محرمانه به والدین', icon: '🔐', href: '/family-notes' },
@@ -317,6 +320,7 @@ export const teacherMenu = [
     { key: 'wsinbox', label: 'کاربرگ‌های ارسالی', icon: '📥', href: '/teacher/worksheet-inbox' },
     { key: 'audio', label: 'املا و روخوانی', icon: '🎧', href: '/teacher/audio' },
     { key: 'live', label: 'مسابقه‌ی زنده', icon: '🏆', href: '/teacher/live' },
+    { key: 'online', label: 'کلاسِ آنلاین', icon: '🎥', href: '/teacher/online', flag: 'online' },
     { key: 'mybank', label: 'بانکِ سؤالاتِ من', icon: '🗄️', href: '/teacher/my-bank' },
     { key: 'materials', label: 'مطالب و محتوا', icon: '📚', href: '/teacher/materials' },
     { key: 'smart', label: 'آزمون هوشمند 🧪', icon: '🧠', href: '/teacher/smart-exams', flag: 'smart' },

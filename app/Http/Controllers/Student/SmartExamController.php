@@ -384,9 +384,13 @@ class SmartExamController extends Controller
 
         $xp = $autoMax ? (int) round($auto / $autoMax * 100) : 0;
         if (! $alreadyRewarded && ! $hasDesc && $xp > 0) {
+            // قاعده‌ی امتیازِ مدرسه (ضریب یا خاموش)؛ ردیفِ پاداش در هر حال ثبت می‌شود تا یک‌بار بودن حفظ شود
+            $xp = \App\Support\XpRules::apply($user, 'smart_exam', $xp);
             SmartExamReward::create(['attempt_id' => $attempt->id, 'student_id' => $user->id, 'xp' => $xp]);
             $attempt->update(['rewarded' => true]);
-            $game->award($user, $xp, '🧪 آزمون هوشمند — ' . $smartExam->title, $smartExam->teacher, SmartExamReward::class, $attempt->id);
+            if ($xp > 0) {
+                $game->award($user, $xp, '🧪 آزمون هوشمند — ' . $smartExam->title, $smartExam->teacher, SmartExamReward::class, $attempt->id);
+            }
         }
 
         // یادآوریِ جبرانی برای سؤال‌هایی که اشتباه زده (فقط تلاشی که امتیازش حساب می‌شود)

@@ -79,7 +79,7 @@ class AudioSubmissionController extends Controller
             'task' => AudioTaskController::taskData($task, true),
             'submitted' => $mine?->file_path ? $mine->viewData() + ['worksheet' => $task->title] : null,
             'plays' => (int) ($mine?->plays ?? 0),
-            'submitXp' => self::SUBMIT_XP,
+            'submitXp' => \App\Support\XpRules::apply($user, 'audio_submit', self::SUBMIT_XP),
         ]);
     }
 
@@ -137,19 +137,20 @@ class AudioSubmissionController extends Controller
         }
         $sub->save();
 
-        $xp = false;
+        $xp = 0;
         if (! $sub->submit_xp) {
             rescue(function () use ($game, $user, $task, $sub, &$xp) {
-                $game->award($user, self::SUBMIT_XP, ($task->kind === 'dictation' ? '📝 ارسالِ املا — ' : '🎙️ ارسالِ روخوانی — ') . $task->title,
+                // قاعده‌ی امتیازِ مدرسه (مقدارِ ثابت یا خاموش)
+                $entry = $game->awardRule('audio_submit', $user, self::SUBMIT_XP, ($task->kind === 'dictation' ? '📝 ارسالِ املا — ' : '🎙️ ارسالِ روخوانی — ') . $task->title,
                     null, AudioSubmission::class, $sub->id);
                 $sub->update(['submit_xp' => true]);
-                $xp = true;
+                $xp = (int) ($entry?->amount ?? 0);
             }, null, true);
         }
 
         $this->notifyTeacher($task, $user, $again);
 
-        return back()->with('flash', '✅ برای معلم فرستاده شد' . ($xp ? ' و +' . Jalali::fa((string) self::SUBMIT_XP) . ' امتیاز گرفتی' : ''));
+        return back()->with('flash', '✅ برای معلم فرستاده شد' . ($xp > 0 ? ' و +' . Jalali::fa((string) $xp) . ' امتیاز گرفتی' : ''));
     }
 
     /** اعلان برای معلم: «املا/روخوانیِ تازه رسید» با لینکِ مستقیم به صفحه‌ی تصحیح. */

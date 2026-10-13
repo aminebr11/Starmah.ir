@@ -221,9 +221,11 @@ class EduGameWorldController extends Controller
         }
 
         // XP فقط بار اولِ تکمیل (idempotent با منبعِ Attempt)
+        $gotXp = 0;
         if ($firstCompletion && $bestScore > 0) {
-            $game->award($user, $bestScore, '🎮 بازی — ' . $eduGame->title,
-                $eduGame->teacher, EduGameAttempt::class, $att->id);
+            // قاعده‌ی امتیازِ مدرسه (ضریب یا خاموش)
+            $gotXp = (int) $game->awardRule('edu_game', $user, $bestScore, '🎮 بازی — ' . $eduGame->title,
+                $eduGame->teacher, EduGameAttempt::class, $att->id)?->amount;
         }
 
         // یادآوریِ جبرانی برای سؤال‌هایی که اشتباه زده (فقط بارِ اول که امتیاز داده می‌شود)
@@ -251,7 +253,7 @@ class EduGameWorldController extends Controller
         $head = $correctCount === 0 ? 'این بار پاسخِ درستی نبود 💪' : ($total && $correctCount / $total >= 0.5 ? 'آفرین!' : 'خوب بود!');
 
         return back()->with('flash', $firstCompletion
-            ? "{$head} {$fa($correctCount)} از {$fa($total)} درست — " . ($score > 0 ? '+' . $fa($score) . ' امتیاز' . ($correctCount / max(1, $total) >= 0.5 ? ' 🎉' : '') : 'امتیازی نگرفتی') . $reviewNote
+            ? "{$head} {$fa($correctCount)} از {$fa($total)} درست — " . ($gotXp > 0 ? '+' . $fa($gotXp) . ' امتیاز' . ($correctCount / max(1, $total) >= 0.5 ? ' 🎉' : '') : 'امتیازی نگرفتی') . $reviewNote
             : "دوباره بازی کردی؛ بهترین نتیجه‌ات ثبت است ({$fa($correctCount)} از {$fa($total)}).");
     }
 

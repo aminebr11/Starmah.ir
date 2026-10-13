@@ -20,6 +20,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // «کلاسِ آنلاین»: هر نوع درخواست شمارنده‌ی جدای خودش را دارد (برای هر نفر در هر کلاس)؛
+        // throttle:N معمولی یک شمارنده‌ی مشترک برای همه‌ی مسیرها داشت و معلمی که با ۴۰ نفر
+        // تبادلِ اتصال می‌کرد، همگام‌سازی‌اش «429» می‌گرفت.
+        $key = fn (string $kind) => fn (\Illuminate\Http\Request $r) => \Illuminate\Cache\RateLimiting\Limit::perMinute(
+            ['sync' => 300, 'signal' => 1500, 'act' => 600, 'chat' => 40][$kind]
+        )->by($kind . ':' . ($r->user()?->id ?? $r->ip()) . ':' . (is_object($r->route('room')) ? $r->route('room')->id : $r->route('room')));
+        foreach (['sync', 'signal', 'act', 'chat'] as $kind) {
+            \Illuminate\Support\Facades\RateLimiter::for('online-' . $kind, $key($kind));
+        }
+
         // حذفِ یک موضوع (املا، مسابقه، کاربرگ، بازی، آزمون، مأموریت، محتوا…) → اعلان‌هایش هم کامل پاک شوند
         foreach (\App\Support\NoticeCleanup::MODELS as $model) {
             if (class_exists($model)) {

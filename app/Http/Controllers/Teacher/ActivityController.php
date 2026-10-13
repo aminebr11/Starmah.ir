@@ -83,6 +83,13 @@ class ActivityController extends Controller
             'student_ids.*' => ['integer', 'exists:users,id'],
         ]);
 
+        // قاعده‌ی امتیازِ مدرسه: فعالیت‌های کلاسی ممکن است خاموش یا سقف‌دار باشند
+        $schoolId = $request->user()->school_id;
+        if (! \App\Support\XpRules::enabled($schoolId, 'class_activity')) {
+            return back()->with('flash', '⛔ امتیازِ فعالیت‌های کلاسی در مدرسه‌ی شما توسطِ مدیر غیرفعال شده است.');
+        }
+        $points = \App\Support\XpRules::forSchool($schoolId, 'class_activity', (int) $classActivity->points);
+
         $count = 0;
         foreach (\App\Models\User::whereIn('id', $data['student_ids'])->get() as $student) {
             if ($game->awardActivity($classActivity, $student, $request->user())) {
@@ -90,6 +97,6 @@ class ActivityController extends Controller
             }
         }
 
-        return back()->with('flash', "به {$count} دانش‌آموز امتیاز داده شد ✅ (+{$classActivity->points})");
+        return back()->with('flash', "به {$count} دانش‌آموز امتیاز داده شد ✅ (+{$points})");
     }
 }

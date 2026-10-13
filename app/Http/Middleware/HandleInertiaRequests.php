@@ -85,6 +85,12 @@ class HandleInertiaRequests extends Middleware
                         ->orWhere(fn ($q) => $q->where('phase', 'lobby')->whereNotNull('starts_at')->whereBetween('starts_at', [now()->subHours(2), now()->addMinutes(10)])))
                     ->latest('id')->first(['id', 'title'])?->only(['id', 'title']), null, false) ?: false) ?: null
                 : null, null, true),
+            // «🎥 کلاسِ آنلاین»: منو فقط برای کسی که دسترسی دارد؛ بنرِ «کلاس شروع شد» برای بچه‌ها
+            'onlineClass' => fn () => (bool) rescue(fn () => \App\Support\OnlineAccess::menuFor($user), false, false),
+            'onlineNow' => fn () => rescue(fn () => ($user && $user->isStudent() && \App\Support\OnlineAccess::ready() && \App\Support\OnlineAccess::schoolEnabled($user->school_id))
+                ? (\Illuminate\Support\Facades\Cache::remember('online-now:' . $user->id, 15, fn () => \App\Models\OnlineRoom::forStudent($user)
+                    ->where('status', 'live')->latest('id')->first(['id', 'title'])?->only(['id', 'title']) ?: false) ?: null)
+                : null, null, false),
             // «مرورِ اشتباه‌های من» که امروز آماده است (نشان روی منوی دانش‌آموز)
             'reviewDue' => fn () => ($user && $user->isStudent() && \App\Services\RemediationService::ready())
                 ? (int) rescue(fn () => \App\Models\Remediation::where('student_id', $user->id)->where('status', 'open')

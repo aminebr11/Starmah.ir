@@ -178,9 +178,17 @@ class StudentPointsController extends Controller
         abort_unless(in_array((int) $data['student_id'], $this->myStudentIds($teacher), true), 403);
 
         $student = User::findOrFail($data['student_id']);
-        $game->award($student, $data['amount'], $data['reason'], $teacher, null, null, true);
+        // قاعده‌ی امتیازِ مدرسه: امتیازِ دستی ممکن است خاموش یا سقف‌دار باشد
+        $amount = \App\Support\XpRules::apply($student, 'teacher_manual', (int) $data['amount']);
+        if ($amount === 0) {
+            return back()->with('flash', '⛔ امتیازدهیِ دستی در مدرسه‌ی شما توسطِ مدیر غیرفعال شده است.');
+        }
+        $game->award($student, $amount, $data['reason'], $teacher, null, null, true);
 
-        return back()->with('flash', ($data['amount'] >= 0 ? 'امتیاز افزوده شد ✅' : 'امتیاز کسر شد ✅'));
+        $capped = $amount !== (int) $data['amount']
+            ? ' (سقفِ هر بار در مدرسه ' . \App\Support\Jalali::fa((string) abs($amount)) . ' امتیاز است)' : '';
+
+        return back()->with('flash', ($amount >= 0 ? 'امتیاز افزوده شد ✅' : 'امتیاز کسر شد ✅') . $capped);
     }
 
     /** حذفِ یک ردیفِ امتیاز. */

@@ -149,6 +149,8 @@ class WorksheetSubmissionController extends Controller
         // امتیازِ تصحیح: یک ردیف برای هر کاربرگ؛ تصحیحِ دوباره همان را عوض می‌کند (دو بار داده نمی‌شود)
         $entry = XpEntry::where('source_type', WorksheetSubmission::GRADE_SOURCE)->where('source_id', $submission->id)->first();
         $title = $submission->worksheet?->title ?: 'کاربرگ';
+        // قاعده‌ی امتیازِ مدرسه: grade_xp همان عددِ معلم می‌ماند، ردیفِ XP مقدارِ تنظیم‌شده را می‌گیرد
+        $xp = $submission->student ? \App\Support\XpRules::apply($submission->student, 'worksheet_grade', $xp) : $xp;
         if ($xp > 0 && $submission->student) {
             $entry
                 ? $entry->update(['amount' => $xp, 'reason' => '✍️ تصحیحِ کاربرگ — ' . $title . ($data['grade'] ? ' (' . $data['grade'] . ')' : '')])

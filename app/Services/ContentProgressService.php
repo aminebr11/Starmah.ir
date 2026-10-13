@@ -203,7 +203,8 @@ class ContentProgressService
             return 0;
         }
 
-        $xp = $this->xpFor($content);
+        // قاعده‌ی امتیازِ مدرسه: ضریب یا خاموش (۰ → امتیازی ثبت نمی‌شود)
+        $xp = \App\Support\XpRules::apply($student, 'content', $this->xpFor($content));
         if ($xp <= 0) {
             return 0;
         }
@@ -227,6 +228,12 @@ class ContentProgressService
      * اگر معلم عددی تعیین کرده باشد همان؛ وگرنه از روی مدت حساب می‌شود
      * تا محتوای بلندتر ارزشِ بیشتری داشته باشد — با سقفِ منطقی.
      */
+    /** امتیازی که همین دانش‌آموز واقعاً می‌گیرد (با قاعده‌ی امتیازِ مدرسه). */
+    public function xpForStudent(ClassContent $content, ?User $student): int
+    {
+        return \App\Support\XpRules::apply($student, 'content', $this->xpFor($content));
+    }
+
     public function xpFor(ClassContent $content): int
     {
         if ($content->xp_reward !== null) {

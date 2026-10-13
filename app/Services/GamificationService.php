@@ -12,6 +12,7 @@ use App\Models\Season;
 use App\Models\SkillMastery;
 use App\Models\User;
 use App\Models\XpEntry;
+use App\Support\XpRules;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -85,19 +86,24 @@ class GamificationService
         if ($exists) {
             return false;
         }
+        // قاعده‌ی امتیازِ مدرسه (خاموش → هیچ امتیازی ثبت نمی‌شود)
+        $points = XpRules::apply($student, 'class_activity', (int) $activity->points);
+        if ($points === 0 && (int) $activity->points !== 0) {
+            return false;
+        }
 
-        DB::transaction(function () use ($activity, $student, $by) {
+        DB::transaction(function () use ($activity, $student, $by, $points) {
             $award = ActivityAward::create([
                 'class_activity_id' => $activity->id,
                 'student_id'        => $student->id,
-                'points'            => $activity->points,
+                'points'            => $points,
                 'awarded_by'        => $by?->id,
             ]);
 
             XpEntry::create([
                 'student_id'  => $student->id,
                 'season_id'   => $this->activeSeasonId($student),
-                'amount'      => $activity->points,
+                'amount'      => $points,
                 'reason'      => ClassActivity::typeLabel($activity->type) . ' — ' . $activity->title,
                 'source_type' => ActivityAward::class,
                 'source_id'   => $award->id,
@@ -112,6 +118,21 @@ class GamificationService
     public function awardXp(User $student, int $amount, string $reason, ?User $by = null): XpEntry
     {
         return $this->award($student, $amount, $reason, $by);
+    }
+
+    /**
+     * اعطای امتیاز با «قاعده‌ی امتیازِ مدرسه» (XpRules): مقدار طبقِ تنظیمِ مدیر تغییر می‌کند
+     * و اگر منبع خاموش یا مقدار صفر شود، هیچ ردیفی ثبت نمی‌شود (null).
+     */
+    public function awardRule(string $rule, User $student, int $amount, string $reason, ?User $by = null, ?string $sourceType = null, ?int $sourceId = null, bool $notify = false): ?XpEntry
+    {
+        $original = $amount;
+        $amount = XpRules::apply($student, $rule, $amount);
+        if ($amount === 0 && $original !== 0) {
+            return null;   // منبع خاموش است (رفتارِ قبلیِ ردیف‌های صفر دست نمی‌خورد)
+        }
+
+        return $this->award($student, $amount, $reason, $by, $sourceType, $sourceId, $notify);
     }
 
     /**
@@ -172,6 +193,15 @@ class GamificationService
         if (! $student) {
             return;
         }
+        $rule = match ($type) {
+            'numeric'  => 'grade_numeric',
+            'homework' => 'grade_homework',
+            default    => 'grade_descriptive',
+        };
+        $amount = XpRules::apply($student, $rule, $amount);
+        if ($amount === 0) {
+            return;
+        }
         $label = trim(($col->lesson ? $col->lesson . ' — ' : '') . ($col->title ?: 'نمره‌ی کلاسی'));
         $this->award($student, $amount, '📔 ' . $label, $by, \App\Models\Grade::class, $grade->id);
     }
@@ -190,6 +220,10 @@ class GamificationService
         }
         $student = $record->student ?? User::find($record->student_id);
         if (! $student) {
+            return;
+        }
+        $amount = XpRules::apply($student, 'attendance_' . $record->status, $amount);
+        if ($amount === 0) {
             return;
         }
         $labels = ['present' => 'حضور', 'late' => 'تأخیر', 'absent' => 'غیبت', 'excused' => 'مرخصی'];

@@ -347,6 +347,8 @@ class RemediationService
                 }
                 $rem->save();
             });
+            // قاعده‌ی امتیازِ مدرسه (ضریب یا خاموش)؛ سهمِ بازپس‌گرفته در خودِ جبران همان مقدارِ پایه می‌ماند
+            $xp = $xp > 0 ? \App\Support\XpRules::apply($student, 'remediation', $xp) : 0;
             if ($xp > 0) {
                 $game->award($student, $xp, '🔁 جبرانِ اشتباه — ' . ($rem->source_title ?: 'تمرین'), null, Remediation::class, $rem->id);
                 $xpTotal += $xp;

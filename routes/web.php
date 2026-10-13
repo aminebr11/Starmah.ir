@@ -150,6 +150,10 @@ Route::middleware(['auth', 'role:school_admin'])->prefix('school')->name('school
     Route::get('/reports', [SchoolDashboardController::class, 'reports'])->name('reports');
     Route::get('/visits', [\App\Http\Controllers\SchoolAdmin\VisitReportController::class, 'index'])->name('visits');
     Route::get('/early-warning', [\App\Http\Controllers\SchoolAdmin\EarlyWarningController::class, 'index'])->name('early.warning');
+    // مدیریتِ امتیازها (XP): کدام منبع امتیاز بدهد و چقدر — فقط برای همین مدرسه
+    Route::get('/xp-rules', [\App\Http\Controllers\SchoolAdmin\XpRulesController::class, 'index'])->name('xp-rules');
+    Route::put('/xp-rules', [\App\Http\Controllers\SchoolAdmin\XpRulesController::class, 'update'])->name('xp-rules.update');
+    Route::post('/xp-rules/reset', [\App\Http\Controllers\SchoolAdmin\XpRulesController::class, 'reset'])->name('xp-rules.reset');
     // ثبت حضور و غیاب توسط مدیر مدرسه (همه‌ی کلاس‌ها)
     Route::get('/attendance', [\App\Http\Controllers\AttendanceController::class, 'record'])->name('attendance');
     Route::post('/attendance', [\App\Http\Controllers\AttendanceController::class, 'store'])->name('attendance.store');

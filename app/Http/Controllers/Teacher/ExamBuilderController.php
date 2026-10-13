@@ -353,7 +353,8 @@ class ExamBuilderController extends Controller
         if ($descXp !== 0) {
             $student = \App\Models\User::find($data['student_id']);
             if ($student) {
-                $game->award($student, $descXp, '✍️ تصحیح تشریحیِ آزمون — ' . $assignment->title,
+                // قاعده‌ی امتیازِ مدرسه (ضریب یا خاموش)
+                $game->awardRule('exam_descriptive', $student, $descXp, '✍️ تصحیح تشریحیِ آزمون — ' . $assignment->title,
                     $request->user(), \App\Models\AssignmentSubmission::class, $sub->id);
             }
         }

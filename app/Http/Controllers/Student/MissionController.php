@@ -27,6 +27,7 @@ use App\Support\Streak;
 use App\Support\BankAccess;
 use App\Support\MissionAccess;
 use App\Support\Jalali;
+use App\Support\XpRules;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -97,7 +98,9 @@ class MissionController extends Controller
                 'id' => $m->id, 'title' => $m->title, 'description' => $m->description, 'type' => $type,
                 'subject' => $m->subject, 'lesson_no' => $m->lesson_no,
                 'difficulty' => $m->difficulty, 'question_count' => $m->question_count,
-                'xp_reward' => $m->xp_reward,
+                // امتیازی که دانش‌آموز واقعاً می‌گیرد (قاعده‌ی امتیازِ مدرسه)؛ xp_base برای جعبه‌ی گنج
+                'xp_reward' => XpRules::apply($user, 'mission', (int) $m->xp_reward),
+                'xp_base' => (int) $m->xp_reward,
                 'badge_name' => $m->badge_name, 'badge_icon' => $m->badge_icon,
                 'teacher' => optional($m->teacher)->name,
                 'resource_title' => $this->resourceTitle($m),
@@ -130,7 +133,7 @@ class MissionController extends Controller
     {
         $total = count($cards);
         $done = count(array_filter($cards, fn ($c) => $c['done_today']));
-        $poolXp = array_sum(array_column($cards, 'xp_reward'));
+        $poolXp = array_sum(array_column($cards, 'xp_base'));
         $streak = $this->streak($user);
 
         $claimed = MissionCombo::where('student_id', $user->id)
@@ -139,7 +142,7 @@ class MissionController extends Controller
         return [
             'total' => $total,
             'done' => $done,
-            'xp' => $this->comboXp($poolXp, $streak),
+            'xp' => XpRules::apply($user, 'treasure_chest', $this->comboXp($poolXp, $streak)),
             'streak' => $streak,
             'ready' => $total > 0 && $done >= $total && ! $claimed,
             'claimed' => (bool) $claimed,
@@ -178,15 +181,19 @@ class MissionController extends Controller
         }
 
         $streak = $this->streak($user);
-        $xp = $this->comboXp((int) $missions->sum('xp_reward'), $streak);
+        $xp = XpRules::apply($user, 'treasure_chest', $this->comboXp((int) $missions->sum('xp_reward'), $streak));
 
-        $game->award($user, $xp, '🎁 جعبه‌ی گنجِ روزانه — همه‌ی مأموریت‌های امروز', null, MissionCombo::class, null);
+        if ($xp !== 0) {
+            $game->award($user, $xp, '🎁 جعبه‌ی گنجِ روزانه — همه‌ی مأموریت‌های امروز', null, MissionCombo::class, null);
+        }
         MissionCombo::create([
             'student_id' => $user->id, 'play_date' => $today,
             'missions_done' => $missions->count(), 'xp_awarded' => $xp, 'streak' => $streak,
         ]);
 
-        return back()->with('flash', 'جعبه‌ی گنج باز شد! +' . Jalali::fa((string) $xp) . ' امتیاز 🎁🎉');
+        return back()->with('flash', $xp > 0
+            ? 'جعبه‌ی گنج باز شد! +' . Jalali::fa((string) $xp) . ' امتیاز 🎁🎉'
+            : 'آفرین! همه‌ی مأموریت‌های امروز را تمام کردی 🎉');
     }
 
     /* ═══════════════════════ پخش و تاریخچه ═══════════════════════ */
@@ -306,17 +313,22 @@ class MissionController extends Controller
             return back()->with('flash', 'اول باید فعالیتِ این مأموریت را انجام بدهی، بعد جایزه بگیری.');
         }
 
-        $game->award($user, $mission->xp_reward, '🎯 مأموریت روزانه — ' . $mission->title,
-            $mission->teacher, Mission::class, $mission->id);
+        $xp = XpRules::apply($user, 'mission', (int) $mission->xp_reward);
+        if ($xp !== 0) {
+            $game->award($user, $xp, '🎯 مأموریت روزانه — ' . $mission->title,
+                $mission->teacher, Mission::class, $mission->id);
+        }
         MissionCompletion::create([
             'mission_id' => $mission->id, 'student_id' => $user->id, 'play_date' => $today,
-            'score' => 1, 'total' => 1, 'xp_awarded' => $mission->xp_reward,
+            'score' => 1, 'total' => 1, 'xp_awarded' => $xp,
         ]);
         if ($mission->badge_name) {
             $this->awardBadge($user, $mission);
         }
 
-        return back()->with('flash', 'آفرین! جایزهٔ مأموریت را گرفتی: +' . Jalali::fa((string) $mission->xp_reward) . ' امتیاز 🎉');
+        return back()->with('flash', $xp > 0
+            ? 'آفرین! جایزهٔ مأموریت را گرفتی: +' . Jalali::fa((string) $xp) . ' امتیاز 🎉'
+            : 'آفرین! مأموریت انجام شد 🎉');
     }
 
     /* ═══════════════════════ مأموریتِ سؤالی ═══════════════════════ */
@@ -356,7 +368,7 @@ class MissionController extends Controller
 
         return $this->startSession($request, 'quiz', $mission, $pool->map(fn ($q) => ['bank' => $q, 'objective_id' => null])->all(), [
             'id' => $mission->id, 'title' => $mission->title, 'description' => $mission->description,
-            'subject' => $mission->subject, 'xp_reward' => $mission->xp_reward,
+            'subject' => $mission->subject, 'xp_reward' => XpRules::apply($user, 'mission', (int) $mission->xp_reward),
             'pass_percent' => $mission->pass_percent ?? 60,
             'badge_name' => $mission->badge_name, 'badge_icon' => $mission->badge_icon,
         ]);
@@ -419,7 +431,7 @@ class MissionController extends Controller
         return $this->startSession($request, 'review', null, $items, [
             'id' => null, 'title' => 'مرورِ فاصله‌دار',
             'description' => 'این‌ها را چند روز پیش یاد گرفتی — مرورشان کن تا همیشه یادت بماند!',
-            'subject' => null, 'xp_reward' => self::REVIEW_XP, 'pass_percent' => 0,
+            'subject' => null, 'xp_reward' => XpRules::apply($request->user(), 'daily_review', self::REVIEW_XP), 'pass_percent' => 0,
             'badge_name' => null, 'badge_icon' => '🔁',
         ]);
     }
@@ -584,7 +596,10 @@ class MissionController extends Controller
         if (! $already) {
             $base = $kind === 'quiz' ? (int) $mission->xp_reward : self::REVIEW_XP;
             $label = $kind === 'quiz' ? '🎯 مأموریت روزانه — ' . $mission->title : '🔁 مرورِ امروز';
-            $xpGain = (int) round($base * $ratio);
+            // قاعده‌ی امتیازِ مدرسه: مأموریت ضریب دارد، مرورِ امروز مقدارِ ثابت
+            $xpGain = $kind === 'quiz'
+                ? XpRules::apply($user, 'mission', (int) round($base * $ratio))
+                : (int) round(XpRules::apply($user, 'daily_review', $base) * $ratio);
 
             // رکوردِ شخصی: بهتر از بهترین نتیجه‌ی روزهای قبلِ همین مأموریت
             $prevBest = null;
@@ -638,18 +653,19 @@ class MissionController extends Controller
                 $growth[] = ['icon' => '🚀', 'title' => 'رکوردِ شخصیِ تازه!',
                     'sub' => 'دفعه‌ی قبل ' . Jalali::fa((string) $prevBest->score) . ' از ' . Jalali::fa((string) $prevBest->total)
                         . ' — امروز ' . Jalali::fa((string) $correct) . ' از ' . Jalali::fa((string) $total),
-                    'xp' => self::XP_PERSONAL_BEST];
+                    'xp' => self::XP_PERSONAL_BEST, 'rule' => 'growth_personal_best'];
             }
             if ($retryFixes > 0) {
                 $growth[] = ['icon' => '🔁', 'title' => Jalali::fa((string) $retryFixes) . ' اشتباه را خودت درست کردی',
-                    'sub' => 'با تلاشِ دوم', 'xp' => min(self::XP_RETRY_FIX_MAX, $retryFixes * self::XP_RETRY_FIX)];
+                    'sub' => 'با تلاشِ دوم', 'xp' => min(self::XP_RETRY_FIX_MAX, $retryFixes * self::XP_RETRY_FIX), 'rule' => 'growth_retry_fix'];
             }
             foreach ($learned['band_ups'] as $up) {
                 $growth[] = ['icon' => '⬆️', 'title' => $up['label'] . ' یک سطح بالا رفت!',
-                    'sub' => null, 'xp' => self::XP_LEVEL_UP,
+                    'sub' => null, 'xp' => self::XP_LEVEL_UP, 'rule' => 'growth_level_up',
                     'from' => MasteryService::LEVELS[array_search($up['from'], array_column(MasteryService::LEVELS, 'key'))]['label'] ?? null,
                     'to' => MasteryService::LEVELS[array_search($up['to'], array_column(MasteryService::LEVELS, 'key'))]['label'] ?? null];
             }
+            $growth = $this->growthRules($user, $growth);
             foreach ($growth as $g) {
                 $game->award($user, $g['xp'], '🌱 پیشرفت — ' . $g['title'], null, 'growth', $mission?->id);
             }
@@ -686,10 +702,11 @@ class MissionController extends Controller
         $res = app(\App\Services\RemediationService::class)->settle($user, $items, $game);
         $growth = [];
         foreach ($res['band_ups'] as $up) {
-            $growth[] = ['icon' => '⬆️', 'title' => $up['label'] . ' یک سطح بالا رفت!', 'sub' => null, 'xp' => self::XP_LEVEL_UP,
+            $growth[] = ['icon' => '⬆️', 'title' => $up['label'] . ' یک سطح بالا رفت!', 'sub' => null, 'xp' => self::XP_LEVEL_UP, 'rule' => 'growth_level_up',
                 'from' => MasteryService::LEVELS[array_search($up['from'], array_column(MasteryService::LEVELS, 'key'))]['label'] ?? null,
                 'to' => MasteryService::LEVELS[array_search($up['to'], array_column(MasteryService::LEVELS, 'key'))]['label'] ?? null];
         }
+        $growth = $this->growthRules($user, $growth);
         foreach ($growth as $g) {
             $game->award($user, $g['xp'], '🌱 پیشرفت — ' . $g['title'], null, 'growth', null);
         }
@@ -705,6 +722,17 @@ class MissionController extends Controller
         ]);
     }
 
+    /** پاداش‌های رشد با قاعده‌ی امتیازِ مدرسه؛ پاداشِ خاموش (۰) از فهرست حذف می‌شود. */
+    private function growthRules($user, array $growth): array
+    {
+        return array_values(array_filter(array_map(function ($g) use ($user) {
+            $g['xp'] = XpRules::apply($user, $g['rule'] ?? '', (int) $g['xp']);
+            unset($g['rule']);
+
+            return $g;
+        }, $growth), fn ($g) => $g['xp'] !== 0));
+    }
+
     /** وضعیتِ کارتِ «مرورِ امروز» در تخته‌ی مأموریت. */
     private function reviewState($user): array
     {
@@ -717,7 +745,7 @@ class MissionController extends Controller
             'done_today' => $done,
             'count' => count($items),
             'objectives' => count(array_unique(array_column($items, 'objective_id'))),
-            'xp' => self::REVIEW_XP,
+            'xp' => XpRules::apply($user, 'daily_review', self::REVIEW_XP),
         ];
     }
 

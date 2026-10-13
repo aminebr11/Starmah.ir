@@ -106,7 +106,8 @@ class DisciplineController extends Controller
                         'points'       => $topic->points,
                         'note'         => $data['note'] ?? null,
                     ]);
-                    $game->awardXp($student, $topic->points,
+                    // قاعده‌ی امتیازِ مدرسه: تشویق و تذکر جدا تنظیم می‌شوند (علامت حفظ می‌شود)
+                    $game->awardRule((int) $topic->points < 0 ? 'discipline_negative' : 'discipline_positive', $student, (int) $topic->points,
                         ($topic->kind === 'positive' ? '⭐ تشویق' : '⚠️ انضباط') . ' — ' . $topic->name, $teacher);
 
                     \App\Support\SmsGateway::event('discipline', $student,

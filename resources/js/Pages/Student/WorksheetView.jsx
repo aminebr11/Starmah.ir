@@ -14,7 +14,7 @@ const card = { background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,
 export default function WorksheetView() {
     const { worksheet, submitted, downloadXp = 5, submitXp = 15, downloaded = false } = usePage().props;
     const fileRef = useRef(null);
-    const [dlToast, setDlToast] = useState(downloaded ? null : `این کاربرگ را دریافت کن تا +${fa(downloadXp)} امتیاز بگیری`);
+    const [dlToast, setDlToast] = useState(downloaded || !(downloadXp > 0) ? null : `این کاربرگ را دریافت کن تا +${fa(downloadXp)} امتیاز بگیری`);
     const [gotDl, setGotDl] = useState(downloaded);
     const [viewing, setViewing] = useState(false);
     const [showFile, setShowFile] = useState(null);
@@ -63,7 +63,7 @@ export default function WorksheetView() {
             {/* ارسالِ کاربرگِ پرشده */}
             <div className="no-print" style={{ ...card, marginTop: 16 }}>
                 <b style={{ fontSize: 15 }}>📤 ارسالِ کاربرگِ پرشده برای معلم</b>
-                <p style={{ opacity: .8, fontSize: 13, marginTop: 4 }}>کاربرگ را چاپ/دانلود کن، با دست پرش کن، سپس عکس یا فایلش را این‌جا برای معلم بفرست. با اولین ارسال +{fa(submitXp)} امتیاز می‌گیری؛ اگر پاسخت درست باشد، معلم در امتیازِ گروهی برایت امتیازِ بیشتر ثبت می‌کند.</p>
+                <p style={{ opacity: .8, fontSize: 13, marginTop: 4 }}>کاربرگ را چاپ/دانلود کن، با دست پرش کن، سپس عکس یا فایلش را این‌جا برای معلم بفرست.{submitXp > 0 ? ` با اولین ارسال +${fa(submitXp)} امتیاز می‌گیری؛` : ''} اگر پاسخت درست باشد، معلم در امتیازِ گروهی برایت امتیازِ بیشتر ثبت می‌کند.</p>
                 {submitted && (
                     <div style={{ background: 'rgba(43,182,115,.18)', border: '1px solid rgba(43,182,115,.5)', borderRadius: 12, padding: '10px 14px', marginTop: 8 }}>
                         ✅ قبلاً فرستادی ({submitted.date}) — <button type="button" onClick={() => setViewing(true)} style={{ background: 'none', border: 0, padding: 0, color: '#9be7bd', fontWeight: 800, font: 'inherit', cursor: 'pointer', textDecoration: 'underline' }}>مشاهده</button>. می‌توانی نسخه‌ی جدید بفرستی.

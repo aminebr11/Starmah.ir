@@ -287,7 +287,7 @@ class LiveContest extends Model
             'answered' => $rows->count(), 'correct' => $correct,
             'accuracy' => $this->total() ? (int) round(100 * $correct / $this->total()) : 0,
             'avg_s' => $rows->where('correct', true)->count() ? round($rows->where('correct', true)->avg('ms') / 1000, 1) : null,
-            'best_streak' => $best, 'xp' => self::xpFor($correct, $rank),
+            'best_streak' => $best, 'xp' => \App\Support\XpRules::forSchool($this->school_id, 'live_contest', self::xpFor($correct, $rank)),
         ];
     }
 
@@ -343,8 +343,9 @@ class LiveContest extends Model
             $game = app(GamificationService::class);
             $teacher = User::find($this->teacher_id);
             foreach ($this->ranking() as $r) {
-                $xp = self::xpFor($r['correct'], $r['rank']);
                 $student = User::find($r['id']);
+                // قاعده‌ی امتیازِ مدرسه (ضریب یا خاموش)
+                $xp = \App\Support\XpRules::apply($student, 'live_contest', self::xpFor($r['correct'], $r['rank']));
                 if ($student && $xp > 0) {
                     $game->award($student, $xp, '🏆 مسابقه‌ی زنده: ' . $this->title . ' (رتبه‌ی ' . $r['rank'] . ')', $teacher, 'live_contest', $this->id);
                 }

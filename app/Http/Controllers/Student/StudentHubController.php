@@ -48,7 +48,7 @@ class StudentHubController extends Controller
             'date'    => Jalali::format($c->created_at),
             'day'     => $c->created_at?->toDateString(),
             'duration' => $c->duration_seconds ? (int) $c->duration_seconds : null,
-            'xp_value' => app(\App\Services\ContentProgressService::class)->xpFor($c),
+            'xp_value' => app(\App\Services\ContentProgressService::class)->xpForStudent($c, request()->user()),
         ];
     }
 
@@ -122,7 +122,7 @@ class StudentHubController extends Controller
         $viewed = $views->filter(fn ($v) => $v !== null)->keys()->all();
         $albums = \App\Support\GalleryAlbums::present(
             $rows->where('type', 'gallery')->values(),
-            fn ($p) => ['viewed' => in_array($p->id, $viewed), 'xp_value' => app(\App\Services\ContentProgressService::class)->xpFor($p)]
+            fn ($p) => ['viewed' => in_array($p->id, $viewed), 'xp_value' => app(\App\Services\ContentProgressService::class)->xpForStudent($p, request()->user())]
         );
 
         return Inertia::render('Student/ClassContent', [

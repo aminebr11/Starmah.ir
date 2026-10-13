@@ -29,6 +29,16 @@ class DiagnosticsController extends Controller
 {
     /** ستون‌هایی که مسیرهای حساس (آزمون، بازی، بانک، اعلان، گالری) به آن‌ها نیاز دارند. */
     private const REQUIRED = [
+        // «🎥 کلاسِ آنلاین»
+        'online_schools' => ['school_id', 'enabled', 'max_participants'],
+        'online_hosts' => ['school_id', 'user_id', 'can_host', 'supervisor'],
+        'online_rooms' => ['school_id', 'teacher_id', 'classroom_id', 'title', 'status', 'version', 'settings', 'recording_path'],
+        'online_participants' => ['room_id', 'user_id', 'role', 'seconds', 'can_speak', 'can_draw', 'stars', 'xp'],
+        'online_signals' => ['room_id', 'to_id', 'kind', 'payload'],
+        'online_messages' => ['room_id', 'user_id', 'body', 'hidden'],
+        'online_board_pages' => ['room_id', 'page', 'bg', 'ops', 'version'],
+        'online_polls' => ['room_id', 'question', 'options', 'correct', 'status'],
+        'online_poll_answers' => ['poll_id', 'user_id', 'choice'],
         'smart_exams' => ['school_id', 'teacher_id', 'title', 'level', 'grade', 'subject', 'book', 'chapter_id', 'chapter', 'topic', 'goal', 'kind', 'status', 'adaptive', 'rules', 'opens_at', 'closes_at', 'version'],
         'smart_exam_questions' => ['smart_exam_id', 'bank_id', 'type', 'prompt', 'choices', 'answer', 'explanation', 'goal', 'difficulty', 'bloom', 'points', 'topic', 'source', 'sort', 'chapter_id'],
         'smart_exam_targets' => ['smart_exam_id', 'classroom_id', 'theme_id', 'student_id'],
@@ -62,6 +72,7 @@ class DiagnosticsController extends Controller
         'ai_usages' => ['provider', 'input_tokens'],
         'visits' => [],
         'curriculum_chapters' => ['id'],
+        'schools' => ['xp_rules'],
     ];
 
     public function index(): Response

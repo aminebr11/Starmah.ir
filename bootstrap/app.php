@@ -7,7 +7,8 @@ use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__.'/../routes/web.php',
+        // کلاسِ آنلاین مسیرهای جدای خودش را دارد
+        web: [__DIR__.'/../routes/web.php', __DIR__.'/../routes/online.php'],
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )

@@ -17,6 +17,8 @@ class School extends Model
         'assistant_students', 'assistant_teachers', 'assistant_ai',
         // طرحِ ظاهریِ مدرسه — فقط ادمینِ کل (clay | classic | خالی = پیش‌فرض)
         'ui',
+        // قاعده‌های امتیاز (XP) — فقط تفاوت با پیش‌فرض؛ مدیرِ مدرسه تنظیم می‌کند
+        'xp_rules',
     ];
 
     protected $casts = [
@@ -28,7 +30,14 @@ class School extends Model
         'assistant_students' => 'boolean',
         'assistant_teachers' => 'boolean',
         'assistant_ai'       => 'boolean',
+        'xp_rules'           => 'array',
     ];
+
+    protected static function booted(): void
+    {
+        // حافظه‌ی قاعده‌های امتیازِ همین درخواست بعد از هر تغییر تازه شود
+        static::saved(fn (School $s) => \App\Support\XpRules::forget($s->id));
+    }
 
     public function planModel(): BelongsTo { return $this->belongsTo(Plan::class, 'plan_id'); }
     public function users(): HasMany { return $this->hasMany(User::class); }

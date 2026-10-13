@@ -1,0 +1,57 @@
+<?php
+
+use App\Http\Controllers\Online\ManageController;
+use App\Http\Controllers\Online\RoomController;
+use Illuminate\Support\Facades\Route;
+
+/*
+| «🎥 کلاسِ آنلاین» — شبیهِ اسکای‌روم.
+| ادمینِ کل: دسترسیِ مدرسه‌ها و سرورِ رسانه · مدیرِ مدرسه: اجازه‌ی معلم‌ها، نظارت و پایانِ کلاس
+| معلم: ساخت و برگزاری · دانش‌آموز: ورود · اتاق: یک صفحه برای همه با نقشِ تعیین‌شده توسطِ سرور
+*/
+
+Route::middleware(['auth', 'role:super_admin'])->prefix('admin/online')->name('admin.')->group(function () {
+    Route::get('/', [ManageController::class, 'admin'])->name('online');
+    Route::put('/settings', [ManageController::class, 'adminSettings'])->name('online.settings');
+    Route::put('/schools/{school}', [ManageController::class, 'adminSchool'])->name('online.school');
+});
+
+Route::middleware(['auth', 'role:school_admin'])->prefix('school/online')->name('school.')->group(function () {
+    Route::get('/', [ManageController::class, 'school'])->name('online');
+    Route::post('/grant', [ManageController::class, 'grant'])->name('online.grant');
+});
+
+Route::middleware(['auth', 'role:teacher'])->prefix('teacher/online')->name('teacher.')->group(function () {
+    Route::get('/', [ManageController::class, 'teacher'])->name('online');
+    Route::post('/', [ManageController::class, 'store'])->name('online.store');
+    Route::put('/{room}', [ManageController::class, 'update'])->name('online.update');
+    Route::delete('/{room}', [ManageController::class, 'destroy'])->name('online.destroy');
+});
+
+Route::middleware(['auth', 'role:student'])->get('/online', [ManageController::class, 'student'])->name('online.list');
+
+Route::middleware(['auth'])->prefix('online/{room}')->name('online.')->group(function () {
+    Route::get('/', [RoomController::class, 'show'])->name('room');
+    Route::post('/join', [RoomController::class, 'join'])->middleware('throttle:online-act')->name('join');
+    Route::post('/sync', [RoomController::class, 'sync'])->middleware('throttle:online-sync')->name('sync');
+    Route::post('/leave', [RoomController::class, 'leave'])->name('leave');
+    Route::post('/signal', [RoomController::class, 'signal'])->middleware('throttle:online-signal')->name('signal');
+    Route::post('/chat', [RoomController::class, 'chat'])->middleware('throttle:online-chat')->name('chat');
+    Route::delete('/chat/{message}', [RoomController::class, 'hideMessage'])->name('chat.hide');
+    Route::post('/hand', [RoomController::class, 'hand'])->middleware('throttle:online-act')->name('hand');
+    Route::post('/control', [RoomController::class, 'control'])->middleware('throttle:online-act')->name('control');
+    Route::get('/board', [RoomController::class, 'boardGet'])->name('board');
+    Route::post('/board', [RoomController::class, 'boardSave'])->middleware('throttle:online-act')->name('board.save');
+    Route::post('/asset', [RoomController::class, 'assetUpload'])->middleware('throttle:online-act')->name('asset.upload');
+    Route::get('/asset/{name}', [RoomController::class, 'asset'])->name('asset');
+    Route::post('/poll', [RoomController::class, 'pollCreate'])->name('poll');
+    Route::post('/poll/{poll}/answer', [RoomController::class, 'pollAnswer'])->name('poll.answer');
+    Route::post('/poll/{poll}/close', [RoomController::class, 'pollClose'])->name('poll.close');
+    Route::post('/record', [RoomController::class, 'recordChunk'])->middleware('throttle:online-act')->name('record');
+    Route::post('/record/finish', [RoomController::class, 'recordFinish'])->name('record.finish');
+    Route::get('/recording', [RoomController::class, 'recording'])->name('recording');
+    Route::get('/token', [RoomController::class, 'token'])->name('token');
+    Route::get('/report', [RoomController::class, 'report'])->name('report');
+    Route::post('/recording-share', [ManageController::class, 'recording'])->name('recording.share');
+    Route::post('/end', [ManageController::class, 'endRoom'])->name('end');
+});

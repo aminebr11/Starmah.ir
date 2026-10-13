@@ -34,8 +34,11 @@ function PreviewRibbon({ preview }) {
  * لوگوی سایت بالا قرار دارد. ریسپانسیو.
  */
 export default function ThemedDash({ title, active = '', children, actions = null }) {
-    const { auth, theme, unreadNotices = 0, smartLab = false, avatarUrl = null, familyNew = 0, reviewDue = 0, liveNow = null, preview = null, ui = 'classic' } = usePage().props;
+    const { auth, theme, unreadNotices = 0, smartLab = false, avatarUrl = null, familyNew = 0, reviewDue = 0, liveNow = null, onlineNow = null, onlineClass = false, preview = null, ui = 'classic' } = usePage().props;
     // مسابقه‌ی زنده‌ای که همین حالا باز است → نوارِ «بپیوند»
+    const onlineBar = onlineNow && active !== 'online' ? (
+        <a href={route('online.room', onlineNow.id)} className="lv-now oc-now">🎥 کلاسِ آنلاین شروع شد: «{onlineNow.title}» — بیا تو! ←</a>
+    ) : null;
     const liveBar = liveNow && active !== 'live' ? (
         <Link href={route('live.play', liveNow.id)} className="lv-now">🔴 مسابقه‌ی زنده: «{liveNow.title}» — بپیوند! ←</Link>
     ) : null;
@@ -50,6 +53,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
         { key: 'review', label: 'مرورِ اشتباه‌های من', icon: '🔁', href: '/review' },
         { key: 'gameworld', label: 'دنیای بازی‌ها', icon: '🎮', href: '/game-world' },
         { key: 'live', label: 'مسابقه‌ی زنده', icon: '🏆', href: '/live' },
+        ...(onlineClass ? [{ key: 'online', label: 'کلاسِ آنلاین', icon: '🎥', href: '/online' }] : []),
         ...(smartLab ? [{ key: 'smart', label: 'آزمون هوشمند 🧪', icon: '🧠', href: '/student/smart-exams' }] : []),
         { divider: 'عملکردِ من' },
         { key: 'report', label: 'کارنامه', icon: '📊', href: '/report' },
@@ -90,7 +94,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
                 menu={menu.filter((m) => m.divider !== null && m.key !== 'profile')} active={active} actions={actions}
                 kids kidsStyle={{ ...vars }} bottomKeys={bottomNav.map((m) => m.key)} badges={{ family: familyNew, review: reviewDue }}
                 ribbon={preview ? <PreviewRibbon preview={preview} /> : null} locked={!!preview}>
-                {liveBar}
+                {onlineBar}{liveBar}
                 {children}
             </ClayDash>
         );
@@ -157,7 +161,7 @@ export default function ThemedDash({ title, active = '', children, actions = nul
                         </button>
                     </div>
                 </div>
-                {liveBar}
+                {onlineBar}{liveBar}
                 {children}
             </main>
 
