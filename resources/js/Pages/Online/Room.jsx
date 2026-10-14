@@ -28,6 +28,18 @@ const LAYOUTS = [
     ['cam', '🎥', 'فقط دوربین', 'تصویرِ معلم بزرگ وسطِ صفحه'],
     ['screen', '🖥️', 'اشتراکِ صفحه', 'نمایشِ صفحه‌ی رایانه‌ی معلم'],
 ];
+const BACK = /back|rear|environment|پشت/i;
+const FRONT = /front|user|facetime|integrated|webcam|hd camera|جلو/i;
+const pref = (k) => { try { return localStorage.getItem(k) || ''; } catch { return ''; } };
+const savePref = (k, v) => { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch { /* حالتِ خصوصی */ } };
+/** گرفتنِ دوربین/میک: اول دستگاهِ انتخاب‌شده؛ اگر نبود (جدا شده)، پیش‌فرض. */
+async function grab(kind, base, id) {
+    const want = (extra) => navigator.mediaDevices.getUserMedia({ [kind]: { ...base, ...extra } });
+    if (id) {
+        try { return await want({ deviceId: { exact: id } }); } catch (e) { if (e?.name === 'NotAllowedError') throw e; }
+    }
+    return want(kind === 'video' ? { facingMode: 'user' } : {});
+}
 const BGS = [['blank', '⬜ ساده'], ['lines', '📒 خط‌دار'], ['grid', '🔲 شطرنجی'], ['dots', '⠿ نقطه‌ای'], ['chalk', '🟩 تخته‌سیاه']];
 
 const xsrf = () => decodeURIComponent((document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]+)/) || [])[1] || '');
@@ -60,7 +72,9 @@ export default function Room({ room, me, config, back }) {
     const [fs, setFs] = useState(false);           // تمام‌صفحه‌ی تخته (معلم)
     const [liveMs, setLiveMs] = useState({});      // uid → { ms, at }: وضعیتِ میک/دوربینِ تازه از کانالِ داده
     const [layoutOpen, setLayoutOpen] = useState(false);
-    const [linkErr, setLinkErr] = useState(null);   // دلیلِ وصل نشدنِ صدا/تصویر (برای عیب‌یابی)
+    const [linkErr, setLinkErr] = useState(null);
+    const [devs, setDevs] = useState({ cams: [], mics: [] });   // دوربین‌ها و میکروفون‌های این دستگاه
+    const [devOpen, setDevOpen] = useState(false);   // دلیلِ وصل نشدنِ صدا/تصویر (برای عیب‌یابی)
     const [busy, setBusy] = useState(null);
     const [rec, setRec] = useState(null);
     const [skew, setSkew] = useState(0);
@@ -285,7 +299,11 @@ export default function Room({ room, me, config, back }) {
         if (tr.current) return;
         const common = {
             me: me.id, isHost, hostId: room.teacher_id,
-            onTrack: (uid, slot, track) => setTiles((t) => ({ ...t, [uid]: { ...(t[uid] || {}), [slot]: track } })),
+            onTrack: (uid, slot, track, sid, old) => setTiles((t) => {
+                // پایانِ track قدیمی، track تازه‌ای را که زودتر رسیده پاک نکند
+                if (!track && old && t[uid]?.[slot] && t[uid][slot] !== old) return t;
+                return { ...t, [uid]: { ...(t[uid] || {}), [slot]: track } };
+            }),
             onData,
             onSpeaking: (uids) => {
                 setSpeaking(uids);
@@ -398,10 +416,11 @@ export default function Room({ room, me, config, back }) {
         if (on) {
             if (!isMod && !mineRef.current?.can_speak) { toast('✋ اول دست بالا کن تا معلم اجازه‌ی صحبت بدهد.', 'info'); return; }
             try {
-                const s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+                const s = await grab('audio', { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, pref('oc-mic'));
                 const t = s.getAudioTracks()[0];
                 await tr.current?.setMic(t);
                 setLocal((l) => ({ ...l, mic: t }));
+                listDevices();
             } catch { toast('اجازه‌ی میکروفون داده نشد. از تنظیماتِ مرورگر اجازه بده.'); }
         } else {
             localRef.current.mic?.stop();
@@ -415,8 +434,17 @@ export default function Room({ room, me, config, back }) {
             try {
                 // با سرورِ رسانه، تصویرِ معلم HD گرفته می‌شود (سرور برای هر دستگاه کیفیتِ مناسب را می‌فرستد)
                 const hd = media === 'livekit' && isHost;
-                const s = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: hd ? 1280 : 640 }, height: { ideal: hd ? 720 : 360 }, frameRate: { ideal: hd ? 24 : 20, max: 24 }, facingMode: 'user' } });
-                const t = s.getVideoTracks()[0];
+                const base = { width: { ideal: hd ? 1280 : 640 }, height: { ideal: hd ? 720 : 360 }, frameRate: { ideal: hd ? 24 : 20, max: 24 } };
+                let t = (await grab('video', base, pref('oc-cam'))).getVideoTracks()[0];
+                // لپ‌تاپ/تبلت‌هایی که پیش‌فرضشان دوربینِ پشت است: بارِ اول خودکار دوربینِ جلو
+                if (!pref('oc-cam') && BACK.test(t.label)) {
+                    const list = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput');
+                    const front = list.find((d) => FRONT.test(d.label) && !BACK.test(d.label)) || list.find((d) => d.deviceId !== t.getSettings().deviceId && !BACK.test(d.label));
+                    if (front) {
+                        try { const n = (await grab('video', base, front.deviceId)).getVideoTracks()[0]; t.stop(); t = n; } catch { /* همان قبلی */ }
+                    }
+                }
+                listDevices();
                 await tr.current?.setCam(t);
                 setLocal((l) => ({ ...l, cam: t }));
             } catch { toast('اجازه‌ی دوربین داده نشد.'); }
@@ -426,6 +454,54 @@ export default function Room({ room, me, config, back }) {
             setLocal((l) => ({ ...l, cam: null }));
         }
     };
+    /** فهرستِ دوربین‌ها و میکروفون‌ها (نام‌ها فقط پس از اجازه معلوم است). */
+    const listDevices = async () => {
+        try {
+            const l = await navigator.mediaDevices.enumerateDevices();
+            setDevs({ cams: l.filter((d) => d.kind === 'videoinput' && d.deviceId), mics: l.filter((d) => d.kind === 'audioinput' && d.deviceId && d.deviceId !== 'communications') });
+        } catch { /* */ }
+    };
+    useEffect(() => {
+        const md = navigator.mediaDevices;
+        if (!md?.addEventListener) return undefined;
+        md.addEventListener('devicechange', listDevices);
+        return () => md.removeEventListener('devicechange', listDevices);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    /** تعویضِ دوربین یا میکروفون وسطِ کلاس (انتخاب روی همین دستگاه می‌ماند). */
+    const switchDevice = async (kind, id) => {
+        setDevOpen(false);
+        if (kind === 'video') {
+            savePref('oc-cam', id);
+            const old = localRef.current.cam;
+            if (!old) return;
+            const hd = media === 'livekit' && isHost;
+            const base = { width: { ideal: hd ? 1280 : 640 }, height: { ideal: hd ? 720 : 360 }, frameRate: { ideal: hd ? 24 : 20, max: 24 } };
+            try {
+                let t;
+                // اول دوربینِ تازه، بعد بستنِ قبلی (بی‌وقفه)؛ اگر دستگاه دو دوربین را با هم باز نکرد، اول قبلی را می‌بندیم
+                try { t = (await grab('video', base, id)).getVideoTracks()[0]; } catch { old.stop(); t = (await grab('video', base, id)).getVideoTracks()[0]; }
+                await tr.current?.setCam(t);
+                old.stop();
+                setLocal((l) => ({ ...l, cam: t }));
+            } catch {
+                toast('این دوربین باز نشد؛ دوربینِ دیگری را انتخاب کنید.');
+                await tr.current?.setCam(null);
+                setLocal((l) => ({ ...l, cam: null }));
+            }
+        } else {
+            savePref('oc-mic', id);
+            const old = localRef.current.mic;
+            if (!old) return;
+            try {
+                const t = (await grab('audio', { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, id)).getAudioTracks()[0];
+                await tr.current?.setMic(t);
+                old.stop();
+                setLocal((l) => ({ ...l, mic: t }));
+            } catch { toast('این میکروفون باز نشد.'); }
+        }
+    };
+
     const toggleScreen = async () => {
         if (localRef.current.screen) {
             localRef.current.screen.stop();
@@ -777,6 +853,41 @@ export default function Room({ room, me, config, back }) {
                     <button type="button" className={`oc-cb ${local.cam ? 'on' : 'off'}`} onClick={() => toggleCam()}>
                         <span>{local.cam ? '🎥' : '📷'}</span><small>دوربین</small>
                     </button>
+                )}
+                {((local.cam && devs.cams.length > 1) || (local.mic && devs.mics.length > 1)) && (
+                    <button type="button" className={`oc-cb ${devOpen ? 'on' : ''}`} onClick={() => { listDevices(); setDevOpen((o) => !o); }} title="انتخابِ دوربین و میکروفون">
+                        <span>🔄</span><small>{local.cam && devs.cams.length > 1 ? 'تعویضِ دوربین' : 'میکروفون'}</small>
+                    </button>
+                )}
+                {devOpen && (
+                    <div className="oc-layouts oc-devs" role="menu" aria-label="دوربین و میکروفون">
+                        {local.cam && devs.cams.length > 1 && (
+                            <>
+                                <b>📷 کدام دوربین؟</b>
+                                {devs.cams.map((d, i) => {
+                                    const on = local.cam?.getSettings?.().deviceId === d.deviceId;
+                                    return (
+                                        <button key={d.deviceId} type="button" role="menuitemradio" aria-checked={on} className={on ? 'on' : ''} onClick={() => switchDevice('video', d.deviceId)}>
+                                            <span>{BACK.test(d.label) ? '🔙' : '🤳'}</span><span><b>{d.label || `دوربینِ ${fa(i + 1)}`}</b>{on && <small>الان روشن است</small>}</span>
+                                        </button>
+                                    );
+                                })}
+                            </>
+                        )}
+                        {local.mic && devs.mics.length > 1 && (
+                            <>
+                                <b>🎤 کدام میکروفون؟</b>
+                                {devs.mics.map((d, i) => {
+                                    const on = local.mic?.getSettings?.().deviceId === d.deviceId;
+                                    return (
+                                        <button key={d.deviceId} type="button" role="menuitemradio" aria-checked={on} className={on ? 'on' : ''} onClick={() => switchDevice('audio', d.deviceId)}>
+                                            <span>🎙️</span><span><b>{d.label || `میکروفونِ ${fa(i + 1)}`}</b>{on && <small>الان روشن است</small>}</span>
+                                        </button>
+                                    );
+                                })}
+                            </>
+                        )}
+                    </div>
                 )}
                 {isHost && (
                     <button type="button" className={`oc-cb ${local.screen ? 'on' : ''}`} onClick={toggleScreen}>

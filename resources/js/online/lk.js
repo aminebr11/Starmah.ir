@@ -48,7 +48,8 @@ export default async function createLk(opts) {
     room.on(RoomEvent.TrackUnsubscribed, (track, pub, participant) => {
         const uid = Number(participant.identity);
         remoteAudio.delete(`${uid}:${pub.trackSid}`);
-        onTrack?.(uid, slot(pub.source), null, pub.trackSid);
+        // track قدیمی هم فرستاده می‌شود تا اگر تازه‌اش زودتر رسیده، پاک نشود
+        onTrack?.(uid, slot(pub.source), null, pub.trackSid, track?.mediaStreamTrack);
     });
     room.on(RoomEvent.DataReceived, (payload, participant) => {
         try { onData?.(Number(participant?.identity), JSON.parse(dec.decode(payload))); } catch { /* */ }
@@ -64,6 +65,21 @@ export default async function createLk(opts) {
     onPeer?.(hostId, 'connected', true);
 
     async function publish(key, track, source) {
+        // تعویضِ میکروفون: همان انتشار، فقط track عوض می‌شود (بی‌وقفه). دوربین دوباره منتشر می‌شود
+        // تا simulcast با اندازه‌ی دوربینِ تازه از نو ساخته شود.
+        if (pubs[key] && track && source === Track.Source.Microphone) {
+            const lp = room.localParticipant.getTrackPublication(source);
+            if (lp?.track?.replaceTrack) {
+                try {
+                    await lp.track.replaceTrack(track, true);
+                    // اگر میکروفونِ قبلی زودتر بسته شده بود، LiveKit آن را «بی‌صدا» علامت زده است
+                    if (lp.isMuted) await lp.unmute();
+                    setTimeout(() => { if (lp.isMuted && pubs[key] === track) lp.unmute().catch(() => {}); }, 800);
+                    pubs[key] = track;
+                    return;
+                } catch (e) { console.warn('[online] replace', e); }
+            }
+        }
         if (pubs[key]) { await room.localParticipant.unpublishTrack(pubs[key], false).catch(() => {}); pubs[key] = null; }
         if (track) {
             const o = { source };
