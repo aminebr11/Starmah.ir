@@ -54,7 +54,7 @@ export default function OnlineClasses({ ready, settings, active, schools }) {
                 <h3 style={{ marginTop: 18 }}>📂 تبدیلِ پاورپوینت و ورد به اسلاید <span className="oc-st">{settings.convert_url ? 'تنظیم شده' : 'اختیاری'}</span></h3>
                 <small className="oc-note">PDF و عکس بدونِ این بخش کار می‌کند. برای اینکه معلم فایلِ پاورپوینت (pptx) یا ورد را مستقیم بفرستد، سرویسِ تبدیل را با «install-convert.sh» روی VPS نصب کنید و نشانی و رمزی را که نشان می‌دهد این‌جا بنویسید.</small>
                 <div className="at-grid">
-                    <label>نشانیِ سرویسِ تبدیل<input className="input" dir="ltr" value={d.convert_url || ''} onChange={(e) => form.setData('convert_url', e.target.value)} placeholder="http://87.248.131.143:7890" /></label>
+                    <label>نشانیِ سرویسِ تبدیل<input className="input" dir="ltr" value={d.convert_url || ''} onChange={(e) => form.setData('convert_url', e.target.value)} placeholder="https://live.starmah.ir/convert-api" /></label>
                     <label>رمز (Token) {settings.convert_token_set && <small>(ذخیره شده؛ برای تغییر بنویسید)</small>}<input className="input" dir="ltr" type="password" value={d.convert_token} onChange={(e) => form.setData('convert_token', e.target.value)} placeholder={settings.convert_token_set ? '••••••••' : ''} /></label>
                 </div>
                 {form.errors.convert_url && <div className="rm-err">{form.errors.convert_url}</div>}

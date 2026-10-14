@@ -264,7 +264,7 @@ class ManageController extends Controller
             'livekit_secret' => 'nullable|string|max:255', 'ice' => 'nullable|string|max:3000', 'budget' => 'required|integer|min:500|max:20000',
             'default_max' => 'required|integer|min:2|max:1000', 'recording' => 'required|boolean',
             'convert_url' => ['nullable', 'string', 'max:255', 'regex:#^https?://#i'], 'convert_token' => 'nullable|string|max:255',
-        ], ['convert_url.regex' => 'نشانیِ سرویسِ تبدیل باید با http:// یا https:// شروع شود (مثلاً http://87.248.131.143:7890).']);
+        ], ['convert_url.regex' => 'نشانیِ سرویسِ تبدیل باید با http:// یا https:// شروع شود (مثلاً https://live.starmah.ir/convert-api).']);
         if ($d['media'] === 'livekit') {
             $url = trim((string) ($d['livekit_url'] ?? ''));
             if (! preg_match('#^wss?://#i', $url)) {

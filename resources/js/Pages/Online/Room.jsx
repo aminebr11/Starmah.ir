@@ -382,6 +382,8 @@ export default function Room({ room, me, config, back }) {
         send({ t: 'ms', ms });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [local, phase]);
+    // «فقط دوربین» با سرورِ رسانه: تصویرِ معلم با بالاترین کیفیت
+    useEffect(() => { if (!isHost) tr.current?.setFocus?.(stage === 'cam'); }, [stage, isHost, tiles]);
     // هر چند ثانیه یک بار: وضعیتِ خودم برای کسی که تازه وصل شده
     useEffect(() => {
         if (phase !== 'in') return undefined;
@@ -409,7 +411,9 @@ export default function Room({ room, me, config, back }) {
         if (on) {
             if (!isMod && !mineRef.current?.can_video) { toast('معلم هنوز اجازه‌ی دوربین نداده.', 'info'); return; }
             try {
-                const s = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: 20, max: 24 }, facingMode: 'user' } });
+                // با سرورِ رسانه، تصویرِ معلم HD گرفته می‌شود (سرور برای هر دستگاه کیفیتِ مناسب را می‌فرستد)
+                const hd = media === 'livekit' && isHost;
+                const s = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: hd ? 1280 : 640 }, height: { ideal: hd ? 720 : 360 }, frameRate: { ideal: hd ? 24 : 20, max: 24 }, facingMode: 'user' } });
                 const t = s.getVideoTracks()[0];
                 await tr.current?.setCam(t);
                 setLocal((l) => ({ ...l, cam: t }));
@@ -430,7 +434,7 @@ export default function Room({ room, me, config, back }) {
         }
         if (!navigator.mediaDevices?.getDisplayMedia) { toast('اشتراکِ صفحه روی این دستگاه پشتیبانی نمی‌شود (از رایانه استفاده کنید).'); return; }
         try {
-            const s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 10, max: 15 } }, audio: false });
+            const s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: media === 'livekit' ? 15 : 10, max: 15 } }, audio: false });
             const t = s.getVideoTracks()[0];
             t.contentHint = 'detail';
             t.addEventListener('ended', () => { tr.current?.setScreen(null); setLocal((l) => ({ ...l, screen: null })); control('stage', 'board'); });

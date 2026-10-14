@@ -22,6 +22,7 @@ from urllib.parse import parse_qs, urlparse
 
 TOKEN = os.environ.get('CONVERT_TOKEN', '')
 PORT = int(os.environ.get('CONVERT_PORT', '7890'))
+BIND = os.environ.get('CONVERT_BIND', '0.0.0.0')
 ALLOWED = {'ppt', 'pptx', 'pps', 'ppsx', 'odp', 'doc', 'docx', 'odt', 'rtf'}
 MAX_BYTES = 60 * 1024 * 1024
 SLOTS = threading.Semaphore(2)          # حداکثر دو تبدیلِ هم‌زمان (رم و پردازنده آزاد بماند)
@@ -92,5 +93,5 @@ class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
 if __name__ == '__main__':
     if not TOKEN:
         sys.exit('CONVERT_TOKEN is not set')
-    print('starmah-convert listening on :%d' % PORT, flush=True)
-    Server(('0.0.0.0', PORT), Handler).serve_forever()
+    print('starmah-convert listening on %s:%d' % (BIND, PORT), flush=True)
+    Server((BIND, PORT), Handler).serve_forever()

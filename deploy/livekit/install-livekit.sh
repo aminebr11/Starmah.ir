@@ -75,6 +75,15 @@ fi
 printf 'نشانیِ سرور (wss):  wss://%s\nAPI Key:            %s\nAPI Secret:         %s\n' "$DOMAIN" "$API_KEY" "$API_SECRET" > "$KEYS_FILE"
 chmod 600 "$KEYS_FILE"
 
+CERT_DIR=/etc/letsencrypt/live/${DOMAIN}
+write_conf() {
+TURN_TLS=""
+if [ -s "$CERT_DIR/fullchain.pem" ]; then
+  # TURN روی TLS (پورتِ ۵۳۴۹): برای اینترنتِ همراه و شبکه‌هایی که UDP را می‌بندند
+  TURN_TLS="  tls_port: 5349
+  cert_file: ${CERT_DIR}/fullchain.pem
+  key_file: ${CERT_DIR}/privkey.pem"
+fi
 cat > "$CONF_DIR/livekit.yaml" <<YAML
 # تنظیماتِ LiveKit برای کلاسِ آنلاینِ ستاره ماه
 port: 7880
@@ -94,6 +103,7 @@ turn:
   domain: ${DOMAIN}
   relay_range_start: 30000
   relay_range_end: 40000
+${TURN_TLS}
 room:
   empty_timeout: 300
   max_participants: 300
@@ -101,6 +111,8 @@ keys:
   ${API_KEY}: ${API_SECRET}
 YAML
 chmod 600 "$CONF_DIR/livekit.yaml"
+}
+write_conf
 
 # بافرِ UDP بزرگ‌تر برای صدا/تصویرِ روان
 cat > /etc/sysctl.d/90-livekit.conf <<'SYS'
@@ -144,6 +156,9 @@ server {
     listen 80;
     listen [::]:80;
     server_name ${DOMAIN};
+    client_max_body_size 60m;
+    # سرویس‌های کمکی (مثلِ تبدیلِ پاورپوینت) فایلِ خودشان را این‌جا می‌گذارند
+    include /etc/nginx/snippets/starmah-*.conf;
     location / {
         proxy_pass http://127.0.0.1:7880;
         proxy_http_version 1.1;
@@ -158,6 +173,7 @@ server {
     }
 }
 NGX
+mkdir -p /etc/nginx/snippets
 ln -sf /etc/nginx/sites-available/livekit /etc/nginx/sites-enabled/livekit
 rm -f /etc/nginx/sites-enabled/default
 nginx -t
@@ -173,6 +189,7 @@ ufw allow 80/tcp comment 'HTTP (SSL)'
 ufw allow 443/tcp comment 'HTTPS / wss'
 ufw allow 7881/tcp comment 'LiveKit TCP'
 ufw allow 3478/udp comment 'TURN'
+ufw allow 5349/tcp comment 'TURN TLS'
 ufw allow 50000:60000/udp comment 'LiveKit media'
 ufw allow 30000:40000/udp comment 'TURN relay'
 ufw --force enable
@@ -187,6 +204,15 @@ if ! certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL" --re
   exit 1
 fi
 systemctl reload nginx
+# با گواهی، TURN روی TLS هم روشن شود؛ و پس از هر تمدیدِ خودکار، LiveKit گواهیِ تازه را بخواند
+write_conf
+mkdir -p /etc/letsencrypt/renewal-hooks/deploy
+printf '#!/bin/sh\nsystemctl restart livekit\n' > /etc/letsencrypt/renewal-hooks/deploy/livekit.sh
+chmod +x /etc/letsencrypt/renewal-hooks/deploy/livekit.sh
+systemctl restart livekit
+sleep 2
+systemctl is-active --quiet livekit || { journalctl -u livekit -n 30 --no-pager; die "LiveKit با تنظیماتِ TLS بالا نیامد (لاگ بالا)."; }
+ok "TURN روی TLS (۵۳۴۹) فعال شد؛ تمدیدِ گواهی خودکار است"
 sleep 1
 if curl -fsS "https://${DOMAIN}" >/dev/null; then ok "https://${DOMAIN} جواب می‌دهد"; else warn "https هنوز جواب نمی‌دهد؛ چند دقیقه بعد امتحان کنید."; fi
 
@@ -200,4 +226,5 @@ chmod 600 "$KEYS_FILE"
 printf '\n\033[1;32m════════════ نصب تمام شد 🎉 ════════════\033[0m\n'
 cat "$KEYS_FILE"
 printf '\nاین سه مقدار را در سایت وارد کنید: ادمینِ کل ← کلاسِ آنلاین ← «سرورِ رسانه‌ی LiveKit».\n'
-printf 'این اطلاعات در فایلِ %s هم ذخیره شد.\n\n' "$KEYS_FILE"
+printf 'این اطلاعات در فایلِ %s هم ذخیره شد.\n' "$KEYS_FILE"
+printf 'برای پاورپوینت: bash install-convert.sh (روی همین سرور).\n\n'

@@ -26,6 +26,15 @@ apt-get install -y fonts-vazirmatn >/dev/null 2>&1 || true
 apt-get install -y fonts-farsiweb >/dev/null 2>&1 || true
 ok "$(soffice --version | head -1)"
 
+# اگر LiveKit با nginx روی همین سرور است: از راهِ همان https (پورتِ ۴۴۳) سرو شود — امن‌تر،
+# و هاستِ سایت معمولاً پورت‌های غیرِ ۴۴۳ را برای اتصالِ خروجی می‌بندد.
+SITE=/etc/nginx/sites-available/livekit
+PROXY=0; DOMAIN=""
+if [ -f "$SITE" ] && grep -q 'snippets/starmah-' "$SITE"; then
+  PROXY=1; DOMAIN=$(awk '/server_name/ {gsub(";",""); print $2; exit}' "$SITE")
+fi
+BIND=0.0.0.0; [ "$PROXY" = 1 ] && BIND=127.0.0.1
+
 say "۲/۳ ساختنِ سرویس"
 mkdir -p "$DIR"
 install -m 755 "$HERE/convert-server.py" "$DIR/convert-server.py"
@@ -42,6 +51,7 @@ After=network-online.target
 User=starmah-convert
 Environment=CONVERT_TOKEN=${TOKEN}
 Environment=CONVERT_PORT=${PORT}
+Environment=CONVERT_BIND=${BIND}
 ExecStart=/usr/bin/python3 ${DIR}/convert-server.py
 Restart=always
 RestartSec=3
@@ -57,6 +67,27 @@ systemctl restart starmah-convert
 sleep 2
 curl -fsS -H "X-Token: ${TOKEN}" "http://127.0.0.1:${PORT}/health" >/dev/null || { journalctl -u starmah-convert -n 20 --no-pager; die "سرویس بالا نیامد."; }
 ok "سرویس روشن است"
+
+if [ "$PROXY" = 1 ]; then
+  say "۳/۳ وصل کردن به nginx (https://${DOMAIN}/convert-api)"
+  cat > /etc/nginx/snippets/starmah-convert.conf <<NGX
+location /convert-api/ {
+    proxy_pass http://127.0.0.1:${PORT}/;
+    proxy_set_header X-Token \$http_x_token;
+    proxy_read_timeout 200s;
+    proxy_send_timeout 200s;
+    proxy_request_buffering on;
+}
+NGX
+  nginx -t && systemctl reload nginx
+  ufw delete allow "${PORT}/tcp" >/dev/null 2>&1 || true
+  sleep 1
+  curl -fsS -H "X-Token: ${TOKEN}" "https://${DOMAIN}/convert-api/health" >/dev/null && ok "از راهِ https در دسترس است" || warn "آزمایشِ https جواب نداد (SSL نصب شده؟)."
+  printf '\n\033[1;32m════════ در تنظیماتِ ادمینِ کل ← کلاسِ آنلاین وارد کنید ════════\033[0m\n'
+  printf 'نشانیِ سرویسِ تبدیل:  https://%s/convert-api\n' "$DOMAIN"
+  printf 'رمز (Token):          %s\n\n' "$TOKEN"
+  exit 0
+fi
 
 say "۳/۳ بازکردنِ پورت"
 ufw allow "${PORT}/tcp" comment 'Lesson converter' >/dev/null || true
