@@ -475,3 +475,39 @@
 .oc-player-mini video{width:100%;max-height:200px;border-radius:12px;background:#000}
 .oc-player-mini audio{width:100%}
 .oc-player-mini small{opacity:.7;font-size:11px;line-height:1.7}
+
+/* ── نتیجه‌ی کاملِ سؤال (معلم) ──────────────────────────────────── */
+.oc-who{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.oc-who-g{background:#f8fafc;border-radius:14px;padding:8px 10px}
+.oc-who-g>b{display:block;font-size:13px;margin-bottom:6px}
+.oc-who-g>div{display:flex;flex-wrap:wrap;gap:5px}
+.oc-who-g span{background:#fff;border-radius:99px;padding:3px 10px;font-size:12.5px;font-weight:800;box-shadow:0 0 0 1px #e2e8f0}
+.oc-who-g span small{font-weight:600;color:#64748b}
+.oc-who-g>div>small{color:#64748b;font-size:12px}
+.oc-who-g.ok{background:#f0fdf4}.oc-who-g.ok span{box-shadow:0 0 0 1.5px #86efac}
+.oc-who-g.bad{background:#fff1f2}.oc-who-g.bad span{box-shadow:0 0 0 1.5px #fda4af}
+.oc-who-g.none{background:#fffbeb}
+.oc-btn.oc-btn-del{background:#ffe4e6;color:#9f1239;box-shadow:none;margin-top:8px}
+
+/* ── تایمرِ دلخواه ───────────────────────────────────────────────── */
+.oc-timer-f{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;font-size:13px;font-weight:800}
+.oc-timer-f input{width:64px;border:1.5px solid #e2e8f0;border-radius:12px;padding:7px 8px;font:inherit;text-align:center}
+.oc-timer-f button{border:0;border-radius:12px;padding:8px 14px;font:inherit;font-weight:900;color:#fff;background:#7c3aed;box-shadow:0 3px 0 #5b21b6;cursor:pointer}
+
+/* ── بچه‌ها: «فقط دوربین» و «اشتراکِ صفحه/فیلم» تمام‌صفحه ───────────── */
+.oc.kid-media .oc-pips{display:flex!important}
+.oc.kid-board .oc-screen{position:absolute;inset:0;border-radius:16px}
+.oc.kid-board .oc-screen .oc-vid{width:100%;height:100%}
+.oc.kid-board .oc-screen video{object-fit:contain!important}
+.oc-kid-fs{position:absolute;z-index:7;bottom:10px;inset-inline-start:10px;width:42px;height:42px;border:0;border-radius:14px;background:rgba(20,17,42,.65);color:#fff;font-size:20px;cursor:pointer;backdrop-filter:blur(4px)}
+@media (orientation:landscape) and (max-height:520px){
+  .oc.kid-board .oc-top{padding-block:4px}
+  .oc.kid-board .oc-bar{padding-block:4px}
+}
+.oc.kid-board .oc-stage{aspect-ratio:auto!important}
+.oc-kid-fs{top:10px;bottom:auto}
+.oc-rotate-hint{display:none}
+@media (orientation:portrait) and (max-width:700px){
+  .oc-rotate-hint{display:block;position:absolute;z-index:6;top:12px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.92);color:#3b2a83;font-weight:900;font-size:12px;border-radius:99px;padding:6px 12px;white-space:nowrap;animation:oc-hint-out 1s 6s forwards}
+}
+@keyframes oc-hint-out{to{opacity:0;visibility:hidden}}

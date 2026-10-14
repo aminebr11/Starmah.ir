@@ -469,4 +469,37 @@ class OnlineClassTest extends TestCase
         Storage::disk('local')->assertMissing($model->path);
         $this->actingAs($student)->postJson(route('online.sync', $room), ['v' => 0])->assertJsonPath('state.settings.book', null);
     }
+
+    public function test_poll_results_delete_reactions_playing_and_long_timer(): void
+    {
+        [$school, $teacher, $classroom, $student, $admin, $super, $room] = $this->live();
+        $this->actingAs($student)->postJson(route('online.join', $room))->assertOk();
+
+        // سؤال: دانش‌آموز نادرست می‌زند؛ معلم پس از پایان فهرستِ کامل را می‌بیند
+        $this->actingAs($teacher)->postJson(route('online.poll', $room), ['question' => '۷×۸؟', 'options' => ['۵۶', '۵۴'], 'correct' => 0, 'xp' => 5])->assertOk();
+        $pollId = \App\Models\OnlinePoll::latest('id')->value('id');
+        $this->actingAs($student)->postJson(route('online.poll.answer', [$room, $pollId]), ['choice' => 1])->assertOk();
+        $this->actingAs($teacher)->postJson(route('online.sync', $room), ['v' => 0])->assertJsonPath('state.poll.who', null);   // هنوز باز است
+        $this->actingAs($teacher)->postJson(route('online.poll.close', [$room, $pollId]))->assertOk();
+        $who = $this->actingAs($teacher)->postJson(route('online.sync', $room), ['v' => 0])->json('state.poll.who');
+        $this->assertSame([['id' => $student->id, 'name' => $student->name, 'choice' => 1, 'ok' => false]], $who);
+        // دانش‌آموز فهرستِ بقیه را نمی‌گیرد
+        $this->actingAs($student)->postJson(route('online.sync', $room), ['v' => 0])->assertJsonPath('state.poll.who', null);
+        // پاک کردن: دیگر نشان داده نمی‌شود (و سؤالِ قبلی هم برنمی‌گردد)
+        $this->actingAs($student)->deleteJson(route('online.poll.destroy', [$room, $pollId]))->assertForbidden();
+        $this->actingAs($teacher)->deleteJson(route('online.poll.destroy', [$room, $pollId]))->assertOk();
+        $this->actingAs($student)->postJson(route('online.sync', $room), ['v' => 0])->assertJsonPath('state.poll', null);
+
+        // شکلک‌ها، «در حالِ پخش» و تایمرِ طولانی
+        $this->actingAs($teacher)->postJson(route('online.control', $room), ['action' => 'reactions', 'value' => false])->assertOk();
+        $this->actingAs($teacher)->postJson(route('online.control', $room), ['action' => 'playing', 'value' => ['name' => 'سرود ملی', 'kind' => 'audio']])->assertOk();
+        $this->actingAs($teacher)->postJson(route('online.control', $room), ['action' => 'timer', 'value' => 2 * 3600])->assertOk();
+        $st = $this->actingAs($student)->postJson(route('online.sync', $room), ['v' => 0])->json('state.settings');
+        $this->assertFalse($st['reactions']);
+        $this->assertSame(['name' => 'سرود ملی', 'kind' => 'audio'], $st['playing']);
+        $this->assertGreaterThan(now()->addMinutes(110)->getTimestampMs(), $st['timer_end']);
+        $this->actingAs($teacher)->postJson(route('online.control', $room), ['action' => 'playing', 'value' => null])->assertOk();
+        $this->actingAs($student)->postJson(route('online.sync', $room), ['v' => 0])->assertJsonPath('state.settings.playing', null);
+        $this->actingAs($student)->postJson(route('online.control', $room), ['action' => 'reactions', 'value' => true])->assertForbidden();
+    }
 }

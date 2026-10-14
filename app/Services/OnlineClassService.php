@@ -154,7 +154,8 @@ class OnlineClassService
             ->orderByDesc('id')->limit(80)->get()->reverse()->values();
         $hidden = OnlineMessage::where('room_id', $room->id)->where('hidden', true)->orderByDesc('id')->limit(100)->pluck('id');
 
-        $poll = OnlinePoll::where('room_id', $room->id)->latest('id')->first();
+        // سؤالی که معلم «پاک» کرده (و قبلی‌هایش) دیگر نشان داده نمی‌شود
+        $poll = OnlinePoll::where('room_id', $room->id)->where('id', '>', (int) $room->opt('poll_after', 0))->latest('id')->first();
         $pages = OnlineBoardPage::where('room_id', $room->id)->orderBy('page')->get(['page', 'bg', 'version']);
 
         return [
@@ -216,7 +217,25 @@ class OnlineClassService
             'xp' => (int) $poll->xp, 'mine' => $poll->choiceOf((int) $me->user_id),
             'counts' => $reveal ? $poll->counts() : null,
             'correct' => $reveal ? ($poll->correct === null ? null : (int) $poll->correct) : null,
-            'answered' => (int) DB::table('online_poll_answers')->where('poll_id', $poll->id)->count()];
+            'answered' => (int) DB::table('online_poll_answers')->where('poll_id', $poll->id)->count(),
+            // معلم/ناظر بعد از پایان: چه کسی درست و چه کسی نادرست زد (و چه کسی پاسخ نداد)
+            'who' => $host && $poll->status !== 'open' ? $this->pollWho($poll) : null];
+    }
+
+    private function pollWho(OnlinePoll $poll): array
+    {
+        $answers = DB::table('online_poll_answers')->where('poll_id', $poll->id)->get(['user_id', 'choice'])->keyBy('user_id');
+        $students = OnlineParticipant::with('user:id,name')->where('room_id', $poll->room_id)->where('role', 'student')->get();
+        $rows = $students->map(function ($p) use ($answers, $poll) {
+            $a = $answers[$p->user_id] ?? null;
+            $choice = $a ? (int) $a->choice : null;
+
+            return ['id' => (int) $p->user_id, 'name' => $p->user?->name ?? '—', 'choice' => $choice,
+                'ok' => $choice === null || $poll->correct === null ? null : $choice === (int) $poll->correct];
+        });
+
+        // درست‌ها، بعد نادرست‌ها، بعد بی‌پاسخ‌ها
+        return $rows->sortBy(fn ($r) => ($r['ok'] === true ? '0' : ($r['ok'] === false ? '1' : ($r['choice'] !== null ? '2' : '3'))) . $r['name'])->values()->all();
     }
 
     /** ثبتِ یک پیامِ اتصال برای نفرِ دیگر. */

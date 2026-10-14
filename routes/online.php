@@ -66,6 +66,7 @@ Route::middleware(['auth'])->prefix('online/{room}')->name('online.')->group(fun
     Route::post('/poll', [RoomController::class, 'pollCreate'])->name('poll');
     Route::post('/poll/{poll}/answer', [RoomController::class, 'pollAnswer'])->name('poll.answer');
     Route::post('/poll/{poll}/close', [RoomController::class, 'pollClose'])->name('poll.close');
+    Route::delete('/poll/{poll}', [RoomController::class, 'pollDelete'])->name('poll.destroy');
     Route::post('/record', [RoomController::class, 'recordChunk'])->middleware('throttle:online-act')->name('record');
     Route::post('/record/finish', [RoomController::class, 'recordFinish'])->name('record.finish');
     Route::get('/recording', [RoomController::class, 'recording'])->name('recording');

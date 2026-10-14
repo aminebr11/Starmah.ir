@@ -229,7 +229,7 @@ export function People({ people, me, isMod, isHost, tiles, onPerm, onStar, onKic
     );
 }
 
-export function PollPanel({ poll, isMod, onCreate, onClose }) {
+export function PollPanel({ poll, isMod, onCreate, onClose, onDelete }) {
     const [q, setQ] = useState('');
     const [opts, setOpts] = useState(['', '']);
     const [correct, setCorrect] = useState(null);
@@ -258,6 +258,10 @@ export function PollPanel({ poll, isMod, onCreate, onClose }) {
                     })}
                     <div className="oc-poll-meta">{fa(poll.answered)} پاسخ · {poll.status === 'open' ? 'در حالِ پاسخ‌دادن' : 'نتیجه نمایش داده شد'}</div>
                     {isMod && poll.status === 'open' && <button type="button" className="oc-btn" onClick={() => onClose(poll.id)}>🏁 پایان و نمایشِ نتیجه</button>}
+                    {isMod && poll.who && <PollWho poll={poll} />}
+                    {isMod && poll.status !== 'open' && (
+                        <button type="button" className="oc-btn oc-btn-del" onClick={() => { if (confirm('این سؤال و نتیجه‌اش از کلاس پاک شود؟ (امتیازِ داده‌شده می‌ماند)')) onDelete?.(poll.id); }}>🗑️ پاک کردنِ سؤال</button>
+                    )}
                 </div>
             )}
             {isMod && (
@@ -280,6 +284,28 @@ export function PollPanel({ poll, isMod, onCreate, onClose }) {
                 </div>
             )}
             {!poll && !isMod && <div className="oc-empty">📊 فعلاً سؤالی نیست.</div>}
+        </div>
+    );
+}
+
+/** نتیجه‌ی کامل برای معلم: چه کسی درست، چه کسی نادرست (با گزینه‌اش) و چه کسی پاسخ نداد. */
+function PollWho({ poll }) {
+    const who = poll.who || [];
+    const right = who.filter((w) => w.ok === true);
+    const wrong = who.filter((w) => w.ok === false);
+    const answered = who.filter((w) => w.ok === null && w.choice !== null);   // سؤالِ بی‌پاسخِ درست
+    const none = who.filter((w) => w.choice === null);
+    const opt = (i) => poll.options?.[i] ?? '';
+    return (
+        <div className="oc-who">
+            {poll.correct !== null && (
+                <>
+                    <div className="oc-who-g ok"><b>✅ درست ({fa(right.length)})</b><div>{right.map((w) => <span key={w.id}>{w.name}</span>)}{!right.length && <small>هیچ‌کس</small>}</div></div>
+                    <div className="oc-who-g bad"><b>❌ نادرست ({fa(wrong.length)})</b><div>{wrong.map((w) => <span key={w.id}>{w.name}<small> ← {opt(w.choice)}</small></span>)}{!wrong.length && <small>هیچ‌کس</small>}</div></div>
+                </>
+            )}
+            {answered.length > 0 && <div className="oc-who-g"><b>🗳️ پاسخ‌ها ({fa(answered.length)})</b><div>{answered.map((w) => <span key={w.id}>{w.name}<small> ← {opt(w.choice)}</small></span>)}</div></div>}
+            <div className="oc-who-g none"><b>⏳ بی‌پاسخ ({fa(none.length)})</b><div>{none.map((w) => <span key={w.id}>{w.name}</span>)}{!none.length && <small>همه پاسخ دادند 👏</small>}</div></div>
         </div>
     );
 }

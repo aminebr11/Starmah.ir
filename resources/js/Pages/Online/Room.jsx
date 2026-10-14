@@ -123,6 +123,19 @@ export default function Room({ room, me, config, back }) {
     const hostTiles = tiles[room.teacher_id] || {};
     const canDraw = isHost || !!mine?.can_draw;
     const kidBoard = !isMod && st?.settings?.kid_view === 'board' && stage === 'board';   // بچه‌ها فقط تخته را می‌بینند
+    // «فقط دوربین» یا «اشتراکِ صفحه/فیلم» هم برای بچه‌ها کلِ صفحه‌ی گوشی را می‌گیرد
+    const kidMedia = !isMod && (stage === 'cam' || stage === 'screen');
+    const kidFull = kidBoard || kidMedia;
+    /** تمام‌صفحه‌ی واقعی (آیفون فقط برای ویدیو اجازه می‌دهد). */
+    const kidGoFull = () => {
+        const v = document.querySelector('.oc-screen video');
+        try {
+            if (document.fullscreenElement) { document.exitFullscreen?.(); return; }
+            if (document.documentElement.requestFullscreen) { document.documentElement.requestFullscreen().catch(() => v?.webkitEnterFullscreen?.()); return; }
+            if (v?.webkitEnterFullscreen) { v.webkitEnterFullscreen(); return; }
+        } catch { /* */ }
+        toast('گوشی را افقی کن تا بزرگ‌تر ببینی.', 'info');
+    };
     const layout = stage === 'screen' ? 'screen' : stage === 'cam' ? 'cam' : st?.settings?.kid_view === 'board' ? 'board' : 'board_cam';
     /** وضعیتِ رسانه‌ی هر نفر: ready+mic+cam+scr (تازه‌ترین: کانالِ داده؛ وگرنه سرور). */
     const msOf = (uid) => {
@@ -229,6 +242,8 @@ export default function Room({ room, me, config, back }) {
         }
         if (msg.t === 'speak') { if (!isHost && fromHost) setSpeaking(Array.isArray(msg.uids) ? msg.uids : []); return; }
         if (msg.t === 'react') {
+            // معلم شکلک‌های بچه‌ها را خاموش کرده: نه نمایش، نه پخش برای بقیه
+            if (!fromHost && sender?.role === 'student' && stRef.current?.settings?.reactions === false) return;
             showReact(msg.e, msg.name || sender?.name);
             if (isHost) send({ t: 'react', e: msg.e, name: sender?.name }, from);
             return;
@@ -725,7 +740,9 @@ export default function Room({ room, me, config, back }) {
         } finally { setBusy(null); }
     };
 
+    const reactOn = isMod || st?.settings?.reactions !== false;
     const react = (e) => {
+        if (!isMod && stRef.current?.settings?.reactions === false) return;
         if (Date.now() - lastReact.current < 1200) return;
         lastReact.current = Date.now();
         showReact(e, 'من');
@@ -738,6 +755,7 @@ export default function Room({ room, me, config, back }) {
     const answer = (pollId, choice) => axios.post(R('poll.answer', pollId), { choice }).then(() => sync.current?.now()).catch((e) => toast(e?.response?.data?.message || 'ثبت نشد.'));
     const newPoll = (d) => axios.post(R('poll'), d).then(() => { sync.current?.now(); send({ t: 'sync' }); }).catch(() => toast('سؤال فرستاده نشد.'));
     const closePoll = (id) => axios.post(R('poll.close', id)).then(() => { sync.current?.now(); send({ t: 'sync' }); }).catch(() => {});
+    const deletePoll = (id) => axios.delete(R('poll.destroy', id)).then(() => { setPollHidden(null); sync.current?.now(); send({ t: 'sync' }); }).catch(() => toast('پاک نشد.'));
 
     const perm = (uid, p, v) => control('perm', v, uid, p);
     const star = async (uid) => { const d = await control('star', null, uid); if (d) { showReact('⭐'); toast(d.xp ? `⭐ ستاره داده شد (+${fa(d.xp)} امتیاز)` : '⭐ ستاره داده شد', 'success'); } };
@@ -928,13 +946,13 @@ export default function Room({ room, me, config, back }) {
                 {panel === 'chat' && <Chat msgs={msgs} me={me.id} chatOn={st?.settings?.chat !== false} isMod={isMod} onSend={chat} onHide={hideMsg} />}
                 {panel === 'people' && <People people={people} me={me.id} isMod={isMod} isHost={isHost} tiles={tiles} speaking={speaking} msOf={msOf} onPerm={perm} onStar={star} onKick={kick} onSpot={spot}
                     spotlight={st?.settings?.spotlight} onAll={(a, v) => control(a, v)} />}
-                {panel === 'poll' && <PollPanel poll={poll} isMod={isMod} onCreate={newPoll} onClose={closePoll} />}
+                {panel === 'poll' && <PollPanel poll={poll} isMod={isMod} onCreate={newPoll} onClose={closePoll} onDelete={deletePoll} />}
             </div>
         </aside>
     );
 
     return (
-        <div className={`oc ${isHost ? 'is-host' : ''} ${kidBoard ? 'kid-board' : ''} ${fs ? 'oc-fs' : ''}`} dir="rtl">
+        <div className={`oc ${isHost ? 'is-host' : ''} ${kidFull ? 'kid-board' : ''} ${kidMedia ? 'kid-media' : ''} ${fs ? 'oc-fs' : ''}`} dir="rtl">
             <Head title={room.title} />
             {audioTracks.map(([uid, t]) => <AudioSink key={`${uid}:${t.id}`} track={t} muted={mute} onBlocked={() => setAudioBlocked(true)} />)}
 
@@ -989,6 +1007,8 @@ export default function Room({ room, me, config, back }) {
                             {media === 'livekit' && Object.entries(tiles).filter(([uid, t]) => Number(uid) !== room.teacher_id && Number(uid) !== me.id && Number(uid) !== spotId && t.cam && camOn(Number(uid)))
                                 .slice(0, 6).map(([uid, t]) => <Vid key={uid} track={t.cam} className={`oc-pip small ${speaking.includes(Number(uid)) ? 'spk' : ''}`} label={people.find((p) => p.id === Number(uid))?.name} />)}
                         </DragBox>
+                        {kidFull && <button type="button" className="oc-kid-fs" onClick={kidGoFull} aria-label="تمام‌صفحه">⛶</button>}
+                        {kidMedia && <div className="oc-rotate-hint" aria-hidden="true">🔄 برای تصویرِ بزرگ‌تر گوشی را افقی کن</div>}
                         {st?.settings?.playing && (
                             <div className="oc-play-chip" aria-live="polite">{st.settings.playing.kind === 'audio' ? '🎵' : '🎬'} در حالِ پخش: {st.settings.playing.name}</div>
                         )}
@@ -1111,12 +1131,16 @@ export default function Room({ room, me, config, back }) {
                         <span>✋</span><small>{mine?.hand ? 'پایین بیاور' : 'دست بالا'}</small>
                     </button>
                 )}
-                <div className={`oc-reactbar ${reactOpen ? 'open' : ''}`}>
-                    {REACTIONS.map((e) => <button key={e} type="button" onClick={() => { react(e); setReactOpen(false); }} aria-label={`واکنش ${e}`}>{e}</button>)}
-                </div>
-                <button type="button" className={`oc-cb oc-only-n ${reactOpen ? 'on' : ''}`} onClick={() => setReactOpen((o) => !o)}>
-                    <span>😀</span><small>واکنش</small>
-                </button>
+                {reactOn && (
+                    <>
+                        <div className={`oc-reactbar ${reactOpen ? 'open' : ''}`}>
+                            {REACTIONS.map((e) => <button key={e} type="button" onClick={() => { react(e); setReactOpen(false); }} aria-label={`واکنش ${e}`}>{e}</button>)}
+                        </div>
+                        <button type="button" className={`oc-cb oc-only-n ${reactOpen ? 'on' : ''}`} onClick={() => setReactOpen((o) => !o)}>
+                            <span>😀</span><small>واکنش</small>
+                        </button>
+                    </>
+                )}
                 <button type="button" className={`oc-cb ${mute ? 'off' : ''}`} onClick={() => setMute((m) => !m)}>
                     <span>{mute ? '🔈' : '🔊'}</span><small>{mute ? 'صدا بسته' : 'صدا'}</small>
                 </button>
@@ -1162,6 +1186,20 @@ export default function Room({ room, me, config, back }) {
                             {[1, 2, 3, 5, 10].map((m) => <button key={m} type="button" onClick={() => control('timer', m * 60)}>{fa(m)} دقیقه</button>)}
                             <button type="button" onClick={() => control('timer', 0)}>✕ خاموش</button>
                         </div>
+                        <form className="oc-timer-f" onSubmit={(e) => {
+                            e.preventDefault();
+                            const num = (v) => Number(String(v || '0').replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))) || 0;
+                            const sec = num(e.target.elements.m.value) * 60 + num(e.target.elements.s.value);
+                            if (sec <= 0) { toast('زمان را وارد کنید.'); return; }
+                            control('timer', Math.min(sec, 3 * 3600));
+                            e.target.reset();
+                        }}>
+                            <span>⌨️ دلخواه:</span>
+                            <input name="m" inputMode="numeric" maxLength={3} placeholder="دقیقه" aria-label="دقیقه" />
+                            <b>:</b>
+                            <input name="s" inputMode="numeric" maxLength={2} placeholder="ثانیه" aria-label="ثانیه" />
+                            <button type="submit">▶ شروع</button>
+                        </form>
                     </div>
                     <div className="oc-more-g">
                         <b>🎛️ کنترلِ کلاس</b>
@@ -1170,6 +1208,8 @@ export default function Room({ room, me, config, back }) {
                             <button type="button" onClick={() => control('lock', !st?.settings?.locked)}>{st?.settings?.locked ? '🔓 باز کردنِ در' : '🔐 قفلِ ورودِ تازه'}</button>
                             <button type="button" onClick={() => control('mute_all')}>🔇 بی‌صدا کردنِ همه</button>
                             <button type="button" onClick={() => control('lower_hands')}>✋ پایین آوردنِ دست‌ها</button>
+                            <button type="button" className={st?.settings?.reactions === false ? '' : 'on'} onClick={() => control('reactions', st?.settings?.reactions === false)}
+                                title="شکلک‌های احساسیِ بچه‌ها (👏❤️😂…)">{st?.settings?.reactions === false ? '😶 شکلکِ بچه‌ها: خاموش' : '😀 شکلکِ بچه‌ها: روشن'}</button>
                             <button type="button" onClick={() => setReport(true)}>📋 گزارشِ حضور</button>
                         </div>
                     </div>

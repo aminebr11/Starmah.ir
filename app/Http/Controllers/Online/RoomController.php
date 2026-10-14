@@ -216,7 +216,7 @@ class RoomController extends Controller
                 break;
             case 'timer':
                 $sec = (int) $value;
-                $room->setOpts(['timer_end' => $sec > 0 ? now()->addSeconds(min($sec, 3600))->getTimestampMs() : null]);
+                $room->setOpts(['timer_end' => $sec > 0 ? now()->addSeconds(min($sec, 3 * 3600))->getTimestampMs() : null]);
                 break;
             case 'star':
                 abort_unless($target && $target->role === 'student', 422);
@@ -483,6 +483,18 @@ class RoomController extends Controller
         [$role] = $this->ctx($request, $room);
         abort_unless($this->moderator($role) && (int) $poll->room_id === (int) $room->id, 403);
         $this->svc->closePoll($room, $poll, $request->user());
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** پاک کردنِ سؤال (و پاسخ‌هایش) از کلاس — امتیازی که داده شده می‌ماند. */
+    public function pollDelete(Request $request, OnlineRoom $room, OnlinePoll $poll): JsonResponse
+    {
+        [$role] = $this->ctx($request, $room);
+        abort_unless($this->moderator($role) && (int) $poll->room_id === (int) $room->id, 403);
+        DB::table('online_poll_answers')->where('poll_id', $poll->id)->delete();
+        $poll->delete();
+        $room->setOpts(['poll_after' => max((int) $room->opt('poll_after', 0), (int) $poll->id)]);
 
         return response()->json(['ok' => true]);
     }
