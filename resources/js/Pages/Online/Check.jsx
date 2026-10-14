@@ -56,7 +56,8 @@ export default function Check({ mode, wanted, url, ice, isAdmin, back }) {
                         const r = await fetch(`${http}/`, { cache: 'no-store', signal: ctl.signal });
                         clearTimeout(tm);
                         const txt = (await r.text()).trim();
-                        set('reach', r.ok ? 'ok' : 'bad', r.ok ? `جواب داد در ${fa(Math.round(performance.now() - t0))} میلی‌ثانیه (${txt.slice(0, 10)})` : `جوابِ ناجور (کد ${fa(r.status)})`);
+                        if (r.ok && txt !== 'OK') set('reach', 'bad', `این دستگاه به ${http} رسید ولی جواب از LiveKit نبود؛ دامنه احتمالاً به سرورِ دیگری (مثلاً هاستِ سایت) هم اشاره می‌کند. رکوردهای A را در cPanel ← Zone Editor بررسی کنید.`);
+                        else set('reach', r.ok ? 'ok' : 'bad', r.ok ? `جواب داد در ${fa(Math.round(performance.now() - t0))} میلی‌ثانیه (${txt.slice(0, 10)})` : `جوابِ ناجور (کد ${fa(r.status)})`);
                     } catch (e) {
                         set('reach', 'bad', `این دستگاه به ${http} نمی‌رسد. روی همین گوشی این نشانی را در مرورگر باز کنید؛ باید «OK» ببینید. اگر باز نشد: DNS (رکوردِ A)، گواهیِ SSL یا محدودیتِ اینترنتِ این خط. (${e?.name === 'AbortError' ? 'زمان تمام شد' : e?.message || e})`);
                     }

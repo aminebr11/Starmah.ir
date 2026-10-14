@@ -44,11 +44,23 @@ class CheckController extends Controller
         $tok = $this->svc->livekitTokenFor('starmah-check-' . $request->user()->id, $request->user(), 'student', 600);
         $out = ['url' => $lk['url'], 'http' => $http, 'token' => $tok['token']];
 
+        // دامنه‌ی سرورِ رسانه باید فقط به یک IP (خودِ VPS) اشاره کند
+        $host = (string) parse_url($http, PHP_URL_HOST);
+        $ips = filter_var($host, FILTER_VALIDATE_IP) ? [$host] : (@gethostbynamel($host) ?: []);
+        $out['ips'] = $ips;
+        if (count($ips) > 1) {
+            return response()->json($out + ['ok' => false, 'step' => 'dns',
+                'message' => 'دامنه‌ی ' . $host . ' به چند IP اشاره می‌کند (' . implode('، ', $ips) . '). فقط IPِ سرورِ رسانه باید بماند؛ بقیه را در cPanel ← Zone Editor پاک کنید (و اگر در cPanel ← Domains زیردامنه‌ی هم‌نام ساخته شده، آن را حذف کنید).']);
+        }
         try {
             $ping = Http::timeout(10)->get($http . '/');
         } catch (\Throwable $e) {
             return response()->json($out + ['ok' => false, 'step' => 'reach',
                 'message' => 'سرورِ سایت به ' . $http . ' وصل نشد: ' . mb_substr($e->getMessage(), 0, 160)]);
+        }
+        if ($ping->successful() && trim($ping->body()) !== 'OK') {
+            return response()->json($out + ['ok' => false, 'step' => 'reach',
+                'message' => 'نشانیِ ' . $http . ' جواب داد ولی جواب از LiveKit نیست (احتمالاً دامنه به هاستِ سایت اشاره می‌کند' . ($ips ? '؛ IP: ' . implode('، ', $ips) : '') . '). رکوردِ A را در cPanel ← Zone Editor فقط روی IPِ سرورِ رسانه بگذارید.']);
         }
         if (! $ping->successful()) {
             return response()->json($out + ['ok' => false, 'step' => 'reach',
