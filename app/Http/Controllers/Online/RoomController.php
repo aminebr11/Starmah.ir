@@ -11,6 +11,7 @@ use App\Models\OnlineRoom;
 use App\Services\OnlineClassService;
 use App\Support\Jalali;
 use App\Support\OnlineAccess;
+use App\Support\OnlineBoard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -180,7 +181,7 @@ class RoomController extends Controller
         [$role, $me] = $this->ctx($request, $room);
         abort_unless($this->moderator($role), 403);
         $data = $request->validate([
-            'action' => 'required|in:perm,mute_all,lower_hands,chat,lock,timer,star,stage,page,kick,spotlight,announce,recording,open_mics,kidview,layout,end',
+            'action' => 'required|in:perm,mute_all,lower_hands,chat,lock,timer,star,stage,page,kick,spotlight,announce,recording,open_mics,kidview,layout,book_close,reactions,playing,end',
             'user' => 'nullable|integer', 'perm' => 'nullable|in:can_speak,can_video,can_draw', 'value' => 'nullable',
         ]);
         $target = isset($data['user']) ? OnlineParticipant::where('room_id', $room->id)->where('user_id', $data['user'])->first() : null;
@@ -237,7 +238,28 @@ class RoomController extends Controller
                 $room->setOpts(['stage' => $value]);
                 break;
             case 'page':
-                $room->setOpts(['page' => max(0, min(199, (int) $value))]);
+                $no = (int) $value;
+                if (OnlineBoard::isBook($no)) {
+                    abort_unless(OnlineBoard::valid($room, $no), 422, 'این صفحه در کتاب نیست.');
+                    // «تا کجا درس داده‌ام» برای همین کلاس
+                    OnlineBoard::book($room)?->remember($room->classroom_id, OnlineBoard::bookPageNo($no));
+                    $room->setOpts(['page' => $no]);
+                } else {
+                    $room->setOpts(['page' => max(0, min(199, $no)), 'board_page' => max(0, min(199, $no))]);
+                }
+                break;
+            case 'reactions':
+                // شکلک‌های بچه‌ها (😀👏) روشن/خاموش — معلم و ناظر همیشه می‌توانند
+                $room->setOpts(['reactions' => filter_var($value, FILTER_VALIDATE_BOOLEAN)]);
+                break;
+            case 'playing':
+                // «در حالِ پخش»: فیلم یا آهنگی که معلم برای همه پخش می‌کند
+                $room->setOpts(['playing' => is_array($value) && ! empty($value['name'])
+                    ? ['name' => mb_substr(trim((string) $value['name']), 0, 100), 'kind' => ($value['kind'] ?? '') === 'audio' ? 'audio' : 'video']
+                    : null]);
+                break;
+            case 'book_close':
+                $room->setOpts(['book' => null, 'page' => (int) $room->opt('board_page', 0)]);
                 break;
             case 'spotlight':
                 $room->setOpts(['spotlight' => $target ? (int) $target->user_id : null]);
@@ -266,10 +288,13 @@ class RoomController extends Controller
     public function boardGet(Request $request, OnlineRoom $room): JsonResponse
     {
         $this->ctx($request, $room, false);
-        $page = OnlineBoardPage::where('room_id', $room->id)->where('page', (int) $request->query('page', 0))->first();
+        $no = (int) $request->query('page', 0);
+        $row = OnlineBoard::valid($room, $no) ? OnlineBoard::row($room, $no) : null;
+        $page = $row?->exists ? $row : null;
 
-        return response()->json(['page' => (int) $request->query('page', 0), 'bg' => $page?->bg ?? 'blank',
-            'ops' => $page?->ops ? json_decode($page->ops, true) : [], 'version' => (int) ($page?->version ?? 0)]);
+        return response()->json(['page' => $no, 'bg' => OnlineBoard::bg($room, $no, $page),
+            'ops' => $page?->ops ? json_decode($page->ops, true) : [], 'version' => (int) ($page?->version ?? 0),
+            'book' => OnlineBoard::isBook($no)]);
     }
 
     /** ذخیره‌ی یک صفحه‌ی تخته — فقط معلم (منبعِ اصلیِ تخته). */
@@ -277,8 +302,26 @@ class RoomController extends Controller
     {
         [$role] = $this->ctx($request, $room);
         abort_unless($role === 'host', 403);
-        $data = $request->validate(['page' => 'required|integer|min:0|max:199', 'bg' => 'nullable|string|max:255',
+        $data = $request->validate(['page' => 'required|integer|min:0|max:3999', 'bg' => 'nullable|string|max:255',
             'ops' => 'nullable|string|max:3000000', 'remove' => 'nullable|boolean']);
+        abort_unless(OnlineBoard::valid($room, (int) $data['page']), 422, 'این صفحه در دسترس نیست.');
+        if (OnlineBoard::isBook((int) $data['page'])) {
+            // صفحه‌ی کتاب: فقط نوشته‌ها ذخیره می‌شود؛ زمینه همان تصویرِ کتاب است
+            abort_if($request->boolean('remove'), 422);
+            $row = OnlineBoard::row($room, (int) $data['page']);
+            $base = $request->input('base');
+            if ($base !== null && $row->exists && (int) $base !== (int) $row->version) {
+                return response()->json(['conflict' => true, 'version' => (int) $row->version], 409);
+            }
+            if (array_key_exists('ops', $data) && $data['ops'] !== null) {
+                $row->ops = $data['ops'];
+            }
+            $row->version = (int) $row->version + 1;
+            $row->save();
+            $room->bump();
+
+            return response()->json(['version' => $row->version]);
+        }
         if ($request->boolean('remove')) {
             OnlineBoardPage::where('room_id', $room->id)->where('page', $data['page'])->delete();
             OnlineBoardPage::where('room_id', $room->id)->where('page', '>', $data['page'])->orderBy('page')->get()
@@ -310,11 +353,12 @@ class RoomController extends Controller
         [$role, $p] = $this->ctx($request, $room);
         abort_unless($room->live() && ($role === 'host' || $p->can_draw), 403, 'اجازه‌ی نوشتن روی تخته را ندارید.');
         $data = $request->validate([
-            'page' => 'required|integer|min:0|max:199', 'kind' => 'required|in:op,undo',
+            'page' => 'required|integer|min:0|max:3999', 'kind' => 'required|in:op,undo',
             'op' => 'nullable|array', 'id' => 'nullable|string|max:80',
         ]);
-        $page = OnlineBoardPage::firstOrNew(['room_id' => $room->id, 'page' => $data['page']]);
-        if (! $page->exists) {
+        abort_unless(OnlineBoard::valid($room, (int) $data['page']), 422, 'این صفحه در دسترس نیست.');
+        $page = OnlineBoard::row($room, (int) $data['page']);
+        if (! $page->exists && ! OnlineBoard::isBook((int) $data['page'])) {
             $page->bg = 'blank';
         }
         $ops = json_decode((string) $page->ops, true) ?: [];

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Online\BookController;
 use App\Http\Controllers\Online\CheckController;
 use App\Http\Controllers\Online\ManageController;
 use App\Http\Controllers\Online\RoomController;
@@ -52,6 +53,14 @@ Route::middleware(['auth'])->prefix('online/{room}')->name('online.')->group(fun
     Route::post('/board-op', [RoomController::class, 'boardOp'])->middleware('throttle:online-act')->name('board.op');
     Route::post('/board', [RoomController::class, 'boardSave'])->middleware('throttle:online-act')->name('board.save');
     Route::post('/convert', [RoomController::class, 'convert'])->middleware('throttle:online-act')->name('convert');
+    // 📚 کتاب‌های درسیِ معلم
+    Route::get('/books', [BookController::class, 'index'])->name('books');
+    Route::post('/books/upload', [BookController::class, 'upload'])->middleware('throttle:online-act')->name('books.upload');
+    Route::get('/books/{book}/file', [BookController::class, 'file'])->name('book.file');
+    Route::post('/books/{book}/open', [BookController::class, 'open'])->middleware('throttle:online-act')->name('book.open');
+    Route::post('/books/{book}/image', [BookController::class, 'image'])->middleware('throttle:online-act')->name('book.image');
+    Route::delete('/books/{book}', [BookController::class, 'destroy'])->name('book.destroy');
+    Route::get('/book-img/{book}/{page}', [BookController::class, 'pageImage'])->whereNumber('page')->name('book.img');
     Route::post('/asset', [RoomController::class, 'assetUpload'])->middleware('throttle:online-act')->name('asset.upload');
     Route::get('/asset/{name}', [RoomController::class, 'asset'])->name('asset');
     Route::post('/poll', [RoomController::class, 'pollCreate'])->name('poll');

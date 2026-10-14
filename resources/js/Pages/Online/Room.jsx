@@ -3,11 +3,12 @@ import { Head } from '@inertiajs/react';
 import axios from 'axios';
 import Mascot from '@/Components/Mascot';
 import { toast } from '@/lib/toast';
-import Board, { preloadImg } from '@/online/Board';
+import Board, { preloadImg, W as BW, H as BH } from '@/online/Board';
 import RoomSync from '@/online/sync';
 import createMesh from '@/online/mesh';
 import ClassRecorder from '@/online/recorder';
-import { importSlides } from '@/online/slides';
+import { importSlides, openPdf, renderPdfPage } from '@/online/slides';
+import BookPanel from '@/online/books';
 import { fa, Vid, DragBox, AudioSink, Clock, Countdown, Chat, People, PollPanel, PollCard, ReportModal } from '@/online/parts';
 import '@/../css/online.css';
 
@@ -77,6 +78,8 @@ export default function Room({ room, me, config, back }) {
     const [devs, setDevs] = useState({ cams: [], mics: [] });   // دوربین‌ها و میکروفون‌های این دستگاه
     const [devOpen, setDevOpen] = useState(false);   // دلیلِ وصل نشدنِ صدا/تصویر (برای عیب‌یابی)
     const [busy, setBusy] = useState(null);
+    const [booksOpen, setBooksOpen] = useState(false);
+    const [bookGo, setBookGo] = useState('');
     const [rec, setRec] = useState(null);
     const [skew, setSkew] = useState(0);
     const [endOpen, setEndOpen] = useState(false);
@@ -95,6 +98,8 @@ export default function Room({ room, me, config, back }) {
     const lastReact = useRef(0);
     const helloAt = useRef(0);
     const joinedAt = useRef(0);
+    const bookDoc = useRef(null);            // { id, doc } — PDFِ کتابِ باز روی رایانه‌ی معلم
+    const bookRendering = useRef(new Set()); // صفحه‌هایی که در حالِ ساختنِ تصویرشان هستیم
     const localRef = useRef(local);
     localRef.current = local;
 
@@ -102,7 +107,13 @@ export default function Room({ room, me, config, back }) {
     const media = st?.media || room.media;
     const people = st?.people ?? [];
     const pages = st?.pages ?? [];
-    const pageCount = Math.max(pages.length, page + 1, 1);
+    // کتابِ باز: صفحه‌های ۱۰۰۰ به بعد صفحه‌های کتاب‌اند (۱۰۰۰ = صفحه‌ی ۱)
+    const book = st?.settings?.book || null;
+    const inBook = !!book && page >= 1000;
+    const bookNo = inBook ? page - 999 : 0;
+    const bookPending = inBook && (pages.find((x) => x.page === page)?.bg ?? 'blank') === 'blank';
+    const boardPages = pages.filter((x) => x.page < 1000);
+    const pageCount = Math.max(boardPages.length, page < 1000 ? page + 1 : 1, 1);
     const stage = st?.settings?.stage ?? 'board';
     const hostTiles = tiles[room.teacher_id] || {};
     const canDraw = isHost || !!mine?.can_draw;
@@ -143,7 +154,7 @@ export default function Room({ room, me, config, back }) {
                 const have = new Set(ops.map((o) => o.id));
                 ops = [...ops, ...board.current.ops().filter((o) => !have.has(o.id))];
             }
-            loaded.current = { page: p, version: data.version };
+            loaded.current = { page: p, version: data.version, bg: data.bg };
             board.current?.load(ops, data.bg);
         } catch { /* دورِ بعد */ }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -222,7 +233,7 @@ export default function Room({ room, me, config, back }) {
         else if (msg.t === 'undo' && msg.page === curPage) board.current?.undo(msg.id);
         else if (msg.t === 'stroke' && msg.page === curPage) board.current?.stroke(msg);
         else if (msg.t === 'ptr') board.current?.pointer(msg.x, msg.y);
-        else if (msg.t === 'bg' && msg.page === curPage) board.current?.setBg(msg.bg);
+        else if (msg.t === 'bg' && msg.page === curPage) { board.current?.setBg(msg.bg); loaded.current.bg = msg.bg; }
         else if (msg.t === 'sync') sync.current?.now();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -275,6 +286,11 @@ export default function Room({ room, me, config, back }) {
             if (loaded.current.page !== pg) loadPage(pg);
             else if (isHost && ver > loaded.current.version) loadPage(pg, true);
             else if (!isHost && ver > loaded.current.version && !tr.current?.dataOpen()) loadPage(pg);
+            // زمینه‌ی صفحه عوض شده (مثلاً تصویرِ صفحه‌ی کتاب تازه آماده شد) → دوباره بخوان
+            else if (!isHost) {
+                const nbg = s.pages.find((x) => x.page === pg)?.bg;
+                if (nbg && loaded.current.bg && nbg !== loaded.current.bg) loadPage(pg);
+            }
             if (isHost) {
                 tr.current?.setSpeakers(s.people.filter((p) => p.can_speak && p.role === 'student').map((p) => p.id));
             }
@@ -558,6 +574,56 @@ export default function Room({ room, me, config, back }) {
         loaded.current = { page: -1, version: -1 };
         await control('page', Math.max(0, p - 1));
     };
+    // ── 📚 کتابِ درسی ─────────────────────────────────────────────────
+    const bookDocFor = async (b) => {
+        if (bookDoc.current?.id === b.id) return bookDoc.current.doc;
+        const doc = await openPdf(R('book.file', b.id));
+        bookDoc.current = { id: b.id, doc };
+        return doc;
+    };
+    const openBook = async (b) => {
+        setBooksOpen(false);
+        setBusy(`📖 در حالِ باز کردنِ «${b.title}»…`);
+        try {
+            await saveBoard(true);
+            const doc = await bookDocFor(b);
+            await axios.post(R('book.open', b.id), { pages: doc.numPages });
+            loaded.current = { page: -1, version: -1 };
+            sync.current?.now();
+            send({ t: 'sync' });
+        } catch (e) {
+            console.warn('[online] book', e);
+            toast(e?.response?.data?.message || 'کتاب باز نشد؛ دوباره امتحان کنید.');
+        } finally { setBusy(null); }
+    };
+    const closeBook = async () => {
+        await saveBoard(true);
+        loaded.current = { page: -1, version: -1 };
+        await control('book_close');
+    };
+    const goBookPage = (n) => {
+        if (!book || !Number.isFinite(n)) return;
+        goPage(999 + Math.max(1, Math.min(book.pages || 9999, Math.round(n))));
+    };
+    /** ذخیره‌ی صفحه‌ی فعلیِ تخته (با زمینه و نوشته‌ها) به‌صورتِ عکس روی رایانه. */
+    const savePng = () => {
+        const cvs = board.current?.canvases() || [];
+        const c = document.createElement('canvas');
+        c.width = BW; c.height = BH;
+        const g = c.getContext('2d');
+        g.fillStyle = '#fff'; g.fillRect(0, 0, BW, BH);
+        for (const cv of cvs) if (cv?.width) g.drawImage(cv, 0, 0, BW, BH);
+        c.toBlob((blob) => {
+            if (!blob) { toast('عکس ساخته نشد.'); return; }
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            const name = inBook ? `${book.title}-صفحه-${bookNo}` : `${room.title}-تخته-${page + 1}`;
+            a.download = `${name.replace(/[\\/:*?"<>|]+/g, ' ').trim()}.png`;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        }, 'image/png');
+    };
+
     const uploadSlides = async (file) => {
         if (!file) return;
         setBusy('در حالِ آماده کردنِ اسلایدها…');
@@ -675,6 +741,45 @@ export default function Room({ room, me, config, back }) {
         if (phase === 'in' && stRef.current) { loaded.current = { page: -1, version: -1 }; loadPage(stRef.current.settings.page); }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [phase]);
+
+    // معلم: تصویرِ صفحه‌ی فعلیِ کتاب (و دو صفحه‌ی بعد) را یک‌بار از PDF می‌سازد؛ بعد برای همه فوری است
+    useEffect(() => {
+        if (!isHost || !inBook || !book || phase !== 'in') return undefined;
+        let stop = false;
+        (async () => {
+            const last = Math.min(bookNo + 2, book.pages || bookNo + 2);
+            for (let i = bookNo; i <= last; i += 1) {
+                if (stop && i !== bookNo) break;
+                const entry = pages.find((x) => x.page === 999 + i);
+                if (entry && entry.bg && entry.bg !== 'blank') continue;
+                const key = `${book.id}:${i}`;
+                if (bookRendering.current.has(key)) continue;
+                bookRendering.current.add(key);
+                try {
+                    const doc = await bookDocFor(book);
+                    const blob = await renderPdfPage(doc, i);
+                    const fd = new FormData();
+                    fd.append('page', String(i));
+                    fd.append('file', new File([blob], `p${i}.jpg`, { type: 'image/jpeg' }));
+                    const { data } = await axios.post(R('book.image', book.id), fd, { timeout: 120000 });
+                    if (i === bookNo && data?.bg && loaded.current.page === 999 + i) {
+                        // همه همین حالا تصویرِ صفحه را ببینند
+                        board.current?.setBg(data.bg);
+                        loaded.current.bg = data.bg;
+                        send({ t: 'bg', page: 999 + i, bg: data.bg });
+                    }
+                    if (i === bookNo) sync.current?.now();
+                } catch (e) {
+                    bookRendering.current.delete(key);
+                    console.warn('[online] book page', e);
+                    if (i === bookNo) toast('صفحه‌ی کتاب آماده نشد؛ یک بار صفحه را عوض کنید و برگردید.');
+                    break;
+                }
+            }
+        })();
+        return () => { stop = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isHost, inBook, bookNo, book?.id, book?.pages, pages, phase]);
 
     // پنلِ گفت‌وگو باز شد → خوانده‌شده
     useEffect(() => { if (panel === 'chat' && (sheet || window.innerWidth > 900 || window.matchMedia('(orientation: portrait)').matches)) setUnread(0); }, [panel, sheet, msgs.length]);
@@ -823,9 +928,10 @@ export default function Room({ room, me, config, back }) {
                         </div>
                         {showPollCard && <PollCard poll={poll} onAnswer={answer} onDismiss={() => setPollHidden(`${poll.id}:${poll.status}`)} />}
                         {busy && <div className="oc-busy"><Mascot mood="think" size={64} /><span>{busy}</span></div>}
+                        {!busy && bookPending && stage === 'board' && <div className="oc-book-wait">📖 صفحه‌ی {fa(bookNo)} در حالِ آماده شدن…</div>}
                     </div>
 
-                    {isHost && stage === 'board' && (
+                    {isHost && stage === 'board' && !inBook && (
                         <div className="oc-pages">
                             <button type="button" onClick={() => goPage(page - 1)} disabled={page <= 0} aria-label="صفحه‌ی قبل">◀</button>
                             <span>صفحه‌ی {fa(page + 1)} از {fa(pageCount)}</span>
@@ -836,11 +942,32 @@ export default function Room({ room, me, config, back }) {
                                 {BGS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                             </select>
                             <label className="oc-file" title="عکس، PDF، پاورپوینت یا ورد؛ بعد با قلم روی آن بنویسید">📂 فایلِ درس<input type="file" accept="image/*,application/pdf,.pdf,.ppt,.pptx,.pps,.ppsx,.odp,.doc,.docx,.odt,.rtf" onChange={(e) => { uploadSlides(e.target.files?.[0]); e.target.value = ''; }} /></label>
+                            <button type="button" className="oc-book-btn" onClick={() => setBooksOpen(true)} title="کتاب‌های درسیِ من (روی سرور)">📚 کتاب{book ? `: ${book.title}` : ''}</button>
                             <button type="button" onClick={removePage} disabled={pageCount <= 1} aria-label="حذفِ صفحه">🗑️</button>
+                            <button type="button" onClick={savePng} title="ذخیره‌ی این صفحه به‌صورتِ عکس روی رایانه">💾 عکس</button>
                             <button type="button" onClick={toggleFs} title="تخته را تمام‌صفحه کن">⛶ تمام‌صفحه</button>
                         </div>
                     )}
-                    {!isHost && stage === 'board' && <div className="oc-pages ro">صفحه‌ی {fa(page + 1)} از {fa(pageCount)}{canDraw && ' · ✏️ می‌توانی بنویسی'}</div>}
+                    {isHost && stage === 'board' && inBook && (
+                        <div className="oc-pages oc-pages-book">
+                            <button type="button" onClick={() => goBookPage(bookNo - 1)} disabled={bookNo <= 1} aria-label="صفحه‌ی قبلِ کتاب">◀</button>
+                            <span className="oc-book-t">📖 {book.title}</span>
+                            <form className="oc-book-go-f" onSubmit={(e) => { e.preventDefault(); goBookPage(Number(String(bookGo).replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))); setBookGo(''); }}>
+                                صفحه‌ی <input inputMode="numeric" aria-label="رفتن به صفحه" value={bookGo} placeholder={fa(bookNo)} onChange={(e) => setBookGo(e.target.value)} />{book.pages ? ` از ${fa(book.pages)}` : ''}
+                            </form>
+                            <button type="button" onClick={() => goBookPage(bookNo + 1)} disabled={!!book.pages && bookNo >= book.pages} aria-label="صفحه‌ی بعدِ کتاب">▶</button>
+                            <button type="button" onClick={() => setBooksOpen(true)}>📚 کتاب‌ها</button>
+                            <button type="button" onClick={savePng} title="ذخیره‌ی این صفحه با نوشته‌ها به‌صورتِ عکس">💾 عکس</button>
+                            <button type="button" onClick={toggleFs} title="تمام‌صفحه">⛶</button>
+                            <button type="button" className="oc-book-close" onClick={closeBook}>📕 بستنِ کتاب</button>
+                        </div>
+                    )}
+                    {!isHost && stage === 'board' && (
+                        <div className="oc-pages ro">
+                            {inBook ? `📖 ${book.title} · صفحه‌ی ${fa(bookNo)}${book.pages ? ` از ${fa(book.pages)}` : ''}` : `صفحه‌ی ${fa(page + 1)} از ${fa(pageCount)}`}
+                            {canDraw && ' · ✏️ می‌توانی بنویسی'}
+                        </div>
+                    )}
                 </section>
                 {sidePanel}
             </div>
@@ -992,6 +1119,10 @@ export default function Room({ room, me, config, back }) {
                 </div>
             )}
             {report && <ReportModal url={R('report')} onClose={() => setReport(false)} />}
+            {booksOpen && isHost && (
+                <BookPanel listUrl={R('books')} uploadUrl={R('books.upload')} deleteUrl={(id) => R('book.destroy', id)} current={book?.id}
+                    onOpen={openBook} onClose={() => setBooksOpen(false)} />
+            )}
         </div>
     );
 }

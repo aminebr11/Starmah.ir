@@ -414,4 +414,59 @@ class OnlineClassTest extends TestCase
         $this->assertSame([$rec2], \App\Models\OnlineRecording::pluck('id')->all());
         $this->assertSame($recs[1]->path, $room->fresh()->recording_path);
     }
+
+    public function test_textbook_upload_open_notes_progress_and_access(): void
+    {
+        Storage::fake('local');
+        [$school, $teacher, $classroom, $student, $admin, $super, $room] = $this->live();
+        $this->actingAs($student)->postJson(route('online.join', $room))->assertOk();
+        $pdf = "%PDF-1.4\n" . str_repeat('x', 5000);
+
+        // بارگذاریِ دوتکه‌ای
+        $this->actingAs($teacher)->post(route('online.books.upload', $room), ['upload' => 'abc12345', 'seq' => 0, 'total' => 2, 'title' => 'ریاضیِ سوم',
+            'chunk' => UploadedFile::fake()->createWithContent('a.bin', substr($pdf, 0, 3000))], ['Accept' => 'application/json'])->assertOk()->assertJsonPath('done', false);
+        $book = $this->actingAs($teacher)->post(route('online.books.upload', $room), ['upload' => 'abc12345', 'seq' => 1, 'total' => 2, 'title' => 'ریاضیِ سوم',
+            'chunk' => UploadedFile::fake()->createWithContent('b.bin', substr($pdf, 3000))], ['Accept' => 'application/json'])->assertOk()->assertJsonPath('done', true)->json('book');
+        $model = \App\Models\OnlineBook::findOrFail($book['id']);
+        $this->assertSame(strlen($pdf), (int) $model->size);
+        Storage::disk('local')->assertExists($model->path);
+        // فایلِ غیرِ PDF رد می‌شود؛ دانش‌آموز نمی‌تواند کتاب بگذارد
+        $this->actingAs($teacher)->post(route('online.books.upload', $room), ['upload' => 'zzz12345', 'seq' => 0, 'total' => 1, 'title' => 'x',
+            'chunk' => UploadedFile::fake()->createWithContent('x.bin', 'hello')], ['Accept' => 'application/json'])->assertStatus(422);
+        $this->actingAs($student)->getJson(route('online.books', $room))->assertForbidden();
+        $this->actingAs($student)->get(route('online.book.file', [$room, $model]))->assertForbidden();
+
+        // باز کردن (۱۰ صفحه) → صفحه‌ی ۱ = صفحه‌ی ۱۰۰۰ تخته
+        $this->actingAs($teacher)->postJson(route('online.book.open', [$room, $model]), ['pages' => 10])->assertOk()->assertJsonPath('board', 1000);
+        $this->actingAs($student)->postJson(route('online.sync', $room), ['v' => 0])->assertJsonPath('state.settings.page', 1000)
+            ->assertJsonPath('state.settings.book.pages', 10);
+        // تصویرِ صفحه که مرورگرِ معلم ساخته
+        $this->actingAs($teacher)->post(route('online.book.image', [$room, $model]), ['page' => 1, 'file' => UploadedFile::fake()->image('p1.jpg', 50, 70)], ['Accept' => 'application/json'])->assertOk();
+        $bg = $this->actingAs($student)->getJson(route('online.board', $room) . '?page=1000')->assertOk()->json('bg');
+        $this->assertStringContainsString('/book-img/' . $model->id . '/1', $bg);
+        $this->actingAs($student)->get(parse_url($bg, PHP_URL_PATH))->assertOk();
+
+        // نوشته روی صفحه‌ی ۳ کتاب و رفتن به آن
+        $this->actingAs($teacher)->postJson(route('online.control', $room), ['action' => 'page', 'value' => 1002])->assertOk();
+        $this->actingAs($teacher)->postJson(route('online.board.save', $room), ['page' => 1002, 'ops' => json_encode([['id' => 'n1', 'k' => 'pen', 'p' => [1, 2, 3, 4]]])])->assertOk();
+        $this->assertSame(3, $model->fresh()->pageFor($classroom->id));
+        // صفحه‌ی بیرون از کتاب
+        $this->actingAs($teacher)->postJson(route('online.control', $room), ['action' => 'page', 'value' => 1010])->assertStatus(422);
+
+        // بستن → تخته؛ تصویرِ کتاب دیگر برای بچه‌ها در دسترس نیست
+        $this->actingAs($teacher)->postJson(route('online.control', $room), ['action' => 'book_close'])->assertOk();
+        $this->actingAs($student)->postJson(route('online.sync', $room), ['v' => 0])->assertJsonPath('state.settings.page', 0)->assertJsonPath('state.settings.book', null);
+        $this->actingAs($student)->get(parse_url($bg, PHP_URL_PATH))->assertNotFound();
+
+        // دوباره باز کردن: از صفحه‌ی ۳ با همان نوشته
+        $this->actingAs($teacher)->postJson(route('online.book.open', [$room, $model]))->assertOk()->assertJsonPath('page', 3);
+        $this->assertSame('n1', $this->actingAs($student)->getJson(route('online.board', $room) . '?page=1002')->json('ops.0.id'));
+        $this->actingAs($teacher)->getJson(route('online.books', $room))->assertJsonPath('books.0.page', 3)->assertJsonPath('books.0.notes', 1);
+
+        // حذف
+        $this->actingAs($teacher)->deleteJson(route('online.book.destroy', [$room, $model]))->assertOk();
+        $this->assertNull(\App\Models\OnlineBook::find($model->id));
+        Storage::disk('local')->assertMissing($model->path);
+        $this->actingAs($student)->postJson(route('online.sync', $room), ['v' => 0])->assertJsonPath('state.settings.book', null);
+    }
 }

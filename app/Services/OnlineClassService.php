@@ -172,6 +172,9 @@ class OnlineClassService
                 'spotlight' => $room->opt('spotlight'),
                 'announce' => $room->opt('announce'),
                 'recording' => (bool) $room->opt('recording', false),
+                'book' => $room->opt('book'),
+                'reactions' => (bool) $room->opt('reactions', true),
+                'playing' => $room->opt('playing'),
             ],
             'people' => $people->map(fn ($x) => [
                 'id' => (int) $x->user_id, 'name' => $x->user?->name ?? '—', 'role' => $x->role, 'online' => $x->online(),
@@ -182,8 +185,27 @@ class OnlineClassService
                 'kind' => $m->kind, 'body' => $m->body, 'at' => $m->created_at?->getTimestampMs()]),
             'hidden' => $hidden,
             'poll' => $poll ? $this->pollData($poll, $me, $host) : null,
-            'pages' => $pages->map(fn ($pg) => ['page' => (int) $pg->page, 'bg' => $pg->bg, 'version' => (int) $pg->version]),
+            'pages' => $pages->map(fn ($pg) => ['page' => (int) $pg->page, 'bg' => $pg->bg, 'version' => (int) $pg->version])
+                ->concat($this->bookPages($room))->values(),
         ];
+    }
+
+    /** کتابِ باز: صفحه‌ی فعلی و دو صفحه‌ی بعد (نسخه برای همگام‌سازی، تصویر برای پیش‌بارگذاری). */
+    private function bookPages(OnlineRoom $room): array
+    {
+        $cur = (int) $room->opt('page', 0);
+        if (! \App\Support\OnlineBoard::isBook($cur) || ! $room->opt('book') || ! \App\Models\OnlineBook::ready()) {
+            return [];
+        }
+        $n = \App\Support\OnlineBoard::bookPageNo($cur);
+        $rows = \App\Models\OnlineBookPage::where('book_id', (int) $room->opt('book')['id'])->whereBetween('page', [$n, $n + 2])->get(['book_id', 'page', 'bg', 'version'])->keyBy('page');
+
+        return collect(range($n, $n + 2))->map(function ($i) use ($rows, $room) {
+            $idx = \App\Support\OnlineBoard::boardIndex($i);
+            $row = $rows[$i] ?? null;
+
+            return ['page' => $idx, 'bg' => \App\Support\OnlineBoard::bg($room, $idx, $row), 'version' => (int) ($row->version ?? 0)];
+        })->all();
     }
 
     public function pollData(OnlinePoll $poll, OnlineParticipant $me, bool $host): array

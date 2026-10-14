@@ -433,3 +433,33 @@
 .oc-player-h small{opacity:.7}
 .oc-player-h button{border:0;background:rgba(255,255,255,.15);color:#fff;width:34px;height:34px;border-radius:12px;font-size:20px;cursor:pointer}
 .oc-player video{width:100%;max-height:78vh;border-radius:14px;background:#000;display:block}
+
+/* ── 📚 کتابِ درسی ───────────────────────────────────────────────── */
+.oc-pages .oc-book-btn{background:#fff7e6;color:#7a4a00;box-shadow:0 0 0 1.5px #fcd9a0}
+.oc-pages-book{background:#fffaf0;box-shadow:0 0 0 1.5px #fde3b4;border-radius:16px;padding:6px 8px}
+.oc-book-t{font-weight:900;color:#7a4a00;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.oc-book-go-f{display:inline-flex;align-items:center;gap:4px;font-weight:800;font-size:13px}
+.oc-book-go-f input{width:58px;border:1.5px solid #e2e8f0;border-radius:10px;padding:5px 6px;font:inherit;text-align:center}
+.oc-pages .oc-book-close{background:#ffe4e6;color:#9f1239}
+.oc-book-wait{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:6;background:#fff;color:#7a4a00;font-weight:900;font-size:13.5px;border-radius:99px;padding:8px 16px;box-shadow:0 0 0 2px #fcd9a0,0 8px 20px -10px rgba(0,0,0,.35)}
+.oc-books{width:min(640px,96vw)}
+.oc-books-h{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.oc-books-h b{flex:1;font-size:17px}
+.oc-books-h button{border:0;background:#f1f5f9;width:34px;height:34px;border-radius:12px;font-size:20px;cursor:pointer}
+.oc-books-note{color:#64748b;font-size:12.5px;line-height:1.9;margin:0 0 10px}
+.oc-books-up{display:flex;flex-direction:column;gap:8px;background:#f8f6ff;border-radius:18px;padding:12px;margin-bottom:12px}
+.oc-books-up .oc-file{align-self:flex-start}
+.oc-books-up small{color:#64748b}
+.oc-books-bar{position:relative;height:28px;border-radius:99px;background:#ede9fe;overflow:hidden}
+.oc-books-bar i{position:absolute;inset-block:0;inset-inline-start:0;background:linear-gradient(90deg,#7c3aed,#a78bfa);transition:width .3s}
+.oc-books-bar span{position:relative;display:block;text-align:center;line-height:28px;font-weight:900;font-size:13px;color:#1e1b4b}
+.oc-books-l{display:flex;flex-direction:column;gap:8px}
+.oc-book{display:flex;align-items:center;gap:10px;background:#fff;border-radius:16px;padding:10px 12px;box-shadow:0 0 0 1.5px #ece7fb;color:#1e1b4b}
+.oc-book.on{box-shadow:0 0 0 2.5px #f5a524}
+.oc-book-i{font-size:26px}
+.oc-book-b{flex:1;min-width:0;display:flex;flex-direction:column}
+.oc-book-b b{font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.oc-book-b small{color:#64748b;font-size:12px}
+.oc-book-go{border:0;border-radius:12px;padding:8px 12px;font:inherit;font-weight:900;font-size:12.5px;color:#fff;background:#7c3aed;box-shadow:0 3px 0 #5b21b6;cursor:pointer;white-space:nowrap}
+.oc-book-x{border:0;background:none;font-size:18px;cursor:pointer}
+@media (max-width:560px){.oc-book{flex-wrap:wrap}.oc-book-go{flex:1}}
