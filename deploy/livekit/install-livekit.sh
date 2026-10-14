@@ -71,6 +71,9 @@ else
   printf 'API_KEY=%s\nAPI_SECRET=%s\n' "$API_KEY" "$API_SECRET" > "$CONF_DIR/keys"
   chmod 600 "$CONF_DIR/keys"; ok "کلیدهای تازه ساخته شد"
 fi
+# کلیدها همین حالا هم ذخیره شوند (اگر مرحله‌ی SSL شکست بخورد هم در دسترس باشند)
+printf 'نشانیِ سرور (wss):  wss://%s\nAPI Key:            %s\nAPI Secret:         %s\n' "$DOMAIN" "$API_KEY" "$API_SECRET" > "$KEYS_FILE"
+chmod 600 "$KEYS_FILE"
 
 cat > "$CONF_DIR/livekit.yaml" <<YAML
 # تنظیماتِ LiveKit برای کلاسِ آنلاینِ ستاره ماه
@@ -177,8 +180,12 @@ ok "فایروال فعال شد (SSH باز ماند)"
 
 # ── ۸) گواهیِ SSL ──────────────────────────────────────────────────────
 say "۸/۸ گرفتنِ گواهیِ SSL رایگان"
-certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL" --redirect \
-  || die "گواهی صادر نشد. معمولاً یعنی اینترنتِ بین‌الملل فعال نیست یا پورتِ ۸۰ از بیرون بسته است. اسکریپت را بعد از رفعِ مشکل دوباره اجرا کنید."
+if ! certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL" --redirect; then
+  warn "گواهیِ رایگان صادر نشد (معمولاً یعنی اینترنتِ بین‌المللِ VPS فعال نیست)."
+  warn "LiveKit نصب و روشن است و کلیدها در $KEYS_FILE ذخیره شد."
+  warn "راهِ دیگر: گواهی را جای دیگری بگیرید و با «bash install-manual-cert.sh» نصب کنید (راهنما در همان فایل)."
+  exit 1
+fi
 systemctl reload nginx
 sleep 1
 if curl -fsS "https://${DOMAIN}" >/dev/null; then ok "https://${DOMAIN} جواب می‌دهد"; else warn "https هنوز جواب نمی‌دهد؛ چند دقیقه بعد امتحان کنید."; fi

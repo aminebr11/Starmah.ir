@@ -1,11 +1,17 @@
 import { useState } from 'react';
 import { useForm, router } from '@inertiajs/react';
+import axios from 'axios';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
 import { fa } from '@/online/parts';
 
 /** «🎥 کلاسِ آنلاین» — ادمینِ کل: سرورِ رسانه، سرورهای اتصال و دسترسیِ هر مدرسه. */
 export default function OnlineClasses({ ready, settings, active, schools }) {
-    const form = useForm({ ...settings, livekit_secret: '' });
+    const form = useForm({ ...settings, livekit_secret: '', convert_token: '' });
+    const [conv, setConv] = useState(null);
+    const testConvert = () => {
+        setConv({ busy: true });
+        axios.post(route('admin.online.test-convert')).then(({ data }) => setConv(data)).catch(() => setConv({ ok: false, message: 'آزمایش انجام نشد.' }));
+    };
     const d = form.data;
     const [maxes, setMaxes] = useState(() => Object.fromEntries(schools.map((s) => [s.id, s.max])));
     const save = (e) => { e.preventDefault(); form.put(route('admin.online.settings'), { preserveScroll: true }); };
@@ -45,6 +51,19 @@ export default function OnlineClasses({ ready, settings, active, schools }) {
                     <textarea className="input" dir="ltr" rows={4} value={d.ice} onChange={(e) => form.setData('ice', e.target.value)} placeholder={'stun:stun.l.google.com:19302\nturn:turn.example.ir:3478 user pass'} />
                 </label>
                 <small className="oc-note">برای اینترنتِ همراهِ ایران یک سرورِ TURN داخلی (مثلاً coturn روی همان VPS) اتصال را خیلی مطمئن‌تر می‌کند.</small>
+                <h3 style={{ marginTop: 18 }}>📂 تبدیلِ پاورپوینت و ورد به اسلاید <span className="oc-st">{settings.convert_url ? 'تنظیم شده' : 'اختیاری'}</span></h3>
+                <small className="oc-note">PDF و عکس بدونِ این بخش کار می‌کند. برای اینکه معلم فایلِ پاورپوینت (pptx) یا ورد را مستقیم بفرستد، سرویسِ تبدیل را با «install-convert.sh» روی VPS نصب کنید و نشانی و رمزی را که نشان می‌دهد این‌جا بنویسید.</small>
+                <div className="at-grid">
+                    <label>نشانیِ سرویسِ تبدیل<input className="input" dir="ltr" value={d.convert_url || ''} onChange={(e) => form.setData('convert_url', e.target.value)} placeholder="http://87.248.131.143:7890" /></label>
+                    <label>رمز (Token) {settings.convert_token_set && <small>(ذخیره شده؛ برای تغییر بنویسید)</small>}<input className="input" dir="ltr" type="password" value={d.convert_token} onChange={(e) => form.setData('convert_token', e.target.value)} placeholder={settings.convert_token_set ? '••••••••' : ''} /></label>
+                </div>
+                {form.errors.convert_url && <div className="rm-err">{form.errors.convert_url}</div>}
+                {settings.convert_url && (
+                    <div className="oc-row" style={{ alignItems: 'center', gap: 10, display: 'flex', flexWrap: 'wrap' }}>
+                        <button type="button" className="btn ghost" onClick={testConvert} disabled={conv?.busy}>{conv?.busy ? '…' : '🔍 آزمایشِ اتصال'}</button>
+                        {conv && !conv.busy && <span className={conv.ok ? 'oc-ok' : 'rm-err'}>{conv.ok ? '✅ ' : '⚠️ '}{conv.message}</span>}
+                    </div>
+                )}
                 <button type="submit" className="btn" disabled={form.processing}>💾 ذخیره‌ی تنظیمات</button>
             </form>
 

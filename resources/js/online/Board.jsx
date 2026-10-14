@@ -129,6 +129,8 @@ function hit(op, x, y) {
 }
 
 const imgCache = new Map();
+/** پیش‌بارگذاریِ تصویرِ صفحه‌های بعدیِ فایلِ درس (ورق‌زدنِ فوری). */
+export function preloadImg(url) { if (url && !imgCache.has(url)) loadImg(url, () => {}); }
 function loadImg(url, cb) {
     if (imgCache.has(url)) { const im = imgCache.get(url); if (im.complete) return im; im.addEventListener('load', cb, { once: true }); return null; }
     const im = new Image();

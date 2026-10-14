@@ -10,7 +10,7 @@ export default class ClassRecorder {
     constructor({ uploadUrl, finishUrl, getStage, getAudioTracks, onState }) {
         this.uploadUrl = uploadUrl;
         this.finishUrl = finishUrl;
-        this.getStage = getStage;            // () => { mode, canvases:[], screen:HTMLVideoElement|null, cam:HTMLVideoElement|null }
+        this.getStage = getStage;            // () => { mode: board|screen|cam, canvases:[], screen:HTMLVideoElement|null, cam:HTMLVideoElement|null }
         this.getAudioTracks = getAudioTracks; // () => MediaStreamTrack[]
         this.onState = onState;
         this.seq = 0;
@@ -29,6 +29,12 @@ export default class ClassRecorder {
         const draw = () => {
             const s = this.getStage();
             g.fillStyle = '#fff'; g.fillRect(0, 0, 1280, 720);
+            if (s.mode === 'cam' && s.cam?.videoWidth) {
+                const v = s.cam; const k = Math.min(1280 / v.videoWidth, 720 / v.videoHeight);
+                g.fillStyle = '#120d2b'; g.fillRect(0, 0, 1280, 720);
+                g.drawImage(v, (1280 - v.videoWidth * k) / 2, (720 - v.videoHeight * k) / 2, v.videoWidth * k, v.videoHeight * k);
+                return;
+            }
             if (s.mode === 'screen' && s.screen?.videoWidth) {
                 const v = s.screen; const k = Math.min(1280 / v.videoWidth, 720 / v.videoHeight);
                 g.fillStyle = '#111'; g.fillRect(0, 0, 1280, 720);

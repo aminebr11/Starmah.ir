@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth', 'role:super_admin'])->prefix('admin/online')->name('admin.')->group(function () {
     Route::get('/', [ManageController::class, 'admin'])->name('online');
     Route::put('/settings', [ManageController::class, 'adminSettings'])->name('online.settings');
+    Route::post('/test-convert', [ManageController::class, 'adminTestConvert'])->name('online.test-convert');
     Route::put('/schools/{school}', [ManageController::class, 'adminSchool'])->name('online.school');
 });
 
@@ -43,6 +44,7 @@ Route::middleware(['auth'])->prefix('online/{room}')->name('online.')->group(fun
     Route::get('/board', [RoomController::class, 'boardGet'])->name('board');
     Route::post('/board-op', [RoomController::class, 'boardOp'])->middleware('throttle:online-act')->name('board.op');
     Route::post('/board', [RoomController::class, 'boardSave'])->middleware('throttle:online-act')->name('board.save');
+    Route::post('/convert', [RoomController::class, 'convert'])->middleware('throttle:online-act')->name('convert');
     Route::post('/asset', [RoomController::class, 'assetUpload'])->middleware('throttle:online-act')->name('asset.upload');
     Route::get('/asset/{name}', [RoomController::class, 'asset'])->name('asset');
     Route::post('/poll', [RoomController::class, 'pollCreate'])->name('poll');

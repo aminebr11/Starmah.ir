@@ -42,6 +42,7 @@ export default function createMesh(opts) {
     const peers = new Map();          // معلم: uid → peer | دانش‌آموز: hostId → peer
     const local = { mic: null, cam: null, screen: null };
     let speakers = new Set();
+    let relayed = null;          // تصویرِ دانش‌آموزی که معلم برای همه نمایش می‌دهد
     let counter = 0;
     let closed = false;
 
@@ -213,7 +214,7 @@ export default function createMesh(opts) {
         peer.tx = { audio: t[0], cam: t[1], screen: t[2] };
         try { t[0].direction = 'sendrecv'; t[1].direction = 'sendrecv'; t[2].direction = 'recvonly'; } catch { /* */ }
         if (local.mic) await t[0].sender.replaceTrack(local.mic);
-        if (local.cam) await t[1].sender.replaceTrack(local.cam);
+        if (relayed || local.cam) await t[1].sender.replaceTrack(relayed || local.cam);
         await pc.setLocalDescription(await pc.createAnswer());
         await waitIce(pc);
         if (peers.get(from) !== peer) return;
@@ -248,7 +249,7 @@ export default function createMesh(opts) {
             if (!isHost || closed) return;
             const want = new Set();
             for (const p of people) {
-                if (p.id === me || !p.online || p.ms !== 'ready') continue;
+                if (p.id === me || !p.online || !String(p.ms || '').startsWith('ready')) continue;
                 want.add(p.id);
                 const peer = peers.get(p.id);
                 const stale = peer && (peer.state === 'failed' || peer.state === 'closed'
@@ -294,7 +295,8 @@ export default function createMesh(opts) {
 
         async setCam(track) {
             local.cam = track;
-            for (const p of peers.values()) await p.tx?.cam?.sender.replaceTrack(track).catch(() => {});
+            // وقتی تصویرِ یک دانش‌آموز برای همه نمایش داده می‌شود، روشن/خاموش کردنِ دوربینِ معلم آن را قطع نکند
+            for (const p of peers.values()) await p.tx?.cam?.sender.replaceTrack(relayed || track).catch(() => {});
             adapt();
         },
 
@@ -313,6 +315,7 @@ export default function createMesh(opts) {
 
         /** معلم: نمایشِ تصویرِ یک دانش‌آموز برای همه (به جای دوربینِ خودم). */
         async relayCam(track) {
+            relayed = track || null;
             for (const p of peers.values()) await p.tx?.cam?.sender.replaceTrack(track || local.cam).catch(() => {});
             adapt();
         },

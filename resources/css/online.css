@@ -351,3 +351,46 @@
 .oc.kid-board .oc-stage{position:absolute;inset:0}
 .oc.kid-board .oc-board,.oc.kid-board .ob{position:absolute;inset:0;width:100%;height:100%}
 .oc.kid-board .ob-stage{position:absolute;inset:0;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;aspect-ratio:auto!important;border-radius:16px}
+
+/* ── تصویرهای جابه‌جاشدنی ────────────────────────────────────────── */
+.oc-drag.oc-pips{pointer-events:auto;touch-action:none;cursor:grab;gap:4px;background:rgba(20,17,42,.18);backdrop-filter:blur(2px);padding:4px;border-radius:20px;user-select:none;-webkit-user-select:none}
+.oc-drag.oc-pips:active{cursor:grabbing}
+.oc-drag-h{display:flex;align-items:center;gap:4px;justify-content:flex-end}
+.oc-drag-grip{flex:1;text-align:center;color:#fff;font-size:14px;line-height:1;opacity:.85;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.oc-drag-h button{border:0;border-radius:10px;min-width:28px;height:26px;padding:0 6px;font:inherit;font-size:12px;font-weight:900;background:rgba(255,255,255,.92);color:#3b2a83;cursor:pointer;box-shadow:0 2px 0 rgba(0,0,0,.15)}
+.oc-drag-b{display:flex;flex-direction:column;gap:6px}
+.oc-drag-b[hidden]{display:none}
+.oc-drag.mini{background:transparent;backdrop-filter:none;padding:0}
+.oc-drag.mini .oc-drag-grip{display:none}
+.oc-drag.mini .oc-drag-h button{height:34px;padding:0 12px;font-size:13px;background:#7c3aed;color:#fff;box-shadow:0 4px 0 #5b21b6}
+.oc-drag.big .oc-pip{width:300px}
+.oc-drag.big .oc-pip.small{width:200px}
+.oc-drag .oc-pip video{pointer-events:none}
+@media (max-width:900px){
+  .oc-drag.big .oc-pip{width:190px}
+  .oc-drag.big .oc-pip.small{width:130px}
+}
+
+/* ── صحنه‌ی «فقط دوربین» ──────────────────────────────────────────── */
+.oc-camstage{background:radial-gradient(circle at 50% 40%,#2a1f63,#120d2b)}
+.oc-camstage .oc-vid{width:100%;height:100%;border-radius:0}
+.oc-camstage .oc-vid.spk{box-shadow:inset 0 0 0 5px #22c55e!important}
+.oc-camstage .oc-vid-l{font-size:15px}
+@media (max-width:900px) and (orientation:portrait){
+  .oc-stage.stage-cam,.oc-stage.stage-screen{aspect-ratio:4/3;width:100%}
+}
+
+/* ── وضعیتِ روشنِ میک/دوربین در فهرستِ نفرات ─────────────────────── */
+.oc-p-live{display:inline-flex;gap:2px;background:#dcfce7;border-radius:99px;padding:2px 7px;font-style:normal}
+.oc-p-live i{font-style:normal;font-size:13px}
+
+/* ── انتخابِ چیدمان (معلم) ───────────────────────────────────────── */
+.oc-layouts{position:fixed;z-index:35;bottom:calc(80px + var(--oc-sab));left:50%;transform:translateX(-50%);width:min(380px,94vw);background:#fff;border-radius:22px;padding:12px;box-shadow:0 20px 50px -14px rgba(40,20,120,.55),0 0 0 1px #ece7fb;display:flex;flex-direction:column;gap:6px}
+.oc-layouts>b{font-size:14px;color:#3b2a83;padding:2px 6px 4px}
+.oc-layouts button{display:flex;align-items:center;gap:12px;text-align:start;border:2px solid #f0ecfb;background:#faf8ff;border-radius:16px;padding:9px 12px;font:inherit;cursor:pointer;color:#1e1b4b}
+.oc-layouts button>span:first-child{font-size:24px;min-width:44px;text-align:center}
+.oc-layouts button b{display:block;font-size:14px}
+.oc-layouts button small{display:block;color:#64748b;font-size:12px;margin-top:2px}
+.oc-layouts button.on{border-color:#7c3aed;background:#f3edff;box-shadow:0 3px 0 #ddd0fb}
+.oc-chips button.on{background:#7c3aed;color:#fff}
+.oc-ok{color:#15803d;font-weight:800;font-size:13.5px}

@@ -3,12 +3,12 @@ import { Head } from '@inertiajs/react';
 import axios from 'axios';
 import Mascot from '@/Components/Mascot';
 import { toast } from '@/lib/toast';
-import Board from '@/online/Board';
+import Board, { preloadImg } from '@/online/Board';
 import RoomSync from '@/online/sync';
 import createMesh from '@/online/mesh';
 import ClassRecorder from '@/online/recorder';
 import { importSlides } from '@/online/slides';
-import { fa, Vid, AudioSink, Clock, Countdown, Chat, People, PollPanel, PollCard, ReportModal } from '@/online/parts';
+import { fa, Vid, DragBox, AudioSink, Clock, Countdown, Chat, People, PollPanel, PollCard, ReportModal } from '@/online/parts';
 
 /**
  * «🎥 کلاسِ آنلاین» — یک صفحه برای معلم، دانش‌آموز و ناظر (شبیهِ اسکای‌روم، با فضای کودکانه).
@@ -21,6 +21,13 @@ import { fa, Vid, AudioSink, Clock, Countdown, Chat, People, PollPanel, PollCard
  */
 
 const REACTIONS = ['👏', '❤️', '😂', '🌟', '👍', '😮'];
+const OFFICE = /\.(pptx?|ppsx?|odp|docx?|odt|rtf)$/i;
+const LAYOUTS = [
+    ['board_cam', '📝🎥', 'تخته + دوربین', 'تخته بزرگ، تصویرِ معلم کوچک و جابه‌جاشدنی'],
+    ['board', '📝', 'فقط تخته / فایل', 'بچه‌ها فقط تخته و فایلِ درس را تمام‌صفحه می‌بینند'],
+    ['cam', '🎥', 'فقط دوربین', 'تصویرِ معلم بزرگ وسطِ صفحه'],
+    ['screen', '🖥️', 'اشتراکِ صفحه', 'نمایشِ صفحه‌ی رایانه‌ی معلم'],
+];
 const BGS = [['blank', '⬜ ساده'], ['lines', '📒 خط‌دار'], ['grid', '🔲 شطرنجی'], ['dots', '⠿ نقطه‌ای'], ['chalk', '🟩 تخته‌سیاه']];
 
 const xsrf = () => decodeURIComponent((document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]+)/) || [])[1] || '');
@@ -51,6 +58,8 @@ export default function Room({ room, me, config, back }) {
     const [reactOpen, setReactOpen] = useState(false);
     const [speaking, setSpeaking] = useState([]);   // شناسه‌ی کسانی که الان حرف می‌زنند
     const [fs, setFs] = useState(false);           // تمام‌صفحه‌ی تخته (معلم)
+    const [liveMs, setLiveMs] = useState({});      // uid → { ms, at }: وضعیتِ میک/دوربینِ تازه از کانالِ داده
+    const [layoutOpen, setLayoutOpen] = useState(false);
     const [busy, setBusy] = useState(null);
     const [rec, setRec] = useState(null);
     const [skew, setSkew] = useState(0);
@@ -81,7 +90,23 @@ export default function Room({ room, me, config, back }) {
     const stage = st?.settings?.stage ?? 'board';
     const hostTiles = tiles[room.teacher_id] || {};
     const canDraw = isHost || !!mine?.can_draw;
-    const kidBoard = !isMod && st?.settings?.kid_view === 'board';   // بچه‌ها فقط تخته را می‌بینند
+    const kidBoard = !isMod && st?.settings?.kid_view === 'board' && stage === 'board';   // بچه‌ها فقط تخته را می‌بینند
+    const layout = stage === 'screen' ? 'screen' : stage === 'cam' ? 'cam' : st?.settings?.kid_view === 'board' ? 'board' : 'board_cam';
+    /** وضعیتِ رسانه‌ی هر نفر: ready+mic+cam+scr (تازه‌ترین: کانالِ داده؛ وگرنه سرور). */
+    const msOf = (uid) => {
+        const l = liveMs[uid];
+        if (l && Date.now() - l.at < 15000) return l.ms;
+        return String(people.find((p) => p.id === uid)?.ms || '');
+    };
+    const camOn = (uid) => (uid === me.id ? !!local.cam : msOf(uid).includes('+cam'));
+    const spotId = st?.settings?.spotlight || null;
+    // تصویرِ اصلیِ کلاس برای دانش‌آموز: دوربینِ معلم (یا دانش‌آموزی که معلم نمایش داده)
+    const mainCam = isHost
+        ? (spotId && media === 'livekit' ? tiles[spotId]?.cam : local.cam) || null
+        : (media === 'livekit' && spotId && tiles[spotId]?.cam && camOn(spotId)) ? tiles[spotId].cam
+            : (hostTiles.cam && media !== 'livekit' && (spotId ? camOn(spotId) : camOn(room.teacher_id))) ? hostTiles.cam
+                : (hostTiles.cam && media === 'livekit' && camOn(room.teacher_id)) ? hostTiles.cam : null;
+    const mainCamLabel = spotId ? `👁️ ${people.find((p) => p.id === spotId)?.name || ''}` : isHost ? 'من' : `👩‍🏫 ${room.teacher}`;
     const speakingNames = people.filter((p) => speaking.includes(p.id)).map((p) => p.name);
     const toggleFs = () => {
         const next = !fs;
@@ -166,6 +191,10 @@ export default function Room({ room, me, config, back }) {
             send(msg, from);
             return;
         }
+        if (msg.t === 'ms' && typeof msg.ms === 'string') {
+            setLiveMs((m) => ({ ...m, [from]: { ms: msg.ms.slice(0, 40), at: Date.now() } }));
+            return;
+        }
         if (msg.t === 'speak') { if (!isHost && fromHost) setSpeaking(Array.isArray(msg.uids) ? msg.uids : []); return; }
         if (msg.t === 'react') {
             showReact(msg.e, msg.name || sender?.name);
@@ -223,6 +252,10 @@ export default function Room({ room, me, config, back }) {
             // تخته: صفحه عوض شده یا (بدونِ کانالِ داده) نسخه‌ی تازه آمده
             const pg = s.settings.page;
             const ver = s.pages.find((x) => x.page === pg)?.version ?? 0;
+            // تصویرِ دو صفحه‌ی بعد از پیش بارگذاری شود تا ورقِ فایلِ درس فوری عوض شود
+            for (const x of s.pages) {
+                if (x.page > pg && x.page <= pg + 2 && typeof x.bg === 'string' && x.bg.startsWith('/')) preloadImg(x.bg);
+            }
             if (loaded.current.page !== pg) loadPage(pg);
             else if (isHost && ver > loaded.current.version) loadPage(pg, true);
             else if (!isHost && ver > loaded.current.version && !tr.current?.dataOpen()) loadPage(pg);
@@ -337,6 +370,25 @@ export default function Room({ room, me, config, back }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // وضعیتِ میک/دوربین/صفحه را فوری به بقیه بگو (کانالِ داده) و در سرور هم ثبت کن؛
+    // با خاموش شدنِ دوربین، آخرین تصویر روی صفحه‌ی بچه‌ها نمی‌ماند.
+    useEffect(() => {
+        if (phase !== 'in' || !sync.current) return;
+        const base = String(sync.current.ms || 'ready').startsWith('nortc') ? 'nortc' : 'ready';
+        const ms = base + (local.mic ? '+mic' : '') + (local.cam ? '+cam' : '') + (local.screen ? '+scr' : '');
+        if (sync.current.ms === ms) return;
+        sync.current.ms = ms;
+        sync.current.now();
+        send({ t: 'ms', ms });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [local, phase]);
+    // هر چند ثانیه یک بار: وضعیتِ خودم برای کسی که تازه وصل شده
+    useEffect(() => {
+        if (phase !== 'in') return undefined;
+        const t = setInterval(() => { if (sync.current?.ms) send({ t: 'ms', ms: sync.current.ms }); }, 10000);
+        return () => clearInterval(t);
+    }, [phase, send]);
+
     // ── میکروفون، دوربین، اشتراکِ صفحه ────────────────────────────────
     const toggleMic = async (on = !localRef.current.mic) => {
         if (on) {
@@ -428,6 +480,26 @@ export default function Room({ room, me, config, back }) {
         setBusy('در حالِ آماده کردنِ اسلایدها…');
         try {
             await saveBoard(true);
+            // پاورپوینت/ورد: سرور آن را PDF می‌کند؛ بعد مثلِ PDF صفحه‌به‌صفحه تصویرِ سبک می‌شود
+            if (OFFICE.test(file.name)) {
+                setBusy('در حالِ تبدیلِ فایل به PDF… (چند ثانیه)');
+                const fd = new FormData();
+                fd.append('file', file);
+                let pdf;
+                try {
+                    const res = await axios.post(R('convert'), fd, {
+                        responseType: 'blob', timeout: 200000,
+                        onUploadProgress: (e) => e.total && setBusy(`ارسالِ فایل… ${fa(Math.round((e.loaded / e.total) * 100))}٪`),
+                    });
+                    pdf = res.data;
+                } catch (e) {
+                    let m = null;
+                    try { m = JSON.parse(await e?.response?.data?.text?.())?.message; } catch { /* */ }
+                    toast(m || 'فایل تبدیل نشد. در پاورپوینت از «File ← Save As ← PDF» آن را PDF کنید و همان را بفرستید.');
+                    return;
+                }
+                file = new File([pdf], file.name.replace(/\.[^.]+$/, '') + '.pdf', { type: 'application/pdf' });
+            }
             const urls = await importSlides(file, R('asset.upload'), (i, n) => setBusy(`اسلایدِ ${fa(i)} از ${fa(n)}…`));
             const start = pageCount;
             for (let i = 0; i < urls.length; i += 1) await axios.post(R('board.save'), { page: start + i, bg: urls[i], ops: '[]' });
@@ -436,7 +508,7 @@ export default function Room({ room, me, config, back }) {
             toast(`🖼️ ${fa(urls.length)} صفحه به تخته اضافه شد.`, 'success');
         } catch (e) {
             console.warn(e);
-            toast(e?.response?.data?.message || 'فایل آماده نشد. عکس (JPG/PNG) یا PDF بفرستید.');
+            toast(e?.response?.data?.message || 'فایل آماده نشد. عکس (JPG/PNG)، PDF یا پاورپوینت بفرستید.');
         } finally { setBusy(null); }
     };
 
@@ -462,6 +534,19 @@ export default function Room({ room, me, config, back }) {
         if (media !== 'livekit') tr.current?.relayCam(uid ? tiles[uid]?.cam : null);
     };
 
+    /** چیدمانِ صفحه‌ی کلاس برای همه: تخته+دوربین، فقط تخته/فایل، فقط دوربین، اشتراکِ صفحه. */
+    const setLayout = async (v) => {
+        setLayoutOpen(false);
+        if (v === 'screen' && !localRef.current.screen) { await toggleScreen(); return; }
+        if (v !== 'screen' && localRef.current.screen) {
+            localRef.current.screen.stop();
+            await tr.current?.setScreen(null);
+            setLocal((l) => ({ ...l, screen: null }));
+        }
+        if (v === 'cam' && !localRef.current.cam) await toggleCam(true);
+        await control('layout', v);
+    };
+
     // ── ضبط ──────────────────────────────────────────────────────────
     const toggleRec = async () => {
         if (recRef.current) {
@@ -476,7 +561,7 @@ export default function Room({ room, me, config, back }) {
         const r = new ClassRecorder({
             uploadUrl: R('record'),
             finishUrl: R('record.finish'),
-            getStage: () => ({ mode: localRef.current.screen && stRef.current?.settings?.stage === 'screen' ? 'screen' : 'board',
+            getStage: () => ({ mode: localRef.current.screen && stRef.current?.settings?.stage === 'screen' ? 'screen' : stRef.current?.settings?.stage === 'cam' ? 'cam' : 'board',
                 canvases: board.current?.canvases() || [], screen: screenEl.current, cam: camEl.current }),
             getAudioTracks: () => [localRef.current.mic, ...(tr.current?.remoteAudioTracks() || [])].filter(Boolean),
             onState: (s) => { if (s === 'error') toast('بخشی از ضبط بارگذاری نشد.'); },
@@ -516,7 +601,6 @@ export default function Room({ room, me, config, back }) {
     const poll = st?.poll;
     const showPollCard = !isMod && poll && pollHidden !== `${poll.id}:${poll.status}` && (poll.status === 'open' || (poll.status === 'shown' && poll.mine !== null));
     const hands = people.filter((p) => p.online && p.hand).length;
-    const spotlightName = st?.settings?.spotlight ? people.find((p) => p.id === st.settings.spotlight)?.name : null;
 
     // ═════════════════════════════ صفحه‌ها ═══════════════════════════════
     if (phase === 'lobby' || phase === 'waiting') {
@@ -584,7 +668,7 @@ export default function Room({ room, me, config, back }) {
             </div>
             <div className="oc-side-body">
                 {panel === 'chat' && <Chat msgs={msgs} me={me.id} chatOn={st?.settings?.chat !== false} isMod={isMod} onSend={chat} onHide={hideMsg} />}
-                {panel === 'people' && <People people={people} me={me.id} isMod={isMod} isHost={isHost} tiles={tiles} speaking={speaking} onPerm={perm} onStar={star} onKick={kick} onSpot={spot}
+                {panel === 'people' && <People people={people} me={me.id} isMod={isMod} isHost={isHost} tiles={tiles} speaking={speaking} msOf={msOf} onPerm={perm} onStar={star} onKick={kick} onSpot={spot}
                     spotlight={st?.settings?.spotlight} onAll={(a, v) => control(a, v)} />}
                 {panel === 'poll' && <PollPanel poll={poll} isMod={isMod} onCreate={newPoll} onClose={closePoll} />}
             </div>
@@ -621,7 +705,7 @@ export default function Room({ room, me, config, back }) {
             <div className="oc-main">
                 <section className="oc-stage-wrap">
                     <div className={`oc-stage stage-${stage}`}>
-                        <div className="oc-board" style={{ display: stage === 'screen' ? 'none' : undefined }}>
+                        <div className="oc-board" style={{ display: stage !== 'board' ? 'none' : undefined }}>
                             <Board ref={board} canDraw={canDraw} isHost={isHost} me={me.id} onOp={onOp} onStroke={onStroke} onPtr={onPtr} />
                         </div>
                         {stage === 'screen' && (
@@ -630,14 +714,21 @@ export default function Room({ room, me, config, back }) {
                                     : hostTiles.screen ? <Vid track={hostTiles.screen} fit="contain" /> : <div className="oc-empty">🖥️ معلم صفحه‌اش را نشان می‌دهد…</div>}
                             </div>
                         )}
-                        {/* دوربینِ معلم (یا دانش‌آموزِ نمایش‌داده‌شده) */}
-                        <div className="oc-pips">
-                            {isHost && local.cam && <Vid track={local.cam} mirror className="oc-pip" label="من" onEl={(el) => { camEl.current = el; }} />}
-                            {!isHost && hostTiles.cam && <Vid track={hostTiles.cam} className={`oc-pip ${speaking.includes(room.teacher_id) ? 'spk' : ''}`} label={spotlightName ? `👁️ ${spotlightName}` : `👩‍🏫 ${room.teacher}`} />}
-                            {!isHost && local.cam && <Vid track={local.cam} mirror className="oc-pip small" label="من" />}
-                            {media === 'livekit' && Object.entries(tiles).filter(([uid, t]) => Number(uid) !== room.teacher_id && Number(uid) !== me.id && t.cam)
-                                .slice(0, 4).map(([uid, t]) => <Vid key={uid} track={t.cam} className="oc-pip small" label={people.find((p) => p.id === Number(uid))?.name} />)}
-                        </div>
+                        {stage === 'cam' && (
+                            <div className="oc-screen oc-camstage">
+                                {mainCam
+                                    ? <Vid key={mainCam.id} track={mainCam} fit="contain" mirror={isHost && !spotId} className={speaking.includes(room.teacher_id) ? 'spk' : ''} label={mainCamLabel} onEl={isHost ? (el) => { camEl.current = el; } : undefined} />
+                                    : <div className="oc-empty">📷 {isHost ? 'دوربینِ شما خاموش است؛ دکمه‌ی دوربین را بزنید.' : 'دوربینِ معلم الان خاموش است…'}</div>}
+                            </div>
+                        )}
+                        {/* دوربین‌ها: جابه‌جاشدنی با کشیدن، کوچک/بزرگ و جمع‌شدنی */}
+                        <DragBox id="pips" className="oc-pips">
+                            {isHost && local.cam && stage !== 'cam' && <Vid key="me" track={local.cam} mirror className="oc-pip" label="من" onEl={(el) => { camEl.current = el; }} />}
+                            {!isHost && mainCam && stage !== 'cam' && <Vid key="main" track={mainCam} className={`oc-pip ${speaking.includes(room.teacher_id) ? 'spk' : ''}`} label={mainCamLabel} />}
+                            {!isHost && local.cam && <Vid key="me" track={local.cam} mirror className="oc-pip small" label="من" />}
+                            {media === 'livekit' && Object.entries(tiles).filter(([uid, t]) => Number(uid) !== room.teacher_id && Number(uid) !== me.id && Number(uid) !== spotId && t.cam && camOn(Number(uid)))
+                                .slice(0, 6).map(([uid, t]) => <Vid key={uid} track={t.cam} className={`oc-pip small ${speaking.includes(Number(uid)) ? 'spk' : ''}`} label={people.find((p) => p.id === Number(uid))?.name} />)}
+                        </DragBox>
                         {speakingNames.length > 0 && (
                             <div className="oc-spk-chip" aria-live="polite">🎙️ {speakingNames.join('، ')} {speakingNames.length > 1 ? 'صحبت می‌کنند' : 'صحبت می‌کند'}</div>
                         )}
@@ -648,7 +739,7 @@ export default function Room({ room, me, config, back }) {
                         {busy && <div className="oc-busy"><Mascot mood="think" size={64} /><span>{busy}</span></div>}
                     </div>
 
-                    {isHost && stage !== 'screen' && (
+                    {isHost && stage === 'board' && (
                         <div className="oc-pages">
                             <button type="button" onClick={() => goPage(page - 1)} disabled={page <= 0} aria-label="صفحه‌ی قبل">◀</button>
                             <span>صفحه‌ی {fa(page + 1)} از {fa(pageCount)}</span>
@@ -658,12 +749,12 @@ export default function Room({ room, me, config, back }) {
                                 <option value="" disabled>🎨 زمینه</option>
                                 {BGS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                             </select>
-                            <label className="oc-file">🖼️ اسلاید / PDF<input type="file" accept="image/*,application/pdf,.pdf" onChange={(e) => { uploadSlides(e.target.files?.[0]); e.target.value = ''; }} /></label>
+                            <label className="oc-file" title="عکس، PDF، پاورپوینت یا ورد؛ بعد با قلم روی آن بنویسید">📂 فایلِ درس<input type="file" accept="image/*,application/pdf,.pdf,.ppt,.pptx,.pps,.ppsx,.odp,.doc,.docx,.odt,.rtf" onChange={(e) => { uploadSlides(e.target.files?.[0]); e.target.value = ''; }} /></label>
                             <button type="button" onClick={removePage} disabled={pageCount <= 1} aria-label="حذفِ صفحه">🗑️</button>
                             <button type="button" onClick={toggleFs} title="تخته را تمام‌صفحه کن">⛶ تمام‌صفحه</button>
                         </div>
                     )}
-                    {!isHost && <div className="oc-pages ro">صفحه‌ی {fa(page + 1)} از {fa(pageCount)}{canDraw && ' · ✏️ می‌توانی بنویسی'}</div>}
+                    {!isHost && stage === 'board' && <div className="oc-pages ro">صفحه‌ی {fa(page + 1)} از {fa(pageCount)}{canDraw && ' · ✏️ می‌توانی بنویسی'}</div>}
                 </section>
                 {sidePanel}
             </div>
@@ -709,10 +800,19 @@ export default function Room({ room, me, config, back }) {
                     </button>
                 )}
                 {isHost && (
-                    <button type="button" className={`oc-cb ${st?.settings?.kid_view === 'board' ? 'on' : ''}`} onClick={() => control('kidview', st?.settings?.kid_view === 'board' ? 'normal' : 'board')}
-                        title="بچه‌ها فقط تخته را ببینند یا همه‌ی صحنه را">
-                        <span>{st?.settings?.kid_view === 'board' ? '🎯' : '👀'}</span><small>{st?.settings?.kid_view === 'board' ? 'بچه‌ها: تخته' : 'بچه‌ها: همه'}</small>
+                    <button type="button" className={`oc-cb ${layoutOpen ? 'on' : ''}`} onClick={() => setLayoutOpen((o) => !o)} title="بچه‌ها چه چیزی را ببینند">
+                        <span>{LAYOUTS.find((l) => l[0] === layout)?.[1]}</span><small>چیدمان</small>
                     </button>
+                )}
+                {isHost && layoutOpen && (
+                    <div className="oc-layouts" role="menu" aria-label="چیدمانِ صفحه">
+                        <b>بچه‌ها چه ببینند؟</b>
+                        {LAYOUTS.map(([k, ic, t, d]) => (
+                            <button key={k} type="button" role="menuitemradio" aria-checked={layout === k} className={layout === k ? 'on' : ''} onClick={() => setLayout(k)}>
+                                <span>{ic}</span><span><b>{t}</b><small>{d}</small></span>
+                            </button>
+                        ))}
+                    </div>
                 )}
                 {fs && (
                     <button type="button" className="oc-fs-x" onClick={toggleFs}>⤫ خروج از تمام‌صفحه</button>
@@ -739,9 +839,13 @@ export default function Room({ room, me, config, back }) {
                             <button type="button" onClick={() => control('lock', !st?.settings?.locked)}>{st?.settings?.locked ? '🔓 باز کردنِ در' : '🔐 قفلِ ورودِ تازه'}</button>
                             <button type="button" onClick={() => control('mute_all')}>🔇 بی‌صدا کردنِ همه</button>
                             <button type="button" onClick={() => control('lower_hands')}>✋ پایین آوردنِ دست‌ها</button>
-                            <button type="button" onClick={() => control('stage', stage === 'board' ? 'screen' : 'board')}>{stage === 'board' ? '🖥️ نمایشِ صفحه‌ی اشتراکی' : '📝 نمایشِ تخته'}</button>
-                            <button type="button" onClick={() => control('kidview', st?.settings?.kid_view === 'board' ? 'normal' : 'board')}>{st?.settings?.kid_view === 'board' ? '👀 بچه‌ها: همه‌ی صحنه' : '🎯 بچه‌ها: فقط تخته'}</button>
                             <button type="button" onClick={() => setReport(true)}>📋 گزارشِ حضور</button>
+                        </div>
+                    </div>
+                    <div className="oc-more-g">
+                        <b>🧩 چیدمانِ صفحه برای بچه‌ها</b>
+                        <div className="oc-chips">
+                            {LAYOUTS.map(([k, ic, t]) => <button key={k} type="button" className={layout === k ? 'on' : ''} onClick={() => setLayout(k)} disabled={!isHost}>{ic} {t}</button>)}
                         </div>
                     </div>
                     <div className="oc-more-g">

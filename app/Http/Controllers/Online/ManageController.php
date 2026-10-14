@@ -244,6 +244,8 @@ class ManageController extends Controller
                 'budget' => OnlineAccess::budgetKbps(),
                 'default_max' => OnlineAccess::defaultMax(),
                 'recording' => OnlineAccess::recordingAllowed(),
+                'convert_url' => (string) Setting::get('online_convert_url', ''),
+                'convert_token_set' => (string) Setting::get('online_convert_token', '') !== '',
             ],
             'active' => OnlineAccess::media(),
             'schools' => School::orderBy('name')->get(['id', 'name', 'city'])->map(fn ($s) => [
@@ -261,7 +263,8 @@ class ManageController extends Controller
             'media' => 'required|in:builtin,livekit', 'livekit_url' => 'nullable|string|max:255', 'livekit_key' => 'nullable|string|max:255',
             'livekit_secret' => 'nullable|string|max:255', 'ice' => 'nullable|string|max:3000', 'budget' => 'required|integer|min:500|max:20000',
             'default_max' => 'required|integer|min:2|max:1000', 'recording' => 'required|boolean',
-        ]);
+            'convert_url' => ['nullable', 'string', 'max:255', 'regex:#^https?://#i'], 'convert_token' => 'nullable|string|max:255',
+        ], ['convert_url.regex' => 'نشانیِ سرویسِ تبدیل باید با http:// یا https:// شروع شود (مثلاً http://87.248.131.143:7890).']);
         if ($d['media'] === 'livekit') {
             $url = trim((string) ($d['livekit_url'] ?? ''));
             if (! preg_match('#^wss?://#i', $url)) {
@@ -278,11 +281,36 @@ class ManageController extends Controller
         Setting::put('online_budget_kbps', (int) $d['budget']);
         Setting::put('online_default_max', (int) $d['default_max']);
         Setting::put('online_recording', $d['recording'] ? 1 : 0);
+        Setting::put('online_convert_url', rtrim(trim((string) ($d['convert_url'] ?? '')), '/'));
+        if (! empty($d['convert_token'])) {
+            Setting::put('online_convert_token', Crypt::encryptString(trim($d['convert_token'])));
+        }
         if ($d['media'] === 'livekit' && ! OnlineAccess::livekit()) {
             return back()->with('error', 'تنظیمات ذخیره شد، ولی LiveKit کامل نیست (نشانی، کلید و رمز لازم است)؛ فعلاً حالتِ داخلی به کار می‌رود.');
         }
 
         return back()->with('success', '✅ تنظیماتِ کلاسِ آنلاین ذخیره شد.');
+    }
+
+    /** آزمایشِ سرویسِ تبدیلِ پاورپوینت از روی همین هاست. */
+    public function adminTestConvert(): \Illuminate\Http\JsonResponse
+    {
+        $c = OnlineAccess::converter();
+        if (! $c) {
+            return response()->json(['ok' => false, 'message' => 'نشانی و رمزِ سرویسِ تبدیل وارد نشده است.']);
+        }
+        try {
+            $res = \Illuminate\Support\Facades\Http::timeout(12)->withHeaders(['X-Token' => $c['token']])->get($c['url'] . '/health');
+            if ($res->status() === 401) {
+                return response()->json(['ok' => false, 'message' => 'سرویس جواب داد ولی رمز (Token) اشتباه است.']);
+            }
+
+            return response()->json($res->successful()
+                ? ['ok' => true, 'message' => 'سرویسِ تبدیل در دسترس است و کار می‌کند.']
+                : ['ok' => false, 'message' => 'سرویس جواب داد ولی خطا: ' . $res->status()]);
+        } catch (\Throwable $e) {
+            return response()->json(['ok' => false, 'message' => 'هاست به سرویسِ تبدیل وصل نشد (' . mb_substr($e->getMessage(), 0, 120) . ').']);
+        }
     }
 
     public function adminSchool(Request $request, School $school): RedirectResponse

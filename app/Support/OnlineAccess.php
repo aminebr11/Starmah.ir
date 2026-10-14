@@ -168,6 +168,23 @@ class OnlineAccess
         return max(500, min(20000, (int) Setting::get('online_budget_kbps', 3000)));
     }
 
+    /** سرویسِ تبدیلِ پاورپوینت/ورد به PDF روی VPS (یا null اگر تنظیم نشده). */
+    public static function converter(): ?array
+    {
+        $url = rtrim(trim((string) Setting::get('online_convert_url', '')), '/');
+        $raw = (string) Setting::get('online_convert_token', '');
+        if ($url === '' || $raw === '') {
+            return null;
+        }
+        try {
+            $token = Crypt::decryptString($raw);
+        } catch (\Throwable) {
+            $token = $raw;
+        }
+
+        return ['url' => $url, 'token' => $token];
+    }
+
     public static function recordingAllowed(): bool
     {
         return (bool) Setting::get('online_recording', true);

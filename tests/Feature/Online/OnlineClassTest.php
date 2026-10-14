@@ -10,6 +10,7 @@ use App\Support\OnlineAccess;
 use App\Support\Roles;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\Concerns\BuildsSchool;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -281,5 +282,67 @@ class OnlineClassTest extends TestCase
         $this->actingAs($student)->postJson(route('online.sync', $room), ['v' => 0])->assertJsonPath('state.settings.kid_view', 'board');
         $this->actingAs($teacher)->postJson(route('online.control', $room), ['action' => 'kidview', 'value' => 'normal'])->assertOk();
         $this->actingAs($student)->postJson(route('online.sync', $room), ['v' => 0])->assertJsonPath('state.settings.kid_view', 'normal');
+    }
+
+    public function test_layouts_and_live_media_flags(): void
+    {
+        [$school, $teacher, $classroom, $student] = $this->live();
+        $room = OnlineRoom::firstOrFail();
+        $this->actingAs($student)->postJson(route('online.join', $room))->assertOk();
+
+        $cases = ['board_cam' => ['board', 'normal'], 'board' => ['board', 'board'], 'cam' => ['cam', 'normal'], 'screen' => ['screen', 'normal']];
+        foreach ($cases as $layout => [$stage, $kid]) {
+            $this->actingAs($teacher)->postJson(route('online.control', $room), ['action' => 'layout', 'value' => $layout])->assertOk();
+            $this->actingAs($student)->postJson(route('online.sync', $room), ['v' => 0])
+                ->assertJsonPath('state.settings.stage', $stage)->assertJsonPath('state.settings.kid_view', $kid);
+        }
+        $this->actingAs($teacher)->postJson(route('online.control', $room), ['action' => 'layout', 'value' => 'nope'])->assertStatus(422);
+        $this->actingAs($student)->postJson(route('online.control', $room), ['action' => 'layout', 'value' => 'board'])->assertForbidden();
+
+        // معلم دوربین را روشن و بعد خاموش می‌کند: وضعیت به بچه‌ها می‌رسد (تصویرِ مانده پنهان می‌شود)
+        $this->actingAs($teacher)->postJson(route('online.sync', $room), ['v' => 0, 'ms' => 'ready+mic+cam'])->assertOk();
+        $row = collect($this->actingAs($student)->postJson(route('online.sync', $room), ['v' => 0])->json('state.people'))->firstWhere('id', $teacher->id);
+        $this->assertSame('ready+mic+cam', $row['ms']);
+        $this->actingAs($teacher)->postJson(route('online.sync', $room), ['v' => 0, 'ms' => 'ready+mic'])->assertOk();
+        $row = collect($this->actingAs($student)->postJson(route('online.sync', $room), ['v' => 0])->json('state.people'))->firstWhere('id', $teacher->id);
+        $this->assertStringNotContainsString('+cam', $row['ms']);
+    }
+
+    public function test_powerpoint_conversion_through_converter_service(): void
+    {
+        [$school, $teacher, $classroom, $student, $admin, $super, $room] = $this->live();
+        $pptx = UploadedFile::fake()->createWithContent('درس.pptx', 'PK-fake-pptx');
+
+        // راه‌اندازی نشده: پیامِ روشن با راهنمای PDF
+        $this->actingAs($teacher)->post(route('online.convert', $room), ['file' => $pptx], ['Accept' => 'application/json'])
+            ->assertStatus(503)->assertJsonFragment(['message' => 'تبدیلِ پاورپوینت هنوز راه‌اندازی نشده است. در پاورپوینت از «File ← Save As ← PDF» فایل را PDF کنید و همان را بفرستید.']);
+
+        $this->actingAs($super)->put(route('admin.online.settings'), ['media' => 'builtin', 'budget' => 3000, 'default_max' => 40, 'recording' => true, 'ice' => '',
+            'convert_url' => 'http://10.0.0.5:7890/', 'convert_token' => 'secret-token'])->assertRedirect();
+        $this->assertSame('http://10.0.0.5:7890', OnlineAccess::converter()['url']);
+        $this->assertSame('secret-token', OnlineAccess::converter()['token']);
+        $this->assertNotSame('secret-token', Setting::get('online_convert_token'));   // رمز ذخیره‌شده رمزنگاری شده است
+
+        $health = 200;
+        Http::fake([
+            '10.0.0.5:7890/health' => function () use (&$health) { return Http::response(['ok' => $health === 200], $health); },
+            '10.0.0.5:7890/convert*' => Http::response('%PDF-1.7 fake', 200, ['Content-Type' => 'application/pdf']),
+        ]);
+        $this->actingAs($super)->postJson(route('admin.online.test-convert'))->assertOk()->assertJsonPath('ok', true);
+
+        $res = $this->actingAs($teacher)->post(route('online.convert', $room), ['file' => $pptx], ['Accept' => 'application/json'])->assertOk();
+        $this->assertSame('application/pdf', $res->headers->get('Content-Type'));
+        $this->assertStringStartsWith('%PDF', $res->getContent());
+        Http::assertSent(fn ($r) => str_contains($r->url(), '/convert?ext=pptx') && $r->header('X-Token')[0] === 'secret-token');
+
+        // فقط معلمِ کلاس؛ و فقط نوع‌های مجاز
+        $this->actingAs($student)->postJson(route('online.join', $room))->assertOk();
+        $this->actingAs($student)->post(route('online.convert', $room), ['file' => $pptx], ['Accept' => 'application/json'])->assertForbidden();
+        $exe = UploadedFile::fake()->createWithContent('x.exe', 'MZ');
+        $this->actingAs($teacher)->post(route('online.convert', $room), ['file' => $exe], ['Accept' => 'application/json'])->assertStatus(422);
+
+        // رمزِ اشتباه
+        $health = 401;
+        $this->actingAs($super)->postJson(route('admin.online.test-convert'))->assertJsonPath('ok', false);
     }
 }

@@ -180,7 +180,7 @@ class RoomController extends Controller
         [$role, $me] = $this->ctx($request, $room);
         abort_unless($this->moderator($role), 403);
         $data = $request->validate([
-            'action' => 'required|in:perm,mute_all,lower_hands,chat,lock,timer,star,stage,page,kick,spotlight,announce,recording,open_mics,kidview,end',
+            'action' => 'required|in:perm,mute_all,lower_hands,chat,lock,timer,star,stage,page,kick,spotlight,announce,recording,open_mics,kidview,layout,end',
             'user' => 'nullable|integer', 'perm' => 'nullable|in:can_speak,can_video,can_draw', 'value' => 'nullable',
         ]);
         $target = isset($data['user']) ? OnlineParticipant::where('room_id', $room->id)->where('user_id', $data['user'])->first() : null;
@@ -220,6 +220,13 @@ class RoomController extends Controller
             case 'star':
                 abort_unless($target && $target->role === 'student', 422);
                 $out['xp'] = $this->svc->star($room, $target, $request->user());
+                break;
+            case 'layout':
+                // چیدمانِ صفحه برای همه: تخته+دوربین، فقط تخته/فایل، فقط دوربین، اشتراکِ صفحه
+                $map = ['board_cam' => ['board', 'normal'], 'board' => ['board', 'board'], 'cam' => ['cam', 'normal'], 'screen' => ['screen', 'normal']];
+                abort_unless(is_string($value) && isset($map[$value]), 422);
+                [$stage, $kid] = $map[$value];
+                $room->setOpts(['stage' => $stage, 'kid_view' => $kid]);
                 break;
             case 'kidview':
                 // بچه‌ها فقط تخته را ببینند (کامل تمام‌صفحه) یا همه‌ی صحنه
@@ -338,6 +345,40 @@ class RoomController extends Controller
         }
 
         return response()->json(['version' => (int) $page->version]);
+    }
+
+    /**
+     * پاورپوینت/ورد → PDF با سرویسِ تبدیلِ روی VPS؛ PDF برمی‌گردد و مرورگرِ معلم
+     * صفحه‌هایش را مثلِ هر PDFِ دیگری به اسلایدِ تخته تبدیل می‌کند.
+     */
+    public function convert(Request $request, OnlineRoom $room)
+    {
+        [$role] = $this->ctx($request, $room);
+        abort_unless($role === 'host', 403);
+        $request->validate(['file' => 'required|file|max:51200']);
+        $file = $request->file('file');
+        $ext = strtolower($file->getClientOriginalExtension());
+        abort_unless(in_array($ext, ['ppt', 'pptx', 'pps', 'ppsx', 'odp', 'doc', 'docx', 'odt', 'rtf'], true), 422,
+            'این نوع فایل پشتیبانی نمی‌شود؛ PDF، عکس، پاورپوینت یا ورد بفرستید.');
+        $c = OnlineAccess::converter();
+        $hint = 'در پاورپوینت از «File ← Save As ← PDF» فایل را PDF کنید و همان را بفرستید.';
+        if (! $c) {
+            return response()->json(['message' => 'تبدیلِ پاورپوینت هنوز راه‌اندازی نشده است. ' . $hint], 503);
+        }
+        try {
+            $res = \Illuminate\Support\Facades\Http::timeout(170)->withHeaders(['X-Token' => $c['token']])
+                ->withBody(file_get_contents($file->getRealPath()), 'application/octet-stream')
+                ->post($c['url'] . '/convert?ext=' . $ext);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('online convert: ' . $e->getMessage());
+
+            return response()->json(['message' => 'سرویسِ تبدیل در دسترس نیست. ' . $hint], 503);
+        }
+        if (! $res->successful() || ! str_starts_with((string) $res->header('Content-Type'), 'application/pdf')) {
+            return response()->json(['message' => 'فایل تبدیل نشد (' . $res->status() . '). ' . $hint], 502);
+        }
+
+        return response($res->body(), 200, ['Content-Type' => 'application/pdf', 'Cache-Control' => 'no-store']);
     }
 
     /** بارگذاریِ تصویر برای تخته (اسلاید/صفحه‌ی PDF). */

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Children, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 
 export const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
@@ -34,6 +34,60 @@ export function Vid({ track, mirror = false, className = '', label, fit = 'cover
         <div className={`oc-vid ${live ? 'live' : ''} ${className}`}>
             <video ref={ref} autoPlay playsInline muted style={{ transform: mirror ? 'scaleX(-1)' : undefined, objectFit: fit }} />
             {label && <span className="oc-vid-l">{label}</span>}
+        </div>
+    );
+}
+
+/**
+ * جعبه‌ی جابه‌جاشدنی برای تصویرها: با انگشت/ماوس بکشید؛ جای آن روی همین دستگاه می‌ماند.
+ * جا به نسبتِ قاب ذخیره می‌شود تا با چرخاندنِ گوشی بیرون نزند.
+ */
+export function DragBox({ id, className = '', children }) {
+    const ref = useRef(null);
+    const drag = useRef(null);
+    const key = `oc-pos-${id}`;
+    const read = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+    const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* حالتِ خصوصی */ } };
+    const [pos, setPos] = useState(() => read(key, null));               // { fx, fy } بین ۰ و ۱
+    const [mini, setMini] = useState(() => read(`${key}-mini`, false));
+    const [big, setBig] = useState(() => read(`${key}-big`, false));
+    const items = Children.toArray(children).filter(Boolean);
+    if (!items.length) return null;
+
+    const down = (e) => {
+        if (e.button > 0 || e.target.closest('button')) return;
+        const el = ref.current; const par = el?.offsetParent;
+        if (!el || !par) return;
+        drag.current = { sx: e.clientX, sy: e.clientY, x: el.offsetLeft, y: el.offsetTop, w: par.clientWidth - el.offsetWidth, h: par.clientHeight - el.offsetHeight, moved: false };
+        el.setPointerCapture?.(e.pointerId);
+    };
+    const move = (e) => {
+        const d = drag.current;
+        if (!d) return;
+        const dx = e.clientX - d.sx; const dy = e.clientY - d.sy;
+        if (!d.moved && Math.hypot(dx, dy) < 6) return;
+        d.moved = true;
+        const clamp = (v) => Math.max(0, Math.min(1, v));
+        setPos({ fx: d.w > 0 ? clamp((d.x + dx) / d.w) : 0, fy: d.h > 0 ? clamp((d.y + dy) / d.h) : 0 });
+    };
+    const up = () => {
+        const d = drag.current;
+        drag.current = null;
+        if (d?.moved) setPos((p) => { save(key, p); return p; });
+    };
+    const toggle = (k, v, set) => { set(v); save(`${key}-${k}`, v); };
+    const style = pos ? { left: `${pos.fx * 100}%`, top: `${pos.fy * 100}%`, right: 'auto', bottom: 'auto', transform: `translate(${-pos.fx * 100}%, ${-pos.fy * 100}%)` } : undefined;
+
+    return (
+        <div ref={ref} className={`oc-drag ${className} ${mini ? 'mini' : ''} ${big ? 'big' : ''}`} style={style}
+            onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+            <div className="oc-drag-h">
+                <span className="oc-drag-grip" aria-hidden="true">⠿</span>
+                {!mini && <button type="button" onClick={() => toggle('big', !big, setBig)} title={big ? 'کوچک‌تر' : 'بزرگ‌تر'} aria-label={big ? 'کوچک‌تر' : 'بزرگ‌تر'}>{big ? '➖' : '➕'}</button>}
+                <button type="button" onClick={() => toggle('mini', !mini, setMini)} title={mini ? 'نمایشِ تصویرها' : 'جمع کردن'} aria-label={mini ? 'نمایشِ تصویرها' : 'جمع کردن'}>{mini ? `🎥 ${fa(items.length)}` : '▁'}</button>
+                {pos && !mini && <button type="button" onClick={() => { setPos(null); save(key, null); }} title="برگشت به جای اول" aria-label="برگشت به جای اول">↺</button>}
+            </div>
+            <div className="oc-drag-b" hidden={mini}>{items}</div>
         </div>
     );
 }
@@ -107,7 +161,7 @@ export function Chat({ msgs, me, chatOn, isMod, onSend, onHide }) {
     );
 }
 
-export function People({ people, me, isMod, isHost, tiles, onPerm, onStar, onKick, onSpot, spotlight, onAll, speaking = [] }) {
+export function People({ people, me, isMod, isHost, tiles, onPerm, onStar, onKick, onSpot, spotlight, onAll, speaking = [], msOf = () => '' }) {
     const online = people.filter((p) => p.online);
     const hands = online.filter((p) => p.hand).sort((a, b) => a.hand - b.hand);
     const students = people.filter((p) => p.role === 'student');
@@ -133,7 +187,8 @@ export function People({ people, me, isMod, isHost, tiles, onPerm, onStar, onKic
             )}
             <div className="oc-pp-count">{fa(online.length)} نفر آنلاین · {fa(students.length)} دانش‌آموز</div>
             {people.map((p) => {
-                const cam = p.can_video || p.role !== 'student' ? tiles[p.id]?.cam : null;
+                const ms = msOf(p.id);
+                const cam = (p.can_video || p.role !== 'student') && ms.includes('+cam') ? tiles[p.id]?.cam : null;
                 return (
                     <div key={p.id} className={`oc-person ${p.online ? '' : 'off'}`}>
                         <div className="oc-p-main">
@@ -147,6 +202,11 @@ export function People({ people, me, isMod, isHost, tiles, onPerm, onStar, onKic
                                     {p.can_speak && <i title="اجازه‌ی صحبت">🎤</i>}
                                     {p.can_video && <i title="اجازه‌ی دوربین">🎥</i>}
                                     {p.can_draw && <i title="اجازه‌ی نوشتن روی تخته">✏️</i>}
+                                </span>
+                            )}
+                            {p.online && (ms.includes('+mic') || ms.includes('+cam') || ms.includes('+scr')) && (
+                                <span className="oc-p-live" title="الان روشن است">
+                                    {ms.includes('+mic') && <i>🎙️</i>}{ms.includes('+cam') && <i>📹</i>}{ms.includes('+scr') && <i>🖥️</i>}
                                 </span>
                             )}
                         </div>
