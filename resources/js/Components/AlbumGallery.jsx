@@ -5,6 +5,7 @@ import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import { compressImage, chunkFiles } from '@/lib/imageCompress';
 import { useSort, SortBar } from '@/lib/useSort';
 import { pushOverlay, closeOverlay } from '@/lib/overlayBack';
+import '@/../css/gallery.css';
 
 /**
  * گالریِ آلبومی — مشترک بینِ معلم و دانش‌آموز.

@@ -19,17 +19,17 @@ class VisitTracker
 
     private const IDLE_GAP = 300;
 
-    public static function hit(Request $request, bool $page = true): void
+    public static function hit(Request $request, bool $page = true, ?string $routeName = null): void
     {
         try {
-            self::record($request, $page);
+            self::record($request, $page, $routeName);
         } catch (\Throwable $e) {
             // آمارِ بازدید هرگز نباید صفحه را از کار بیندازد
             report($e);
         }
     }
 
-    private static function record(Request $request, bool $page): void
+    private static function record(Request $request, bool $page, ?string $routeName = null): void
     {
         $user = $request->user();
         $now = now();
@@ -37,7 +37,7 @@ class VisitTracker
         $visitor = $user ? 'u' . $user->id : 'g' . substr(sha1($request->ip() . '|' . $request->userAgent()), 0, 24);
         $role = $user ? ($user->roles->first()?->name ?? 'user') : 'guest';
         $schoolId = $user?->school_id;
-        $route = substr((string) ($request->route()?->getName() ?? 'other'), 0, 80);
+        $route = substr((string) ($routeName ?? $request->route()?->getName() ?? 'other'), 0, 80);
 
         DB::table('visits')->insertOrIgnore([
             'date' => $date, 'visitor' => $visitor, 'user_id' => $user?->id, 'school_id' => $schoolId,

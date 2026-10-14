@@ -3,6 +3,7 @@ import { Link, usePage } from '@inertiajs/react';
 import axios from 'axios';
 import Mascot from '@/Components/Mascot';
 import ErrorBoundary from '@/Components/ErrorBoundary';
+import '@/../css/assistant.css';
 
 /**
  * «ماهو» — دستیارِ هوشمندِ ستاره‌ماه، در همه‌ی صفحه‌ها.

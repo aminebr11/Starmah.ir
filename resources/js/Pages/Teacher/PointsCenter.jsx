@@ -6,6 +6,7 @@ import PointsTrend from '@/Components/PointsTrend';
 import PointsRankPanel from '@/Components/PointsRankPanel';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import { useSort, SortBar, firstName, lastName, normDigits } from '@/lib/useSort';
+import '@/../css/points-center.css';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const sgn = (n) => (n > 0 ? `+${fa(n)}` : n < 0 ? `−${fa(Math.abs(n))}` : fa(0));

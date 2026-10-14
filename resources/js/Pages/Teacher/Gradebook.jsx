@@ -5,6 +5,7 @@ import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import { MasteryTag } from '@/Components/MasteryPanel';
 import { useSort, SortBar, firstName, lastName } from '@/lib/useSort';
 import { useChapters } from '@/Components/Questions/QuestionChapter';
+import '@/../css/gradebook.css';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 

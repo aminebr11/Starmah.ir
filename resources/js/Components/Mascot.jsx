@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import '@/../css/assistant.css';
 
 /**
  * «ماهو» — شخصیتِ ستاره‌ماه: یک ماهِ کوچولوی طلایی با کلاهِ فارغ‌التحصیلی

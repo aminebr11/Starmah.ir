@@ -1,4 +1,5 @@
 import { useState, useMemo, useId, useRef, useLayoutEffect } from 'react';
+import '@/../css/points-trend.css';
 
 /**
  * نمودارهای روندِ امتیاز و رتبه — هفته‌به‌هفته در سالِ تحصیلی.

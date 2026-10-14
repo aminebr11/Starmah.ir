@@ -3,6 +3,7 @@ import { Head } from '@inertiajs/react';
 import axios from 'axios';
 import Mascot from '@/Components/Mascot';
 import { fa } from '@/online/parts';
+import '@/../css/online.css';
 
 /**
  * «🔍 آزمایشِ اتصالِ کلاس» — روی همین دستگاه، قدم‌به‌قدم:

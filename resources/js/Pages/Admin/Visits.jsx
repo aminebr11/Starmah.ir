@@ -4,6 +4,7 @@ import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
 import { Donut, HBars } from '@/Components/Charts';
 import { PeriodPicker, Kpi, DailyBars, HoursStrip, Pct, Dot, fa, mins, tone } from '@/Components/VisitKit';
 import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
+import '@/../css/visits.css';
 
 const DEV = { app: ['app', 'اپ'], mobile: ['mobile', 'موبایل'], desktop: ['desktop', 'کامپیوتر'] };
 

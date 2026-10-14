@@ -5,6 +5,8 @@ import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
 import { AreaTrend, HBars } from '@/Components/Charts';
 import { PeriodPicker } from '@/Components/VisitKit';
 import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
+import '@/../css/ai-center.css';
+import '@/../css/visits.css';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const num = (n) => fa(Math.round(n || 0).toLocaleString('en-US'));

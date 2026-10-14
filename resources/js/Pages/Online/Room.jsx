@@ -9,6 +9,7 @@ import createMesh from '@/online/mesh';
 import ClassRecorder from '@/online/recorder';
 import { importSlides } from '@/online/slides';
 import { fa, Vid, DragBox, AudioSink, Clock, Countdown, Chat, People, PollPanel, PollCard, ReportModal } from '@/online/parts';
+import '@/../css/online.css';
 
 /**
  * «🎥 کلاسِ آنلاین» — یک صفحه برای معلم، دانش‌آموز و ناظر (شبیهِ اسکای‌روم، با فضای کودکانه).
@@ -633,10 +634,11 @@ export default function Room({ room, me, config, back }) {
     const toggleRec = async () => {
         if (recRef.current) {
             setBusy('در حالِ ذخیره‌ی فیلم…');
-            await recRef.current.stop();
+            const res = await recRef.current.stop();
             recRef.current = null; setRec(null); setBusy(null);
             control('recording', false);
-            toast('🎬 فیلمِ کلاس ذخیره شد.', 'success');
+            if (res?.saved) toast(res.failed ? '🎬 فیلم ذخیره شد، ولی بخشی از آن به‌خاطرِ اینترنت بارگذاری نشد.' : '🎬 فیلمِ کلاس ذخیره شد؛ در صفحه‌ی «کلاس‌های آنلاین» ← «فیلم‌های کلاس» هست.', res.failed ? 'info' : 'success');
+            else toast('فیلم ذخیره نشد (بارگذاری به سرور انجام نشد). اینترنت را بررسی کنید و دوباره ضبط کنید.');
             return;
         }
         if (!ClassRecorder.supported()) { toast('این مرورگر ضبط را پشتیبانی نمی‌کند (کروم یا اج روی رایانه).'); return; }

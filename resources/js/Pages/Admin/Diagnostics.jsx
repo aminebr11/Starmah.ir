@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { usePage, router } from '@inertiajs/react';
 import axios from 'axios';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
+import '@/../css/mastery.css';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 

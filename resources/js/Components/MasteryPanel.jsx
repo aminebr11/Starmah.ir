@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { makeSubjectPalette } from '@/lib/subjects';
+import '@/../css/mastery.css';
 
 /**
  * نمایشِ «تسلط» برای دانش‌آموز و والد — کلی، درس‌به‌درس، مبحث‌ها و

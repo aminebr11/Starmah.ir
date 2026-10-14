@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import { SortBar, SortTh } from '@/lib/useSort';
+import '@/../css/points-trend.css';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 

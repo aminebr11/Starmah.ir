@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import '@/../css/sort.css';
 
 /**
  * مرتب‌سازیِ مشترکِ فهرست‌ها و جدول‌ها.

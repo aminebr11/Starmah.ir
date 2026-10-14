@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { usePage, Link, router } from '@inertiajs/react';
 import ThemedDash from '@/Layouts/ThemedDash';
+import '@/../css/live-contest.css';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const clock = (s) => {

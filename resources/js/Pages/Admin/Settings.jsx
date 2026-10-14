@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
 import PasswordInput from '@/Components/PasswordInput';
+import '@/../css/ai-center.css';
 
 /** موتورهای تصویرسازِ کاربرگ — «خودکار» پیش‌فرضِ درست برای اکثرِ مدارس است. */
 const IMG_PROVIDERS = [

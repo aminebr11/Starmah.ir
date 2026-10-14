@@ -2,6 +2,7 @@ import { usePage, Link } from '@inertiajs/react';
 import DashLayout, { schoolMenu } from '@/Layouts/DashLayout';
 import { AreaTrend, HBars, PAL } from '@/Components/Charts';
 import { PeriodPicker, PeopleTable, teacherColumns, teacherDetail, tone } from '@/Components/VisitKit';
+import '@/../css/visits.css';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 function Card({ ic, lbl, v }) { return <div className="dcard"><div className="ic">{ic}</div><div className="lbl">{lbl}</div><div className="val">{fa(v)}</div></div>; }
 

@@ -45,10 +45,29 @@ class ManageController extends Controller
             'recording_shared' => (bool) $r->recording_shared,
         ];
         if ($withStats) {
-            $out['present'] = OnlineParticipant::where('room_id', $r->id)->where('role', 'student')->count();
+            $out['present'] = $r->present_count ?? OnlineParticipant::where('room_id', $r->id)->where('role', 'student')->count();
         }
 
         return $out;
+    }
+
+    /** فهرستِ فیلم‌های ضبط‌شده (جدیدترین اول) برای صفحه‌ها. */
+    private function recordings($roomQuery, int $limit = 100): array
+    {
+        if (! \App\Models\OnlineRecording::ready()) {
+            return [];
+        }
+        $rooms = (clone $roomQuery)->with('classroom:id,name')->get(['id', 'title', 'classroom_id', 'recording_shared', 'teacher_id'])->keyBy('id');
+        if ($rooms->isEmpty()) {
+            return [];
+        }
+        $names = \App\Models\User::whereIn('id', $rooms->pluck('teacher_id')->unique())->pluck('name', 'id');
+
+        return \App\Models\OnlineRecording::whereIn('room_id', $rooms->keys())->where('size', '>', 0)->latest('id')->limit($limit)->get()
+            ->map(fn ($r) => $r->card() + [
+                'title' => $rooms[$r->room_id]->title, 'classroom' => $rooms[$r->room_id]->classroom?->name ?? 'همه‌ی کلاس‌ها',
+                'teacher' => $names[$rooms[$r->room_id]->teacher_id] ?? null, 'shared' => (bool) $rooms[$r->room_id]->recording_shared,
+            ])->values()->all();
     }
 
     // ── معلم ─────────────────────────────────────────────────────────────
@@ -57,7 +76,8 @@ class ManageController extends Controller
     {
         $t = $request->user();
         $ready = OnlineAccess::ready();
-        $rooms = $ready ? OnlineRoom::with('classroom:id,name')->where('teacher_id', $t->id)->latest('id')->limit(60)->get() : collect();
+        $rooms = $ready ? OnlineRoom::with(['classroom:id,name', 'teacher:id,name'])->withCount(['participants as present_count' => fn ($q) => $q->where('role', 'student')])
+            ->where('teacher_id', $t->id)->latest('id')->limit(60)->get() : collect();
         $rooms->each->closeIfAbandoned();
 
         return Inertia::render('Teacher/OnlineClasses', [
@@ -67,6 +87,7 @@ class ManageController extends Controller
             'media' => OnlineAccess::media(),
             'max' => OnlineAccess::maxParticipants($t->school_id),
             'rooms' => $rooms->map(fn ($r) => $this->card($r, true))->values(),
+            'recordings' => $ready ? $this->recordings(OnlineRoom::where('teacher_id', $t->id)) : [],
             'classrooms' => Classroom::where('teacher_id', $t->id)->withCount('students')->get(['id', 'name'])
                 ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name, 'students' => $c->students_count]),
         ]);
@@ -137,10 +158,18 @@ class ManageController extends Controller
     {
         abort_unless((int) $room->teacher_id === (int) $request->user()->id || OnlineAccess::canSupervise($request->user(), $room), 403);
         if ($request->boolean('delete')) {
-            if ($room->recording_path) {
+            $recs = \App\Models\OnlineRecording::ready() ? \App\Models\OnlineRecording::where('room_id', $room->id)
+                ->when($request->filled('rec'), fn ($q) => $q->whereKey($request->integer('rec')))->get() : collect();
+            foreach ($recs as $rec) {
+                Storage::disk('local')->delete($rec->path);
+                $rec->delete();
+            }
+            if (! $request->filled('rec') && $room->recording_path) {
                 Storage::disk('local')->delete($room->recording_path);
             }
-            $room->forceFill(['recording_path' => null, 'recording_size' => null])->save();
+            // فیلمِ «آخرِ» کلاس: جدیدترینِ باقی‌مانده
+            $last = \App\Models\OnlineRecording::ready() ? \App\Models\OnlineRecording::where('room_id', $room->id)->latest('id')->first() : null;
+            $room->forceFill(['recording_path' => $last?->path, 'recording_size' => $last?->size])->save();
 
             return back()->with('success', 'فیلمِ ضبط‌شده حذف شد.');
         }
@@ -155,8 +184,7 @@ class ManageController extends Controller
     {
         $s = $request->user();
         $on = OnlineAccess::ready() && OnlineAccess::schoolEnabled($s->school_id);
-        $rooms = $on ? OnlineRoom::forStudent($s)->with(['classroom:id,name', 'teacher:id,name'])->where(fn ($q) => $q->where('status', '!=', 'ended')
-            ->orWhere(fn ($q) => $q->where('recording_shared', true)->whereNotNull('recording_path')))
+        $rooms = $on ? OnlineRoom::forStudent($s)->with(['classroom:id,name', 'teacher:id,name'])->where('status', '!=', 'ended')
             ->orderByRaw("case status when 'live' then 0 when 'scheduled' then 1 else 2 end")->latest('id')->limit(40)->get() : collect();
         $rooms->each->closeIfAbandoned();
         $mine = $on ? OnlineParticipant::where('user_id', $s->id)->whereIn('room_id', $rooms->pluck('id'))->get()->keyBy('room_id') : collect();
@@ -165,6 +193,8 @@ class ManageController extends Controller
             'on' => $on,
             'rooms' => $rooms->map(fn ($r) => $this->card($r) + ['mine' => isset($mine[$r->id]) ? ['minutes' => (int) round($mine[$r->id]->seconds / 60),
                 'stars' => (int) $mine[$r->id]->stars, 'xp' => (int) $mine[$r->id]->xp] : null])->values(),
+            // فیلم‌هایی که معلم برای بچه‌ها گذاشته (از همه‌ی کلاس‌های من)
+            'recordings' => $on ? $this->recordings(OnlineRoom::forStudent($s)->where('recording_shared', true), 60) : [],
         ]);
     }
 
@@ -177,7 +207,8 @@ class ManageController extends Controller
         $sid = $u->school_id;
         $hosts = $ready ? DB::table('online_hosts')->where('school_id', $sid)->get()->keyBy('user_id') : collect();
         $teachers = User::role(Roles::TEACHER)->where('school_id', $sid)->orderBy('name')->get(['id', 'name']);
-        $rooms = $ready ? OnlineRoom::with(['classroom:id,name', 'teacher:id,name'])->where('school_id', $sid)->latest('id')->limit(80)->get() : collect();
+        $rooms = $ready ? OnlineRoom::with(['classroom:id,name', 'teacher:id,name'])->withCount(['participants as present_count' => fn ($q) => $q->where('role', 'student')])
+            ->where('school_id', $sid)->latest('id')->limit(80)->get() : collect();
         $rooms->each->closeIfAbandoned();
         $month = $ready ? OnlineRoom::where('school_id', $sid)->where('started_at', '>=', now()->subDays(30))->get() : collect();
 

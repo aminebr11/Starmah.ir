@@ -4,6 +4,7 @@ import axios from 'axios';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import AudioFilePicker from '@/Components/Audio/AudioFilePicker';
+import '@/../css/live-contest.css';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const SHAPES = ['▲', '◆', '●', '■'];

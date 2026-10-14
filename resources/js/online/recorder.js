@@ -14,6 +14,8 @@ export default class ClassRecorder {
         this.getAudioTracks = getAudioTracks; // () => MediaStreamTrack[]
         this.onState = onState;
         this.seq = 0;
+        this.saved = 0;      // تکه‌هایی که به سرور رسید
+        this.failed = 0;
         this.queue = Promise.resolve();
     }
 
@@ -57,6 +59,10 @@ export default class ClassRecorder {
         const AC = window.AudioContext || window.webkitAudioContext;
         this.ac = new AC();
         this.dest = this.ac.createMediaStreamDestination();
+        // صدای «سکوت» همیشه جریان دارد: بدونِ آن، وقتی میکِ هیچ‌کس روشن نیست، کروم هیچ تکه‌ای
+        // از فیلم نمی‌سازد و چیزی ذخیره نمی‌شد.
+        try { this.silence = this.ac.createConstantSource(); this.silence.offset.value = 0; this.silence.connect(this.dest); this.silence.start(); } catch { /* */ }
+        this.ac.resume?.().catch(() => {});
         this.sources = new Map();
         this.mixAudio();
         this.mixTimer = setInterval(() => this.mixAudio(), 3000);
@@ -92,8 +98,16 @@ export default class ClassRecorder {
             fd.append('seq', String(seq));
             fd.append('chunk', new File([blob], `part-${seq}.webm`, { type: 'video/webm' }));
             for (let i = 0; i < 3; i += 1) {
-                try { await axios.post(this.uploadUrl, fd, { timeout: 120000 }); return; } catch { await new Promise((r) => setTimeout(r, 2000 * (i + 1))); }
+                // شناسه‌ی همین ضبط (از پاسخِ تکه‌ی اول) تا تکه‌ها به همان فایل اضافه شوند
+                if (this.recId) fd.set('rec', String(this.recId));
+                try {
+                    const { data } = await axios.post(this.uploadUrl, fd, { timeout: 120000 });
+                    if (data?.rec) this.recId = data.rec;
+                    this.saved += 1;
+                    return;
+                } catch { await new Promise((r) => setTimeout(r, 2000 * (i + 1))); }
             }
+            this.failed += 1;
             this.onState?.('error');
         });
     }
@@ -105,6 +119,7 @@ export default class ClassRecorder {
         try { await this.ac.close(); } catch { /* */ }
         await this.queue;
         this.rec = null;
-        if (this.finishUrl) await axios.post(this.finishUrl, { duration_ms: Date.now() - this.started }).catch(() => {});
+        if (this.finishUrl && this.saved) await axios.post(this.finishUrl, { duration_ms: Date.now() - this.started, rec: this.recId || null }).catch(() => {});
+        return { saved: this.saved, failed: this.failed };
     }
 }

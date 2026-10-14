@@ -2,6 +2,7 @@ import { usePage } from '@inertiajs/react';
 import { useMemo } from 'react';
 import DashLayout, { schoolMenu } from '@/Layouts/DashLayout';
 import { makeSubjectPalette, titlesOf, DAY_TINTS } from '@/lib/subjects';
+import '@/../css/schedule-kids.css';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 

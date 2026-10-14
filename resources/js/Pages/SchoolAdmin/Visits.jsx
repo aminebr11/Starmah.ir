@@ -6,6 +6,7 @@ import {
     PeriodPicker, Kpi, DailyBars, HoursStrip, RankList, PeopleTable, Spotlight, Dot,
     studentColumns, studentDetail, parentColumns, teacherColumns, teacherDetail, fa, mins,
 } from '@/Components/VisitKit';
+import '@/../css/visits.css';
 
 /** مدیرِ مدرسه: بازدید، حضورِ آنلاین و مشارکتِ معلم‌ها، دانش‌آموزان و والدین. */
 export default function Visits() {

@@ -372,4 +372,46 @@ class OnlineClassTest extends TestCase
         $bad = $this->actingAs($student)->postJson(route('online.check.server'))->assertJsonPath('ok', false)->assertJsonPath('step', 'keys')->json('message');
         $this->assertStringNotContainsString('eyJabc', $bad);   // توکن در پیام نمی‌آید
     }
+
+    public function test_each_recording_is_kept_listed_and_shared_with_students(): void
+    {
+        Storage::fake('local');
+        [$school, $teacher, $classroom, $student, $admin, $super, $room] = $this->live();
+        $chunk = fn () => UploadedFile::fake()->createWithContent('part.webm', str_repeat('x', 2048));
+
+        // ضبطِ اول: دو تکه در یک فایل
+        $rec1 = $this->actingAs($teacher)->post(route('online.record', $room), ['seq' => 0, 'chunk' => $chunk()], ['Accept' => 'application/json'])->assertOk()->json('rec');
+        $this->actingAs($teacher)->post(route('online.record', $room), ['seq' => 1, 'rec' => $rec1, 'chunk' => $chunk()], ['Accept' => 'application/json'])->assertOk()->assertJsonPath('size', 4096);
+        $this->actingAs($teacher)->postJson(route('online.record.finish', $room), ['duration_ms' => 61000, 'rec' => $rec1])->assertOk();
+        // ضبطِ دوم در همان کلاس: فایلِ جدا (اولی پاک نمی‌شود)
+        $rec2 = $this->actingAs($teacher)->post(route('online.record', $room), ['seq' => 0, 'chunk' => $chunk()], ['Accept' => 'application/json'])->assertOk()->json('rec');
+        $this->assertNotSame($rec1, $rec2);
+        $recs = \App\Models\OnlineRecording::orderBy('id')->get();
+        $this->assertCount(2, $recs);
+        $this->assertSame(4096, (int) $recs[0]->size);
+        $this->assertSame(61000, (int) $recs[0]->duration_ms);
+        Storage::disk('local')->assertExists($recs[0]->path);
+        Storage::disk('local')->assertExists($recs[1]->path);
+
+        // دانش‌آموز نمی‌تواند ضبط کند
+        $this->actingAs($student)->postJson(route('online.join', $room))->assertOk();
+        $this->actingAs($student)->post(route('online.record', $room), ['seq' => 0, 'chunk' => $chunk()], ['Accept' => 'application/json'])->assertForbidden();
+
+        // فهرستِ معلم و بچه‌ها
+        $this->actingAs($teacher)->get(route('teacher.online'))->assertInertia(fn ($p) => $p->has('recordings', 2)->where('recordings.0.minutes', null)->where('recordings.1.minutes', 1));
+        $this->actingAs($student)->get(route('online.list'))->assertInertia(fn ($p) => $p->has('recordings', 2));
+        $this->actingAs($student)->get(route('online.recording', [$room, 'rec' => $rec1]))->assertOk();
+
+        // معلم «برای بچه‌ها» را خاموش می‌کند
+        $this->actingAs($teacher)->post(route('online.recording.share', $room), ['shared' => false])->assertRedirect();
+        $this->actingAs($student)->get(route('online.list'))->assertInertia(fn ($p) => $p->has('recordings', 0));
+        $this->actingAs($student)->get(route('online.recording', [$room, 'rec' => $rec1]))->assertNotFound();
+
+        // حذفِ فقط یکی
+        $path1 = $recs[0]->path;
+        $this->actingAs($teacher)->post(route('online.recording.share', $room), ['delete' => true, 'rec' => $rec1])->assertRedirect();
+        Storage::disk('local')->assertMissing($path1);
+        $this->assertSame([$rec2], \App\Models\OnlineRecording::pluck('id')->all());
+        $this->assertSame($recs[1]->path, $room->fresh()->recording_path);
+    }
 }

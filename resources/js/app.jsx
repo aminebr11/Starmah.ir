@@ -3,19 +3,7 @@ import '../css/site.css';
 import '../css/home3d.css';
 import '../css/smart-exams.css';
 import '../css/theme-clay.css';
-import '../css/visits.css';
 import '../css/hub.css';
-import '../css/xp-rules.css';
-import '../css/assistant.css';
-import '../css/online.css';
-import '../css/schedule-kids.css';
-import '../css/mastery.css';
-import '../css/gradebook.css';
-import '../css/sort.css';
-import '../css/points-trend.css';
-import '../css/gallery.css';
-import '../css/ai-center.css';
-import '../css/points-center.css';
 import './bootstrap';
 // پیش از Inertia: «بازگشت» گوشی اول پنجره‌های باز را می‌بندد
 import './lib/overlayBack';
@@ -24,6 +12,7 @@ import { initUi, syncUi } from './lib/ui';
 import { router } from '@inertiajs/react';
 import { initToasts } from './lib/toast';
 import { initPresence } from './lib/presence';
+import { initPrefetch } from './lib/prefetch';
 
 initUi();
 // داخلِ اپِ اندروید window.print کاری نمی‌کند؛ همه‌ی دکمه‌های چاپ از پلِ اپ استفاده کنند
@@ -39,13 +28,12 @@ import ErrorBoundary from './Components/ErrorBoundary';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
+const pages = import.meta.glob('./Pages/**/*.jsx');
+const resolvePage = (name) => resolvePageComponent(`./Pages/${name}.jsx`, pages);
+
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
-    resolve: (name) =>
-        resolvePageComponent(
-            `./Pages/${name}.jsx`,
-            import.meta.glob('./Pages/**/*.jsx'),
-        ),
+    resolve: resolvePage,
     setup({ el, App, props }) {
         const root = createRoot(el);
         initPresence(props.initialPage);
@@ -61,3 +49,4 @@ createInertiaApp({
 // نصب‌پذیریِ اپ + به‌روزرسانیِ خودکار با هر انتشارِ تازه
 initPwa();
 initToasts();
+initPrefetch(resolvePage);

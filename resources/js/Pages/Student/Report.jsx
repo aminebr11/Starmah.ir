@@ -4,6 +4,7 @@ import ThemedDash from '@/Layouts/ThemedDash';
 import MasteryPanel from '@/Components/MasteryPanel';
 import PointsTrend from '@/Components/PointsTrend';
 import { openPrint } from '@/lib/print';
+import '@/../css/points-trend.css';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const hue = (p) => p == null ? '#8896ad' : p >= 70 ? '#2bb673' : p >= 50 ? '#f0952e' : '#e8505b';

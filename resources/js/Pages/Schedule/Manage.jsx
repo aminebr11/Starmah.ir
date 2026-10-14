@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { makeSubjectPalette, titlesOf, DAY_TINTS } from '@/lib/subjects';
 import DashLayout, { teacherMenu, schoolMenu } from '@/Layouts/DashLayout';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
+import '@/../css/schedule-kids.css';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 

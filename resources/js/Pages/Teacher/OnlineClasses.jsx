@@ -3,10 +3,10 @@ import { useForm, router } from '@inertiajs/react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import Mascot from '@/Components/Mascot';
-import { fa, ReportModal } from '@/online/parts';
+import { fa, ReportModal, RecordingsList } from '@/online/parts';
 
 /** «🎥 کلاسِ آنلاین» — ساخت، شروع، گزارشِ حضور و فیلمِ ضبط‌شده (معلم). */
-export default function OnlineClasses({ ready, allowed, schoolOn, media, max, rooms, classrooms }) {
+export default function OnlineClasses({ ready, allowed, schoolOn, media, max, rooms, classrooms, recordings = [] }) {
     const [open, setOpen] = useState(rooms.length === 0);
     const [editing, setEditing] = useState(null);
     const [report, setReport] = useState(null);
@@ -46,6 +46,10 @@ export default function OnlineClasses({ ready, allowed, schoolOn, media, max, ro
             {!ready && <div className="panel oc-warn">جدول‌های کلاسِ آنلاین هنوز روی سرور ساخته نشده‌اند؛ یک‌بار صفحه را تازه کنید یا از «سلامتِ سیستم» مایگریشن را اجرا کنید.</div>}
             {ready && !schoolOn && <div className="panel oc-warn">🔒 کلاسِ آنلاین برای مدرسه‌ی شما هنوز فعال نشده است (با مدیرِ سامانه هماهنگ کنید).</div>}
             {ready && schoolOn && !allowed && <div className="panel oc-warn">🔒 مدیرِ مدرسه هنوز اجازه‌ی برگزاریِ کلاسِ آنلاین را به شما نداده است.</div>}
+
+            <RecordingsList recordings={recordings} manage
+                onShare={(r, shared) => router.post(route('online.recording.share', r.room_id), { shared }, { preserveScroll: true })}
+                onDelete={(r) => { if (confirm(`فیلمِ «${r.title}» (${r.at}) حذف شود؟`)) router.post(route('online.recording.share', r.room_id), { delete: true, rec: r.id }, { preserveScroll: true }); }} />
 
             {open && allowed && (
                 <form className="panel at-form oc-form" onSubmit={(e) => { e.preventDefault(); submit(false); }}>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import axios from 'axios';
+import '@/../css/live-contest.css';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const SHAPES = ['▲', '◆', '●', '■'];

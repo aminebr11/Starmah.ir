@@ -3,6 +3,7 @@ import { router } from '@inertiajs/react';
 import PersonCell from '@/Components/PersonCell';
 import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
 import { PAL, OK, WARN, CRIT } from '@/Components/Charts';
+import '@/../css/visits.css';
 
 /**
  * قطعه‌های مشترکِ گزارشِ بازدید و مشارکت — ادمینِ کل، مدیرِ مدرسه و معلم.

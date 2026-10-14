@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { usePage } from '@inertiajs/react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import { PeriodPicker, Kpi, DailyBars, RankList, PeopleTable, Spotlight, studentColumns, studentDetail, parentColumns, fa, mins } from '@/Components/VisitKit';
+import '@/../css/visits.css';
 
 /** معلم: بازدید و مشارکتِ دانش‌آموزانِ کلاس‌هایش (و والدین‌شان). */
 export default function Visits() {

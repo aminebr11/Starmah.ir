@@ -42,6 +42,15 @@ Route::post('/presence', function (\Illuminate\Http\Request $r) {
     return response()->noContent();
 })->middleware(['auth', 'throttle:10,1'])->name('presence');
 
+// صفحه‌ای که با پیش‌بارگذاری باز شد (درخواستی به سرور نرسید) هم در آمارِ بازدید شمرده شود
+Route::post('/presence/view', function (\Illuminate\Http\Request $r) {
+    $path = (string) $r->input('path', '');
+    if ($path === '' || $path[0] !== '/' || strlen($path) > 300) return response()->noContent();
+    $name = rescue(fn () => app('router')->getRoutes()->match(\Illuminate\Http\Request::create($path, 'GET'))->getName(), null, false);
+    if ($name) \App\Support\VisitTracker::hit($r, true, $name);
+    return response()->noContent();
+})->middleware(['auth', 'throttle:60,1'])->name('presence.view');
+
 Route::get('/dashboard', [HomeController::class, '__invoke'])->middleware('auth')->name('dashboard');
 
 // صفحه‌ی قیمت (عمومی) + بازگشت از درگاهِ پرداخت

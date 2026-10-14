@@ -1,5 +1,6 @@
 import { Children, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
+import '@/../css/online.css';
 
 export const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const initials = (name) => String(name || '؟').trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('‌');
@@ -346,6 +347,48 @@ export function ReportModal({ url, onClose }) {
                     </>
                 )}
             </div>
+        </div>
+    );
+}
+
+/**
+ * «🎬 فیلم‌های کلاس»: فهرستِ ضبط‌ها با پخش در همین صفحه و دانلود.
+ * معلم: «برای بچه‌ها» روشن/خاموش و حذف.
+ */
+export function RecordingsList({ recordings = [], manage = false, onShare, onDelete, title = '🎬 فیلم‌های کلاس' }) {
+    const [play, setPlay] = useState(null);
+    const [all, setAll] = useState(false);
+    if (!recordings.length) return null;
+    const list = all ? recordings : recordings.slice(0, 6);
+    return (
+        <div className="panel oc-recs">
+            <h3>{title} <span className="oc-st">{fa(recordings.length)} فیلم</span></h3>
+            <div className="oc-recs-g">
+                {list.map((r) => (
+                    <div key={r.id} className="oc-vrec">
+                        <button type="button" className="oc-vrec-play" onClick={() => setPlay(r)} aria-label={`پخشِ ${r.title}`}>▶</button>
+                        <div className="oc-vrec-b">
+                            <b>{r.title}</b>
+                            <small>👥 {r.classroom}{r.teacher && !manage ? ` · 👩‍🏫 ${r.teacher}` : ''}</small>
+                            <small>🗓️ {r.at}{r.minutes ? ` · ⏱️ ${fa(r.minutes)} دقیقه` : ''} · {r.size_mb >= 1 ? `${fa(r.size_mb)} مگ` : 'کمتر از ۱ مگ'}</small>
+                            <div className="oc-vrec-a">
+                                <a href={`${r.url}&download=1`} data-no-prefetch>⬇️ دانلود</a>
+                                {manage && <label><input type="checkbox" checked={r.shared} onChange={(e) => onShare?.(r, e.target.checked)} /> بچه‌ها ببینند</label>}
+                                {manage && <button type="button" onClick={() => onDelete?.(r)}>🗑️ حذف</button>}
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+            {recordings.length > 6 && <button type="button" className="oc-link" onClick={() => setAll((a) => !a)}>{all ? 'کمتر' : `همه‌ی ${fa(recordings.length)} فیلم`}</button>}
+            {play && (
+                <div className="oc-modal" role="dialog" aria-label={play.title} onClick={(e) => { if (e.target === e.currentTarget) setPlay(null); }}>
+                    <div className="oc-modal-box oc-player">
+                        <div className="oc-player-h"><b>🎬 {play.title}</b><small>{play.at}</small><button type="button" onClick={() => setPlay(null)} aria-label="بستن">×</button></div>
+                        <video src={play.url} controls autoPlay playsInline preload="metadata" />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

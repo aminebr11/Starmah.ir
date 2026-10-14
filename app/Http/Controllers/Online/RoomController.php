@@ -450,20 +450,40 @@ class RoomController extends Controller
     {
         [$role] = $this->ctx($request, $room);
         abort_unless($role === 'host' && OnlineAccess::recordingAllowed(), 403);
-        $request->validate(['seq' => 'required|integer|min:0', 'chunk' => 'required|file|max:51200']);
+        $request->validate(['seq' => 'required|integer|min:0', 'rec' => 'nullable|integer', 'chunk' => 'required|file|max:51200']);
         $dir = "online/{$room->id}";
         Storage::disk('local')->makeDirectory($dir);
-        $path = Storage::disk('local')->path("$dir/recording.webm");
-        if ((int) $request->input('seq') === 0) {
-            @unlink($path);
+
+        // هر ضبط یک فایلِ جدا: تکه‌ی اول (بدونِ شناسه) ضبطِ تازه می‌سازد، بقیه به همان اضافه می‌شوند
+        $rec = null;
+        if (\App\Models\OnlineRecording::ready()) {
+            $rec = $request->filled('rec') ? \App\Models\OnlineRecording::where('room_id', $room->id)->find($request->integer('rec')) : null;
+            // تکه‌ی بعدی بدونِ شناسه (نسخه‌ی قبلیِ برنامه، یا وقتی پاسخِ تکه‌ی اول نرسید): ادامه‌ی ضبطِ در جریان
+            if (! $rec && (int) $request->input('seq') > 0) {
+                $rec = \App\Models\OnlineRecording::where('room_id', $room->id)->where('updated_at', '>=', now()->subMinutes(2))->latest('id')->first();
+            }
+            if (! $rec) {
+                $rec = \App\Models\OnlineRecording::create(['room_id' => $room->id, 'school_id' => $room->school_id, 'teacher_id' => $room->teacher_id,
+                    'path' => "$dir/rec-" . now()->format('His') . '-' . Str::random(6) . '.webm', 'size' => 0]);
+            }
+            $rel = $rec->path;
+        } else {
+            $rel = "$dir/recording.webm";
+            if ((int) $request->input('seq') === 0) {
+                Storage::disk('local')->delete($rel);
+            }
         }
+        $path = Storage::disk('local')->path($rel);
         clearstatcache(true, $path);
         abort_if(is_file($path) && filesize($path) > 2 * 1024 ** 3, 413, 'فایلِ ضبط بیش از اندازه بزرگ شد.');
         file_put_contents($path, file_get_contents($request->file('chunk')->getRealPath()), FILE_APPEND | LOCK_EX);
         clearstatcache(true, $path);
-        $room->forceFill(['recording_path' => "$dir/recording.webm", 'recording_size' => filesize($path)])->save();
+        $size = filesize($path);
+        $rec?->forceFill(['size' => $size])->save();
+        // آخرین فیلم روی خودِ کلاس هم (سازگاری با نسخه‌های قبلی)
+        $room->forceFill(['recording_path' => $rel, 'recording_size' => $size])->save();
 
-        return response()->json(['size' => filesize($path)]);
+        return response()->json(['size' => $size, 'rec' => $rec?->id]);
     }
 
     /** پایانِ ضبط: نوشتنِ مدتِ فیلم در فایل تا نوارِ پخش کار کند. */
@@ -471,8 +491,14 @@ class RoomController extends Controller
     {
         [$role] = $this->ctx($request, $room);
         abort_unless($role === 'host' && $room->recording_path, 403);
-        $ms = (float) $request->validate(['duration_ms' => 'required|numeric|min:1|max:86400000'])['duration_ms'];
-        $ok = \App\Support\WebmDuration::fix(Storage::disk('local')->path($room->recording_path), $ms);
+        $d = $request->validate(['duration_ms' => 'required|numeric|min:1|max:86400000', 'rec' => 'nullable|integer']);
+        $rec = ! empty($d['rec']) && \App\Models\OnlineRecording::ready() ? \App\Models\OnlineRecording::where('room_id', $room->id)->find($d['rec']) : null;
+        $rel = $rec?->path ?? $room->recording_path;
+        $ok = \App\Support\WebmDuration::fix(Storage::disk('local')->path($rel), (float) $d['duration_ms']);
+        if ($rec) {
+            clearstatcache();
+            $rec->forceFill(['duration_ms' => (int) $d['duration_ms'], 'size' => (int) @filesize(Storage::disk('local')->path($rel))])->save();
+        }
 
         return response()->json(['ok' => $ok]);
     }
@@ -480,12 +506,16 @@ class RoomController extends Controller
     public function recording(Request $request, OnlineRoom $room): BinaryFileResponse
     {
         [$role] = $this->ctx($request, $room, false);
-        abort_unless($room->recording_path && ($role !== 'student' || $room->recording_shared), 404);
-        abort_unless(Storage::disk('local')->exists($room->recording_path), 404);
+        abort_unless($role !== 'student' || $room->recording_shared, 404);
+        $rel = $room->recording_path;
+        if ($request->filled('rec') && \App\Models\OnlineRecording::ready()) {
+            $rel = \App\Models\OnlineRecording::where('room_id', $room->id)->findOrFail($request->integer('rec'))->path;
+        }
+        abort_unless($rel && Storage::disk('local')->exists($rel), 404);
 
-        return response()->file(Storage::disk('local')->path($room->recording_path), [
+        return response()->file(Storage::disk('local')->path($rel), [
             'Content-Type' => 'video/webm', 'Cache-Control' => 'private, max-age=3600',
-            'Content-Disposition' => 'inline; filename="class-' . $room->id . '.webm"',
+            'Content-Disposition' => ($request->boolean('download') ? 'attachment' : 'inline') . '; filename="class-' . $room->id . ($request->filled('rec') ? '-' . $request->integer('rec') : '') . '.webm"',
         ]);
     }
 
