@@ -246,4 +246,40 @@ class OnlineClassTest extends TestCase
         $this->actingAs($student)->get(route('online.list'))->assertInertia(fn ($p) => $p->where('onlineClass', true)
             ->where('onlineNow.title', 'ریاضی آنلاین'));
     }
+
+    public function test_student_board_fallback_undo_conflict_and_kid_board_view(): void
+    {
+        [$school, $teacher, $classroom, $student] = $this->live();
+        $room = OnlineRoom::firstOrFail();
+        $this->actingAs($student)->postJson(route('online.join', $room))->assertOk();
+
+        $op = ['id' => 'st-1', 'k' => 'pen', 'p' => [10, 10, 20, 20], 'c' => '#000', 'w' => 4];
+        // بدونِ اجازه نمی‌تواند بنویسد
+        $this->actingAs($student)->postJson(route('online.board.op', $room), ['page' => 0, 'kind' => 'op', 'op' => $op])->assertForbidden();
+
+        $this->actingAs($teacher)->postJson(route('online.control', $room), ['action' => 'perm', 'user' => $student->id, 'perm' => 'can_draw', 'value' => true])->assertOk();
+        $v1 = $this->actingAs($student)->postJson(route('online.board.op', $room), ['page' => 0, 'kind' => 'op', 'op' => $op])->assertOk()->json('version');
+        // دوباره‌فرستادنِ همان خط چیزی را دو بار ثبت نمی‌کند
+        $this->actingAs($student)->postJson(route('online.board.op', $room), ['page' => 0, 'kind' => 'op', 'op' => $op])->assertOk();
+        $ops = $this->actingAs($teacher)->getJson(route('online.board', $room) . '?page=0')->assertOk()->json('ops');
+        $this->assertCount(1, $ops);
+        $this->assertSame($student->id, $ops[0]['by']);
+
+        // معلم با نسخه‌ی قدیمی ذخیره می‌کند: باید ۴۰۹ بگیرد و کار بچه پاک نشود
+        $this->actingAs($teacher)->postJson(route('online.board.save', $room), ['page' => 0, 'ops' => '[]', 'base' => 0])
+            ->assertStatus(409)->assertJsonPath('conflict', true);
+        $this->assertCount(1, $this->actingAs($teacher)->getJson(route('online.board', $room) . '?page=0')->json('ops'));
+        // با نسخه‌ی درست ذخیره می‌شود و نسخه بالا می‌رود
+        $this->actingAs($teacher)->postJson(route('online.board.save', $room), ['page' => 0, 'ops' => json_encode($ops), 'base' => $v1])->assertOk();
+
+        // دانش‌آموز فقط خط خودش را پاک می‌کند
+        $this->actingAs($student)->postJson(route('online.board.op', $room), ['page' => 0, 'kind' => 'undo', 'id' => 'st-1'])->assertOk();
+        $this->assertCount(0, $this->actingAs($teacher)->getJson(route('online.board', $room) . '?page=0')->json('ops'));
+
+        // نمای بچه‌ها: فقط تخته
+        $this->actingAs($teacher)->postJson(route('online.control', $room), ['action' => 'kidview', 'value' => 'board'])->assertOk();
+        $this->actingAs($student)->postJson(route('online.sync', $room), ['v' => 0])->assertJsonPath('state.settings.kid_view', 'board');
+        $this->actingAs($teacher)->postJson(route('online.control', $room), ['action' => 'kidview', 'value' => 'normal'])->assertOk();
+        $this->actingAs($student)->postJson(route('online.sync', $room), ['v' => 0])->assertJsonPath('state.settings.kid_view', 'normal');
+    }
 }

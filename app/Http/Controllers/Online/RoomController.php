@@ -180,7 +180,7 @@ class RoomController extends Controller
         [$role, $me] = $this->ctx($request, $room);
         abort_unless($this->moderator($role), 403);
         $data = $request->validate([
-            'action' => 'required|in:perm,mute_all,lower_hands,chat,lock,timer,star,stage,page,kick,spotlight,announce,recording,open_mics,end',
+            'action' => 'required|in:perm,mute_all,lower_hands,chat,lock,timer,star,stage,page,kick,spotlight,announce,recording,open_mics,kidview,end',
             'user' => 'nullable|integer', 'perm' => 'nullable|in:can_speak,can_video,can_draw', 'value' => 'nullable',
         ]);
         $target = isset($data['user']) ? OnlineParticipant::where('room_id', $room->id)->where('user_id', $data['user'])->first() : null;
@@ -220,6 +220,10 @@ class RoomController extends Controller
             case 'star':
                 abort_unless($target && $target->role === 'student', 422);
                 $out['xp'] = $this->svc->star($room, $target, $request->user());
+                break;
+            case 'kidview':
+                // بچه‌ها فقط تخته را ببینند (کامل تمام‌صفحه) یا همه‌ی صحنه
+                $room->setOpts(['kid_view' => $value === 'board' ? 'board' : 'normal']);
                 break;
             case 'stage':
                 abort_unless(in_array($value, ['board', 'screen', 'cam'], true), 422);
@@ -277,6 +281,11 @@ class RoomController extends Controller
             return response()->json(['ok' => true]);
         }
         $page = OnlineBoardPage::firstOrNew(['room_id' => $room->id, 'page' => $data['page']]);
+        // اگر دانش‌آموزی همین‌وقت چیزی نوشته، ذخیره‌ی معلم کارش را نمی‌پوشاند: اول باید نسخه‌ی تازه بگیرد
+        $base = $request->input('base');
+        if ($base !== null && $page->exists && (int) $base !== (int) $page->version) {
+            return response()->json(['conflict' => true, 'version' => (int) $page->version], 409);
+        }
         $page->bg = $data['bg'] ?? ($page->bg ?: 'blank');
         if (array_key_exists('ops', $data) && $data['ops'] !== null) {
             $page->ops = $data['ops'];
@@ -286,6 +295,49 @@ class RoomController extends Controller
         $room->bump();
 
         return response()->json(['version' => $page->version]);
+    }
+
+    /** نوشته یا پاک‌کردنِ یک خط از دانش‌آموز، وقتی اتصالِ مستقیمش برقرار نیست. */
+    public function boardOp(Request $request, OnlineRoom $room): JsonResponse
+    {
+        [$role, $p] = $this->ctx($request, $room);
+        abort_unless($room->live() && ($role === 'host' || $p->can_draw), 403, 'اجازه‌ی نوشتن روی تخته را ندارید.');
+        $data = $request->validate([
+            'page' => 'required|integer|min:0|max:199', 'kind' => 'required|in:op,undo',
+            'op' => 'nullable|array', 'id' => 'nullable|string|max:80',
+        ]);
+        $page = OnlineBoardPage::firstOrNew(['room_id' => $room->id, 'page' => $data['page']]);
+        if (! $page->exists) {
+            $page->bg = 'blank';
+        }
+        $ops = json_decode((string) $page->ops, true) ?: [];
+        $before = count($ops);
+
+        if ($data['kind'] === 'undo') {
+            // دانش‌آموز فقط خط‌های خودش را برمی‌دارد؛ معلم هر خطی را
+            $ops = array_values(array_filter($ops, fn ($o) => ($o['id'] ?? null) !== ($data['id'] ?? null)
+                || ($role !== 'host' && (int) ($o['by'] ?? 0) !== (int) $p->user_id)));
+        } else {
+            $op = $data['op'] ?? [];
+            $id = (string) ($op['id'] ?? '');
+            abort_if($id === '' || strlen($id) > 80, 422);
+            abort_unless(in_array($op['k'] ?? '', ['pen', 'hl', 'line', 'arrow', 'rect', 'ell', 'text', 'stamp', 'erase', 'clear'], true), 422);
+            if (! collect($ops)->contains(fn ($o) => ($o['id'] ?? null) === $id)) {
+                abort_if(count($ops) >= 4000, 413, 'این صفحه پر شده است؛ یک صفحه‌ی تازه بسازید.');
+                $clean = array_intersect_key($op, array_flip(['id', 'k', 'c', 'w', 'p', 's', 'ids']));
+                $ops[] = $clean + ['by' => (int) $p->user_id];
+            }
+        }
+
+        // نسخه فقط وقتی بالا می‌رود که صفحه واقعاً عوض شده باشد (فرستادنِ دوباره‌ی یک خط نسخه را جابه‌جا نمی‌کند)
+        if (count($ops) !== $before || ! $page->exists) {
+            $page->ops = json_encode(array_values($ops), JSON_UNESCAPED_UNICODE);
+            $page->version = (int) $page->version + 1;
+            $page->save();
+            $room->bump();
+        }
+
+        return response()->json(['version' => (int) $page->version]);
     }
 
     /** بارگذاریِ تصویر برای تخته (اسلاید/صفحه‌ی PDF). */

@@ -167,6 +167,7 @@ class OnlineClassService
                 'locked' => (bool) $room->opt('locked', false),
                 'page' => (int) $room->opt('page', 0),
                 'stage' => (string) $room->opt('stage', 'board'),
+                'kid_view' => (string) $room->opt('kid_view', 'normal'),
                 'timer_end' => $room->opt('timer_end'),
                 'spotlight' => $room->opt('spotlight'),
                 'announce' => $room->opt('announce'),

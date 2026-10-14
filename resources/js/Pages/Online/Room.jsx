@@ -49,6 +49,8 @@ export default function Room({ room, me, config, back }) {
     const [report, setReport] = useState(false);
     const [more, setMore] = useState(false);
     const [reactOpen, setReactOpen] = useState(false);
+    const [speaking, setSpeaking] = useState([]);   // شناسه‌ی کسانی که الان حرف می‌زنند
+    const [fs, setFs] = useState(false);           // تمام‌صفحه‌ی تخته (معلم)
     const [busy, setBusy] = useState(null);
     const [rec, setRec] = useState(null);
     const [skew, setSkew] = useState(0);
@@ -79,13 +81,29 @@ export default function Room({ room, me, config, back }) {
     const stage = st?.settings?.stage ?? 'board';
     const hostTiles = tiles[room.teacher_id] || {};
     const canDraw = isHost || !!mine?.can_draw;
+    const kidBoard = !isMod && st?.settings?.kid_view === 'board';   // بچه‌ها فقط تخته را می‌بینند
+    const speakingNames = people.filter((p) => speaking.includes(p.id)).map((p) => p.name);
+    const toggleFs = () => {
+        const next = !fs;
+        setFs(next);
+        try {
+            if (next) document.documentElement.requestFullscreen?.()?.catch?.(() => {});
+            else if (document.fullscreenElement) document.exitFullscreen?.();
+        } catch { /* مرورگر اجازه نداد؛ حالتِ تمام‌صفحه‌ی خودِ صفحه کافی است */ }
+    };
 
     // ── تخته ─────────────────────────────────────────────────────────
-    const loadPage = useCallback(async (p) => {
+    const loadPage = useCallback(async (p, merge = false) => {
         try {
             const { data } = await axios.get(R('board'), { params: { page: p } });
+            let ops = data.ops;
+            // معلم: کارهای ذخیره‌نشده‌ی خودش را نگه می‌دارد تا با نوشته‌ی بچه پاک نشوند
+            if (merge && board.current) {
+                const have = new Set(ops.map((o) => o.id));
+                ops = [...ops, ...board.current.ops().filter((o) => !have.has(o.id))];
+            }
             loaded.current = { page: p, version: data.version };
-            board.current?.load(data.ops, data.bg);
+            board.current?.load(ops, data.bg);
         } catch { /* دورِ بعد */ }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -93,15 +111,26 @@ export default function Room({ room, me, config, back }) {
     const saveBoard = useCallback((now = false) => {
         if (!isHost) return;
         clearTimeout(saveT.current);
-        const run = () => {
+        const run = async (retry = false) => {
             const p = loaded.current.page;
-            if (p < 0 || !board.current) return Promise.resolve();
-            return axios.post(R('board.save'), { page: p, bg: board.current.bg(), ops: JSON.stringify(board.current.ops()) })
-                .then(({ data }) => { if (loaded.current.page === p) loaded.current.version = data.version; }).catch(() => {});
+            if (p < 0 || !board.current) return;
+            try {
+                const { data } = await axios.post(R('board.save'), { page: p, bg: board.current.bg(), ops: JSON.stringify(board.current.ops()), base: loaded.current.version });
+                if (loaded.current.page === p) loaded.current.version = data.version;
+            } catch (e) {
+                // یک دانش‌آموز همین‌وقت چیزی نوشته: اول نسخه‌ی تازه، بعد ذخیره‌ی دوباره
+                if (e?.response?.status === 409 && !retry) { await loadPage(p, true); return run(true); }
+            }
         };
         if (now) return run();
-        saveT.current = setTimeout(run, 1200);
+        saveT.current = setTimeout(() => run(), 1200);
         return null;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loadPage]);
+
+    /** نوشته‌ی دانش‌آموز از راهِ سرور، وقتی اتصالِ مستقیم برقرار نیست. */
+    const boardOpSend = useCallback((body) => {
+        axios.post(R('board.op'), body).then(() => sync.current?.fast(4000)).catch(() => {});
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -109,10 +138,16 @@ export default function Room({ room, me, config, back }) {
 
     const onOp = useCallback((op) => {
         const p = loaded.current.page;
-        if (op.k === '__undo') send({ t: 'undo', page: p, id: op.id });
-        else send({ t: 'op', page: p, op });
+        const direct = !!tr.current?.dataOpen();
+        if (op.k === '__undo') {
+            send({ t: 'undo', page: p, id: op.id });
+            if (!isHost && !direct) boardOpSend({ page: p, kind: 'undo', id: op.id });
+        } else {
+            send({ t: 'op', page: p, op });
+            if (!isHost && !direct) boardOpSend({ page: p, kind: 'op', op });
+        }
         saveBoard();
-    }, [send, saveBoard]);
+    }, [send, saveBoard, boardOpSend]);
     const onStroke = useCallback((s) => send({ t: 'stroke', page: loaded.current.page, ...s }), [send]);
     const onPtr = useCallback((x, y) => send({ t: 'ptr', x, y }), [send]);
 
@@ -131,6 +166,7 @@ export default function Room({ room, me, config, back }) {
             send(msg, from);
             return;
         }
+        if (msg.t === 'speak') { if (!isHost && fromHost) setSpeaking(Array.isArray(msg.uids) ? msg.uids : []); return; }
         if (msg.t === 'react') {
             showReact(msg.e, msg.name || sender?.name);
             if (isHost) send({ t: 'react', e: msg.e, name: sender?.name }, from);
@@ -188,6 +224,7 @@ export default function Room({ room, me, config, back }) {
             const pg = s.settings.page;
             const ver = s.pages.find((x) => x.page === pg)?.version ?? 0;
             if (loaded.current.page !== pg) loadPage(pg);
+            else if (isHost && ver > loaded.current.version) loadPage(pg, true);
             else if (!isHost && ver > loaded.current.version && !tr.current?.dataOpen()) loadPage(pg);
             if (isHost) {
                 tr.current?.setSpeakers(s.people.filter((p) => p.can_speak && p.role === 'student').map((p) => p.id));
@@ -216,6 +253,11 @@ export default function Room({ room, me, config, back }) {
             me: me.id, isHost, hostId: room.teacher_id,
             onTrack: (uid, slot, track) => setTiles((t) => ({ ...t, [uid]: { ...(t[uid] || {}), [slot]: track } })),
             onData,
+            onSpeaking: (uids) => {
+                setSpeaking(uids);
+                // معلم در حالت داخلی گوینده‌ها را برای همه پخش می‌کند (در LiveKit خودش همه را می‌فهمد)
+                if (isHost && media !== 'livekit') tr.current?.broadcast({ t: 'speak', uids });
+            },
             onPeer: (uid, state, open) => { if (!isHost || media === 'livekit') setLink((l) => ({ ...l, state, open })); setLink((l) => ({ ...l, ...(tr.current?.stats() || {}) })); },
         };
         try {
@@ -542,7 +584,7 @@ export default function Room({ room, me, config, back }) {
             </div>
             <div className="oc-side-body">
                 {panel === 'chat' && <Chat msgs={msgs} me={me.id} chatOn={st?.settings?.chat !== false} isMod={isMod} onSend={chat} onHide={hideMsg} />}
-                {panel === 'people' && <People people={people} me={me.id} isMod={isMod} isHost={isHost} tiles={tiles} onPerm={perm} onStar={star} onKick={kick} onSpot={spot}
+                {panel === 'people' && <People people={people} me={me.id} isMod={isMod} isHost={isHost} tiles={tiles} speaking={speaking} onPerm={perm} onStar={star} onKick={kick} onSpot={spot}
                     spotlight={st?.settings?.spotlight} onAll={(a, v) => control(a, v)} />}
                 {panel === 'poll' && <PollPanel poll={poll} isMod={isMod} onCreate={newPoll} onClose={closePoll} />}
             </div>
@@ -550,7 +592,7 @@ export default function Room({ room, me, config, back }) {
     );
 
     return (
-        <div className={`oc ${isHost ? 'is-host' : ''}`} dir="rtl">
+        <div className={`oc ${isHost ? 'is-host' : ''} ${kidBoard ? 'kid-board' : ''} ${fs ? 'oc-fs' : ''}`} dir="rtl">
             <Head title={room.title} />
             {audioTracks.map(([uid, t]) => <AudioSink key={`${uid}:${t.id}`} track={t} muted={mute} onBlocked={() => setAudioBlocked(true)} />)}
 
@@ -591,11 +633,14 @@ export default function Room({ room, me, config, back }) {
                         {/* دوربینِ معلم (یا دانش‌آموزِ نمایش‌داده‌شده) */}
                         <div className="oc-pips">
                             {isHost && local.cam && <Vid track={local.cam} mirror className="oc-pip" label="من" onEl={(el) => { camEl.current = el; }} />}
-                            {!isHost && hostTiles.cam && <Vid track={hostTiles.cam} className="oc-pip" label={spotlightName ? `👁️ ${spotlightName}` : `👩‍🏫 ${room.teacher}`} />}
+                            {!isHost && hostTiles.cam && <Vid track={hostTiles.cam} className={`oc-pip ${speaking.includes(room.teacher_id) ? 'spk' : ''}`} label={spotlightName ? `👁️ ${spotlightName}` : `👩‍🏫 ${room.teacher}`} />}
                             {!isHost && local.cam && <Vid track={local.cam} mirror className="oc-pip small" label="من" />}
                             {media === 'livekit' && Object.entries(tiles).filter(([uid, t]) => Number(uid) !== room.teacher_id && Number(uid) !== me.id && t.cam)
                                 .slice(0, 4).map(([uid, t]) => <Vid key={uid} track={t.cam} className="oc-pip small" label={people.find((p) => p.id === Number(uid))?.name} />)}
                         </div>
+                        {speakingNames.length > 0 && (
+                            <div className="oc-spk-chip" aria-live="polite">🎙️ {speakingNames.join('، ')} {speakingNames.length > 1 ? 'صحبت می‌کنند' : 'صحبت می‌کند'}</div>
+                        )}
                         <div className="oc-reacts" aria-hidden="true">
                             {reacts.map((r) => <span key={r.id} style={{ right: `${r.x}%` }}>{r.e}{r.name && <small>{r.name}</small>}</span>)}
                         </div>
@@ -615,6 +660,7 @@ export default function Room({ room, me, config, back }) {
                             </select>
                             <label className="oc-file">🖼️ اسلاید / PDF<input type="file" accept="image/*,application/pdf,.pdf" onChange={(e) => { uploadSlides(e.target.files?.[0]); e.target.value = ''; }} /></label>
                             <button type="button" onClick={removePage} disabled={pageCount <= 1} aria-label="حذفِ صفحه">🗑️</button>
+                            <button type="button" onClick={toggleFs} title="تخته را تمام‌صفحه کن">⛶ تمام‌صفحه</button>
                         </div>
                     )}
                     {!isHost && <div className="oc-pages ro">صفحه‌ی {fa(page + 1)} از {fa(pageCount)}{canDraw && ' · ✏️ می‌توانی بنویسی'}</div>}
@@ -662,6 +708,15 @@ export default function Room({ room, me, config, back }) {
                         <span>⚙️</span><small>ابزارها</small>
                     </button>
                 )}
+                {isHost && (
+                    <button type="button" className={`oc-cb ${st?.settings?.kid_view === 'board' ? 'on' : ''}`} onClick={() => control('kidview', st?.settings?.kid_view === 'board' ? 'normal' : 'board')}
+                        title="بچه‌ها فقط تخته را ببینند یا همه‌ی صحنه را">
+                        <span>{st?.settings?.kid_view === 'board' ? '🎯' : '👀'}</span><small>{st?.settings?.kid_view === 'board' ? 'بچه‌ها: تخته' : 'بچه‌ها: همه'}</small>
+                    </button>
+                )}
+                {fs && (
+                    <button type="button" className="oc-fs-x" onClick={toggleFs}>⤫ خروج از تمام‌صفحه</button>
+                )}
                 <button type="button" className="oc-cb oc-only-m oc-only-land" onClick={() => setSheet(true)}>
                     <span>💬</span><small>گفت‌وگو{unread > 0 ? ` (${fa(unread)})` : ''}</small>
                 </button>
@@ -685,6 +740,7 @@ export default function Room({ room, me, config, back }) {
                             <button type="button" onClick={() => control('mute_all')}>🔇 بی‌صدا کردنِ همه</button>
                             <button type="button" onClick={() => control('lower_hands')}>✋ پایین آوردنِ دست‌ها</button>
                             <button type="button" onClick={() => control('stage', stage === 'board' ? 'screen' : 'board')}>{stage === 'board' ? '🖥️ نمایشِ صفحه‌ی اشتراکی' : '📝 نمایشِ تخته'}</button>
+                            <button type="button" onClick={() => control('kidview', st?.settings?.kid_view === 'board' ? 'normal' : 'board')}>{st?.settings?.kid_view === 'board' ? '👀 بچه‌ها: همه‌ی صحنه' : '🎯 بچه‌ها: فقط تخته'}</button>
                             <button type="button" onClick={() => setReport(true)}>📋 گزارشِ حضور</button>
                         </div>
                     </div>

@@ -4,7 +4,7 @@
  * کتابخانه فقط همین‌جا و فقط در این حالت بارگذاری می‌شود (صفحه سبک می‌ماند).
  */
 export default async function createLk(opts) {
-    const { url, token, isHost, hostId, onTrack, onData, onPeer } = opts;
+    const { url, token, isHost, hostId, onTrack, onData, onPeer, onSpeaking } = opts;
     const LK = await import('livekit-client');
     const { Room, RoomEvent, Track, ConnectionState } = LK;
     const enc = new TextEncoder();
@@ -46,6 +46,7 @@ export default async function createLk(opts) {
         onPeer?.(hostId, state, state === 'connected');
     });
     room.on(RoomEvent.ParticipantConnected, () => onPeer?.(hostId, 'connected', true));
+    room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => onSpeaking?.(speakers.map((s) => Number(s.identity)).filter(Boolean)));
 
     await room.connect(url, token, { autoSubscribe: true });
     onPeer?.(hostId, 'connected', true);

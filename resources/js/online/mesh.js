@@ -37,7 +37,7 @@ function setEncoding(sender, enc) {
 }
 
 export default function createMesh(opts) {
-    const { me, isHost, hostId, ice = [], budget = 3000, signal, onTrack, onData, onPeer } = opts;
+    const { me, isHost, hostId, ice = [], budget = 3000, signal, onTrack, onData, onPeer, onSpeaking } = opts;
     const config = { iceServers: ice, bundlePolicy: 'max-bundle' };
     const peers = new Map();          // معلم: uid → peer | دانش‌آموز: hostId → peer
     const local = { mic: null, cam: null, screen: null };
@@ -46,13 +46,34 @@ export default function createMesh(opts) {
     let closed = false;
 
     // ── میکسرِ صدا (فقط معلم) ─────────────────────────────────────────
-    let ctx = null; let micGain = null; let micSrc = null;
+    let ctx = null; let micGain = null; let micSrc = null; let micAn = null;
+    let spkTimer = null; let lastSpk = '';
     const remotes = new Map();        // uid → { src, gain, el }
+    /** تراز صدا (۰ تا ۱) از روی یک AnalyserNode. */
+    function level(an) {
+        const buf = new Uint8Array(an.fftSize);
+        an.getByteTimeDomainData(buf);
+        let s = 0;
+        for (const v of buf) { const x = (v - 128) / 128; s += x * x; }
+        return Math.sqrt(s / buf.length);
+    }
+    /** معلم هر ۲۵۰ میلی‌ثانیه می‌سنجد چه کسی حرف می‌زند؛ فقط وقتی فهرست عوض شود خبر می‌دهد. */
+    function startSpeakers() {
+        if (spkTimer || !isHost) return;
+        spkTimer = setInterval(() => {
+            const now = [];
+            for (const [uid, r] of remotes) if (r.an && level(r.an) > 0.02) now.push(uid);
+            if (micAn && level(micAn) > 0.02) now.push(me);
+            const key = now.join(',');
+            if (key !== lastSpk) { lastSpk = key; onSpeaking?.(now); }
+        }, 250);
+    }
     function audio() {
         if (!ctx) {
             const AC = window.AudioContext || window.webkitAudioContext;
             ctx = new AC();
             micGain = ctx.createGain();
+            startSpeakers();
         }
         if (ctx.state === 'suspended') ctx.resume().catch(() => {});
         return ctx;
@@ -67,7 +88,7 @@ export default function createMesh(opts) {
     }
     function setRemoteAudio(uid, track) {
         const old = remotes.get(uid);
-        if (old) { try { old.src.disconnect(); old.gain.disconnect(); } catch { /* */ } old.el.srcObject = null; remotes.delete(uid); }
+        if (old) { try { old.src.disconnect(); old.gain.disconnect(); old.an?.disconnect(); } catch { /* */ } old.el.srcObject = null; remotes.delete(uid); }
         if (!track || !isHost) return;
         audio();
         const stream = new MediaStream([track]);
@@ -75,8 +96,11 @@ export default function createMesh(opts) {
         const el = new Audio(); el.muted = true; el.srcObject = stream; el.play().catch(() => {});
         const src = ctx.createMediaStreamSource(stream);
         const gain = ctx.createGain();
+        const an = ctx.createAnalyser();      // فقط برای تشخیصِ گوینده؛ به خروجی وصل نیست
+        an.fftSize = 256;
         src.connect(gain);
-        remotes.set(uid, { src, gain, el });
+        src.connect(an);
+        remotes.set(uid, { src, gain, el, an });
         rewire();
     }
 
@@ -257,8 +281,12 @@ export default function createMesh(opts) {
             local.mic = track;
             if (isHost) {
                 audio();
-                if (micSrc) { try { micSrc.disconnect(); } catch { /* */ } micSrc = null; }
-                if (track) { micSrc = ctx.createMediaStreamSource(new MediaStream([track])); micSrc.connect(micGain); }
+                if (micSrc) { try { micSrc.disconnect(); micAn?.disconnect(); } catch { /* */ } micSrc = null; micAn = null; }
+                if (track) {
+                    micSrc = ctx.createMediaStreamSource(new MediaStream([track]));
+                    micSrc.connect(micGain);
+                    micAn = ctx.createAnalyser(); micAn.fftSize = 256; micSrc.connect(micAn);
+                }
             } else {
                 for (const p of peers.values()) await p.tx?.audio?.sender.replaceTrack(track).catch(() => {});
             }
@@ -314,6 +342,7 @@ export default function createMesh(opts) {
                 drop(uid);
             }
             clearTimeout(adaptTimer);
+            clearInterval(spkTimer); spkTimer = null;
             try { ctx?.close(); } catch { /* */ }
         },
     };

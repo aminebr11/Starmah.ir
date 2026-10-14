@@ -107,7 +107,7 @@ export function Chat({ msgs, me, chatOn, isMod, onSend, onHide }) {
     );
 }
 
-export function People({ people, me, isMod, isHost, tiles, onPerm, onStar, onKick, onSpot, spotlight, onAll }) {
+export function People({ people, me, isMod, isHost, tiles, onPerm, onStar, onKick, onSpot, spotlight, onAll, speaking = [] }) {
     const online = people.filter((p) => p.online);
     const hands = online.filter((p) => p.hand).sort((a, b) => a.hand - b.hand);
     const students = people.filter((p) => p.role === 'student');
@@ -137,7 +137,7 @@ export function People({ people, me, isMod, isHost, tiles, onPerm, onStar, onKic
                 return (
                     <div key={p.id} className={`oc-person ${p.online ? '' : 'off'}`}>
                         <div className="oc-p-main">
-                            <span className="oc-p-av"><Avatar id={p.id} name={p.name} size={34} /><i className={p.online ? 'on' : ''} /></span>
+                            <span className={`oc-p-av ${speaking.includes(p.id) ? 'spk' : ''}`}><Avatar id={p.id} name={p.name} size={34} /><i className={p.online ? 'on' : ''} /></span>
                             <span className="oc-p-name">
                                 {p.name}{p.id === me ? ' (من)' : ''}
                                 <small>{p.role === 'host' ? '👩‍🏫 معلم' : p.role === 'observer' ? '🛡️ ناظر' : p.stars ? `⭐ ${fa(p.stars)}` : ''}{p.hand ? ' ✋' : ''}</small>

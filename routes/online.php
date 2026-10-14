@@ -41,6 +41,7 @@ Route::middleware(['auth'])->prefix('online/{room}')->name('online.')->group(fun
     Route::post('/hand', [RoomController::class, 'hand'])->middleware('throttle:online-act')->name('hand');
     Route::post('/control', [RoomController::class, 'control'])->middleware('throttle:online-act')->name('control');
     Route::get('/board', [RoomController::class, 'boardGet'])->name('board');
+    Route::post('/board-op', [RoomController::class, 'boardOp'])->middleware('throttle:online-act')->name('board.op');
     Route::post('/board', [RoomController::class, 'boardSave'])->middleware('throttle:online-act')->name('board.save');
     Route::post('/asset', [RoomController::class, 'assetUpload'])->middleware('throttle:online-act')->name('asset.upload');
     Route::get('/asset/{name}', [RoomController::class, 'asset'])->name('asset');

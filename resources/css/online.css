@@ -328,3 +328,26 @@
 .oc-max input{width:70px;border:1.5px solid #e2e8f0;border-radius:10px;padding:5px 8px;font:inherit}
 .oc-table-wrap{background:#fff;border-radius:18px;overflow-x:auto;box-shadow:0 0 0 1px #edf0f7}
 .oc-admin h3{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+/* ── نشانگرِ گوینده: حلقه‌ی سبز و نام روی صحنه ───────────────────── */
+.oc-p-av.spk .oc-av,.oc-p-av.spk{box-shadow:0 0 0 3px #22c55e;border-radius:50%;animation:oc-talk .9s ease-in-out infinite alternate}
+.oc-pip.spk,.oc-vid.spk{box-shadow:0 0 0 4px #22c55e,0 10px 24px -10px rgba(0,0,0,.5)!important}
+@keyframes oc-talk{to{box-shadow:0 0 0 6px rgba(34,197,94,.35)}}
+.oc-spk-chip{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:5;background:#fff;color:#14532d;font-weight:900;font-size:13.5px;border-radius:99px;padding:7px 16px;box-shadow:0 0 0 2px #22c55e,0 8px 20px -10px rgba(0,0,0,.4);white-space:nowrap;max-width:90%;overflow:hidden;text-overflow:ellipsis}
+
+/* ── تمام‌صفحه‌ی تخته (معلم) ─────────────────────────────────────── */
+.oc.oc-fs .oc-top,.oc.oc-fs .oc-bar,.oc.oc-fs .oc-side,.oc.oc-fs .oc-announce,.oc.oc-fs .oc-unmute{display:none!important}
+.oc.oc-fs .oc-main{padding:0;gap:0}
+.oc.oc-fs .oc-stage-wrap{gap:0;padding:0}
+.oc.oc-fs .oc-stage,.oc.oc-fs .ob,.oc.oc-fs .ob-stage{max-width:none!important;max-height:none!important;width:100%!important;height:100%!important;aspect-ratio:auto!important;border-radius:0!important;box-shadow:none!important}
+.oc.oc-fs .oc-pages{background:rgba(255,255,255,.92);position:fixed;bottom:0;inset-inline:0;z-index:20;padding:8px;flex-wrap:wrap}
+.oc-fs-x{position:fixed;top:10px;inset-inline-end:10px;z-index:60;border:0;border-radius:14px;padding:10px 14px;font:inherit;font-weight:900;font-size:13px;color:#fff;background:#e11d48;box-shadow:0 4px 0 #9f1239;cursor:pointer}
+
+/* ── بچه‌ها: فقط تخته (معلم انتخاب می‌کند) ───────────────────────── */
+.oc.kid-board .oc-side,.oc.kid-board .oc-pips,.oc.kid-board .oc-pages,.oc.kid-board .oc-only-m,.oc.kid-board .oc-only-land{display:none!important}
+.oc.kid-board .oc-main{padding:6px}
+/* تخته تمام ناحیه‌ی صفحه را می‌گیرد؛ موقعیتِ مطلق تا ارتفاعِ درست داشته باشد */
+.oc.kid-board .oc-stage-wrap{position:relative;flex:1;min-height:0}
+.oc.kid-board .oc-stage{position:absolute;inset:0}
+.oc.kid-board .oc-board,.oc.kid-board .ob{position:absolute;inset:0;width:100%;height:100%}
+.oc.kid-board .ob-stage{position:absolute;inset:0;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;aspect-ratio:auto!important;border-radius:16px}
