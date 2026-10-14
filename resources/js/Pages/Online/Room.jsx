@@ -79,6 +79,7 @@ export default function Room({ room, me, config, back }) {
     const [devOpen, setDevOpen] = useState(false);   // دلیلِ وصل نشدنِ صدا/تصویر (برای عیب‌یابی)
     const [busy, setBusy] = useState(null);
     const [booksOpen, setBooksOpen] = useState(false);
+    const [play, setPlay] = useState(null);         // فیلم/آهنگی که معلم برای همه پخش می‌کند: { name, kind, url }
     const [bookGo, setBookGo] = useState('');
     const [rec, setRec] = useState(null);
     const [skew, setSkew] = useState(0);
@@ -98,6 +99,10 @@ export default function Room({ room, me, config, back }) {
     const lastReact = useRef(0);
     const helloAt = useRef(0);
     const joinedAt = useRef(0);
+    const playEl = useRef(null);
+    const playTracks = useRef({ video: null, audio: null, stream: null });
+    const playRef = useRef(null);
+    playRef.current = play;
     const bookDoc = useRef(null);            // { id, doc } — PDFِ کتابِ باز روی رایانه‌ی معلم
     const bookRendering = useRef(new Set()); // صفحه‌هایی که در حالِ ساختنِ تصویرشان هستیم
     const localRef = useRef(local);
@@ -519,7 +524,66 @@ export default function Room({ room, me, config, back }) {
         }
     };
 
+    // ── 🎬 پخشِ فیلم/آهنگ برای همه ─────────────────────────────────────
+    // فایل روی رایانه‌ی معلم پخش می‌شود و تصویر و صدایش زنده برای همه فرستاده می‌شود (هم‌زمان، بدونِ بارگذاری)
+    const startPlay = async (file) => {
+        if (!file) return;
+        const probe = document.createElement('video');
+        if (!probe.captureStream && !probe.mozCaptureStream) { toast('پخشِ فیلم برای همه روی این مرورگر ممکن نیست؛ از کروم یا اج روی رایانه استفاده کنید.'); return; }
+        await stopPlay(true);
+        if (localRef.current.screen) {
+            localRef.current.screen.stop();
+            await tr.current?.setScreen(null);
+            setLocal((l) => ({ ...l, screen: null }));
+        }
+        const kind = /^audio\//.test(file.type) || /\.(mp3|m4a|aac|ogg|oga|wav|flac|opus|wma)$/i.test(file.name) ? 'audio' : 'video';
+        setPlay({ name: file.name.replace(/\.[^.]+$/, '').slice(0, 100), kind, url: URL.createObjectURL(file) });
+    };
+    /** با شروعِ پخش: تصویر و صدای همان پخش‌کننده برای همه فرستاده می‌شود. */
+    const capturePlay = async () => {
+        const el = playEl.current;
+        if (!el || playTracks.current.stream) return;
+        let stream;
+        try { stream = el.captureStream ? el.captureStream() : el.mozCaptureStream(); } catch (e) { console.warn('[online] capture', e); toast('پخش برای همه آغاز نشد.'); return; }
+        playTracks.current.stream = stream;
+        const hook = async () => {
+            const vt = stream.getVideoTracks()[0] || null;
+            const at = stream.getAudioTracks()[0] || null;
+            if (vt && vt !== playTracks.current.video) {
+                vt.contentHint = 'motion';
+                playTracks.current.video = vt;
+                await tr.current?.setScreen(vt, true);
+                setLocal((l) => ({ ...l, screen: vt }));
+            }
+            if (at && at !== playTracks.current.audio) {
+                playTracks.current.audio = at;
+                await tr.current?.setMediaAudio?.(at);
+            }
+        };
+        stream.addEventListener('addtrack', hook);
+        await hook();
+        const p = playRef.current;
+        if (p) await control('playing', { name: p.name, kind: p.kind });
+        if (playTracks.current.video) control('layout', 'screen');
+    };
+    const stopPlay = async (silent = false) => {
+        const pt = playTracks.current;
+        if (pt.video) { await tr.current?.setScreen(null); setLocal((l) => ({ ...l, screen: null })); }
+        if (pt.audio) await tr.current?.setMediaAudio?.(null);
+        pt.stream?.getTracks().forEach((t) => t.stop());
+        playTracks.current = { video: null, audio: null, stream: null };
+        try { playEl.current?.pause(); } catch { /* */ }
+        const had = playRef.current;
+        if (had?.url) URL.revokeObjectURL(had.url);
+        setPlay(null);
+        if (had && !silent) {
+            await control('playing', null);
+            if (stRef.current?.settings?.stage === 'screen') control('layout', 'board_cam');
+        }
+    };
+
     const toggleScreen = async () => {
+        if (playRef.current) { await stopPlay(); return; }
         if (localRef.current.screen) {
             localRef.current.screen.stop();
             await tr.current?.setScreen(null);
@@ -687,7 +751,8 @@ export default function Room({ room, me, config, back }) {
     const setLayout = async (v) => {
         setLayoutOpen(false);
         if (v === 'screen' && !localRef.current.screen) { await toggleScreen(); return; }
-        if (v !== 'screen' && localRef.current.screen) {
+        // فیلمِ در حالِ پخش با عوض شدنِ چیدمان قطع نشود
+        if (v !== 'screen' && localRef.current.screen && !playRef.current) {
             localRef.current.screen.stop();
             await tr.current?.setScreen(null);
             setLocal((l) => ({ ...l, screen: null }));
@@ -713,7 +778,7 @@ export default function Room({ room, me, config, back }) {
             finishUrl: R('record.finish'),
             getStage: () => ({ mode: localRef.current.screen && stRef.current?.settings?.stage === 'screen' ? 'screen' : stRef.current?.settings?.stage === 'cam' ? 'cam' : 'board',
                 canvases: board.current?.canvases() || [], screen: screenEl.current, cam: camEl.current }),
-            getAudioTracks: () => [localRef.current.mic, ...(tr.current?.remoteAudioTracks() || [])].filter(Boolean),
+            getAudioTracks: () => [localRef.current.mic, playTracks.current.audio, ...(tr.current?.remoteAudioTracks() || [])].filter(Boolean),
             onState: (s) => { if (s === 'error') toast('بخشی از ضبط بارگذاری نشد.'); },
         });
         r.start();
@@ -785,7 +850,11 @@ export default function Room({ room, me, config, back }) {
     useEffect(() => { if (panel === 'chat' && (sheet || window.innerWidth > 900 || window.matchMedia('(orientation: portrait)').matches)) setUnread(0); }, [panel, sheet, msgs.length]);
 
     // ── صداها ────────────────────────────────────────────────────────
-    const audioTracks = useMemo(() => Object.entries(tiles).flatMap(([uid, t]) => (t.audio && Number(uid) !== me.id ? [[uid, t.audio]] : [])), [tiles, me.id]);
+    // صدای هر نفر + صدای فیلم/آهنگِ معلم (با LiveKit جدا می‌آید)
+    const audioTracks = useMemo(() => Object.entries(tiles).flatMap(([uid, t]) => (Number(uid) === me.id ? []
+        : [t.audio && [uid, t.audio], t.saudio && [`${uid}:s`, t.saudio]].filter(Boolean))), [tiles, me.id]);
+    // فیلمِ معلم: گوشی‌ها نسخه‌ی سبک‌تر (LiveKit)
+    useEffect(() => { if (!isHost) tr.current?.setMovie?.(st?.settings?.playing?.kind === 'video'); }, [isHost, st?.settings?.playing?.kind, tiles]);
 
     const poll = st?.poll;
     const showPollCard = !isMod && poll && pollHidden !== `${poll.id}:${poll.status}` && (poll.status === 'open' || (poll.status === 'shown' && poll.mine !== null));
@@ -920,6 +989,9 @@ export default function Room({ room, me, config, back }) {
                             {media === 'livekit' && Object.entries(tiles).filter(([uid, t]) => Number(uid) !== room.teacher_id && Number(uid) !== me.id && Number(uid) !== spotId && t.cam && camOn(Number(uid)))
                                 .slice(0, 6).map(([uid, t]) => <Vid key={uid} track={t.cam} className={`oc-pip small ${speaking.includes(Number(uid)) ? 'spk' : ''}`} label={people.find((p) => p.id === Number(uid))?.name} />)}
                         </DragBox>
+                        {st?.settings?.playing && (
+                            <div className="oc-play-chip" aria-live="polite">{st.settings.playing.kind === 'audio' ? '🎵' : '🎬'} در حالِ پخش: {st.settings.playing.name}</div>
+                        )}
                         {speakingNames.length > 0 && (
                             <div className="oc-spk-chip" aria-live="polite">🎙️ {speakingNames.join('، ')} {speakingNames.length > 1 ? 'صحبت می‌کنند' : 'صحبت می‌کند'}</div>
                         )}
@@ -1019,10 +1091,21 @@ export default function Room({ room, me, config, back }) {
                     </div>
                 )}
                 {isHost && (
-                    <button type="button" className={`oc-cb ${local.screen ? 'on' : ''}`} onClick={toggleScreen}>
-                        <span>🖥️</span><small>{local.screen ? 'توقفِ اشتراک' : 'اشتراکِ صفحه'}</small>
+                    <button type="button" className={`oc-cb ${local.screen && !play ? 'on' : ''}`} onClick={toggleScreen}>
+                        <span>🖥️</span><small>{local.screen && !play ? 'توقفِ اشتراک' : 'اشتراکِ صفحه'}</small>
                     </button>
                 )}
+                {isHost && (play
+                    ? (
+                        <button type="button" className="oc-cb rec" onClick={() => stopPlay()}>
+                            <span>⏹</span><small>پایانِ پخش</small>
+                        </button>
+                    ) : (
+                        <label className="oc-cb oc-cb-file" title="پخشِ فیلم یا آهنگ از رایانه‌ی شما برای همه">
+                            <span>🎬</span><small>فیلم/آهنگ</small>
+                            <input type="file" accept="video/*,audio/*,.mkv,.mp3,.m4a,.wav,.ogg" onChange={(e) => { startPlay(e.target.files?.[0]); e.target.value = ''; }} />
+                        </label>
+                    ))}
                 {!isMod && (
                     <button type="button" className={`oc-cb hand ${mine?.hand ? 'on' : ''}`} onClick={hand}>
                         <span>✋</span><small>{mine?.hand ? 'پایین بیاور' : 'دست بالا'}</small>
@@ -1119,6 +1202,18 @@ export default function Room({ room, me, config, back }) {
                 </div>
             )}
             {report && <ReportModal url={R('report')} onClose={() => setReport(false)} />}
+            {isHost && play && (
+                <div className={`oc-player-mini ${play.kind}`}>
+                    <div className="oc-player-mini-h">
+                        <b>{play.kind === 'audio' ? '🎵' : '🎬'} {play.name}</b>
+                        <button type="button" onClick={() => stopPlay()} aria-label="پایانِ پخش">⏹</button>
+                    </div>
+                    {play.kind === 'audio'
+                        ? <audio ref={playEl} src={play.url} controls autoPlay onPlaying={capturePlay} />
+                        : <video ref={playEl} src={play.url} controls autoPlay playsInline onPlaying={capturePlay} />}
+                    <small>با دکمه‌های همین‌جا مکث، جلو و عقب کنید؛ برای همه هم‌زمان پخش می‌شود.</small>
+                </div>
+            )}
             {booksOpen && isHost && (
                 <BookPanel listUrl={R('books')} uploadUrl={R('books.upload')} deleteUrl={(id) => R('book.destroy', id)} current={book?.id}
                     onOpen={openBook} onClose={() => setBooksOpen(false)} />

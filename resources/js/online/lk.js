@@ -9,7 +9,8 @@ export default async function createLk(opts) {
     const { Room, RoomEvent, Track, ConnectionState, VideoQuality, AudioPresets } = LK;
     const enc = new TextEncoder();
     const dec = new TextDecoder();
-    const pubs = { mic: null, cam: null, screen: null };
+    const pubs = { mic: null, cam: null, screen: null, saudio: null };
+    let movie = false;   // فیلمِ معلم در حالِ پخش: گوشی‌ها لایه‌ی ۳۶۰ را بگیرند
     const remoteAudio = new Map();
 
     // adaptiveStream خاموش است: تصویرها را خودمان در <video> نشان می‌دهیم (نه با attach)،
@@ -30,19 +31,20 @@ export default async function createLk(opts) {
     });
     // گوشی: تصویرِ معلم ۳۶۰p (کم‌مصرف و روان)؛ رایانه: ۷۲۰p. تصویرِ کوچکِ بچه‌ها: ۱۸۰p.
     const wide = () => (typeof window !== 'undefined' ? Math.max(window.innerWidth, window.innerHeight) * (window.devicePixelRatio > 1.5 ? 1.2 : 1) : 1280) >= 1100;
-    const qualityFor = (uid, source) => (source === Track.Source.ScreenShare ? VideoQuality.HIGH
+    const qualityFor = (uid, source) => (source === Track.Source.ScreenShare ? (movie && !wide() ? VideoQuality.LOW : VideoQuality.HIGH)
         : uid === hostId ? (wide() ? VideoQuality.HIGH : VideoQuality.MEDIUM)
             : VideoQuality.LOW);
 
     const slot = (source) => (source === Track.Source.Camera ? 'cam'
         : source === Track.Source.ScreenShare ? 'screen'
-            : 'audio');
+            : source === Track.Source.ScreenShareAudio ? 'saudio'
+                : 'audio');
 
     room.on(RoomEvent.TrackSubscribed, (track, pub, participant) => {
         const uid = Number(participant.identity);
         const s = slot(pub.source);
-        if (s !== 'audio') { try { pub.setVideoQuality(qualityFor(uid, pub.source)); } catch { /* */ } }
-        if (s === 'audio') remoteAudio.set(`${uid}:${pub.trackSid}`, track.mediaStreamTrack);
+        if (s === 'cam' || s === 'screen') { try { pub.setVideoQuality(qualityFor(uid, pub.source)); } catch { /* */ } }
+        if (s === 'audio' || s === 'saudio') remoteAudio.set(`${uid}:${pub.trackSid}`, track.mediaStreamTrack);
         onTrack?.(uid, s, track.mediaStreamTrack, pub.trackSid);
     });
     room.on(RoomEvent.TrackUnsubscribed, (track, pub, participant) => {
@@ -64,7 +66,7 @@ export default async function createLk(opts) {
     await room.connect(url, token, { autoSubscribe: true });
     onPeer?.(hostId, 'connected', true);
 
-    async function publish(key, track, source) {
+    async function publish(key, track, source, extra = {}) {
         // تعویضِ میکروفون: همان انتشار، فقط track عوض می‌شود (بی‌وقفه). دوربین دوباره منتشر می‌شود
         // تا simulcast با اندازه‌ی دوربینِ تازه از نو ساخته شود.
         if (pubs[key] && track && source === Track.Source.Microphone) {
@@ -82,8 +84,10 @@ export default async function createLk(opts) {
         }
         if (pubs[key]) { await room.localParticipant.unpublishTrack(pubs[key], false).catch(() => {}); pubs[key] = null; }
         if (track) {
-            const o = { source };
+            const o = { source, ...extra };
             if (source === Track.Source.Microphone) o.audioPreset = isHost ? AudioPresets.music : AudioPresets.speech;
+            // صدای فیلم/آهنگ: استریو با کیفیتِ بالا، بدونِ قطع‌کردنِ سکوت
+            if (source === Track.Source.ScreenShareAudio) { o.audioPreset = AudioPresets.musicHighQualityStereo; o.dtx = false; o.red = false; o.forceStereo = true; }
             if (source === Track.Source.Camera) {
                 o.videoEncoding = isHost ? { maxBitrate: 1_500_000, maxFramerate: 24 } : { maxBitrate: 500_000, maxFramerate: 20 };
                 o.videoSimulcastLayers = isHost ? [LK.VideoPresets.h180, LK.VideoPresets.h360] : [LK.VideoPresets.h180];
@@ -108,7 +112,21 @@ export default async function createLk(opts) {
         stats() { return { total: room.numParticipants - 1, connected: room.numParticipants - 1 }; },
         setMic: (t) => publish('mic', t, Track.Source.Microphone),
         setCam: (t) => publish('cam', t, Track.Source.Camera),
-        setScreen: (t) => (isHost ? publish('screen', t, Track.Source.ScreenShare) : Promise.resolve()),
+        setScreen: (t, isMotion = false) => (isHost ? publish('screen', t, Track.Source.ScreenShare, isMotion
+            // فیلم: ۳۰ فریم و یک لایه‌ی سبکِ ۳۶۰ برای گوشی‌ها
+            ? { screenShareEncoding: { maxBitrate: 2_500_000, maxFramerate: 30 }, screenShareSimulcastLayers: [new LK.VideoPreset(640, 360, 650_000, 24)] }
+            : {}) : Promise.resolve()),
+        setMediaAudio: (t) => (isHost ? publish('saudio', t, Track.Source.ScreenShareAudio) : Promise.resolve()),
+        /** فیلمِ معلم در حالِ پخش است: گوشی‌ها نسخه‌ی سبک‌تر را بگیرند (کم‌مصرف و روان). */
+        setMovie(on) {
+            movie = !!on;
+            for (const p of room.remoteParticipants.values()) {
+                if (Number(p.identity) !== hostId) continue;
+                for (const pub of p.videoTrackPublications.values()) {
+                    if (pub.source === Track.Source.ScreenShare) { try { pub.setVideoQuality(qualityFor(hostId, pub.source)); } catch { /* */ } }
+                }
+            }
+        },
         setSpeakers() {},
         relayCam() {},
         broadcast(msg) { send(msg, isHost ? undefined : [String(hostId)]); },

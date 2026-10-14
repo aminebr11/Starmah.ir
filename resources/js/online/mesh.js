@@ -48,6 +48,8 @@ export default function createMesh(opts) {
 
     // ── میکسرِ صدا (فقط معلم) ─────────────────────────────────────────
     let ctx = null; let micGain = null; let micSrc = null; let micAn = null;
+    let mediaSrc = null;   // صدای فیلم/آهنگی که معلم پخش می‌کند
+    let motion = false;    // پخشِ فیلم: فریمِ بیشتر برای اشتراکِ صفحه
     let spkTimer = null; let lastSpk = '';
     const remotes = new Map();        // uid → { src, gain, el }
     /** تراز صدا (۰ تا ۱) از روی یک AnalyserNode. */
@@ -125,7 +127,7 @@ export default function createMesh(opts) {
                 setEncoding(p.tx?.screen?.sender, {
                     maxBitrate: Math.max(80, Math.min(scr, 2500)) * 1000,
                     scaleResolutionDownBy: scr >= 700 ? 1 : scr >= 300 ? 1.5 : 2,
-                    maxFramerate: scr >= 400 ? 12 : 6,
+                    maxFramerate: motion ? (scr >= 400 ? 24 : 15) : scr >= 400 ? 12 : 6,
                 });
             }
         }, 400);
@@ -300,11 +302,24 @@ export default function createMesh(opts) {
             adapt();
         },
 
-        async setScreen(track) {
+        async setScreen(track, isMotion = false) {
             if (!isHost) return;
+            motion = !!(track && isMotion);
             local.screen = track;
             for (const p of peers.values()) await p.tx?.screen?.sender.replaceTrack(track).catch(() => {});
             adapt();
+        },
+
+        /** معلم: صدای فیلم/آهنگ در همان صدای ارسالیِ معلم ترکیب می‌شود (با کیفیتِ بالاتر). */
+        async setMediaAudio(track) {
+            if (!isHost) return;
+            audio();
+            if (mediaSrc) { try { mediaSrc.disconnect(); } catch { /* */ } mediaSrc = null; }
+            if (track) {
+                mediaSrc = ctx.createMediaStreamSource(new MediaStream([track]));
+                mediaSrc.connect(micGain);
+            }
+            for (const p of peers.values()) setEncoding(p.tx?.audio?.sender, { maxBitrate: track ? 128000 : 48000 });
         },
 
         /** معلم: چه کسانی اجازه‌ی صحبت دارند (صدایشان برای همه پخش می‌شود). */
