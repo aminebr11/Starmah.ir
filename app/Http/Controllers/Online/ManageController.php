@@ -83,6 +83,7 @@ class ManageController extends Controller
         return Inertia::render('Teacher/OnlineClasses', [
             'ready' => $ready,
             'allowed' => OnlineAccess::canHost($t),
+            'supervisor' => $ready && OnlineAccess::canSupervise($t),
             'schoolOn' => OnlineAccess::schoolEnabled($t->school_id),
             'media' => OnlineAccess::media(),
             'max' => OnlineAccess::maxParticipants($t->school_id),
@@ -223,6 +224,29 @@ class ManageController extends Controller
             'rooms' => $rooms->map(fn ($r) => $this->card($r, true))->values(),
             'stats' => ['classes' => $month->count(), 'minutes' => (int) $month->sum(fn ($r) => $r->started_at ? ($r->ended_at ?? now())->diffInMinutes($r->started_at, true) : 0),
                 'live' => $rooms->where('status', 'live')->count()],
+        ]);
+    }
+
+    /** 🛡️ صفحه‌ی ناظم: کلاس‌های زنده، برنامه‌ریزی‌شده و گذشته‌ی کلِ مدرسه. */
+    public function supervise(Request $request): Response|RedirectResponse
+    {
+        $u = $request->user();
+        if ($u->hasRole(Roles::SUPER_ADMIN)) {
+            return redirect()->route('admin.online');
+        }
+        if ($u->hasRole(Roles::SCHOOL_ADMIN)) {
+            return redirect()->route('school.online');
+        }
+        abort_unless(OnlineAccess::ready() && OnlineAccess::canSupervise($u), 403, 'مدیرِ مدرسه شما را ناظمِ کلاس‌های آنلاین تعیین نکرده است.');
+        $sid = $u->school_id;
+        $rooms = OnlineRoom::with(['classroom:id,name', 'teacher:id,name'])->withCount(['participants as present_count' => fn ($q) => $q->where('role', 'student')])
+            ->where('school_id', $sid)->orderByRaw("case status when 'live' then 0 when 'scheduled' then 1 else 2 end")->latest('id')->limit(80)->get();
+        $rooms->each->closeIfAbandoned();
+
+        return Inertia::render('Online/Supervise', [
+            'school' => \App\Models\School::find($sid)?->name,
+            'rooms' => $rooms->map(fn ($r) => $this->card($r, true))->values(),
+            'recordings' => $this->recordings(OnlineRoom::where('school_id', $sid), 40),
         ]);
     }
 

@@ -87,6 +87,9 @@ class HandleInertiaRequests extends Middleware
                 : null, null, true),
             // «🎥 کلاسِ آنلاین»: منو فقط برای کسی که دسترسی دارد؛ بنرِ «کلاس شروع شد» برای بچه‌ها
             'onlineClass' => fn () => (bool) rescue(fn () => \App\Support\OnlineAccess::menuFor($user), false, false),
+            // «🛡️ نظارتِ کلاس‌ها» برای ناظمی که مدیرِ مدرسه تعیین کرده (حسابِ معلم)
+            'onlineSup' => fn () => (bool) rescue(fn () => $user && $user->hasRole(\App\Support\Roles::TEACHER)
+                && \App\Support\OnlineAccess::ready() && \App\Support\OnlineAccess::canSupervise($user), false, false),
             'onlineNow' => fn () => rescue(fn () => ($user && $user->isStudent() && \App\Support\OnlineAccess::ready() && \App\Support\OnlineAccess::schoolEnabled($user->school_id))
                 ? (\Illuminate\Support\Facades\Cache::remember('online-now:' . $user->id, 15, fn () => \App\Models\OnlineRoom::forStudent($user)
                     ->where('status', 'live')->latest('id')->first(['id', 'title'])?->only(['id', 'title']) ?: false) ?: null)

@@ -32,6 +32,8 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher/online')->name('tea
 });
 
 Route::middleware(['auth', 'role:student'])->get('/online', [ManageController::class, 'student'])->name('online.list');
+// 🛡️ ناظم: همه‌ی کلاس‌های آنلاینِ مدرسه
+Route::middleware(['auth'])->get('/online/supervise', [ManageController::class, 'supervise'])->name('online.supervise');
 
 // آزمایشِ اتصال روی همین دستگاه (برای همه‌ی نقش‌ها)
 Route::middleware(['auth'])->group(function () {

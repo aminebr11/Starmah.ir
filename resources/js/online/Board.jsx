@@ -176,12 +176,25 @@ export function drawBg(ctx, bg, onLoad) {
     ctx.restore();
 }
 
-const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, onOp, onStroke, onPtr, tools = true }, ref) {
+/** نمای تخته (بزرگ‌نمایی): z از ۱ تا ۵، x و y گوشه‌ی بالای ناحیه‌ی دیده‌شده (به مختصاتِ تخته). */
+export const ZMAX = 5;
+export function clampView(v) {
+    const z = Math.max(1, Math.min(ZMAX, Number(v?.z) || 1));
+    const x = Math.max(0, Math.min(W - W / z, Number(v?.x) || 0));
+    const y = Math.max(0, Math.min(H - H / z, Number(v?.y) || 0));
+    return { z: Math.round(z * 1000) / 1000, x: Math.round(x), y: Math.round(y) };
+}
+
+const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, onOp, onStroke, onPtr, onView, tools = true }, ref) {
     const wrapRef = useRef(null);
     const bgRef = useRef(null);
     const inkRef = useRef(null);
     const liveRef = useRef(null);
-    const st = useRef({ ops: [], bg: 'blank', live: new Map(), ptr: null, cur: null, redo: [], erasing: new Set(), dirty: true, raf: 0, scale: 1 });
+    const st = useRef({ ops: [], bg: 'blank', live: new Map(), ptr: null, cur: null, redo: [], erasing: new Set(), dirty: true, raf: 0, scale: 1, view: { z: 1, x: 0, y: 0 } });
+    const [zoom, setZoom] = useState(1);
+    const ptrs = useRef(new Map());   // انگشت‌های روی تخته (برای بزرگ‌نماییِ دوانگشتی)
+    const pinch = useRef(null);
+    const viewSent = useRef(0);
     const [tool, setTool] = useState('pen');
     const [color, setColor] = useState(COLORS[0]);
     const [size, setSize] = useState(1);
@@ -193,14 +206,16 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
     const sizeFor = (k) => (SIZES[k === 'arrow' || k === 'rect' || k === 'ell' ? 'line' : k] || SIZES.pen)[size];
 
     // ── رسم ───────────────────────────────────────────────────────────
+    /** تبدیلِ مختصاتِ تخته به بوم با در نظر گرفتنِ بزرگ‌نمایی. */
+    const tf = (c) => { const s = st.current; const k = s.scale * s.view.z; c.setTransform(k, 0, 0, k, -s.view.x * k, -s.view.y * k); };
     const paintAll = () => {
         const s = st.current;
         const bgc = bgRef.current?.getContext('2d'); const ink = inkRef.current?.getContext('2d');
         if (!bgc || !ink) return;
-        const k = s.scale;
-        bgc.setTransform(k, 0, 0, k, 0, 0); drawBg(bgc, s.bg, () => { s.dirty = true; schedule(); });
+        bgc.setTransform(1, 0, 0, 1, 0, 0); bgc.clearRect(0, 0, bgRef.current.width, bgRef.current.height);
+        tf(bgc); drawBg(bgc, s.bg, () => { s.dirty = true; schedule(); });
         ink.setTransform(1, 0, 0, 1, 0, 0); ink.clearRect(0, 0, inkRef.current.width, inkRef.current.height);
-        ink.setTransform(k, 0, 0, k, 0, 0);
+        tf(ink);
         for (const op of visible(s.ops)) drawOp(ink, op, s.erasing.has(op.id));
         s.dirty = false;
     };
@@ -209,7 +224,7 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
         const c = liveRef.current?.getContext('2d');
         if (!c) return;
         c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, liveRef.current.width, liveRef.current.height);
-        c.setTransform(s.scale, 0, 0, s.scale, 0, 0);
+        tf(c);
         for (const op of s.live.values()) drawOp(c, op);
         if (s.cur) drawOp(c, s.cur);
         if (s.ptr && Date.now() - s.ptr.at < 1500) {
@@ -266,12 +281,84 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
         },
         pointer(x, y) { st.current.ptr = x == null ? null : { x, y, at: Date.now() }; schedule(); },
         canvases() { return [bgRef.current, inkRef.current, liveRef.current]; },
+        /** نمای دیگران (معلم یا دانش‌آموزِ مجاز) — همه همان بخش را می‌بینند. */
+        setView(v) { if (pinch.current) return; applyView(v ? clampView(v) : { z: 1, x: 0, y: 0 }); },
+        view() { return { ...st.current.view }; },
+        /** کلِ صفحه (بدونِ بزرگ‌نمایی) به اندازه‌ی واقعی — برای ذخیره‌ی عکس. */
+        snapshot() {
+            const c = document.createElement('canvas'); c.width = W; c.height = H;
+            const g = c.getContext('2d');
+            g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+            drawBg(g, st.current.bg, () => {});
+            for (const op of visible(st.current.ops)) drawOp(g, op, false);
+            return c;
+        },
     }));
+
+    // ── بزرگ‌نمایی ───────────────────────────────────────────────────
+    const applyView = (v) => {
+        const s = st.current;
+        if (v.z === s.view.z && v.x === s.view.x && v.y === s.view.y) return;
+        s.view = v; s.dirty = true;
+        setZoom(v.z);
+        schedule();
+    };
+    const emitView = (final = false) => {
+        const now = Date.now();
+        if (!final && now - viewSent.current < 70) return;
+        viewSent.current = now;
+        onView?.({ ...st.current.view });
+    };
+    /** بزرگ‌نمایی حولِ یک نقطه‌ی صفحه (fx,fy بین ۰ و ۱). */
+    const zoomAt = (z, fx = 0.5, fy = 0.5, final = true) => {
+        const s = st.current;
+        const bx = s.view.x + fx * (W / s.view.z); const by = s.view.y + fy * (H / s.view.z);
+        const nz = Math.max(1, Math.min(ZMAX, z));
+        applyView(clampView({ z: nz, x: bx - fx * (W / nz), y: by - fy * (H / nz) }));
+        emitView(final);
+    };
+    // Ctrl + چرخِ ماوس / دو انگشت روی تاچ‌پد
+    useEffect(() => {
+        const el = liveRef.current;
+        if (!el || !canDraw) return undefined;
+        const onWheel = (e) => {
+            if (!e.ctrlKey && !e.metaKey) return;
+            e.preventDefault();
+            const r = el.getBoundingClientRect();
+            zoomAt(st.current.view.z * Math.exp(-e.deltaY * 0.01), (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height, true);
+        };
+        el.addEventListener('wheel', onWheel, { passive: false });
+        return () => el.removeEventListener('wheel', onWheel);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [canDraw]);
 
     // ── کشیدن ────────────────────────────────────────────────────────
     const pos = (e) => {
         const r = liveRef.current.getBoundingClientRect();
-        return [Math.round(((e.clientX - r.left) / r.width) * W), Math.round(((e.clientY - r.top) / r.height) * H)];
+        const v = st.current.view;
+        return [Math.round(v.x + ((e.clientX - r.left) / r.width) * (W / v.z)), Math.round(v.y + ((e.clientY - r.top) / r.height) * (H / v.z))];
+    };
+    /** دو انگشت: کارِ نیمه‌تمام کنار می‌رود و بزرگ‌نمایی/جابه‌جاییِ تخته شروع می‌شود. */
+    const startPinch = () => {
+        const s = st.current;
+        s.cur = null; s.erasing = new Set(); s.dirty = true;
+        drag.current = null;
+        const [a, b] = [...ptrs.current.values()];
+        const r = liveRef.current.getBoundingClientRect();
+        const mx = ((a.x + b.x) / 2 - r.left) / r.width; const my = ((a.y + b.y) / 2 - r.top) / r.height;
+        pinch.current = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: s.view.z, bx: s.view.x + mx * (W / s.view.z), by: s.view.y + my * (H / s.view.z) };
+        schedule();
+    };
+    const movePinch = () => {
+        const p = pinch.current;
+        const [a, b] = [...ptrs.current.values()];
+        if (!p || !a || !b) return;
+        const r = liveRef.current.getBoundingClientRect();
+        const z = Math.max(1, Math.min(ZMAX, p.z0 * (Math.hypot(a.x - b.x, a.y - b.y) / p.d0)));
+        const mx = ((a.x + b.x) / 2 - r.left) / r.width; const my = ((a.y + b.y) / 2 - r.top) / r.height;
+        // همان نقطه‌ی تخته زیرِ وسطِ دو انگشت می‌ماند (هم بزرگ‌نمایی، هم جابه‌جایی)
+        applyView(clampView({ z, x: p.bx - mx * (W / z), y: p.by - my * (H / z) }));
+        emitView(false);
     };
     const commit = (op) => {
         const s = st.current;
@@ -285,6 +372,11 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
 
     const down = (e) => {
         if (!canDraw || e.button > 0) return;
+        if (e.pointerType === 'touch') {
+            ptrs.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            if (ptrs.current.size === 2) { liveRef.current.setPointerCapture?.(e.pointerId); startPinch(); return; }
+            if (ptrs.current.size > 2 || pinch.current) return;
+        }
         const [x, y] = pos(e);
         const s = st.current;
         if (tool === 'laser') { drag.current = { tool }; s.ptr = { x, y, at: Date.now() }; onPtr?.(x, y); schedule(); liveRef.current.setPointerCapture?.(e.pointerId); return; }
@@ -303,6 +395,10 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
         schedule();
     };
     const move = (e) => {
+        if (ptrs.current.has(e.pointerId)) {
+            ptrs.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            if (pinch.current) { movePinch(); return; }
+        }
         const d = drag.current;
         if (!d) return;
         const s = st.current;
@@ -329,7 +425,14 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
         }
         schedule();
     };
-    const up = () => {
+    const up = (e) => {
+        if (e && ptrs.current.has(e.pointerId)) {
+            ptrs.current.delete(e.pointerId);
+            if (pinch.current) {
+                if (ptrs.current.size < 2) { pinch.current = null; ptrs.current.clear(); emitView(true); }
+                return;
+            }
+        }
         const d = drag.current;
         drag.current = null;
         if (!d) return;
@@ -419,6 +522,9 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
                     <button type="button" onClick={undo} title="برگرداندن (Ctrl+Z)" aria-label="برگرداندن">↶</button>
                     <button type="button" onClick={redo} title="دوباره" aria-label="دوباره">↷</button>
                     {isHost && <button type="button" onClick={clear} title="پاک کردنِ کلِ صفحه" aria-label="پاک کردنِ صفحه">🗑️</button>}
+                    <span className="ob-sep" />
+                    <button type="button" onClick={() => zoomAt(st.current.view.z * 1.5)} disabled={zoom >= ZMAX} title="بزرگ‌نمایی (برای همه) — روی گوشی با دو انگشت" aria-label="بزرگ‌نمایی">🔍</button>
+                    <button type="button" onClick={() => zoomAt(st.current.view.z / 1.5)} disabled={zoom <= 1} title="کوچک‌نمایی" aria-label="کوچک‌نمایی">➖</button>
                     {showStamps && tool === 'stamp' && (
                         <div className="ob-stamps">
                             {STAMPS.map((s) => <button key={s} type="button" onClick={() => { setStamp(s); setShowStamps(false); }}>{s}</button>)}
@@ -431,8 +537,14 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
                 <canvas ref={inkRef} className="ob-c" />
                 <canvas ref={liveRef} className={`ob-c ob-top tool-${tool}`} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
                     style={{ touchAction: canDraw ? 'none' : 'auto' }} />
+                {zoom > 1.01 && (
+                    <div className="ob-zoom">
+                        🔍 {String(Math.round(zoom * 10) / 10).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]).replace('.', '٫')}×
+                        {canDraw && <button type="button" onClick={() => zoomAt(1)} aria-label="اندازه‌ی کامل">⟲ کامل</button>}
+                    </div>
+                )}
                 {textAt && (
-                    <div className="ob-text" style={{ right: `${(1 - textAt.x / W) * 100}%`, top: `${(textAt.y / H) * 100}%` }}>
+                    <div className="ob-text" style={{ right: `${(1 - (textAt.x - st.current.view.x) / (W / st.current.view.z)) * 100}%`, top: `${((textAt.y - st.current.view.y) / (H / st.current.view.z)) * 100}%` }}>
                         <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="بنویس…" rows={2}
                             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitText(); } if (e.key === 'Escape') setTextAt(null); }} />
                         <div><button type="button" onClick={commitText}>✓</button><button type="button" onClick={() => setTextAt(null)}>✕</button></div>

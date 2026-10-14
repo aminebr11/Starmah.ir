@@ -13,10 +13,10 @@ import UiSwitch from '@/Components/UiSwitch';
  * props: title, roleLabel, menu:[{key,label,icon,href}], active, children
  */
 export default function DashLayout({ title, roleLabel, menu = [], active = '', children, actions = null }) {
-    const { auth, unreadNotices = 0, smartLab = false, onlineClass = false, avatarUrl = null, school = null, ui = 'classic', worksheetsPending = 0, audioPending = 0 } = usePage().props;
+    const { auth, unreadNotices = 0, smartLab = false, onlineClass = false, onlineSup = false, avatarUrl = null, school = null, ui = 'classic', worksheetsPending = 0, audioPending = 0 } = usePage().props;
     const [open, setOpen] = useState(false);
     // آیتم‌هایی که flag: 'smart' دارند فقط وقتی ماژول فعال است نمایش داده می‌شوند
-    menu = menu.filter((m) => !m.flag || (m.flag === 'smart' && smartLab) || (m.flag === 'online' && onlineClass));
+    menu = menu.filter((m) => !m.flag || (m.flag === 'smart' && smartLab) || (m.flag === 'online' && onlineClass) || (m.flag === 'onlineSup' && onlineSup));
 
     if (ui === 'clay') {
         return <ClayDash {...{ title, roleLabel, menu, active, children, actions }} badges={{ wsinbox: worksheetsPending, audio: audioPending }} />;
@@ -321,6 +321,7 @@ export const teacherMenu = [
     { key: 'audio', label: 'املا و روخوانی', icon: '🎧', href: '/teacher/audio' },
     { key: 'live', label: 'مسابقه‌ی زنده', icon: '🏆', href: '/teacher/live' },
     { key: 'online', label: 'کلاسِ آنلاین', icon: '🎥', href: '/teacher/online', flag: 'online' },
+    { key: 'online-sup', label: 'نظارتِ کلاس‌ها', icon: '🛡️', href: '/online/supervise', flag: 'onlineSup' },
     { key: 'mybank', label: 'بانکِ سؤالاتِ من', icon: '🗄️', href: '/teacher/my-bank' },
     { key: 'materials', label: 'مطالب و محتوا', icon: '📚', href: '/teacher/materials' },
     { key: 'smart', label: 'آزمون هوشمند 🧪', icon: '🧠', href: '/teacher/smart-exams', flag: 'smart' },

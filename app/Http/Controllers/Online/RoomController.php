@@ -181,7 +181,7 @@ class RoomController extends Controller
         [$role, $me] = $this->ctx($request, $room);
         abort_unless($this->moderator($role), 403);
         $data = $request->validate([
-            'action' => 'required|in:perm,mute_all,lower_hands,chat,lock,timer,star,stage,page,kick,spotlight,announce,recording,open_mics,kidview,layout,book_close,reactions,playing,end',
+            'action' => 'required|in:perm,mute_all,lower_hands,chat,lock,timer,star,stage,page,kick,spotlight,announce,recording,open_mics,kidview,layout,book_close,reactions,playing,view,end',
             'user' => 'nullable|integer', 'perm' => 'nullable|in:can_speak,can_video,can_draw', 'value' => 'nullable',
         ]);
         $target = isset($data['user']) ? OnlineParticipant::where('room_id', $room->id)->where('user_id', $data['user'])->first() : null;
@@ -247,6 +247,13 @@ class RoomController extends Controller
                 } else {
                     $room->setOpts(['page' => max(0, min(199, $no)), 'board_page' => max(0, min(199, $no))]);
                 }
+                break;
+            case 'view':
+                // بزرگ‌نماییِ تخته‌ی همین صفحه (برای کسی که تازه وارد می‌شود)
+                $v = is_array($value) ? $value : [];
+                $z = max(1, min(5, (float) ($v['z'] ?? 1)));
+                $room->setOpts(['view' => $z <= 1.01 ? null : ['page' => (int) ($v['page'] ?? 0), 'z' => round($z, 3),
+                    'x' => max(0, min(1600, (int) ($v['x'] ?? 0))), 'y' => max(0, min(900, (int) ($v['y'] ?? 0)))]]);
                 break;
             case 'reactions':
                 // شکلک‌های بچه‌ها (😀👏) روشن/خاموش — معلم و ناظر همیشه می‌توانند

@@ -502,4 +502,40 @@ class OnlineClassTest extends TestCase
         $this->actingAs($student)->postJson(route('online.sync', $room), ['v' => 0])->assertJsonPath('state.settings.playing', null);
         $this->actingAs($student)->postJson(route('online.control', $room), ['action' => 'reactions', 'value' => true])->assertForbidden();
     }
+
+    public function test_school_assigned_supervisor_sees_and_enters_every_class(): void
+    {
+        [$school, $teacher, $classroom, $student, $admin, $super, $room] = $this->live();
+        $nazem = $this->makeUser($school, Roles::TEACHER);   // ناظم: حسابِ معلم بدونِ کلاس
+        $other = $this->makeUser($this->makeSchool('other-school'), Roles::TEACHER);
+
+        // پیش از تعیین: راهی ندارد
+        $this->actingAs($nazem)->get(route('online.supervise'))->assertForbidden();
+        $this->assertNull(OnlineAccess::roleIn($nazem, $room));
+
+        // مدیرِ مدرسه ناظم تعیین می‌کند
+        $this->actingAs($admin)->post(route('school.online.grant'), ['user' => $nazem->id, 'field' => 'supervisor', 'value' => true])->assertRedirect();
+        $this->actingAs($admin)->post(route('school.online.grant'), ['user' => $other->id, 'field' => 'supervisor', 'value' => true])->assertNotFound();
+
+        $this->actingAs($nazem)->get(route('online.supervise'))->assertOk()
+            ->assertInertia(fn ($p) => $p->component('Online/Supervise')->has('rooms', 1)->where('rooms.0.status', 'live')->where('onlineSup', true));
+        $this->actingAs($nazem)->get(route('teacher.online'))->assertInertia(fn ($p) => $p->where('supervisor', true)->where('allowed', false));
+        $this->actingAs($nazem)->postJson(route('online.join', $room))->assertOk()->assertJsonPath('me.role', 'observer');
+        // ابزارِ نظارت: بی‌صدا کردنِ همه و گزارش؛ ولی کتاب‌های معلم را ندارد
+        $this->actingAs($nazem)->postJson(route('online.control', $room), ['action' => 'mute_all'])->assertOk();
+        $this->actingAs($nazem)->getJson(route('online.report', $room))->assertOk();
+        $this->actingAs($nazem)->getJson(route('online.books', $room))->assertForbidden();
+        // معلم ناظر را در فهرست می‌بیند
+        $people = collect($this->actingAs($teacher)->postJson(route('online.sync', $room), ['v' => 0])->json('state.people'));
+        $this->assertSame('observer', $people->firstWhere('id', $nazem->id)['role']);
+        // معلمِ عادی و مدیر: صفحه‌ی خودشان
+        $this->actingAs($teacher)->get(route('online.supervise'))->assertForbidden();
+        $this->actingAs($admin)->get(route('online.supervise'))->assertRedirect(route('school.online'));
+        // ناظم کلاس را تمام می‌کند
+        $this->actingAs($nazem)->post(route('online.end', $room))->assertRedirect();
+        $this->assertSame('ended', $room->fresh()->status);
+        // برداشتنِ نظارت
+        $this->actingAs($admin)->post(route('school.online.grant'), ['user' => $nazem->id, 'field' => 'supervisor', 'value' => false])->assertRedirect();
+        $this->actingAs($nazem)->get(route('online.supervise'))->assertForbidden();
+    }
 }

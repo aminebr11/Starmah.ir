@@ -176,6 +176,7 @@ class OnlineClassService
                 'book' => $room->opt('book'),
                 'reactions' => (bool) $room->opt('reactions', true),
                 'playing' => $room->opt('playing'),
+                'view' => $room->opt('view'),
             ],
             'people' => $people->map(fn ($x) => [
                 'id' => (int) $x->user_id, 'name' => $x->user?->name ?? '—', 'role' => $x->role, 'online' => $x->online(),

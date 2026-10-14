@@ -64,12 +64,12 @@ export default function OnlineClasses({ ready, on, max, media, teachers, rooms, 
                                     <b>{t.name}</b>
                                     <small>{t.rooms ? `${fa(t.rooms)} کلاس` : 'بدونِ کلاس'}</small>
                                     <label className="oc-sw"><input type="checkbox" checked={t.can_host} onChange={(e) => grant(t.id, 'can_host', e.target.checked)} /><i />برگزاریِ کلاس</label>
-                                    <label className="oc-sw"><input type="checkbox" checked={t.supervisor} onChange={(e) => grant(t.id, 'supervisor', e.target.checked)} /><i />ناظر (معاون)</label>
+                                    <label className="oc-sw"><input type="checkbox" checked={t.supervisor} onChange={(e) => grant(t.id, 'supervisor', e.target.checked)} /><i />ناظم / ناظر</label>
                                 </div>
                             ))}
                             {!teachers.length && <div className="oc-empty">معلمی در مدرسه ثبت نشده است.</div>}
                         </div>
-                        <small className="oc-note">«ناظر» می‌تواند وارد همه‌ی کلاس‌های مدرسه شود، میکروفون‌ها را کنترل کند، کلاس را تمام کند و گزارش‌ها را ببیند.</small>
+                        <small className="oc-note">«ناظم / ناظر» در منوی خودش صفحه‌ی «🛡️ نظارتِ کلاس‌ها» را می‌بیند. از آن‌جا وارد هر کلاسِ مدرسه می‌شود، میکروفون‌ها را کنترل می‌کند، پیامِ نامناسب را پنهان می‌کند، کلاس را تمام می‌کند و حضور و فیلم‌ها را می‌بیند. برای ناظمی که درس نمی‌دهد، از «معلم‌ها» یک حساب بسازید (لازم نیست کلاسی داشته باشد) و فقط همین کلید را روشن کنید.</small>
                     </div>
 
                     <div className="oc-sec"><h3>📚 همه‌ی کلاس‌ها</h3>

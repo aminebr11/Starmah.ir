@@ -511,3 +511,12 @@
   .oc-rotate-hint{display:block;position:absolute;z-index:6;top:12px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.92);color:#3b2a83;font-weight:900;font-size:12px;border-radius:99px;padding:6px 12px;white-space:nowrap;animation:oc-hint-out 1s 6s forwards}
 }
 @keyframes oc-hint-out{to{opacity:0;visibility:hidden}}
+
+/* ── بزرگ‌نماییِ تخته ───────────────────────────────────────────── */
+.ob-zoom{position:absolute;z-index:4;bottom:8px;inset-inline-end:8px;display:flex;align-items:center;gap:6px;background:rgba(30,27,75,.82);color:#fff;font-weight:900;font-size:12.5px;border-radius:99px;padding:5px 6px 5px 12px;backdrop-filter:blur(3px)}
+.ob-zoom button{border:0;border-radius:99px;background:#fff;color:#3b2a83;font:inherit;font-size:12px;font-weight:900;padding:3px 10px;cursor:pointer}
+.ob-tools button:disabled{opacity:.4;cursor:default}
+.oc-sup-banner{display:flex;align-items:center;gap:14px;text-decoration:none;color:#1e1b4b;background:linear-gradient(135deg,#eef2ff,#f5f3ff);box-shadow:0 0 0 2px #c7d2fe}
+.oc-sup-banner>span{font-size:34px}
+.oc-sup-banner b{display:block;font-size:15px}
+.oc-sup-banner small{color:#4338ca;font-weight:800}

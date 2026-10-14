@@ -6,7 +6,7 @@ import Mascot from '@/Components/Mascot';
 import { fa, ReportModal, RecordingsList } from '@/online/parts';
 
 /** «🎥 کلاسِ آنلاین» — ساخت، شروع، گزارشِ حضور و فیلمِ ضبط‌شده (معلم). */
-export default function OnlineClasses({ ready, allowed, schoolOn, media, max, rooms, classrooms, recordings = [] }) {
+export default function OnlineClasses({ ready, allowed, schoolOn, media, max, rooms, classrooms, recordings = [], supervisor = false }) {
     const [open, setOpen] = useState(rooms.length === 0);
     const [editing, setEditing] = useState(null);
     const [report, setReport] = useState(null);
@@ -45,7 +45,12 @@ export default function OnlineClasses({ ready, allowed, schoolOn, media, max, ro
 
             {!ready && <div className="panel oc-warn">جدول‌های کلاسِ آنلاین هنوز روی سرور ساخته نشده‌اند؛ یک‌بار صفحه را تازه کنید یا از «سلامتِ سیستم» مایگریشن را اجرا کنید.</div>}
             {ready && !schoolOn && <div className="panel oc-warn">🔒 کلاسِ آنلاین برای مدرسه‌ی شما هنوز فعال نشده است (با مدیرِ سامانه هماهنگ کنید).</div>}
-            {ready && schoolOn && !allowed && <div className="panel oc-warn">🔒 مدیرِ مدرسه هنوز اجازه‌ی برگزاریِ کلاسِ آنلاین را به شما نداده است.</div>}
+            {ready && schoolOn && supervisor && (
+                <a className="panel oc-sup-banner" href={route('online.supervise')}>
+                    <span>🛡️</span><div><b>شما ناظمِ کلاس‌های آنلاینِ مدرسه هستید</b><small>همه‌ی کلاس‌های زنده و گذشته، ورود به هر کلاس، حضور و فیلم‌ها ←</small></div>
+                </a>
+            )}
+            {ready && schoolOn && !allowed && !supervisor && <div className="panel oc-warn">🔒 مدیرِ مدرسه هنوز اجازه‌ی برگزاریِ کلاسِ آنلاین را به شما نداده است.</div>}
 
             <RecordingsList recordings={recordings} manage
                 onShare={(r, shared) => router.post(route('online.recording.share', r.room_id), { shared }, { preserveScroll: true })}

@@ -174,6 +174,10 @@ export default function Room({ room, me, config, back }) {
             }
             loaded.current = { page: p, version: data.version, bg: data.bg };
             board.current?.load(ops, data.bg);
+            // بزرگ‌نماییِ ذخیره‌شده‌ی همین صفحه (برای کسی که تازه آمده)؛ صفحه‌ی دیگر از اندازه‌ی کامل
+            const v = stRef.current?.settings?.view;
+            board.current?.setView(v && v.page === p ? v : null);
+            viewApplied.current = v && v.page === p ? JSON.stringify(v) : '';
         } catch { /* دورِ بعد */ }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -220,6 +224,21 @@ export default function Room({ room, me, config, back }) {
     }, [send, saveBoard, boardOpSend]);
     const onStroke = useCallback((s) => send({ t: 'stroke', page: loaded.current.page, ...s }), [send]);
     const onPtr = useCallback((x, y) => send({ t: 'ptr', x, y }), [send]);
+    /** بزرگ‌نمایی/جابه‌جاییِ تخته (معلم یا دانش‌آموزِ مجاز) → برای همه. معلم آن را ذخیره هم می‌کند. */
+    const viewApplied = useRef('');
+    const observersSeen = useRef(new Set());
+    const viewSaveT = useRef(null);
+    const saveView = useCallback((v) => {
+        clearTimeout(viewSaveT.current);
+        viewSaveT.current = setTimeout(() => { axios.post(R('control'), { action: 'view', value: v }).catch(() => {}); }, 700);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    const onView = useCallback((v) => {
+        const msg = { t: 'view', page: loaded.current.page, z: v.z, x: v.x, y: v.y };
+        viewApplied.current = JSON.stringify({ page: msg.page, z: v.z, x: v.x, y: v.y });
+        send(msg);
+        if (isHost) saveView({ page: msg.page, z: v.z, x: v.x, y: v.y });
+    }, [send, isHost, saveView]);
 
     /** پیام از کانالِ داده. */
     const onData = useCallback((from, msg) => {
@@ -228,8 +247,14 @@ export default function Room({ room, me, config, back }) {
         const sender = stRef.current?.people?.find((p) => p.id === from);
         const fromHost = from === room.teacher_id;
         // معلم: نوشته‌ی دانش‌آموزی که اجازه‌ی تخته دارد را ثبت و برای بقیه پخش کن
-        if (isHost && ['op', 'stroke', 'undo'].includes(msg.t)) {
+        if (isHost && ['op', 'stroke', 'undo', 'view'].includes(msg.t)) {
             if (!sender?.can_draw || msg.page !== curPage) return;
+            if (msg.t === 'view') {
+                board.current?.setView(msg);
+                send(msg, from);
+                saveView({ page: msg.page, z: msg.z, x: msg.x, y: msg.y });
+                return;
+            }
             if (msg.t === 'op' && msg.op) { board.current?.add({ ...msg.op, by: from }); saveBoard(); }
             if (msg.t === 'undo') { board.current?.undo(msg.id); saveBoard(); }
             if (msg.t === 'stroke') board.current?.stroke(msg);
@@ -253,6 +278,7 @@ export default function Room({ room, me, config, back }) {
         else if (msg.t === 'undo' && msg.page === curPage) board.current?.undo(msg.id);
         else if (msg.t === 'stroke' && msg.page === curPage) board.current?.stroke(msg);
         else if (msg.t === 'ptr') board.current?.pointer(msg.x, msg.y);
+        else if (msg.t === 'view' && msg.page === curPage) { board.current?.setView(msg); viewApplied.current = JSON.stringify({ page: msg.page, z: msg.z, x: msg.x, y: msg.y }); }
         else if (msg.t === 'bg' && msg.page === curPage) { board.current?.setBg(msg.bg); loaded.current.bg = msg.bg; }
         else if (msg.t === 'sync') sync.current?.now();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -306,10 +332,21 @@ export default function Room({ room, me, config, back }) {
             if (loaded.current.page !== pg) loadPage(pg);
             else if (isHost && ver > loaded.current.version) loadPage(pg, true);
             else if (!isHost && ver > loaded.current.version && !tr.current?.dataOpen()) loadPage(pg);
+            // بزرگ‌نمایی از راهِ سرور (برای کسی که اتصالِ مستقیم ندارد)
+            if (!isHost && s.settings.view && s.settings.view.page === pg && loaded.current.page === pg) {
+                const vs = JSON.stringify(s.settings.view);
+                if (vs !== viewApplied.current) { viewApplied.current = vs; board.current?.setView(s.settings.view); }
+            }
             // زمینه‌ی صفحه عوض شده (مثلاً تصویرِ صفحه‌ی کتاب تازه آماده شد) → دوباره بخوان
             else if (!isHost) {
                 const nbg = s.pages.find((x) => x.page === pg)?.bg;
                 if (nbg && loaded.current.bg && nbg !== loaded.current.bg) loadPage(pg);
+            }
+            // معلم: ورودِ ناظم/مدیر به کلاس اطلاع داده شود
+            if (isHost) {
+                const obs = s.people.filter((p) => p.role === 'observer' && p.online);
+                for (const o of obs) if (!observersSeen.current.has(o.id)) toast(`🛡️ ${o.name} (ناظر) وارد کلاس شد.`, 'info');
+                observersSeen.current = new Set(obs.map((o) => o.id));
             }
             if (isHost) {
                 tr.current?.setSpeakers(s.people.filter((p) => p.can_speak && p.role === 'student').map((p) => p.id));
@@ -686,12 +723,13 @@ export default function Room({ room, me, config, back }) {
     };
     /** ذخیره‌ی صفحه‌ی فعلیِ تخته (با زمینه و نوشته‌ها) به‌صورتِ عکس روی رایانه. */
     const savePng = () => {
-        const cvs = board.current?.canvases() || [];
-        const c = document.createElement('canvas');
-        c.width = BW; c.height = BH;
-        const g = c.getContext('2d');
-        g.fillStyle = '#fff'; g.fillRect(0, 0, BW, BH);
-        for (const cv of cvs) if (cv?.width) g.drawImage(cv, 0, 0, BW, BH);
+        // کلِ صفحه با اندازه‌ی واقعی (حتی وقتی بزرگ‌نمایی شده)
+        let c = board.current?.snapshot?.();
+        if (!c) {
+            c = document.createElement('canvas'); c.width = BW; c.height = BH;
+            const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, BW, BH);
+            for (const cv of board.current?.canvases() || []) if (cv?.width) g.drawImage(cv, 0, 0, BW, BH);
+        }
         c.toBlob((blob) => {
             if (!blob) { toast('عکس ساخته نشد.'); return; }
             const a = document.createElement('a');
@@ -984,7 +1022,7 @@ export default function Room({ room, me, config, back }) {
                 <section className="oc-stage-wrap">
                     <div className={`oc-stage stage-${stage}`}>
                         <div className="oc-board" style={{ display: stage !== 'board' ? 'none' : undefined }}>
-                            <Board ref={board} canDraw={canDraw} isHost={isHost} me={me.id} onOp={onOp} onStroke={onStroke} onPtr={onPtr} />
+                            <Board ref={board} canDraw={canDraw} isHost={isHost} me={me.id} onOp={onOp} onStroke={onStroke} onPtr={onPtr} onView={onView} />
                         </div>
                         {stage === 'screen' && (
                             <div className="oc-screen">
