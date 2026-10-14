@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Online\CheckController;
 use App\Http\Controllers\Online\ManageController;
 use App\Http\Controllers\Online\RoomController;
 use Illuminate\Support\Facades\Route;
@@ -30,6 +31,12 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher/online')->name('tea
 });
 
 Route::middleware(['auth', 'role:student'])->get('/online', [ManageController::class, 'student'])->name('online.list');
+
+// آزمایشِ اتصال روی همین دستگاه (برای همه‌ی نقش‌ها)
+Route::middleware(['auth'])->group(function () {
+    Route::get('/online-check', [CheckController::class, 'show'])->name('online.check');
+    Route::post('/online-check/server', [CheckController::class, 'server'])->middleware('throttle:online-act')->name('online.check.server');
+});
 
 Route::middleware(['auth'])->prefix('online/{room}')->name('online.')->group(function () {
     Route::get('/', [RoomController::class, 'show'])->name('room');

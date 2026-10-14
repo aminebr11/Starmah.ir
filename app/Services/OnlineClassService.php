@@ -347,15 +347,21 @@ class OnlineClassService
     /** توکنِ ورود به سرورِ LiveKit (JWT با HS256). */
     public function livekitToken(OnlineRoom $room, User $user, string $role): ?array
     {
+        return $this->livekitTokenFor(self::livekitRoom($room), $user, $role);
+    }
+
+    /** توکن برای یک اتاقِ دلخواه (کلاس، یا اتاقِ آزمایشِ اتصال). */
+    public function livekitTokenFor(string $roomName, User $user, string $role, int $ttl = 6 * 3600): ?array
+    {
         $lk = OnlineAccess::livekit();
         if (! $lk) {
             return null;
         }
         $now = time();
         $claims = [
-            'iss' => $lk['key'], 'sub' => (string) $user->id, 'name' => $user->name, 'nbf' => $now - 10, 'exp' => $now + 6 * 3600,
+            'iss' => $lk['key'], 'sub' => (string) $user->id, 'name' => $user->name, 'nbf' => $now - 300, 'exp' => $now + $ttl,
             'metadata' => json_encode(['role' => $role], JSON_UNESCAPED_UNICODE),
-            'video' => ['room' => self::livekitRoom($room), 'roomJoin' => true, 'canSubscribe' => true, 'canPublish' => true,
+            'video' => ['room' => $roomName, 'roomJoin' => true, 'canSubscribe' => true, 'canPublish' => true,
                 'canPublishData' => true, 'roomAdmin' => $role !== 'student'],
         ];
         $b64 = fn (string $s) => rtrim(strtr(base64_encode($s), '+/', '-_'), '=');

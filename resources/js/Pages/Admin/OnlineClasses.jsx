@@ -64,7 +64,10 @@ export default function OnlineClasses({ ready, settings, active, schools }) {
                         {conv && !conv.busy && <span className={conv.ok ? 'oc-ok' : 'rm-err'}>{conv.ok ? '✅ ' : '⚠️ '}{conv.message}</span>}
                     </div>
                 )}
-                <button type="submit" className="btn" disabled={form.processing}>💾 ذخیره‌ی تنظیمات</button>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <button type="submit" className="btn" disabled={form.processing}>💾 ذخیره‌ی تنظیمات</button>
+                    <a className="btn ghost" href={route('online.check')}>🔍 آزمایشِ اتصال روی همین دستگاه</a>
+                </div>
             </form>
 
             <div className="panel">

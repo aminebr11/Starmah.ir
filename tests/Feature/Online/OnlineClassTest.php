@@ -345,4 +345,31 @@ class OnlineClassTest extends TestCase
         $health = 401;
         $this->actingAs($super)->postJson(route('admin.online.test-convert'))->assertJsonPath('ok', false);
     }
+
+    public function test_connection_check_page_reports_livekit_problems(): void
+    {
+        [$school, $teacher, $classroom, $student, $admin, $super] = $this->live();
+        $this->actingAs($student)->get(route('online.check'))->assertOk()
+            ->assertInertia(fn ($p) => $p->component('Online/Check')->where('mode', 'builtin'));
+        $this->actingAs($student)->postJson(route('online.check.server'))->assertOk()->assertJsonPath('ok', false)->assertJsonPath('step', 'config');
+
+        Setting::put('online_media', 'livekit');
+        Setting::put('online_livekit_url', 'wss://live.example.ir');
+        Setting::put('online_livekit_key', 'APIkey');
+        Setting::put('online_livekit_secret', \Illuminate\Support\Facades\Crypt::encryptString('s3cret'));
+        OnlineAccess::forget();
+
+        $valid = true;
+        Http::fake([
+            'live.example.ir/rtc/validate*' => function () use (&$valid) { return $valid ? Http::response('success') : Http::response('invalid token: eyJabc.def.ghi', 401); },
+            'live.example.ir/*' => Http::response('OK'),
+        ]);
+        $r = $this->actingAs($student)->postJson(route('online.check.server'))->assertOk()->assertJsonPath('ok', true)->assertJsonPath('http', 'https://live.example.ir')->json();
+        $this->assertStringContainsString('.', $r['token']);
+        $this->actingAs($student)->get(route('online.check'))->assertInertia(fn ($p) => $p->where('mode', 'livekit')->where('url', 'wss://live.example.ir'));
+
+        $valid = false;
+        $bad = $this->actingAs($student)->postJson(route('online.check.server'))->assertJsonPath('ok', false)->assertJsonPath('step', 'keys')->json('message');
+        $this->assertStringNotContainsString('eyJabc', $bad);   // توکن در پیام نمی‌آید
+    }
 }

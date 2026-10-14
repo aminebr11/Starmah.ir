@@ -60,6 +60,7 @@ export default function Room({ room, me, config, back }) {
     const [fs, setFs] = useState(false);           // تمام‌صفحه‌ی تخته (معلم)
     const [liveMs, setLiveMs] = useState({});      // uid → { ms, at }: وضعیتِ میک/دوربینِ تازه از کانالِ داده
     const [layoutOpen, setLayoutOpen] = useState(false);
+    const [linkErr, setLinkErr] = useState(null);   // دلیلِ وصل نشدنِ صدا/تصویر (برای عیب‌یابی)
     const [busy, setBusy] = useState(null);
     const [rec, setRec] = useState(null);
     const [skew, setSkew] = useState(0);
@@ -304,6 +305,7 @@ export default function Room({ room, me, config, back }) {
             }
         } catch (e) {
             console.warn('[online] media', e);
+            setLinkErr(String(e?.response?.data?.message || e?.message || e).slice(0, 160));
             setLink((l) => ({ ...l, state: 'failed', open: false }));
             toast('اتصالِ صدا و تصویر برقرار نشد؛ تخته و گفت‌وگو کار می‌کند.', 'error');
         }
@@ -703,6 +705,8 @@ export default function Room({ room, me, config, back }) {
             {!isHost && (link.state === 'failed' || link.state === 'nortc') && (
                 <div className="oc-announce oc-weak">
                     {link.state === 'nortc' ? 'این مرورگر صدا و تصویرِ کلاس را پشتیبانی نمی‌کند (کروم یا سافاریِ به‌روز را امتحان کن)؛ تخته، گفت‌وگو و سؤال‌ها کار می‌کند.' : 'صدا و تصویر وصل نشد؛ تخته، گفت‌وگو و سؤال‌ها کار می‌کند. دکمه‌ی ↻ را بزن یا اینترنت را عوض کن.'}
+                    <a href={route('online.check')} target="_blank" rel="noreferrer">🔍 آزمایشِ اتصال</a>
+                    {linkErr && <small>{media === 'livekit' ? 'LiveKit' : 'P2P'}: {linkErr}</small>}
                 </div>
             )}
 
