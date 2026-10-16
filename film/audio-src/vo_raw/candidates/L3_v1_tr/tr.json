@@ -1,0 +1,6 @@
+{"type":"progress","phase":"transcription","model":"large-v3","status":"started","durationSeconds":6.645125}
+{"type":"words","model":"large-v3","words":[{"text":"از","start":0,"end":0.233},{"text":"کشف","start":0.233,"end":0.582},{"text":"رازای","start":0.582,"end":1.164},{"text":"علوم","start":1.164,"end":1.63},{"text":"و","start":1.63,"end":1.746},{"text":"دنیا","start":1.746,"end":2.212},{"text":"کلمات","start":2.212,"end":2.794},{"text":"تا","start":2.794,"end":3.027},{"text":"الگوهای","start":3.027,"end":3.842},{"text":"ریاضی","start":3.842,"end":4.424},{"text":"و","start":4.424,"end":4.541},{"text":"بازی","start":4.541,"end":5.006},{"text":"های","start":5.006,"end":5.356},{"text":"حیجان","start":5.356,"end":5.938},{"text":"انگیز","start":5.938,"end":6.52}],"through":6.52}
+{"type":"words","model":"large-v3","words":[],"through":6.645125}
+{"type":"progress","phase":"transcription","model":"large-v3","status":"completed"}
+
+{"ok":true,"engine":"whisper","model":"large-v3","detectedLanguage":null,"wordCount":15,"durationSeconds":6.52,"speechOnsetSeconds":null,"transcriptPath":"/home/user/Starmah.ir/film/audio-src/vo_raw/candidates/L3_v1_tr/out/transcript.json"}

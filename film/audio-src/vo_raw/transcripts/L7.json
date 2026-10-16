@@ -1,2 +1,4 @@
 {"type":"progress","phase":"transcription","model":"large-v3","status":"started","durationSeconds":4.125125}
-{"ok":false,"error":"Transcription cancelled"}
+{"type":"words","model":"large-v3","words":[{"text":"ستاره","start":0,"end":0.457},{"text":"هما","start":0.457,"end":0.73},{"text":"جایی","start":0.73,"end":1.096},{"text":"که","start":1.096,"end":1.278},{"text":"هر","start":1.278,"end":1.461},{"text":"کودک","start":1.461,"end":1.826},{"text":"میتونه","start":1.826,"end":2.374},{"text":"ستاره","start":2.374,"end":2.83},{"text":"یادگیری","start":2.83,"end":3.47},{"text":"خودش","start":3.47,"end":3.835},{"text":"باشد","start":3.835,"end":4.2}],"through":4.2}
+{"type":"progress","phase":"transcription","model":"large-v3","status":"completed"}
+{"ok":true,"engine":"whisper","model":"large-v3","detectedLanguage":null,"wordCount":11,"durationSeconds":4.2,"speechOnsetSeconds":null,"transcriptPath":"/tmp/tmp.Zu8t5o1lYF/out/transcript.json"}

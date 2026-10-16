@@ -1,0 +1,6 @@
+{"type":"progress","phase":"transcription","model":"large-v3","status":"started","durationSeconds":4.0870625}
+{"type":"words","model":"large-v3","words":[{"text":"ستار","start":0,"end":0.362},{"text":"ما،","start":0.362,"end":0.633},{"text":"جایی","start":0.633,"end":0.995},{"text":"که","start":0.995,"end":1.176},{"text":"هر","start":1.176,"end":1.357},{"text":"کودک","start":1.357,"end":1.719},{"text":"میتونه","start":1.719,"end":2.261},{"text":"ستاره","start":2.261,"end":2.714},{"text":"یادگی","start":2.714,"end":3.166},{"text":"خودش","start":3.166,"end":3.528},{"text":"باشد.","start":3.528,"end":3.98}],"through":3.98}
+{"type":"words","model":"large-v3","words":[],"through":4.0870625}
+{"type":"progress","phase":"transcription","model":"large-v3","status":"completed"}
+
+{"ok":true,"engine":"whisper","model":"large-v3","detectedLanguage":null,"wordCount":11,"durationSeconds":3.98,"speechOnsetSeconds":null,"transcriptPath":"/home/user/Starmah.ir/film/audio-src/vo_raw/candidates/L7_v0_tr/out/transcript.json"}

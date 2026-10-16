@@ -1,0 +1,6 @@
+{"type":"progress","phase":"transcription","model":"large-v3","status":"started","durationSeconds":6.1459375}
+{"type":"words","model":"large-v3","words":[{"text":"از","start":0,"end":0.203},{"text":"کشا","start":0.203,"end":0.508},{"text":"راسای","start":0.508,"end":1.017},{"text":"علوم","start":1.017,"end":1.424},{"text":"و","start":1.424,"end":1.525},{"text":"دومیای","start":1.525,"end":2.136},{"text":"کلمات","start":2.136,"end":2.644},{"text":"تا","start":2.644,"end":2.847},{"text":"علبوهای","start":2.847,"end":3.559},{"text":"ریاضی","start":3.559,"end":4.068},{"text":"و","start":4.068,"end":4.169},{"text":"بازیهای","start":4.169,"end":4.881},{"text":"حیجام","start":4.881,"end":5.39},{"text":"انگیز.","start":5.39,"end":6}],"through":6}
+{"type":"words","model":"large-v3","words":[],"through":6.1459375}
+{"type":"progress","phase":"transcription","model":"large-v3","status":"completed"}
+
+{"ok":true,"engine":"whisper","model":"large-v3","detectedLanguage":null,"wordCount":14,"durationSeconds":6,"speechOnsetSeconds":null,"transcriptPath":"/home/user/Starmah.ir/film/audio-src/vo_raw/candidates/L3_v2_tr/out/transcript.json"}

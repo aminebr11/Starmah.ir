@@ -1,0 +1,6 @@
+{"type":"progress","phase":"transcription","model":"large-v3","status":"started","durationSeconds":5.94725}
+{"type":"words","model":"large-v3","words":[{"text":"از","start":0,"end":0.198},{"text":"کشور","start":0.198,"end":0.594},{"text":"راسای","start":0.594,"end":1.089},{"text":"علوم","start":1.089,"end":1.485},{"text":"و","start":1.485,"end":1.584},{"text":"دنیای","start":1.584,"end":2.079},{"text":"ترمات،","start":2.079,"end":2.673},{"text":"تاولبوهای","start":2.673,"end":3.563},{"text":"ریاضی","start":3.563,"end":4.058},{"text":"و","start":4.058,"end":4.157},{"text":"بازیهای","start":4.157,"end":4.85},{"text":"حیجان","start":4.85,"end":5.345},{"text":"انگیز","start":5.345,"end":5.84}],"through":5.84}
+{"type":"words","model":"large-v3","words":[],"through":5.94725}
+{"type":"progress","phase":"transcription","model":"large-v3","status":"completed"}
+
+{"ok":true,"engine":"whisper","model":"large-v3","detectedLanguage":null,"wordCount":13,"durationSeconds":5.84,"speechOnsetSeconds":null,"transcriptPath":"/home/user/Starmah.ir/film/audio-src/vo_raw/candidates/L3_v0_tr/out/transcript.json"}

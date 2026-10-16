@@ -6,7 +6,6 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
-import { FXAAPass } from "three/addons/postprocessing/FXAAPass.js";
 import * as K from "./film-kit.js";
 
 const { V, clamp, lerp, win, smooth, smoother, easeInOut, easeOut, easeIn, easeOutBack, pulse, prand, trackV, M } = K;
@@ -24,7 +23,8 @@ const GPATH = [
   V(-1.4, 9.4, -41), V(-2.4, 10.2, -48), V(1.6, 11.4, -55), V(2.4, 12.2, -62), V(0.4, 13.2, -67.5),
 ];
 
-export async function createFilm({ canvas, width, height, layout = "land" }) {
+export async function createFilm({ canvas, width, height, layout = "land", samples = 4 }) {
+  const SAMPLES = samples;
   const VERT = layout === "vert";
   const LOOP = layout === "loop";
   await Promise.all([
@@ -106,6 +106,7 @@ export async function createFilm({ canvas, width, height, layout = "land" }) {
   scene.add(goldLight);
   const spotLight = new THREE.PointLight(0x7fd8ff, 0, 30, 1.4);
   scene.add(spotLight);
+  spotLight.visible = false; // portal glow is emissive; a lit point light is too costly under software GL
 
   /* ---------------------------------------------------------- dust */
   const dustGold = K.makeDust({ count: 1600, box: [34, 20, 34], size: 3.2, color: [1, 0.78, 0.38], seed: 3 });
@@ -227,7 +228,7 @@ export async function createFilm({ canvas, width, height, layout = "land" }) {
   const portalA = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.07, 12, 64), M.cyanGlow); portalA.position.set(-1.1, 1.25, 0.2); portalA.rotation.y = 0.5;
   const portalB = new THREE.Mesh(new THREE.TorusGeometry(0.8, 0.07, 12, 64), M.violetGlow); portalB.position.set(1.2, 1.1, -0.6); portalB.rotation.y = -0.6;
   mathG.add(portalA, portalB);
-  const solidMats = [0x3ad0ff, 0xffc94a, 0xff6b9d, 0x8b7cf6].map((c) => new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.15, clearcoat: 1, transparent: true, opacity: 0.85, envMap: env, envMapIntensity: 1.2, emissive: c, emissiveIntensity: 0.15 }));
+  const solidMats = [0x3ad0ff, 0xffc94a, 0xff6b9d, 0x8b7cf6].map((c) => K.std({ color: c, roughness: 0.15, clearcoat: 1, transparent: true, opacity: 0.85, envMap: env, envMapIntensity: 1.2, emissive: c, emissiveIntensity: 0.15 }));
   const solids = [new THREE.IcosahedronGeometry(0.42, 0), new THREE.BoxGeometry(0.6, 0.6, 0.6), new THREE.ConeGeometry(0.45, 0.7, 4), new THREE.TorusKnotGeometry(0.28, 0.09, 96, 12)].map((g, i) => {
     const m = new THREE.Mesh(g, solidMats[i]); m.position.set(Math.cos(i * 1.6) * 2.1, 1.0 + (i % 2) * 0.6, Math.sin(i * 1.6) * 1.8); mathG.add(m); return m;
   });
@@ -254,7 +255,7 @@ export async function createFilm({ canvas, width, height, layout = "land" }) {
   const pencils = [0xffc23d, 0x3a8bff, 0xff5f8f, 0x2dd4bf, 0x8b7cf6].map((c, i) => { const p = K.makePencil(c); p.scale.setScalar(1.3); artG.add(p); const fl = K.softGlowSprite("rgba(255,150,60,1)", 0.7); artG.add(fl); return { p, fl, i }; });
   const flyBooks = [0x3a8bff, 0xff8fb1, 0xffc23d].map((c) => { const b = K.makeMiniBook(c); b.scale.setScalar(0.8); artG.add(b); return b; });
   const bulb = new THREE.Group();
-  const bulbGlass = new THREE.Mesh(new THREE.SphereGeometry(0.45, 32, 24), new THREE.MeshPhysicalMaterial({ color: 0xfff3c0, emissive: 0xffd36a, emissiveIntensity: 1.2, roughness: 0.1, transparent: true, opacity: 0.9, envMap: env }));
+  const bulbGlass = new THREE.Mesh(new THREE.SphereGeometry(0.45, 32, 24), K.std({ color: 0xfff3c0, emissive: 0xffd36a, emissiveIntensity: 1.2, roughness: 0.1, transparent: true, opacity: 0.9, envMap: env }));
   const bulbBase = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.18, 0.3, 16), M.gold); bulbBase.position.y = -0.48;
   bulb.add(bulbGlass, bulbBase, K.softGlowSprite("rgba(255,220,120,0.9)", 2.2));
   bulb.position.set(0, 2.4, -0.6); artG.add(bulb);
@@ -286,10 +287,10 @@ export async function createFilm({ canvas, width, height, layout = "land" }) {
   /* --------------------------------------------------------- SCENE 5 arena */
   const arenaG = new THREE.Group(); arenaG.position.copy(ARENA); scene.add(arenaG);
   const tiers = [[8.6, 0], [8.6, 0.5], [10.2, 0.5], [10.2, 1.3], [11.8, 1.3], [11.8, 2.1], [13.4, 2.1], [13.4, 2.9], [15.0, 2.9], [15.0, 3.7], [16.4, 4.0], [16.6, 3.2], [16.0, -1.4], [12, -3.2], [8.6, -1.2], [8.6, 0]];
-  const bowl = new THREE.Mesh(new THREE.LatheGeometry(tiers.map(([x, y]) => new THREE.Vector2(x, y)), 160), new THREE.MeshPhysicalMaterial({ color: 0x0c1636, roughness: 0.5, metalness: 0.3, clearcoat: 0.6, envMap: env, envMapIntensity: 0.18, side: THREE.DoubleSide }));
+  const bowl = new THREE.Mesh(new THREE.LatheGeometry(tiers.map(([x, y]) => new THREE.Vector2(x, y)), 112), K.std({ color: 0x0c1636, roughness: 0.5, metalness: 0.3, clearcoat: 0.6, envMap: env, envMapIntensity: 0.18, side: THREE.DoubleSide }));
   arenaG.add(bowl);
   [[8.62, 0.5, K.glowMat(0.25, 0.85, 1, 1.1)], [10.22, 1.3, K.glowMat(0.6, 0.45, 1, 1.1)], [11.82, 2.1, K.glowMat(1, 0.72, 0.25, 1.1)], [13.42, 2.9, K.glowMat(0.25, 0.85, 1, 1.1)], [15.02, 3.7, K.glowMat(0.6, 0.45, 1, 1.1)], [16.42, 4.0, K.glowMat(1, 0.72, 0.25, 1.1)]].forEach(([r, y, m]) => { const t = new THREE.Mesh(new THREE.TorusGeometry(r, 0.035, 8, 220), m); t.rotation.x = Math.PI / 2; t.position.y = y; arenaG.add(t); });
-  const floor = new THREE.Mesh(new THREE.CircleGeometry(8.6, 128), new THREE.MeshPhysicalMaterial({ color: 0x0d1a44, roughness: 0.2, metalness: 0.4, clearcoat: 1, envMap: env, envMapIntensity: 0.6 }));
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(8.6, 128), K.std({ color: 0x0d1a44, roughness: 0.2, metalness: 0.4, clearcoat: 1, envMap: env, envMapIntensity: 0.6 }));
   floor.rotation.x = -Math.PI / 2; floor.position.y = 0.02; arenaG.add(floor);
   const floorTex = K.canvasTex(2048, 2048, (g, w) => { g.translate(w / 2, w / 2); g.strokeStyle = "rgba(90,190,255,0.7)"; for (let i = 1; i < 9; i++) { g.lineWidth = i % 3 ? 3 : 8; g.beginPath(); g.arc(0, 0, (w / 2) * (i / 9), 0, Math.PI * 2); g.stroke(); } for (let i = 0; i < 24; i++) { const a = (i / 24) * Math.PI * 2; g.beginPath(); g.moveTo(Math.cos(a) * w * 0.12, Math.sin(a) * w * 0.12); g.lineTo(Math.cos(a) * w * 0.5, Math.sin(a) * w * 0.5); g.lineWidth = 2; g.stroke(); } });
   const floorLines = new THREE.Mesh(new THREE.CircleGeometry(8.5, 128), new THREE.MeshBasicMaterial({ map: floorTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: new THREE.Color(0.35, 0.5, 0.8), toneMapped: false }));
@@ -310,7 +311,7 @@ export async function createFilm({ canvas, width, height, layout = "land" }) {
   arenaG.add(crowd);
   // light beams
   const beams = [];
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 0; i++) { // light beams removed: heavy transparent overdraw for a barely visible effect
     const b = new THREE.Mesh(new THREE.ConeGeometry(1.4, 16, 32, 1, true), new THREE.MeshBasicMaterial({ color: new THREE.Color(...(i % 2 ? [0.3, 0.7, 1] : [1, 0.75, 0.3])), transparent: true, opacity: 0.03, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
     b.geometry.translate(0, -8, 0);
     const piv = new THREE.Group(); piv.position.set(Math.cos((i / 6) * Math.PI * 2) * 15, 9, Math.sin((i / 6) * Math.PI * 2) * 15); piv.add(b);
@@ -379,7 +380,7 @@ export async function createFilm({ canvas, width, height, layout = "land" }) {
     () => { const g = new THREE.Group(); const pl = new THREE.Mesh(new THREE.SphereGeometry(0.42, 32, 20), new THREE.MeshStandardMaterial({ color: [0x7c6cf0, 0x2dd4bf, 0xff8fb1, 0x3a8bff][orbitItems.length % 4], roughness: 0.5 })); const rg = new THREE.Mesh(new THREE.TorusGeometry(0.66, 0.035, 6, 48), M.goldGlow); rg.rotation.x = 1.2; g.add(pl, rg); return g; },
     () => { const s = new THREE.Mesh(new THREE.ExtrudeGeometry(K.starShape(0.3, 0.15, 0.25), { depth: 0.08, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.04, bevelSegments: 3 }), M.star); return s; },
     () => K.glyphSprite(["π", "۲", "√", "ب", "%", "۷", "ش", "+"][orbitItems.length % 8], 0.6, { font: "900 160px Vazirmatn" }),
-    () => { const g = new THREE.Group(); const pad = new THREE.Mesh(new K.RoundedBox(0.9, 0.5, 0.18, 3, 0.12), new THREE.MeshPhysicalMaterial({ color: 0x8b7cf6, roughness: 0.3, clearcoat: 1, envMap: env })); const b1 = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 8), M.goldGlow); b1.position.set(0.22, 0.05, 0.1); const b2 = b1.clone(); b2.material = M.cyanGlow; b2.position.set(0.32, -0.07, 0.1); const dp = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.06, 0.04), M.eyeHL); dp.position.set(-0.24, 0, 0.1); const dp2 = dp.clone(); dp2.rotation.z = Math.PI / 2; g.add(pad, b1, b2, dp, dp2); return g; },
+    () => { const g = new THREE.Group(); const pad = new THREE.Mesh(new K.RoundedBox(0.9, 0.5, 0.18, 3, 0.12), K.std({ color: 0x8b7cf6, roughness: 0.3, clearcoat: 1, envMap: env })); const b1 = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 8), M.goldGlow); b1.position.set(0.22, 0.05, 0.1); const b2 = b1.clone(); b2.material = M.cyanGlow; b2.position.set(0.32, -0.07, 0.1); const dp = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.06, 0.04), M.eyeHL); dp.position.set(-0.24, 0, 0.1); const dp2 = dp.clone(); dp2.rotation.z = Math.PI / 2; g.add(pad, b1, b2, dp, dp2); return g; },
   ];
   for (let i = 0; i < 66; i++) {
     const obj = itemMakers[i % itemMakers.length]();
@@ -414,7 +415,8 @@ export async function createFilm({ canvas, width, height, layout = "land" }) {
   const finalSparks = makeOrbitSparks(160, VERT ? 3.6 : 4.4, [1, 0.85, 0.5]); finalSparks.points.position.z = -1.5; finalG.add(finalSparks.points);
 
   /* ------------------------------------------------------- post */
-  const composer = new EffectComposer(renderer);
+  const msaa = new THREE.WebGLRenderTarget(width, height, { type: THREE.HalfFloatType, samples: SAMPLES });
+  const composer = new EffectComposer(renderer, msaa);
   composer.setPixelRatio(1);
   composer.setSize(width, height);
   composer.addPass(new RenderPass(scene, camera));
@@ -425,7 +427,6 @@ export async function createFilm({ canvas, width, height, layout = "land" }) {
   bloom.setSize(width, height);
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
-  composer.addPass(new FXAAPass());
   const grade = new ShaderPass({
     uniforms: { tDiffuse: { value: null }, uFlash: { value: 0 }, uFade: { value: 0 }, uTime: { value: 0 }, uVig: { value: 0.32 }, uRes: { value: new THREE.Vector2(width, height) } },
     vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
@@ -439,7 +440,7 @@ export async function createFilm({ canvas, width, height, layout = "land" }) {
         c += (h(vUv*uRes + fract(uTime*7.31)*91.7) - 0.5) * 0.022;
         gl_FragColor = vec4(c, 1.0); }`,
   });
-  composer.addPass(grade);
+  // flash / fade / vignette are composited as DOM layers by the entry page (cheaper than a full-screen pass)
 
   /* ================================================================ timing */
   const galCurve = new THREE.CatmullRomCurve3(GPATH, false, "centripetal");
@@ -547,6 +548,7 @@ export async function createFilm({ canvas, width, height, layout = "land" }) {
 
     /* ---------- scene 1–2 : book world */
     bookWorld.visible = t < 13.5;
+    goldLight.visible = bookWorld.visible;
     if (bookWorld.visible) {
       bookWorld.position.y = Math.sin(t * 0.8) * 0.05;
       const reveal = smooth(win(t, 0.25, 1.6));
@@ -747,7 +749,7 @@ export async function createFilm({ canvas, width, height, layout = "land" }) {
       pDiscMat.uniforms.uTime.value = t; pDiscMat.uniforms.uOpen.value = smooth(win(t, 21.3, 22.2));
       pRing.rotation.z = t * 0.2; pRing2.rotation.z = -t * 0.35;
       portalSparks.update(t, smooth(win(t, 21.2, 22)));
-      spotLight.position.copy(PORTAL).add(V(0, 0, 2)); spotLight.intensity = 30 * smooth(win(t, 21.2, 22.2));
+      spotLight.intensity = 0;
       bloomS += pulse(t, 21.1, 22.4) * 0.5;
       // kids watching & tapping
       kidsPadG.visible = boy.root.visible = girl.root.visible = true;
@@ -827,7 +829,7 @@ export async function createFilm({ canvas, width, height, layout = "land" }) {
     if (tunnel.visible) {
       streaks.material.opacity = 0.75 * pulse(t, 36.9, 38.6);
       bloomS += pulse(t, 37.0, 38.5) * 0.25;
-      flash = Math.max(flash, pulse(t, 37.95, 38.65) * 0.22);
+      flash = Math.max(flash, pulse(t, 37.95, 38.65) * 0.1);
       if (t >= 37.6) { sVis = true; const cp = camera.position.clone(); sP = cp.add(V(0.4, -0.35, -2.6 - win(t, 37.6, 38.4) * 1.2)); sS = 0.3; sR = [0.3, Math.PI, 0]; }
     }
 
@@ -938,6 +940,7 @@ export async function createFilm({ canvas, width, height, layout = "land" }) {
     grade.uniforms.uFade.value = fade;
     grade.uniforms.uTime.value = t;
     composer.render();
+    return { flash: clamp(flash), fade };
   }
 
   /* ---------------------------------------------------- 10 s hero loop */
@@ -960,7 +963,7 @@ export async function createFilm({ canvas, width, height, layout = "land" }) {
     flippers[0].userData.flip(Math.PI); flippers[1].userData.flip(0); flippers[2].userData.flip(smoother(clamp((P - 0.3) / 0.15)) * Math.PI * (1 - smoother(clamp((P - 0.75) / 0.15))));
     firstLight.visible = spark.visible = false; constLines.visible = false; constNodes.forEach((n) => (n.visible = false)); burst.points.visible = false;
     bookGlow.material.opacity = 0.22 + 0.06 * Math.sin(w * 2);
-    goldLight.position.set(0, 1.4, 0.6); goldLight.intensity = 2.5;
+    goldLight.position.set(0, 1.4, 0.6); goldLight.intensity = 2.5; goldLight.visible = true;
     const mP = V(-0.85, 2.15 + Math.sin(w) * 0.12, -0.1);
     K.pose(moon, { p: mP, r: [0, 0.15 + Math.sin(w) * 0.08, 0.05 + Math.sin(w * 2) * 0.03], s: 1, blinkL: P > 0.42 && P < 0.44 ? 1 : 0, blinkR: P > 0.42 && P < 0.44 ? 1 : 0, mouth: 0.7, look: [0.5, 0], glow: 0.55 });
     K.pose(star, { p: mP.clone().add(V(0.38, 0.26 + Math.sin(w * 2) * 0.04, 0.22)), r: [0, -0.2, Math.sin(w * 2) * 0.12], s: 0.42, blinkL: P > 0.82 && P < 0.84 ? 1 : 0, blinkR: P > 0.82 && P < 0.84 ? 1 : 0, mouth: 0.8, sq: 1 + Math.sin(w * 4) * 0.03, glow: 0.6 });
@@ -969,8 +972,8 @@ export async function createFilm({ canvas, width, height, layout = "land" }) {
     [portalG, arenaG, tunnel, dashG, orbitG, spiral, finalG, kidsPadG, badge].forEach((o) => (o.visible = false));
     boy.root.visible = girl.root.visible = false;
     bloom.strength = 0.45;
-    grade.uniforms.uFlash.value = 0; grade.uniforms.uFade.value = 0; grade.uniforms.uTime.value = T;
     composer.render();
+    return { flash: 0, fade: 0 };
   }
 
   /* -------------------------------------------------------- helpers */

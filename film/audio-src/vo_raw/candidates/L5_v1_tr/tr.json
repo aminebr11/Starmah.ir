@@ -1,0 +1,7 @@
+{"type":"progress","phase":"transcription","model":"large-v3","status":"started","durationSeconds":6.3850625}
+{"type":"words","model":"large-v3","words":[{"text":"مسابقه","start":0,"end":0.646},{"text":"های","start":0.646,"end":0.969},{"text":"زنده،","start":0.969,"end":1.507},{"text":"چالش","start":1.507,"end":1.938},{"text":"های","start":1.938,"end":2.261},{"text":"جذاب","start":2.261,"end":2.691},{"text":"و","start":2.691,"end":2.799},{"text":"کلی","start":2.799,"end":3.122},{"text":"حیجان","start":3.122,"end":3.66}],"through":3.66}
+{"type":"words","model":"large-v3","words":[{"text":"تا","start":3.66,"end":3.919},{"text":"یاد","start":3.919,"end":4.308},{"text":"گرفتن","start":4.308,"end":4.955},{"text":"شیرین","start":4.955,"end":5.603},{"text":"تر","start":5.603,"end":5.862},{"text":"بشن.","start":5.862,"end":6.38}],"through":6.38}
+{"type":"words","model":"large-v3","words":[],"through":6.3850625}
+{"type":"progress","phase":"transcription","model":"large-v3","status":"completed"}
+
+{"ok":true,"engine":"whisper","model":"large-v3","detectedLanguage":null,"wordCount":15,"durationSeconds":6.38,"speechOnsetSeconds":null,"transcriptPath":"/home/user/Starmah.ir/film/audio-src/vo_raw/candidates/L5_v1_tr/out/transcript.json"}

@@ -120,12 +120,15 @@ export function nebulaTex() {
 }
 
 /* ------------------------------------------------------------- materials */
+/** MeshStandardMaterial that silently drops physical-only options (fast under software GL). */
+export function std(o) { const { clearcoat, clearcoatRoughness, sheen, sheenColor, transmission, envMap, envMapIntensity, ...r } = o; return new THREE.MeshStandardMaterial(r); }
 export const M = {};
 export function initMaterials(envMap) {
-  const phys = (o) => new THREE.MeshPhysicalMaterial({ envMap, envMapIntensity: 0.55, ...o });
-  M.moon = phys({ color: 0xffbe2e, roughness: 0.36, clearcoat: 0.7, clearcoatRoughness: 0.25, sheen: 0.25, sheenColor: new THREE.Color(0xfff2c0), emissive: 0xb86a00, emissiveIntensity: 0.12 });
-  M.star = phys({ color: 0xffd52e, roughness: 0.3, clearcoat: 0.8, clearcoatRoughness: 0.2, sheen: 0.2, sheenColor: new THREE.Color(0xfff6c8), emissive: 0xff9a00, emissiveIntensity: 0.22 });
-  M.eye = phys({ color: 0x2a1406, roughness: 0.12, clearcoat: 1, envMapIntensity: 1.3 });
+  const premium = (o) => { const { sheen, sheenColor, ...r } = o; return new THREE.MeshPhysicalMaterial({ envMap, envMapIntensity: 0.55, ...r }); };
+  const phys = (o) => std({ envMap, envMapIntensity: 0.55, ...o });
+  M.moon = premium({ color: 0xffbe2e, roughness: 0.36, clearcoat: 0.7, clearcoatRoughness: 0.25, sheen: 0.25, sheenColor: new THREE.Color(0xfff2c0), emissive: 0xb86a00, emissiveIntensity: 0.12 });
+  M.star = premium({ color: 0xffd52e, roughness: 0.3, clearcoat: 0.8, clearcoatRoughness: 0.2, sheen: 0.2, sheenColor: new THREE.Color(0xfff6c8), emissive: 0xff9a00, emissiveIntensity: 0.22 });
+  M.eye = premium({ color: 0x2a1406, roughness: 0.12, clearcoat: 1, envMapIntensity: 1.3 });
   M.eyeHL = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
   M.mouth = phys({ color: 0x6b1b26, roughness: 0.4 });
   M.tongue = phys({ color: 0xff7d8f, roughness: 0.45 });
@@ -336,7 +339,7 @@ export function pose(ch, o) {
 /* ----------------------------------------------------------------- child */
 export function makeChild({ hoodie = 0xf4b52c, hair = "dark", girl = false } = {}) {
   const root = new THREE.Group();
-  const hoodMat = new THREE.MeshPhysicalMaterial({ color: hoodie, roughness: 0.75, sheen: 0.6, sheenColor: new THREE.Color(0xffffff), envMap: M.moon.envMap, envMapIntensity: 0.6 });
+  const hoodMat = std({ color: hoodie, roughness: 0.75, sheen: 0.6, sheenColor: new THREE.Color(0xffffff), envMap: M.moon.envMap, envMapIntensity: 0.6 });
   const hairMat = hair === "dark" ? M.hair : M.hairBrown;
   const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.34, 0.42, 8, 24), hoodMat);
   body.position.y = 0.98;
@@ -464,7 +467,7 @@ export function makeMolecule() {
   const cols = [0xff6b9d, 0x3ad0ff, 0xffd87a, 0x8b7cf6, 0x2dd4bf];
   const nodes = [[0, 0, 0], [0.55, 0.3, 0], [-0.5, 0.35, 0.2], [0.1, -0.55, 0.25], [0.2, 0.2, -0.55], [-0.45, -0.35, -0.3]];
   nodes.forEach((p, i) => {
-    const s = new THREE.Mesh(new THREE.SphereGeometry(i === 0 ? 0.2 : 0.13, 24, 16), new THREE.MeshPhysicalMaterial({ color: cols[i % cols.length], roughness: 0.2, clearcoat: 1, emissive: cols[i % cols.length], emissiveIntensity: 0.25, envMap: M.moon.envMap }));
+    const s = new THREE.Mesh(new THREE.SphereGeometry(i === 0 ? 0.2 : 0.13, 24, 16), std({ color: cols[i % cols.length], roughness: 0.2, clearcoat: 1, emissive: cols[i % cols.length], emissiveIntensity: 0.25, envMap: M.moon.envMap }));
     s.position.set(...p);
     g.add(s);
     if (i > 0) {
@@ -481,7 +484,7 @@ export function makeMolecule() {
 
 export function makeIsland(radius, topColor, seed, { rim = [0.3, 0.8, 1] } = {}) {
   const g = new THREE.Group();
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius * 0.96, 0.36, 64, 1), new THREE.MeshPhysicalMaterial({ color: topColor, roughness: 0.75, sheen: 0.15, sheenColor: new THREE.Color(0xffffff), envMap: M.moon.envMap, envMapIntensity: 0.5 }));
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius * 0.96, 0.36, 64, 1), std({ color: topColor, roughness: 0.75, sheen: 0.15, sheenColor: new THREE.Color(0xffffff), envMap: M.moon.envMap, envMapIntensity: 0.5 }));
   const coneGeo = new THREE.ConeGeometry(radius * 0.96, radius * 1.5, 18, 6, true);
   const pos = coneGeo.attributes.position;
   for (let i = 0; i < pos.count; i++) {

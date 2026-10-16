@@ -6,14 +6,14 @@
   "sr": 22050
  },
  "2": {
-  "length_scale": 0.95,
-  "dur": 4.47,
+  "length_scale": 0.81,
+  "dur": 4.183,
   "target": 4.48,
   "sr": 22050
  },
  "3": {
   "length_scale": 1.0,
-  "dur": 5.988,
+  "dur": 6.643,
   "target": 6.98,
   "sr": 22050
  },
@@ -25,13 +25,13 @@
  },
  "5": {
   "length_scale": 1.0,
-  "dur": 6.752,
+  "dur": 6.383,
   "target": 6.98,
   "sr": 22050
  },
  "6": {
-  "length_scale": 0.91,
-  "dur": 6.258,
+  "length_scale": 0.95,
+  "dur": 6.109,
   "target": 6.28,
   "sr": 22050
  },

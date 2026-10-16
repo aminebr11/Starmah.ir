@@ -19,11 +19,14 @@ TPL = r'''<!doctype html>
 body { margin: 0; background: #050a1c; }
 #root { position: relative; width: 100%; height: 100%; overflow: hidden; background: #050a1c; }
 #film { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#vig { position: absolute; inset: 0; background: radial-gradient(ellipse 80% 75% at 50% 50%, rgba(0,0,0,0) 55%, rgba(2,6,22,0.55) 100%); pointer-events: none; }
+#flash { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle at 50% 50%, #fff6dc 0%, #ffe3a0 55%, #ffcf73 100%); pointer-events: none; }
 </style>
 </head>
 <body>
 <div id="root" data-composition-id="__ID__" data-start="0" data-width="__W__" data-height="__H__" data-duration="__DUR__" data-fps="60">
   <canvas id="film"></canvas>
+  <div id="vig"></div>
 __AUDIO__
 </div>
 <script type="module">
@@ -34,10 +37,13 @@ window.__hf.buildReady = window.__hf.buildReady || {};
 const tl = gsap.timeline({ paused: true });
 window.__hf.buildReady.film = (async () => {
   const film = await createFilm({ canvas: document.getElementById("film"), width: __IW__, height: __IH__, layout: "__LAYOUT__" });
-  window.addEventListener("hf-seek", (e) => film.renderAt(e.detail.time));
-  film.renderAt(window.__hfThreeTime || 0);
+  const flash = document.getElementById("flash");
+  const draw = (t) => { const st = film.renderAt(t); flash.style.opacity = st.flash.toFixed(3); };
+  window.addEventListener("hf-seek", (e) => draw(e.detail.time));
+  draw(window.__hfThreeTime || 0);
 })();
 __OVERLAYS__
+const fl = document.createElement("div"); fl.id = "flash"; const subs = document.getElementById("subs"); document.getElementById("root").insertBefore(fl, document.getElementById("ov") ? document.getElementById("ov").nextSibling : null);
 window.__timelines["__ID__"] = tl;
 </script>
 </body>
@@ -49,7 +55,7 @@ def make(path, **kw):
         s = s.replace(f"__{k}__", str(v))
     open(path, "w").write(s)
 
-AUDIO = '  <audio id="score" src="assets/audio/mix.wav" data-start="0" data-duration="55" data-track-index="10" data-volume="1"></audio>'
+AUDIO = '  <audio id="score" src="assets/audio/mix.m4a" data-start="0" data-duration="55" data-track-index="10" data-volume="1"></audio>'
 iw, ih = (int(sys.argv[1]), int(sys.argv[2])) if len(sys.argv) > 2 else (1920, 1080)
 make("cuts/landscape/index.html", W=3840, H=2160, IW=iw, IH=ih, ID="starmah-film", TITLE="فیلم معرفی", DUR=55, LAYOUT="land", AUDIO=AUDIO,
      OVERLAYS='buildOverlays(document.getElementById("root"), tl, { layout: "land" });')

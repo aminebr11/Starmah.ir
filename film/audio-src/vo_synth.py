@@ -28,20 +28,22 @@ def trim(x, sr, thr_db=-52):
     f = int(0.008 * sr); y[:f] *= np.linspace(0, 1, f); y[-f:] *= np.linspace(1, 0, f)
     return y
 
-def synth(text, ls, path):
+def synth(text, ls, path, ss=0.25):
     subprocess.run([PIPER, "-m", MODEL, "-f", path, "--length-scale", f"{ls:.3f}",
-                    "--noise-scale", "0.6", "--noise-w-scale", "0.7"],
+                    "--noise-scale", "0.6", "--noise-w-scale", "0.7", "--sentence-silence", f"{ss:.2f}"],
                    input=text.encode("utf-8"), check=True, capture_output=True)
     x, sr = sf.read(path)
     return trim(x, sr), sr
 
-def do_line(L):
+def do_line(L, out_path=None):
+    out_path = out_path or os.path.join(OUT, f"L{L['id']}.wav")
     target = L["end_by"] - L["start"] - L.get("margin", MARGIN)
     ls = L["ls_max"]
     while ls >= 0.72:
         takes = []
         for k, t in enumerate(L["segs"]):
-            takes.append([synth(t, ls, os.path.join(TMP, f"L{L['id']}_{k}_{j}.wav")) for j in range(TAKES)])
+            takes.append([synth(t, ls, os.path.join(TMP, f"L{L['id']}_{k}_{j}.wav"), L.get("ss", 0.25))
+                          for j in range(L.get("takes", TAKES))])
         best = None
         for combo in itertools.product(*takes):
             sr = combo[0][1]
@@ -54,7 +56,7 @@ def do_line(L):
             gap = np.zeros(int(L["pause"] * sr))
             y = combo[0][0]
             for c in combo[1:]: y = np.concatenate([y, gap, c[0]])
-            sf.write(os.path.join(OUT, f"L{L['id']}.wav"), y, sr)
+            sf.write(out_path, y, sr)
             return dict(length_scale=round(ls, 3), dur=round(len(y) / sr, 3), target=round(target, 3), sr=sr)
         ls -= 0.02
     raise RuntimeError(f"line {L['id']} does not fit")

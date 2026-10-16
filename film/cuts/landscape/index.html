@@ -17,12 +17,15 @@
 body { margin: 0; background: #050a1c; }
 #root { position: relative; width: 100%; height: 100%; overflow: hidden; background: #050a1c; }
 #film { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#vig { position: absolute; inset: 0; background: radial-gradient(ellipse 80% 75% at 50% 50%, rgba(0,0,0,0) 55%, rgba(2,6,22,0.55) 100%); pointer-events: none; }
+#flash { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle at 50% 50%, #fff6dc 0%, #ffe3a0 55%, #ffcf73 100%); pointer-events: none; }
 </style>
 </head>
 <body>
 <div id="root" data-composition-id="starmah-film" data-start="0" data-width="3840" data-height="2160" data-duration="55" data-fps="60">
   <canvas id="film"></canvas>
-  <audio id="score" src="assets/audio/mix.wav" data-start="0" data-duration="55" data-track-index="10" data-volume="1"></audio>
+  <div id="vig"></div>
+  <audio id="score" src="assets/audio/mix.m4a" data-start="0" data-duration="55" data-track-index="10" data-volume="1"></audio>
 </div>
 <script type="module">
 import { createFilm } from "./assets/film.js";
@@ -32,10 +35,13 @@ window.__hf.buildReady = window.__hf.buildReady || {};
 const tl = gsap.timeline({ paused: true });
 window.__hf.buildReady.film = (async () => {
   const film = await createFilm({ canvas: document.getElementById("film"), width: 1920, height: 1080, layout: "land" });
-  window.addEventListener("hf-seek", (e) => film.renderAt(e.detail.time));
-  film.renderAt(window.__hfThreeTime || 0);
+  const flash = document.getElementById("flash");
+  const draw = (t) => { const st = film.renderAt(t); flash.style.opacity = st.flash.toFixed(3); };
+  window.addEventListener("hf-seek", (e) => draw(e.detail.time));
+  draw(window.__hfThreeTime || 0);
 })();
 buildOverlays(document.getElementById("root"), tl, { layout: "land" });
+const fl = document.createElement("div"); fl.id = "flash"; const subs = document.getElementById("subs"); document.getElementById("root").insertBefore(fl, document.getElementById("ov") ? document.getElementById("ov").nextSibling : null);
 window.__timelines["starmah-film"] = tl;
 </script>
 </body>

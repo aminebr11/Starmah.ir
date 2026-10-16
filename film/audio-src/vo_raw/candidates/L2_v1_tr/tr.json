@@ -1,0 +1,7 @@
+{"type":"progress","phase":"transcription","model":"large-v3","status":"started","durationSeconds":4.4443125}
+{"type":"words","model":"large-v3","words":[{"text":"خوش","start":0,"end":0.24},{"text":"اومدی","start":0.24,"end":0.64},{"text":"به","start":0.64,"end":0.8},{"text":"ستاره","start":0.8,"end":1.2},{"text":"ما","start":1.2,"end":1.36}],"through":1.36}
+{"type":"words","model":"large-v3","words":[{"text":"جکل","start":1.36,"end":1.702},{"text":"یادکیری","start":1.702,"end":2.498},{"text":"یه","start":2.498,"end":2.726},{"text":"مجراجوی","start":2.726,"end":3.523},{"text":"تازه","start":3.523,"end":3.978},{"text":"است","start":3.978,"end":4.32}],"through":4.32}
+{"type":"words","model":"large-v3","words":[],"through":4.4443125}
+{"type":"progress","phase":"transcription","model":"large-v3","status":"completed"}
+
+{"ok":true,"engine":"whisper","model":"large-v3","detectedLanguage":null,"wordCount":11,"durationSeconds":4.32,"speechOnsetSeconds":null,"transcriptPath":"/home/user/Starmah.ir/film/audio-src/vo_raw/candidates/L2_v1_tr/out/transcript.json"}
