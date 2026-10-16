@@ -11,3 +11,5 @@ assets/audio/*.wav
 audio-src/**/*.wav
 audio-src/work/
 renders/*.log
+renders/work-*/
+renders/.hf-*
