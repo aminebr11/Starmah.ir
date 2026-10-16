@@ -1,0 +1,354 @@
+{
+ "title": "STARMAH / ستاره ماه - 55 s promo audio timeline",
+ "sample_rate": 48000,
+ "duration": 55.0,
+ "loudness": {
+  "integrated_lufs": -14.0,
+  "true_peak_dbtp": -1.3,
+  "lra_lu": 3.1
+ },
+ "music": {
+  "key": "D major (scene 1 B-minor colour)",
+  "tempo_bpm": 120,
+  "beat_s": 0.5,
+  "note": "free tempo 0-6 s; 120 BPM grid from 6.0 s with 2/4 bars at 12-13 s and 43-44 s",
+  "hits": [
+   {
+    "time": 4.8,
+    "name": "constellation burst (A sus4)"
+   },
+   {
+    "time": 6.0,
+    "name": "main theme starts (D)"
+   },
+   {
+    "time": 35.0,
+    "name": "countdown burst / tutti D"
+   },
+   {
+    "time": 48.0,
+    "name": "LOGO REVEAL hit (tutti D + bell)"
+   },
+   {
+    "time": 51.0,
+    "name": "final chord D(add9), rings out to ~54.7"
+   }
+  ],
+  "scenes": [
+   {
+    "start": 0,
+    "end": 6,
+    "name": "Awakening"
+   },
+   {
+    "start": 6,
+    "end": 13,
+    "name": "Birth of Starmah"
+   },
+   {
+    "start": 13,
+    "end": 21,
+    "name": "Galaxy of learning"
+   },
+   {
+    "start": 21,
+    "end": 29,
+    "name": "Learning through play"
+   },
+   {
+    "start": 29,
+    "end": 37,
+    "name": "Live competition"
+   },
+   {
+    "start": 37,
+    "end": 44,
+    "name": "Power of progress"
+   },
+   {
+    "start": 44,
+    "end": 51,
+    "name": "Big reveal"
+   },
+   {
+    "start": 51,
+    "end": 55,
+    "name": "Final brand moment"
+   }
+  ]
+ },
+ "vo": [
+  {
+   "id": 1,
+   "text": "تا حالا فکر کردی یه سؤال ساده، می‌تونه درِ یه دنیای شگفت‌انگیز رو باز کنه؟",
+   "start": 0.5,
+   "end": 4.976,
+   "window_end": 5.9
+  },
+  {
+   "id": 2,
+   "text": "خوش اومدی به ستاره ماه… جایی که یادگیری، یه ماجراجویی تازه‌ست!",
+   "start": 8.2,
+   "end": 12.571,
+   "window_end": 12.9
+  },
+  {
+   "id": 3,
+   "text": "از کشف رازهای علوم و دنیای کلمات، تا الگوهای ریاضی و بازی‌های هیجان‌انگیز!",
+   "start": 13.6,
+   "end": 19.45,
+   "window_end": 20.8
+  },
+  {
+   "id": 4,
+   "text": "اینجا هر بازی، فرصتی برای فکر کردن، تجربه کردن و کشف کردنه!",
+   "start": 21.8,
+   "end": 26.513,
+   "window_end": 28.8
+  },
+  {
+   "id": 5,
+   "text": "مسابقه‌های زنده، چالش‌های جذاب و کلی هیجان… تا یاد گرفتن، شیرین‌تر بشه!",
+   "start": 29.6,
+   "end": 36.195,
+   "window_end": 36.8
+  },
+  {
+   "id": 6,
+   "text": "چون برای ما، فقط جواب درست مهم نیست… تلاش کردن، پیشرفت و لذت یاد گرفتنه که ارزش داره.",
+   "start": 37.4,
+   "end": 43.507,
+   "window_end": 43.9
+  },
+  {
+   "id": 7,
+   "text": "ستاره ماه… جایی که هر کودک می‌تونه ستاره‌ی یادگیری خودش باشه!",
+   "start": 48.6,
+   "end": 52.584,
+   "window_end": 52.8
+  }
+ ],
+ "sfx": [
+  {
+   "name": "distant_magic_bell",
+   "time": 0.4
+  },
+  {
+   "name": "page_turn_rustle",
+   "time": 2.6
+  },
+  {
+   "name": "page_turn_rustle",
+   "time": 3.4
+  },
+  {
+   "name": "rising_shimmer",
+   "time": 4.0,
+   "start": 4.0,
+   "end": 4.8
+  },
+  {
+   "name": "sparkle_burst_constellation",
+   "time": 4.8
+  },
+  {
+   "name": "warm_light_swell",
+   "time": 5.95,
+   "start": 5.2,
+   "end": 6.0
+  },
+  {
+   "name": "star_leap_boing_chime",
+   "time": 6.6
+  },
+  {
+   "name": "moon_magic_rise",
+   "time": 8.0,
+   "start": 8.0,
+   "end": 9.5
+  },
+  {
+   "name": "moon_blink_twinkle",
+   "time": 9.6
+  },
+  {
+   "name": "soft_hug_chime",
+   "time": 10.5
+  },
+  {
+   "name": "orbital_ring_shimmer_swoosh",
+   "time": 11.75,
+   "start": 11.0,
+   "end": 12.5
+  },
+  {
+   "name": "island_whoosh_passby",
+   "time": 13.2
+  },
+  {
+   "name": "island_whoosh_passby",
+   "time": 15.0
+  },
+  {
+   "name": "science_bubbly_blips",
+   "time": 15.5,
+   "start": 15.5,
+   "end": 16.5
+  },
+  {
+   "name": "island_whoosh_passby",
+   "time": 17.0
+  },
+  {
+   "name": "island_whoosh_passby",
+   "time": 19.0
+  },
+  {
+   "name": "pencil_rocket_launch",
+   "time": 19.6
+  },
+  {
+   "name": "pencil_rocket_launch",
+   "time": 20.2
+  },
+  {
+   "name": "hologram_portal_open",
+   "time": 21.2
+  },
+  {
+   "name": "ui_tap",
+   "time": 22.6
+  },
+  {
+   "name": "wrong_answer_think_again",
+   "time": 22.7
+  },
+  {
+   "name": "ui_tap",
+   "time": 23.6
+  },
+  {
+   "name": "correct_reward_chime_sparkle",
+   "time": 23.65
+  },
+  {
+   "name": "progress_light_tick",
+   "time": 23.8
+  },
+  {
+   "name": "ui_tap",
+   "time": 24.8
+  },
+  {
+   "name": "correct_chime",
+   "time": 24.85
+  },
+  {
+   "name": "progress_light_tick",
+   "time": 25.0
+  },
+  {
+   "name": "colour_mix_bloop",
+   "time": 26.0
+  },
+  {
+   "name": "progress_light_tick",
+   "time": 26.2
+  },
+  {
+   "name": "puzzle_piece_snap",
+   "time": 27.0
+  },
+  {
+   "name": "puzzle_chime",
+   "time": 27.06
+  },
+  {
+   "name": "progress_light_tick",
+   "time": 27.2
+  },
+  {
+   "name": "countdown_beep",
+   "time": 31.0
+  },
+  {
+   "name": "countdown_beep",
+   "time": 32.0
+  },
+  {
+   "name": "countdown_beep",
+   "time": 33.0
+  },
+  {
+   "name": "countdown_beep",
+   "time": 34.0
+  },
+  {
+   "name": "star_answer_select",
+   "time": 34.4
+  },
+  {
+   "name": "countdown_final_beep",
+   "time": 35.0
+  },
+  {
+   "name": "scoreboard_celebration_hit",
+   "time": 35.0
+  },
+  {
+   "name": "golden_confetti",
+   "time": 35.0,
+   "start": 35.0,
+   "end": 36.6
+  },
+  {
+   "name": "soft_crowd_cheer",
+   "time": 35.0,
+   "start": 35.0,
+   "end": 36.8
+  },
+  {
+   "name": "portal_transition_whoosh",
+   "time": 37.0
+  },
+  {
+   "name": "progress_bars_fill",
+   "time": 38.5,
+   "start": 38.5,
+   "end": 40.0
+  },
+  {
+   "name": "badge_achievement_chime",
+   "time": 41.5
+  },
+  {
+   "name": "orbit_accelerating_riser",
+   "time": 47.95,
+   "start": 44.0,
+   "end": 47.95
+  },
+  {
+   "name": "logo_reveal_hit_bell_boom",
+   "time": 48.0
+  },
+  {
+   "name": "logo_wink_twinkle",
+   "time": 51.6
+  },
+  {
+   "name": "shooting_star_sparkly_whoosh",
+   "time": 52.8,
+   "start": 52.2,
+   "end": 53.4
+  },
+  {
+   "name": "final_soft_sparkle",
+   "time": 53.7
+  }
+ ],
+ "ducking": {
+  "depth_db": -8.0,
+  "attack_ms": 200,
+  "release_ms": 300
+ }
+}

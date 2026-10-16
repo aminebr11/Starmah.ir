@@ -1,0 +1,6 @@
+{"type":"progress","phase":"transcription","model":"large-v3","status":"started","durationSeconds":4.47225}
+{"type":"words","model":"large-v3","words":[{"text":"خوش","start":0,"end":0.251},{"text":"اومدی","start":0.251,"end":0.668},{"text":"به","start":0.668,"end":0.835},{"text":"ستاره","start":0.835,"end":1.253},{"text":"ما","start":1.253,"end":1.42}],"through":1.42}
+{"type":"words","model":"large-v3","words":[{"text":"جک","start":1.42,"end":1.663},{"text":"یادگیری","start":1.663,"end":2.514},{"text":"یه","start":2.514,"end":2.758},{"text":"مجارجوی","start":2.758,"end":3.609},{"text":"تازه","start":3.609,"end":4.095},{"text":"است","start":4.095,"end":4.46}],"through":4.46}
+{"type":"words","model":"large-v3","words":[],"through":4.47225}
+{"type":"progress","phase":"transcription","model":"large-v3","status":"completed"}
+{"ok":true,"engine":"whisper","model":"large-v3","detectedLanguage":null,"wordCount":11,"durationSeconds":4.46,"speechOnsetSeconds":null,"transcriptPath":"/tmp/tmp.TFa6fzlIfq/out/transcript.json"}

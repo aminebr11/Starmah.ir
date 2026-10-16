@@ -7,3 +7,6 @@ _prof/
 renders/*.tmp
 *.log
 __pycache__/
+assets/audio/*.wav
+audio-src/**/*.wav
+audio-src/work/
