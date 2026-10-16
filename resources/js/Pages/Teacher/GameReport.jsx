@@ -1,14 +1,15 @@
-import { usePage, Link } from '@inertiajs/react';
+import { usePage, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import { useRestart, RestartBar } from '@/Components/RestartTools';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import { useSort, SortTh, SortBar, firstName, lastName } from '@/lib/useSort';
+import '@/../css/game-report.css';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const mins = (s) => s >= 60 ? `${fa(Math.floor(s / 60))}د ${fa(s % 60)}ث` : `${fa(s)}ث`;
 
 export default function GameReport() {
-    const { game = {}, summary = {}, rows = [], hardQuestions = [] } = usePage().props;
+    const { game = {}, summary = {}, rows = [], hardQuestions = [], errors = {} } = usePage().props;
     const D = 'desc';
     const rs = useSort(rows, { name: (r) => firstName(r.name), family: (r) => lastName(r.name), score: 'score', percent: 'percent', status: (r) => (r.status === 'completed' ? 1 : 0), hints: 'hints', duration: 'duration' },
         { id: 'teacher-game-report', firstDir: { score: D, percent: D, status: D, hints: D, duration: D } });
@@ -35,19 +36,7 @@ export default function GameReport() {
                 </div>
             </div>
 
-            {hardQuestions.length > 0 && (
-                <div className="panel">
-                    <h3 style={{ fontSize: 15 }}>🔧 سؤال‌های دشوار (بیشترین پاسخ غلط)</h3>
-                    <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
-                        {hardQuestions.map((h, i) => (
-                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '8px 12px', background: '#fff5f5', borderRadius: 10 }}>
-                                <span style={{ fontSize: 13.5 }}>{h.prompt}</span>
-                                <b style={{ color: '#e8505b', flex: 'none' }}>{fa(h.wrong)} پاسخ غلط</b>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
+            {hardQuestions.length > 0 && <HardQuestions game={game} list={hardQuestions} errors={errors} />}
 
             <div className="panel">
                 <h3 style={{ fontSize: 15 }}>👥 عملکرد دانش‌آموزان</h3>
@@ -80,6 +69,80 @@ export default function GameReport() {
         </DashLayout>
     );
 }
+/**
+ * «🔧 سؤال‌های دشوار»: هر سؤالی که دستِ‌کم یک نفر غلط زده. با لمسِ هر سؤال فهرستِ کسانی که
+ * اشتباه زده‌اند (و گزینه‌ای که انتخاب کرده‌اند) باز می‌شود. از همه یا بخشی از این سؤال‌ها
+ * «آزمونِ جبرانی» (بازیِ تازه، پیش‌نویس) ساخته می‌شود.
+ */
+function HardQuestions({ game, list, errors }) {
+    const [open, setOpen] = useState(null);
+    const [pick, setPick] = useState(() => list.map((h) => h.id).filter(Boolean));
+    const [make, setMake] = useState(false);
+    const [audience, setAudience] = useState('wrong');
+    const [title, setTitle] = useState('');
+    const [busy, setBusy] = useState(false);
+    const ids = list.map((h) => h.id).filter(Boolean);
+    const all = ids.length > 0 && ids.every((id) => pick.includes(id));
+    const toggle = (id) => setPick((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+    const wrongCount = new Set(list.filter((h) => pick.includes(h.id)).flatMap((h) => h.students.map((s) => s.id))).size;
+    const submit = () => {
+        if (!pick.length) return;
+        setBusy(true);
+        router.post(route('teacher.studio.remedial', game.id), { questions: pick, audience, title }, { onFinish: () => setBusy(false) });
+    };
+
+    return (
+        <div className="panel hq">
+            <div className="hq-top">
+                <h3 style={{ fontSize: 15, margin: 0 }}>🔧 سؤال‌های دشوار ({fa(list.length)})</h3>
+                <button type="button" className="btn btn-sm" onClick={() => setMake((m) => !m)}>🔁 ساختِ آزمونِ جبرانی از سؤال‌های دشوار</button>
+            </div>
+            <p className="hq-note">روی هر سؤال بزنید تا ببینید چه کسانی اشتباه زده‌اند.</p>
+
+            {make && (
+                <div className="hq-make">
+                    <label className="hq-all"><input type="checkbox" checked={all} onChange={() => setPick(all ? [] : ids)} /> همه‌ی سؤال‌های دشوار ({fa(ids.length)}) — یا فقط سؤال‌های دلخواه را در فهرستِ زیر تیک بزنید</label>
+                    <div className="hq-aud">
+                        <label className={audience === 'wrong' ? 'on' : ''}><input type="radio" checked={audience === 'wrong'} onChange={() => setAudience('wrong')} /> فقط برای کسانی که اشتباه زده‌اند ({fa(wrongCount)} نفر)</label>
+                        <label className={audience === 'all' ? 'on' : ''}><input type="radio" checked={audience === 'all'} onChange={() => setAudience('all')} /> برای همان مخاطبانِ این بازی</label>
+                    </div>
+                    <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={`عنوان (خالی = «🔁 جبرانی: ${game.title}»)`} />
+                    {errors.questions && <div className="hq-err">{errors.questions}</div>}
+                    <button type="button" className="btn" disabled={busy || !pick.length} onClick={submit}>
+                        {busy ? 'در حالِ ساخت…' : `✅ ساختِ آزمون با ${fa(pick.length)} سؤال`}
+                    </button>
+                    <small className="hq-note">بازیِ تازه به‌صورتِ پیش‌نویس ساخته می‌شود؛ صفحه‌ی ویرایشش باز می‌شود تا بازبینی و «انتشار» کنید.</small>
+                </div>
+            )}
+
+            <div className="hq-list">
+                {list.map((h, i) => (
+                    <div key={h.id ?? i} className={`hq-q ${open === i ? 'open' : ''}`}>
+                        <div className="hq-row">
+                            {make && h.id && <input type="checkbox" checked={pick.includes(h.id)} onChange={() => toggle(h.id)} aria-label="انتخابِ سؤال" />}
+                            <button type="button" className="hq-btn" onClick={() => setOpen(open === i ? null : i)} aria-expanded={open === i}>
+                                <span className="hq-p">{fa(h.index + 1)}. {h.prompt}</span>
+                                <b>{fa(h.wrong)} از {fa(h.answered)} غلط</b>
+                                <i>{open === i ? '▲' : '▼'}</i>
+                            </button>
+                        </div>
+                        {open === i && (
+                            <div className="hq-who">
+                                {h.answer && <div className="hq-ans">✅ پاسخِ درست: <b>{h.answer}</b></div>}
+                                <div className="hq-names">
+                                    {h.students.map((st) => (
+                                        <span key={st.id}>❌ {st.name}<small>{st.picked ? `زده: ${st.picked}` : 'بی‌پاسخ'}</small></span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 function Kpi({ v, l, c }) {
     return <div style={{ borderRadius: 14, padding: 14, color: '#fff', textAlign: 'center', background: `linear-gradient(135deg,${c},${c}bb)` }}><b style={{ fontSize: 22, display: 'block' }}>{v}</b><span style={{ fontSize: 11.5, opacity: .9 }}>{l}</span></div>;
 }

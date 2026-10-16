@@ -359,6 +359,75 @@ class EduGameController extends Controller
         return back()->with('flash', 'بازی حذف شد');
     }
 
+    /**
+     * «🔁 آزمونِ جبرانی»: از همه یا بخشی از سؤال‌های دشوارِ یک بازی، بازیِ تازه‌ای (پیش‌نویس) می‌سازد.
+     * مخاطب: همان مخاطبانِ بازیِ اصلی، یا فقط دانش‌آموزانی که این سؤال‌ها را اشتباه زده‌اند.
+     */
+    public function remedial(Request $request, EduGame $eduGame): RedirectResponse
+    {
+        abort_unless($eduGame->teacher_id === $request->user()->id, 403);
+        $data = $request->validate([
+            'questions' => ['required', 'array', 'min:1', 'max:200'], 'questions.*' => ['integer'],
+            'audience' => ['nullable', 'in:all,wrong'],
+            'title' => ['nullable', 'string', 'max:150'],
+        ], ['questions.required' => 'دستِ‌کم یک سؤال را انتخاب کنید.']);
+
+        $eduGame->load('questions', 'targets');
+        $picked = $eduGame->questions->whereIn('id', array_map('intval', $data['questions']))->values();
+        abort_if($picked->isEmpty(), 422, 'سؤال‌های انتخاب‌شده در این بازی نیستند.');
+
+        // دانش‌آموزانی که دستِ‌کم یکی از این سؤال‌ها را غلط زده‌اند
+        $index = $eduGame->questions->values()->pluck('id')->flip();   // id → شماره‌ی سؤال در بازی
+        $want = $picked->map(fn ($q) => $index[$q->id])->all();
+        $wrongIds = $eduGame->attempts()->get(['student_id', 'progress'])->filter(function ($a) use ($want) {
+            foreach ($want as $i) {
+                $ans = ($a->progress['answers'] ?? [])[$i] ?? null;
+                if ($ans && isset($ans['correct']) && ! $ans['correct']) {
+                    return true;
+                }
+            }
+
+            return false;
+        })->pluck('student_id')->unique()->values();
+        $onlyWrong = ($data['audience'] ?? 'wrong') === 'wrong';
+        if ($onlyWrong && $wrongIds->isEmpty()) {
+            return back()->withErrors(['questions' => 'هیچ دانش‌آموزی این سؤال‌ها را اشتباه نزده است.']);
+        }
+
+        $copy = \Illuminate\Support\Facades\DB::transaction(function () use ($eduGame, $picked, $data, $onlyWrong, $wrongIds) {
+            $copy = $eduGame->replicate(['created_at', 'updated_at']);
+            $copy->title = trim($data['title'] ?? '') ?: mb_substr('🔁 جبرانی: ' . $eduGame->title, 0, 150);
+            $copy->status = 'draft';
+            $copy->publish_at = null;
+            $copy->close_at = null;
+            $copy->save();
+            foreach ($picked as $n => $q) {
+                $nq = $q->replicate(['created_at', 'updated_at']);
+                $nq->edu_game_id = $copy->id;
+                $nq->sort = $n + 1;
+                $nq->save();
+            }
+            if ($onlyWrong) {
+                foreach ($wrongIds as $sid) {
+                    $copy->targets()->create(['student_id' => $sid]);
+                }
+            } else {
+                foreach ($eduGame->targets as $t) {
+                    $copy->targets()->create(['theme_id' => $t->theme_id, 'student_id' => $t->student_id]);
+                }
+            }
+
+            return $copy;
+        });
+
+        $fa = fn ($n) => \App\Support\Jalali::fa((string) $n);
+
+        return redirect()->route('teacher.studio.edit', $copy->id)->with('flash',
+            '🔁 آزمونِ جبرانی با ' . $fa($picked->count()) . ' سؤال ساخته شد'
+            . ($onlyWrong ? ' (فقط برای ' . $fa($wrongIds->count()) . ' دانش‌آموزی که اشتباه زده بودند)' : '')
+            . '. بازبینی کنید و «انتشار» را بزنید.');
+    }
+
     /** داده‌ی گزارشِ یک بازی — مشترکِ صفحه‌ی گزارش و برگه‌ی چاپی. */
     public function reportData(EduGame $eduGame): array
     {
@@ -375,20 +444,37 @@ class EduGameController extends Controller
             'jdate' => $a->completed_at ? Jalali::format($a->completed_at, true) : null,
         ])->sortByDesc('percent')->values();
 
-        // سؤال‌های سخت (بیشترین پاسخ غلط) از progress
+        // سؤال‌های دشوار: هر سؤالی که دستِ‌کم یک نفر غلط زده (یا بی‌پاسخ گذاشته)، پرغلط‌ترین اول؛
+        // با فهرستِ همان دانش‌آموزان و گزینه‌ای که زده‌اند.
         $wrong = [];
+        $answered = [];
         foreach ($attempts as $a) {
             foreach (($a->progress['answers'] ?? []) as $i => $ans) {
-                if (isset($ans['correct']) && ! $ans['correct']) {
-                    $wrong[$i] = ($wrong[$i] ?? 0) + 1;
+                if (! isset($ans['correct'])) {
+                    continue;
+                }
+                $answered[$i] = ($answered[$i] ?? 0) + 1;
+                if (! $ans['correct']) {
+                    $wrong[$i][] = ['id' => $a->student_id, 'name' => $a->student?->name ?? '—', 'picked' => $ans['picked'] ?? null];
                 }
             }
         }
-        arsort($wrong);
-        $hardQuestions = collect($wrong)->take(5)->map(fn ($cnt, $i) => [
-            'prompt' => $eduGame->questions[$i]->prompt ?? "سؤال " . ($i + 1),
-            'wrong' => $cnt,
-        ])->values();
+        $choiceText = fn ($q, $k) => $k === null ? null : (string) (($q->choices[$k]['value'] ?? $q->choices[$k]['text'] ?? null) ?? '');
+        $hardQuestions = collect($wrong)->map(function ($list, $i) use ($eduGame, $answered, $choiceText) {
+            $q = $eduGame->questions[$i] ?? null;
+            $correct = $q ? collect($q->choices ?? [])->search(fn ($c) => ! empty($c['correct'])) : false;
+
+            return [
+                'id' => $q?->id, 'index' => (int) $i,
+                'prompt' => $q->prompt ?? 'سؤال ' . ($i + 1),
+                'wrong' => count($list), 'answered' => $answered[$i] ?? count($list),
+                'answer' => $q && $correct !== false ? $choiceText($q, $correct) : null,
+                'students' => collect($list)->map(fn ($w) => [
+                    'id' => $w['id'], 'name' => $w['name'],
+                    'picked' => $q && $w['picked'] !== null ? $choiceText($q, (int) $w['picked']) : null,
+                ])->sortBy('name')->values()->all(),
+            ];
+        })->sortByDesc('wrong')->values();
 
         return [
             'game' => ['id' => $eduGame->id, 'title' => $eduGame->title, 'template' => optional($eduGame->template)->name,

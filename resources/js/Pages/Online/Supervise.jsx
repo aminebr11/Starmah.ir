@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { router } from '@inertiajs/react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import Mascot from '@/Components/Mascot';
-import { fa, ReportModal, RecordingsList } from '@/online/parts';
+import { fa, Modal, ReportModal, RecordingsList } from '@/online/parts';
 import '@/../css/supervise.css';
 
 const LV = { ok: '✅ رو به راه', info: 'ℹ️ قابلِ توجه', warn: '⚠️ نیازِ توجه', crit: '🚨 جدی' };
@@ -127,8 +127,7 @@ export default function Supervise({ school, classes = [], alerts = [], onlineOn 
 
             {report && <ReportModal url={route('online.report', report)} onClose={() => setReport(null)} />}
             {roster && (
-                <div className="oc-modal" role="dialog" aria-label="دانش‌آموزان" onClick={(e) => { if (e.target === e.currentTarget) setRoster(null); }}>
-                    <div className="oc-modal-box">
+                <Modal label="دانش‌آموزان" onClose={() => setRoster(null)}>
                         <div className="oc-modal-h"><b>👥 دانش‌آموزانِ {roster.name}</b><button type="button" onClick={() => setRoster(null)} aria-label="بستن">×</button></div>
                         {roster.roster.length === 0 ? <p>هنوز دانش‌آموزی در این کلاس نیست.</p> : (
                             <div className="oc-table-wrap">
@@ -140,8 +139,7 @@ export default function Supervise({ school, classes = [], alerts = [], onlineOn 
                                 </table>
                             </div>
                         )}
-                    </div>
-                </div>
+                </Modal>
             )}
         </DashLayout>
     );

@@ -45,9 +45,9 @@
     @if(count($hardQuestions))
         <h2>🔧 سؤال‌های دشوار (بیشترین پاسخِ غلط)</h2>
         <table>
-            <tr><th>#</th><th>سؤال</th><th>تعدادِ پاسخِ غلط</th></tr>
+            <tr><th>#</th><th>سؤال</th><th>تعدادِ پاسخِ غلط</th><th>چه کسانی</th></tr>
             @foreach($hardQuestions as $i => $h)
-                <tr><td class="num">{{ $fa($i + 1) }}</td><td>{{ $h['prompt'] }}</td><td class="num">{{ $fa($h['wrong']) }}</td></tr>
+                <tr><td class="num">{{ $fa($i + 1) }}</td><td>{{ $h['prompt'] }}</td><td class="num">{{ $fa($h['wrong']) }}</td><td>{{ collect($h['students'] ?? [])->pluck('name')->implode('، ') }}</td></tr>
             @endforeach
         </table>
     @endif

@@ -1,4 +1,5 @@
 import { Children, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import '@/../css/online.css';
 
@@ -342,13 +343,33 @@ export function PollCard({ poll, onAnswer, onDismiss }) {
     );
 }
 
+/**
+ * پنجره‌ی روی صفحه — مستقیم روی <body> (portal) تا زیرِ سربرگ و منوی پایینِ پیشخوان نرود؛
+ * دکمه‌ی ✕ همیشه دیده می‌شود (سربرگِ پنجره چسبان است)، با Esc یا لمسِ بیرونِ پنجره هم بسته می‌شود.
+ */
+export function Modal({ label, onClose, boxClass = '', children }) {
+    useEffect(() => {
+        const key = (e) => { if (e.key === 'Escape') onClose?.(); };
+        window.addEventListener('keydown', key);
+        const prev = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => { window.removeEventListener('keydown', key); document.body.style.overflow = prev; };
+    }, [onClose]);
+    if (typeof document === 'undefined') return null;
+    return createPortal(
+        <div className="oc-modal" role="dialog" aria-modal="true" aria-label={label} onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
+            <div className={`oc-modal-box ${boxClass}`}>{children}</div>
+        </div>,
+        document.body,
+    );
+}
+
 /** گزارشِ حضورِ کلاس (برای معلم و مدیر). */
 export function ReportModal({ url, onClose }) {
     const [data, setData] = useState(null);
     useEffect(() => { axios.get(url).then(({ data: d }) => setData(d)).catch(() => setData({ error: true })); }, [url]);
     return (
-        <div className="oc-modal" role="dialog" aria-label="گزارشِ حضور" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className="oc-modal-box">
+        <Modal label="گزارشِ حضور" onClose={onClose}>
                 <div className="oc-modal-h"><b>📋 گزارشِ حضور</b><button type="button" onClick={onClose} aria-label="بستن">×</button></div>
                 {!data && <div className="oc-empty">در حالِ بارگذاری…</div>}
                 {data?.error && <div className="oc-empty">گزارش بارگذاری نشد.</div>}
@@ -372,8 +393,7 @@ export function ReportModal({ url, onClose }) {
                         </table>
                     </>
                 )}
-            </div>
-        </div>
+        </Modal>
     );
 }
 
@@ -408,12 +428,10 @@ export function RecordingsList({ recordings = [], manage = false, onShare, onDel
             </div>
             {recordings.length > 6 && <button type="button" className="oc-link" onClick={() => setAll((a) => !a)}>{all ? 'کمتر' : `همه‌ی ${fa(recordings.length)} فیلم`}</button>}
             {play && (
-                <div className="oc-modal" role="dialog" aria-label={play.title} onClick={(e) => { if (e.target === e.currentTarget) setPlay(null); }}>
-                    <div className="oc-modal-box oc-player">
-                        <div className="oc-player-h"><b>🎬 {play.title}</b><small>{play.at}</small><button type="button" onClick={() => setPlay(null)} aria-label="بستن">×</button></div>
-                        <video src={play.url} controls autoPlay playsInline preload="metadata" />
-                    </div>
-                </div>
+                <Modal label={play.title} boxClass="oc-player" onClose={() => setPlay(null)}>
+                    <div className="oc-player-h"><b>🎬 {play.title}</b><small>{play.at}</small><button type="button" onClick={() => setPlay(null)} aria-label="بستن">×</button></div>
+                    <video src={play.url} controls autoPlay playsInline preload="metadata" />
+                </Modal>
             )}
         </div>
     );

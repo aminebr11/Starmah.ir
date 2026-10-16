@@ -471,6 +471,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/studio/{eduGame}/status', [\App\Http\Controllers\Teacher\EduGameController::class, 'status'])->name('studio.status');
     Route::post('/studio/{eduGame}/release', [\App\Http\Controllers\Teacher\EduGameController::class, 'release'])->name('studio.release');
     Route::post('/studio/{eduGame}/duplicate', [\App\Http\Controllers\Teacher\EduGameController::class, 'duplicate'])->name('studio.duplicate');
+    Route::post('/studio/{eduGame}/remedial', [\App\Http\Controllers\Teacher\EduGameController::class, 'remedial'])->name('studio.remedial');
     Route::delete('/studio/{eduGame}', [\App\Http\Controllers\Teacher\EduGameController::class, 'destroy'])->name('studio.destroy');
     Route::get('/studio/{eduGame}/report', [\App\Http\Controllers\Teacher\EduGameController::class, 'report'])->name('studio.report');
 });
