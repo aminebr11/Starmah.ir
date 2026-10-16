@@ -1,0 +1,9 @@
+node_modules
+**/node_modules
+.hyperframes/
+**/.hyperframes/
+_bench/
+_prof/
+renders/*.tmp
+*.log
+__pycache__/
