@@ -1,0 +1,6 @@
+composition/node_modules
+composition/.hyperframes/
+render.log
+.brag.hf-transaction-*/
+work-*/
+.brag.*

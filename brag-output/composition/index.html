@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="fa">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <title>ستاره ماه — معرفی</title>
+    <script src="assets/gsap.min.js"></script>
+    <style>
+      @font-face { font-family: "Vazirmatn"; src: url("assets/fonts/Vazirmatn-Regular.woff2") format("woff2"); font-weight: 400; }
+      @font-face { font-family: "Vazirmatn"; src: url("assets/fonts/Vazirmatn-Medium.woff2") format("woff2"); font-weight: 500; }
+      @font-face { font-family: "Vazirmatn"; src: url("assets/fonts/Vazirmatn-SemiBold.woff2") format("woff2"); font-weight: 600; }
+      @font-face { font-family: "Vazirmatn"; src: url("assets/fonts/Vazirmatn-Bold.woff2") format("woff2"); font-weight: 700; }
+      @font-face { font-family: "Vazirmatn"; src: url("assets/fonts/Vazirmatn-ExtraBold.woff2") format("woff2"); font-weight: 800; }
+      @font-face { font-family: "Vazirmatn"; src: url("assets/fonts/Vazirmatn-Black.woff2") format("woff2"); font-weight: 900; }
+      @font-face { font-family: "Bebas Neue"; src: url("assets/fonts/BebasNeue-400.woff2") format("woff2"); }
+      @font-face { font-family: "Poppins"; src: url("assets/fonts/Poppins-800.woff2") format("woff2"); font-weight: 800; }
+      @font-face { font-family: "Press Start 2P"; src: url("assets/fonts/PressStart2P-400.woff2") format("woff2"); }
+      @font-face { font-family: "Rajdhani"; src: url("assets/fonts/Rajdhani-700.woff2") format("woff2"); font-weight: 700; }
+      @font-face { font-family: "Noto Color Emoji"; src: url("assets/fonts/NotoColorEmoji.ttf") format("truetype"); }
+
+      :root {
+        --navy-950: #070f24; --navy-900: #0a1733; --navy-800: #0e1c3d; --navy-700: #16264f; --navy-600: #1e3a6e;
+        --gold: #f5b53f; --gold-2: #e09b22; --gold-light: #ffd87a;
+        --cyan: #3ad0ff; --pink: #ff6b9d; --teal: #2dd4bf; --purple: #8b7cf6; --sky: #5b8def;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--navy-950);
+        color: #fff;
+        font-family: "Vazirmatn", "Noto Color Emoji", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--navy-950); }
+      .emo { font-family: "Noto Color Emoji", sans-serif; font-weight: 400; }
+
+      /* ---------- persistent cosmic backdrop ---------- */
+      #sky { position: absolute; inset: 0; overflow: hidden;
+        background: radial-gradient(120% 70% at 50% 18%, #1e3a6e 0%, #0e1c3d 45%, #070f24 100%); }
+      #sky-tint { position: absolute; inset: 0; opacity: 0; }
+      .aurora { position: absolute; border-radius: 50%; filter: blur(110px); }
+      #au-gold { width: 900px; height: 900px; left: -300px; bottom: -260px; background: #caa12e; opacity: 0.32; }
+      #au-blue { width: 1000px; height: 1000px; right: -380px; top: -300px; background: #2563eb; opacity: 0.42; }
+      #au-purple { width: 700px; height: 700px; left: 200px; top: 760px; background: #6d4bd8; opacity: 0.22; }
+      #stars { position: absolute; inset: 0; }
+      .star { position: absolute; display: block; border-radius: 50%; background: #fff; }
+      #moon-wrap { position: absolute; top: 120px; left: 70px; width: 300px; height: 300px; }
+      #moon { position: absolute; inset: 0; border-radius: 50%;
+        box-shadow: inset 64px -18px 0 0 #ffd87a, 0 0 0 0 transparent;
+        filter: drop-shadow(0 0 40px rgba(245, 181, 63, 0.55)); transform: rotate(-18deg); }
+      #vignette { position: absolute; inset: 0;
+        background: radial-gradient(90% 60% at 50% 50%, transparent 55%, rgba(3, 7, 18, 0.75) 100%); }
+
+      /* ---------- scenes ---------- */
+      .clip { position: absolute; inset: 0; width: 100%; height: 100%; direction: rtl; }
+      .center { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+
+      /* S1 hook */
+      #s1 .tag { display: flex; flex-direction: column; gap: 28px; align-items: center; padding: 0 70px; }
+      #s1 .line { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 30px; line-height: 1.3; }
+      #s1 .w { display: inline-block; font-weight: 900; font-size: 116px; }
+      #s1 .line2 .w { font-size: 84px; font-weight: 700; color: #dfe8ff; }
+      #s1 .gold { background: linear-gradient(120deg, #ffd87a, #f5b53f 50%, #fff4cf 95%);
+        -webkit-background-clip: text; background-clip: text; color: transparent; }
+      #shoot { position: absolute; top: 0; left: 0; width: 520px; height: 6px; transform-origin: 0% 50%; }
+      #shoot-tail { position: absolute; inset: 0; border-radius: 6px;
+        background: linear-gradient(90deg, #ffe7a6 0%, rgba(245, 181, 63, 0.6) 30%, rgba(245, 181, 63, 0) 100%); }
+      #shoot-head { position: absolute; left: -14px; top: -11px; width: 28px; height: 28px; border-radius: 50%;
+        background: #fff7dc; box-shadow: 0 0 30px 12px rgba(255, 216, 122, 0.85), 0 0 90px 30px rgba(245, 181, 63, 0.45); }
+      #s1-spark { position: absolute; width: 90px; height: 90px; top: 690px; left: 160px; }
+
+      /* S2 reveal */
+      #logo-stage { position: relative; width: 640px; height: 640px; margin-bottom: 40px; }
+      #halo { position: absolute; inset: -120px; border-radius: 50%;
+        background: radial-gradient(circle, rgba(245, 181, 63, 0.55) 0%, rgba(245, 181, 63, 0.14) 45%, transparent 70%); }
+      #ring { position: absolute; left: -80px; top: 170px; width: 800px; height: 300px; border-radius: 50%;
+        border: 6px solid rgba(255, 216, 122, 0.8); box-shadow: 0 0 30px rgba(245, 181, 63, 0.5), inset 0 0 20px rgba(245, 181, 63, 0.3); }
+      #ring-back { position: absolute; left: -80px; top: 170px; width: 800px; height: 300px; border-radius: 50%;
+        border: 6px solid rgba(255, 216, 122, 0.35); clip-path: inset(0 0 50% 0); }
+      #emblem { position: absolute; inset: 70px; border-radius: 96px; overflow: hidden;
+        box-shadow: 0 40px 90px -20px rgba(0, 0, 0, 0.6), 0 0 0 4px rgba(255, 255, 255, 0.15); }
+      #emblem img { width: 100%; height: 100%; display: block; }
+      .orb { position: absolute; width: 104px; height: 104px; margin: -52px 0 0 -52px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; font-size: 54px; color: #0a1733;
+        background: rgba(255, 255, 255, 0.12); border: 2px solid rgba(255, 255, 255, 0.25);
+        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5); }
+      #eyebrow { display: inline-flex; align-items: center; gap: 14px; padding: 14px 30px; border-radius: 999px;
+        background: rgba(255, 255, 255, 0.09); border: 1.5px solid rgba(255, 255, 255, 0.22);
+        font-size: 34px; font-weight: 600; color: #e9efff; }
+      #eyebrow i { width: 14px; height: 14px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 14px var(--gold); }
+      #brand { font-size: 210px; font-weight: 900; line-height: 1.15; margin: 18px 0 0;
+        background: linear-gradient(120deg, #fff4cf 0%, #ffd87a 30%, #f5b53f 60%, #e09b22 100%);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+        filter: drop-shadow(0 10px 40px rgba(245, 181, 63, 0.35)); }
+      #brand-en { font-family: "Poppins", sans-serif; font-weight: 800; font-size: 46px; letter-spacing: 22px;
+        color: #cfe0ff; direction: ltr; margin-top: 6px; }
+
+      /* S3 worlds + play */
+      #s3 { display: flex; flex-direction: column; align-items: center; padding-top: 230px; }
+      #s3-head { font-size: 92px; font-weight: 900; line-height: 1.25; text-align: center; padding: 0 60px; }
+      #s3-head .hl { display: inline-block; background: linear-gradient(120deg, #ffd87a, #f5b53f 60%, #e09b22);
+        -webkit-background-clip: text; background-clip: text; color: transparent; }
+      #card-stage { position: relative; width: 880px; height: 820px; margin-top: 60px; perspective: 2200px; }
+      .face { position: absolute; inset: 0; border-radius: 56px; overflow: hidden;
+        box-shadow: 0 50px 110px -30px rgba(0, 0, 0, 0.75), inset 0 0 0 3px rgba(255, 255, 255, 0.14);
+        backface-visibility: hidden; }
+      .face .hdr { height: 250px; padding: 40px 54px; display: flex; align-items: center; justify-content: space-between; gap: 30px; }
+      .face .hdr .tname { font-size: 58px; font-weight: 900; line-height: 1.2; }
+      .face .hdr .sub { direction: ltr; font-size: 40px; opacity: 0.92; margin-top: 6px; text-align: right; }
+      .face .hdr .mascot { font-size: 130px; line-height: 1; filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.35)); }
+      .face .body { padding: 50px 54px; display: flex; flex-direction: column; align-items: center; gap: 30px; }
+      .face .story { font-size: 50px; font-weight: 700; color: #fff; text-align: center; line-height: 1.5; text-wrap: balance; }
+      .face .q { font-size: 150px; font-weight: 900; direction: ltr; unicode-bidi: isolate; line-height: 1.1; letter-spacing: 4px; }
+      .face .chip { display: inline-flex; gap: 12px; align-items: center; padding: 12px 30px; border-radius: 999px;
+        font-size: 36px; font-weight: 700; background: rgba(255, 255, 255, 0.14); border: 1.5px solid rgba(255, 255, 255, 0.25); }
+      .f-fire { background: linear-gradient(170deg, #4a1212 0%, #2a0c0c 100%); }
+      .f-fire .hdr { background: linear-gradient(120deg, #8b0000, #ff4500); }
+      .f-fire .sub { font-family: "Bebas Neue", sans-serif; font-size: 64px; letter-spacing: 4px; color: #ffd700; }
+      .f-fire .q { color: #ffb03a; }
+      .f-blue { background: linear-gradient(170deg, #0e2a5e 0%, #07142e 100%); }
+      .f-blue .hdr { background: linear-gradient(120deg, #001f3f, #0074d9); }
+      .f-blue .sub { font-family: "Poppins", sans-serif; font-weight: 800; color: #4fd2ff; }
+      .f-blue .q { color: #4fd2ff; }
+      .f-creeper { background: linear-gradient(170deg, #143d20 0%, #0e2a16 100%); }
+      .f-creeper .hdr { background: linear-gradient(120deg, #1b5e20, #4caf50); }
+      .f-creeper .sub { font-family: "Press Start 2P", monospace; font-size: 30px; color: #c6ff00; line-height: 1.5; }
+      .f-creeper .q { color: #a5f36a; }
+      .f-speed { background: linear-gradient(170deg, #15182e 0%, #0a0e1c 100%); }
+      .f-speed .hdr { background: linear-gradient(120deg, #1e1e1e, #ff6f00); }
+      .f-speed .sub { font-family: "Rajdhani", sans-serif; font-weight: 700; font-size: 56px; letter-spacing: 6px; color: #ffa500; }
+      .f-speed .q { color: #13e2ff; }
+      #dots { display: flex; gap: 18px; justify-content: center; margin-top: 46px; direction: ltr; }
+      #dots i { display: block; width: 22px; height: 22px; border-radius: 50%; background: rgba(255, 255, 255, 0.25); }
+      #s3-cap { margin-top: 30px; font-size: 64px; font-weight: 800; color: #fff; }
+      #s3-cap b { color: var(--gold-light); }
+      #opts { position: absolute; left: 0; right: 0; top: 1560px; display: flex; justify-content: center; gap: 36px; direction: rtl; }
+      .opt { width: 250px; height: 150px; border-radius: 40px; display: flex; align-items: center; justify-content: center;
+        font-size: 84px; font-weight: 900; color: #fff; background: rgba(255, 255, 255, 0.1);
+        border: 3px solid rgba(255, 255, 255, 0.28); box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.6); }
+      #opt-ok-bg { position: absolute; inset: -3px; border-radius: 40px; opacity: 0;
+        background: linear-gradient(140deg, #34d399, #10b981); box-shadow: 0 0 60px rgba(52, 211, 153, 0.6); }
+      #opt-ok { position: relative; }
+      #opt-ok span { position: relative; }
+      #tap { position: absolute; width: 160px; height: 160px; left: 50%; top: 50%; margin: -80px 0 0 -80px; border-radius: 50%;
+        border: 6px solid #fff; opacity: 0; }
+      #finger { position: absolute; font-size: 120px; left: 120px; top: 90px; opacity: 0; }
+      #bravo { position: absolute; left: 0; right: 0; top: 520px; display: flex; flex-direction: column; align-items: center; gap: 30px; }
+      #bravo-t { font-size: 170px; font-weight: 900; color: #fff;
+        text-shadow: 0 10px 0 rgba(0, 0, 0, 0.2), 0 0 60px rgba(255, 216, 122, 0.7); }
+      #plus { display: inline-flex; align-items: center; gap: 16px; padding: 22px 50px; border-radius: 999px;
+        background: linear-gradient(135deg, #ffd87a, #f5b53f 55%, #e09b22); color: #3a2700; font-size: 72px; font-weight: 900;
+        box-shadow: 0 24px 50px -16px rgba(245, 181, 63, 0.9); }
+      #xp { width: 860px; padding: 34px 40px; border-radius: 40px; background: rgba(9, 18, 44, 0.82);
+        border: 2px solid rgba(255, 255, 255, 0.18); }
+      #xp .row { display: flex; justify-content: space-between; align-items: center; font-size: 44px; font-weight: 800; margin-bottom: 22px; }
+      #xp .row span:last-child { color: var(--gold-light); }
+      #xp .bar { position: relative; height: 40px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+      #xp-fill { position: absolute; top: 0; bottom: 0; right: 0; width: 100%; border-radius: 999px; transform-origin: 100% 50%;
+        background: linear-gradient(270deg, #ffd87a, #f5b53f 60%, #ff6b9d); }
+      #burst { position: absolute; left: 540px; top: 1635px; width: 0; height: 0; }
+      .pt { position: absolute; left: -24px; top: -24px; width: 48px; height: 48px; font-size: 44px; line-height: 48px; text-align: center; }
+
+      /* S5 features */
+      #s5 { display: flex; flex-direction: column; align-items: center; padding-top: 250px; }
+      #s5-head { font-size: 80px; white-space: nowrap; font-weight: 900; text-align: center; line-height: 1.3; padding: 0 60px; }
+      #s5-sub { font-size: 42px; font-weight: 500; color: #c9d5f2; margin-top: 18px; }
+      #tiles { display: grid; grid-template-columns: 450px 450px; gap: 36px; margin-top: 80px; }
+      .tile { height: 330px; border-radius: 44px; padding: 40px 38px; display: flex; flex-direction: column; gap: 16px;
+        background: linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
+        border: 2px solid rgba(255, 255, 255, 0.18); box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.7); }
+      .tile .ic { color: #0a1733; width: 112px; height: 112px; border-radius: 32px; display: flex; align-items: center; justify-content: center; font-size: 62px; }
+      .tile h3 { margin: 6px 0 0; font-size: 50px; font-weight: 900; line-height: 1.25; }
+      .tile p { margin: 0; font-size: 32px; font-weight: 500; color: #c9d5f2; line-height: 1.45; }
+      .ic-gold { background: linear-gradient(135deg, #ffd87a, #e09b22); }
+      .ic-pink { background: linear-gradient(135deg, #ff9cc0, #ff4f8b); }
+      .ic-sky { background: linear-gradient(135deg, #8fd8ff, #3a8bff); }
+      .ic-lilac { background: linear-gradient(135deg, #c3b6ff, #7c5cf6); }
+      .ic-mint { background: linear-gradient(135deg, #8ff0d6, #14b8a6); }
+      .ic-orange { background: linear-gradient(135deg, #ffc27a, #ff7a2f); }
+
+      /* S6 outro */
+      #s6 { display: flex; flex-direction: column; align-items: center; padding-top: 300px; }
+      #o-logo { position: relative; width: 420px; height: 420px; }
+      #o-halo { position: absolute; inset: -110px; border-radius: 50%;
+        background: radial-gradient(circle, rgba(245, 181, 63, 0.55), rgba(245, 181, 63, 0.12) 50%, transparent 70%); }
+      #o-ring { position: absolute; left: -70px; top: 120px; width: 560px; height: 190px; border-radius: 50%;
+        border: 5px solid rgba(255, 216, 122, 0.8); box-shadow: 0 0 24px rgba(245, 181, 63, 0.5); }
+      #o-emblem { position: absolute; inset: 30px; border-radius: 70px; overflow: hidden;
+        box-shadow: 0 30px 70px -20px rgba(0, 0, 0, 0.6), 0 0 0 4px rgba(255, 255, 255, 0.15); }
+      #o-emblem img { width: 100%; height: 100%; display: block; }
+      #o-brand { margin-top: 50px; font-size: 140px; font-weight: 900; line-height: 1.2;
+        background: linear-gradient(120deg, #fff4cf, #ffd87a 35%, #f5b53f 65%, #e09b22);
+        -webkit-background-clip: text; background-clip: text; color: transparent; }
+      #o-q { font-size: 66px; font-weight: 800; margin-top: 12px; color: #fff; }
+      #o-links { display: flex; flex-direction: column; gap: 34px; margin-top: 80px; align-items: center; }
+      #o-web { display: flex; align-items: center; gap: 24px; padding: 30px 60px; border-radius: 999px;
+        background: linear-gradient(135deg, #ffd87a, #f5b53f 55%, #e09b22); color: #2b1d00;
+        box-shadow: 0 30px 60px -20px rgba(245, 181, 63, 0.85); }
+      #o-web .u { font-family: "Poppins", sans-serif; font-weight: 800; font-size: 76px; direction: ltr; letter-spacing: 1px; }
+      #o-web .emo { font-size: 64px; }
+      #o-ig { display: flex; align-items: center; gap: 30px; padding: 26px 30px 26px 40px; border-radius: 48px; width: 880px;
+        background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.22); }
+      #ig-icon { position: relative; width: 120px; height: 120px; flex: 0 0 auto; border-radius: 34px;
+        background: linear-gradient(45deg, #feda75 0%, #fa7e1e 25%, #d62976 50%, #962fbf 75%, #4f5bd5 100%); }
+      #ig-icon .lens { position: absolute; inset: 26px; border-radius: 50%; border: 9px solid #fff; }
+      #ig-icon .frame { position: absolute; inset: 12px; border-radius: 28px; border: 8px solid #fff; }
+      #ig-icon .dot { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #fff; top: 22px; right: 22px; }
+      #ig-text { flex: 1; text-align: right; }
+      #ig-text small { display: block; font-size: 32px; color: #c9d5f2; font-weight: 600; }
+      #ig-text b { display: block; font-family: "Poppins", sans-serif; font-weight: 800; font-size: 56px; direction: ltr; text-align: right; }
+      #ig-btn { position: relative; width: 250px; height: 100px; border-radius: 28px; flex: 0 0 auto; }
+      #ig-btn .a, #ig-btn .b { position: absolute; inset: 0; border-radius: 28px; display: flex; align-items: center; justify-content: center;
+        font-size: 38px; font-weight: 900; }
+      #ig-btn .a { background: #3b82f6; color: #fff; box-shadow: 0 14px 30px -10px rgba(59, 130, 246, 0.9); }
+      #ig-btn .b { background: rgba(255, 255, 255, 0.16); color: #fff; border: 2px solid rgba(255, 255, 255, 0.35); opacity: 0; }
+      #ig-tap { position: absolute; left: 50%; top: 50%; width: 140px; height: 140px; margin: -70px 0 0 -70px; border-radius: 50%;
+        border: 5px solid #fff; opacity: 0; }
+      #o-foot { margin-top: 70px; font-size: 40px; font-weight: 600; color: #c9d5f2; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-width="1080" data-height="1920" data-duration="24" data-fps="30">
+      <!-- persistent cosmic backdrop (untimed) -->
+      <div id="sky">
+        <div id="sky-tint"></div>
+        <div class="aurora" id="au-blue"></div>
+        <div class="aurora" id="au-gold"></div>
+        <div class="aurora" id="au-purple"></div>
+        <div id="stars"></div>
+        <div id="moon-wrap"><div id="moon"></div></div>
+        <div id="vignette"></div>
+      </div>
+
+      <!-- S1 — hook -->
+      <section id="s1" class="clip center" data-start="0" data-duration="3.7" data-track-index="1">
+        <div id="shoot"><div id="shoot-tail"></div><div id="shoot-head"></div></div>
+        <div class="tag" id="s1-tag">
+          <div class="line line1">
+            <span class="w">هر</span><span class="w">کودک،</span><span class="w gold">ستاره‌ای‌ست</span>
+          </div>
+          <div class="line line2">
+            <span class="w">در</span><span class="w">مسیر</span><span class="w">کشف</span><span class="w">بی‌پایان</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- S2 — logo reveal -->
+      <section id="s2" class="clip center" data-start="3.5" data-duration="4.2" data-track-index="2">
+        <div id="s2-inner" class="center">
+          <div id="logo-stage">
+            <div id="halo"></div>
+            <div id="ring-back"></div>
+            <div id="orbits"></div>
+            <div id="emblem"><img src="assets/img/hero-emblem-880.webp" alt="" /></div>
+            <div id="ring"></div>
+          </div>
+          <div id="eyebrow"><i></i>پلتفرم آموزش هوشمند مدارس · با هوش مصنوعی</div>
+          <div id="brand">ستاره ماه</div>
+          <div id="brand-en">STARMAH</div>
+        </div>
+      </section>
+
+      <!-- S3 — one lesson, four worlds + play -->
+      <section id="s3" class="clip" data-start="7.6" data-duration="9.1" data-track-index="3">
+        <div id="s3-head">درس خواندن این‌بار <span class="hl">بازی است!</span></div>
+        <div id="card-stage" data-layout-allow-overlap>
+          <div class="face f-fire" id="f1">
+            <div class="hdr">
+              <div><div class="tname">تیم شلیک آتشین</div><div class="sub">FIRE STRIKERS</div></div>
+              <div class="mascot emo">⚽</div>
+            </div>
+            <div class="body">
+              <div class="story">قرمزها در هر بازی ۷ گل زدند؛ بعد از ۸ بازی؟</div>
+              <div class="q">۸ × ۷ = ؟</div>
+              <div class="chip"><span class="emo">🔥</span> لیگ آتش</div>
+            </div>
+          </div>
+          <div class="face f-blue" id="f2">
+            <div class="hdr">
+              <div><div class="tname">تیم صاعقه آبی</div><div class="sub">BLUE THUNDERS</div></div>
+              <div class="mascot emo">⚡</div>
+            </div>
+            <div class="body">
+              <div class="story">اژدهای آبی در هر مسابقه ۷ گل زد؛ بعد از ۸ مسابقه؟</div>
+              <div class="q">۸ × ۷ = ؟</div>
+              <div class="chip"><span class="emo">🐉</span> لیگ صاعقه</div>
+            </div>
+          </div>
+          <div class="face f-creeper" id="f3">
+            <div class="hdr">
+              <div><div class="tname">جنگجویان کریپر</div><div class="sub">CREEPER WARRIORS</div></div>
+              <div class="mascot emo">⛏️</div>
+            </div>
+            <div class="body">
+              <div class="story">ماینر در هر طبقه ۷ بلوک گذاشت؛ قلعه‌ی ۸ طبقه؟</div>
+              <div class="q">۸ × ۷ = ؟</div>
+              <div class="chip"><span class="emo">💎</span> لیگ کریپر</div>
+            </div>
+          </div>
+          <div class="face f-speed" id="f4">
+            <div class="hdr">
+              <div><div class="tname">تیم سوپر اسپید</div><div class="sub">SUPER SPEED</div></div>
+              <div class="mascot emo">🏎️</div>
+            </div>
+            <div class="body">
+              <div class="story">راننده در هر دور ۷ نیترو گرفت؛ بعد از ۸ دور؟</div>
+              <div class="q">۸ × ۷ = ؟</div>
+              <div class="chip"><span class="emo">🏁</span> گرنپری</div>
+            </div>
+          </div>
+        </div>
+        <div id="dots"><i id="d1"></i><i id="d2"></i><i id="d3"></i><i id="d4"></i></div>
+        <div id="s3-cap">یک درس، <b>چهار دنیا</b></div>
+
+        <div id="opts" data-layout-allow-overlap>
+          <div class="opt" id="opt-a">۴۸</div>
+          <div class="opt" id="opt-ok"><div id="opt-ok-bg"></div><span>۵۶</span><div id="tap"></div><div id="finger" class="emo" data-layout-allow-overflow>👆</div></div>
+          <div class="opt" id="opt-c">۶۴</div>
+        </div>
+        <div id="burst" data-layout-allow-overlap></div>
+        <div id="bravo" data-layout-allow-overlap>
+          <div id="bravo-t">آفرین! <span class="emo">🏎️</span></div>
+          <div id="plus"><span class="emo">⭐</span> +۲۰ ستاره</div>
+          <div id="xp">
+            <div class="row"><span>سطحِ بعدی نزدیک است!</span><span id="xp-n">۱۲۰ ⭐</span></div>
+            <div class="bar"><div id="xp-fill"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- S5 — features -->
+      <section id="s5" class="clip" data-start="16.6" data-duration="3.55" data-track-index="4">
+        <div id="s5-head">هر چیزی که کلاس نیاز دارد</div>
+        <div id="s5-sub">همه‌ی ابزارهای آموزش، بازی و ارتباط در یک‌جا</div>
+        <div id="tiles">
+          <div class="tile" id="t1"><div class="ic ic-gold emo">🎮</div><h3>آزمون و بازی</h3><p>یادگیری با بازی‌های جذاب</p></div>
+          <div class="tile" id="t2"><div class="ic ic-pink emo">🏆</div><h3>امتیاز و ستاره</h3><p>رقابت و پیشرفتِ روزانه</p></div>
+          <div class="tile" id="t3"><div class="ic ic-sky emo">🎯</div><h3>مأموریتِ روزانه</h3><p>هر روز یک چالشِ تازه</p></div>
+          <div class="tile" id="t4"><div class="ic ic-lilac emo">✨</div><h3>آزمونِ هوشمند</h3><p>ساخته‌شده با هوش مصنوعی</p></div>
+          <div class="tile" id="t5"><div class="ic ic-mint emo">📚</div><h3>مطالبِ درسی</h3><p>جزوه، پادکست و گالری</p></div>
+          <div class="tile" id="t6"><div class="ic ic-orange emo">💌</div><h3>ارتباط با والدین</h3><p>گفت‌وگوی خانه و مدرسه</p></div>
+        </div>
+      </section>
+
+      <!-- S6 — outro -->
+      <section id="s6" class="clip" data-start="20" data-duration="4" data-track-index="5">
+        <div id="o-logo">
+          <div id="o-halo"></div>
+          <div id="o-emblem"><img src="assets/img/hero-emblem-560.webp" alt="" /></div>
+          <div id="o-ring"></div>
+        </div>
+        <div id="o-brand">ستاره ماه</div>
+        <div id="o-q">آماده‌ای ستاره‌ی کلاس شوی؟</div>
+        <div id="o-links">
+          <div id="o-web"><span class="emo">🌐</span><span class="u">starmah.ir</span></div>
+          <div id="o-ig">
+            <div id="ig-icon"><div class="frame"></div><div class="lens"></div><div class="dot"></div></div>
+            <div id="ig-text"><small>ما را در اینستاگرام دنبال کنید</small><b>@starmah.ir</b></div>
+            <div id="ig-btn" data-layout-allow-overlap><div class="a">دنبال کنید</div><div class="b">دنبال شد ✓</div><div id="ig-tap"></div></div>
+          </div>
+        </div>
+        <div id="o-foot">هر کودک، ستاره‌ای‌ست در مسیر کشف بی‌پایان</div>
+      </section>
+
+      <!-- audio -->
+      <audio id="bg-music" src="assets/music/music.mp3" data-start="0" data-duration="24" data-track-index="10" data-volume="0.36"
+        data-automation='{"version":1,"lanes":[{"target":"volume","points":[{"t":0,"v":0},{"t":0.6,"v":1},{"t":22.6,"v":1},{"t":24,"v":0}]}]}'></audio>
+      <audio id="sfx-shoot" src="assets/sfx/rollover2.ogg" data-start="0.25" data-duration="0.6" data-track-index="11" data-volume="0.6"></audio>
+      <audio id="sfx-tag" src="assets/sfx/impactGlass_light_002.ogg" data-start="1.95" data-duration="0.8" data-track-index="12" data-volume="0.55"></audio>
+      <audio id="sfx-logo" src="assets/sfx/impactBell_heavy_000.ogg" data-start="3.98" data-duration="2.5" data-track-index="13" data-volume="0.7"></audio>
+      <audio id="sfx-card" src="assets/sfx/card-place-1.ogg" data-start="7.95" data-duration="0.8" data-track-index="14" data-volume="0.7"></audio>
+      <audio id="sfx-sw1" src="assets/sfx/card-slide-2.ogg" data-start="9.48" data-duration="0.8" data-track-index="15" data-volume="0.7"></audio>
+      <audio id="sfx-sw2" src="assets/sfx/card-slide-2.ogg" data-start="10.98" data-duration="0.8" data-track-index="16" data-volume="0.7"></audio>
+      <audio id="sfx-sw3" src="assets/sfx/card-slide-2.ogg" data-start="12.48" data-duration="0.8" data-track-index="17" data-volume="0.7"></audio>
+      <audio id="sfx-opts" src="assets/sfx/drop_002.ogg" data-start="13.55" data-duration="0.6" data-track-index="18" data-volume="0.6"></audio>
+      <audio id="sfx-tap" src="assets/sfx/click_003.ogg" data-start="14.5" data-duration="0.4" data-track-index="19" data-volume="0.85"></audio>
+      <audio id="sfx-win" src="assets/sfx/impactBell_heavy_003.ogg" data-start="14.55" data-duration="2" data-track-index="20" data-volume="0.55"></audio>
+      <audio id="sfx-spark" src="assets/sfx/impactGlass_light_002.ogg" data-start="15.0" data-duration="0.8" data-track-index="21" data-volume="0.6"></audio>
+      <audio id="sfx-trans" src="assets/sfx/impactSoft_medium_001.ogg" data-start="16.6" data-duration="0.6" data-track-index="22" data-volume="0.75"></audio>
+      <audio id="sfx-t1" src="assets/sfx/card-place-1.ogg" data-start="17.0" data-duration="0.6" data-track-index="23" data-volume="0.6"></audio>
+      <audio id="sfx-t2" src="assets/sfx/card-place-1.ogg" data-start="17.5" data-duration="0.6" data-track-index="24" data-volume="0.6"></audio>
+      <audio id="sfx-t3" src="assets/sfx/card-place-1.ogg" data-start="18.0" data-duration="0.6" data-track-index="25" data-volume="0.6"></audio>
+      <audio id="sfx-outro" src="assets/sfx/impactBell_heavy_000.ogg" data-start="20.0" data-duration="3" data-track-index="26" data-volume="0.75"></audio>
+      <audio id="sfx-follow" src="assets/sfx/click_003.ogg" data-start="22.4" data-duration="0.4" data-track-index="27" data-volume="0.85"></audio>
+      <audio id="sfx-followed" src="assets/sfx/impactGlass_light_002.ogg" data-start="22.45" data-duration="0.8" data-track-index="28" data-volume="0.55"></audio>
+    </div>
+
+    <script src="assets/audio-data.js"></script>
+    <script>
+      (function () {
+        const prand = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+        const tl = gsap.timeline({ paused: true });
+        const D = 24;
+
+        /* ---------- starfield (seeded, built once) ---------- */
+        const starBox = document.getElementById("stars");
+        const STARS = 150;
+        for (let i = 0; i < STARS; i++) {
+          const s = document.createElement("i");
+          s.className = "star";
+          const size = 2 + Math.floor(prand(i * 3.1) * 5);
+          s.style.width = size + "px"; s.style.height = size + "px";
+          s.style.left = (prand(i * 7.7) * 1080).toFixed(1) + "px";
+          s.style.top = (prand(i * 5.3) * 1920).toFixed(1) + "px";
+          s.style.opacity = (0.35 + prand(i * 9.9) * 0.6).toFixed(2);
+          if (i % 9 === 0) s.style.background = "#ffe9b0";
+          if (i % 13 === 0) s.style.boxShadow = "0 0 10px 2px rgba(255,233,176,.7)";
+          starBox.appendChild(s);
+          const cyc = 1.2 + prand(i * 2.3) * 1.8;
+          tl.to(s, { opacity: 0.12, duration: cyc / 2, ease: "sine.inOut", yoyo: true,
+            repeat: Math.max(0, Math.floor(D / cyc) - 1) }, prand(i * 4.4) * 1.5);
+        }
+        // slow parallax drift of the whole sky
+        tl.fromTo("#stars", { y: 0, scale: 1.04 }, { y: -140, scale: 1.1, duration: D, ease: "none" }, 0);
+        tl.fromTo("#moon-wrap", { y: 0, rotation: 0 }, { y: 60, rotation: 8, duration: D, ease: "none" }, 0);
+        tl.fromTo("#au-blue", { x: 0, y: 0 }, { x: -160, y: 220, duration: D, ease: "sine.inOut" }, 0);
+        tl.fromTo("#au-gold", { x: 0, y: 0 }, { x: 220, y: -260, duration: D, ease: "sine.inOut" }, 0);
+        tl.fromTo("#au-purple", { x: 0, y: 0 }, { x: -120, y: -300, duration: D, ease: "sine.inOut" }, 0);
+
+        // moon steps back while UI scenes are on screen, returns for the outro
+        tl.to("#moon", { opacity: 0.3, duration: 0.6, ease: "power2.inOut" }, 7.3);
+        tl.to("#moon", { opacity: 1, duration: 0.6, ease: "power2.out" }, 19.9);
+
+        /* ---------- S1: hook ---------- */
+        // shooting star from upper-right to lower-left across the frame
+        tl.fromTo("#shoot", { x: 1250, y: 180, rotation: 152, opacity: 0, scaleX: 0.4 },
+          { x: 120, y: 760, opacity: 1, scaleX: 1, duration: 1.0, ease: "power2.in" }, 0.2);
+        tl.to("#shoot", { opacity: 0, duration: 0.25 }, 1.2);
+        tl.fromTo("#s1 .line1 .w", { y: 70, opacity: 0, filter: "blur(16px)" },
+          { y: 0, opacity: 1, filter: "blur(0px)", duration: 0.6, ease: "power3.out", stagger: 0.16 }, 0.65);
+        tl.fromTo("#s1 .line2 .w", { y: 50, opacity: 0, filter: "blur(12px)" },
+          { y: 0, opacity: 1, filter: "blur(0px)", duration: 0.55, ease: "power3.out", stagger: 0.12 }, 1.35);
+        tl.fromTo("#s1 .gold", { scale: 1 }, { scale: 1.08, duration: 0.35, ease: "power2.out", yoyo: true, repeat: 1 }, 1.95);
+        // zoom through into the sky
+        tl.to("#s1-tag", { scale: 1.6, opacity: 0, filter: "blur(18px)", duration: 0.5, ease: "power2.in" }, 3.15);
+
+        /* ---------- S2: logo reveal ---------- */
+        const ORB = ["🧮", "📖", "🔬", "🎨", "🌍", "🏆", "✍️", "🚀"];
+        const orbBox = document.getElementById("orbits");
+        const orbEls = ORB.map((e, i) => {
+          const o = document.createElement("div");
+          o.className = "orb emo"; o.textContent = e;
+          orbBox.appendChild(o);
+          return o;
+        });
+        const orbit = { a: 0 };
+        const placeOrbs = () => {
+          orbEls.forEach((o, i) => {
+            const ang = (i / ORB.length) * Math.PI * 2 + orbit.a;
+            const x = 320 + Math.cos(ang) * 400;
+            const y = 320 + Math.sin(ang) * 150;
+            const front = Math.sin(ang) > 0;
+            o.style.left = x.toFixed(1) + "px"; o.style.top = y.toFixed(1) + "px";
+            o.style.zIndex = front ? 5 : 1;
+            o.style.transform = "scale(" + (front ? 1 : 0.78).toFixed(2) + ")";
+          });
+        };
+        placeOrbs();
+        tl.fromTo(orbit, { a: 0 }, { a: Math.PI * 0.9, duration: 4.2, ease: "none", onUpdate: placeOrbs }, 3.5);
+        tl.fromTo("#orbits", { opacity: 0 }, { opacity: 1, duration: 0.5 }, 4.15);
+        tl.fromTo("#halo", { scale: 0.2, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.9, ease: "power3.out" }, 3.6);
+        // beat-locked: 4.02s (logo landing on the music beat)
+        tl.fromTo("#emblem", { scale: 0.2, rotation: -25, opacity: 0 },
+          { scale: 1, rotation: 0, opacity: 1, duration: 0.75, ease: "back.out(1.7)" }, 3.75);
+        tl.fromTo(["#ring", "#ring-back"], { scale: 0.3, rotation: -22, opacity: 0 },
+          { scale: 1, rotation: -14, opacity: 1, duration: 0.9, ease: "power3.out" }, 3.9);
+        tl.fromTo("#eyebrow", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 4.45);
+        tl.fromTo("#brand", { y: 60, opacity: 0, scale: 0.9 }, { y: 0, opacity: 1, scale: 1, duration: 0.7, ease: "expo.out" }, 4.55);
+        tl.fromTo("#brand-en", { opacity: 0, scaleX: 1.4 }, { opacity: 1, scaleX: 1, duration: 0.9, ease: "power3.out" }, 4.8);
+        tl.to("#s2-inner", { y: -260, opacity: 0, scale: 0.92, duration: 0.45, ease: "power2.in" }, 7.2);
+
+        /* ---------- S3: one lesson, four worlds ---------- */
+        const TINT = ["#4a1212", "#0e2a5e", "#143d20", "#2a1630"];
+        tl.fromTo("#s3-head", { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.55, ease: "power3.out" }, 7.6);
+        tl.fromTo("#s3-head .hl", { scale: 0.6 }, { scale: 1, duration: 0.6, ease: "back.out(2.2)" }, 7.8);
+        tl.fromTo("#f1", { y: 260, rotationX: 35, scale: 0.85, opacity: 0 },
+          { y: 0, rotationX: 0, scale: 1, opacity: 1, duration: 0.7, ease: "power3.out" }, 7.95);
+        ["#f2", "#f3", "#f4"].forEach((f) => tl.set(f, { opacity: 0 }, 7.6));
+        tl.fromTo("#dots", { opacity: 0 }, { opacity: 1, duration: 0.4 }, 8.3);
+        tl.fromTo("#s3-cap", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 8.4);
+        tl.set("#sky-tint", { backgroundColor: TINT[0] }, 7.6);
+        tl.to("#sky-tint", { opacity: 0.75, duration: 0.6 }, 7.95);
+        tl.set("#d1", { backgroundColor: "#ff4d3d", scale: 1.3 }, 8.0);
+        // beat-grid: skin swaps every 3 beats — 9.52s, 11.02s, 12.52s
+        const swaps = [[9.52, "#f1", "#f2", "#d2", "#2e8bff", 1], [11.02, "#f2", "#f3", "#d3", "#5bbf4a", 2], [12.52, "#f3", "#f4", "#d4", "#ff6f00", 3]];
+        swaps.forEach(([t, out, inn, dot, col, k]) => {
+          tl.to(out, { rotationY: 90, opacity: 0, scale: 0.94, duration: 0.28, ease: "power2.in" }, t - 0.06);
+          tl.fromTo(inn, { rotationY: -90, opacity: 0, scale: 0.94 },
+            { rotationY: 0, opacity: 1, scale: 1, duration: 0.4, ease: "back.out(1.6)", immediateRender: false }, t + 0.2);
+          tl.to("#sky-tint", { backgroundColor: TINT[k], duration: 0.5 }, t);
+          tl.set(dot, { backgroundColor: col, scale: 1.3 }, t + 0.2);
+        });
+
+        /* ---------- S4: answer & reward (same card) ---------- */
+        tl.to(["#dots", "#s3-cap"], { opacity: 0, y: 20, duration: 0.3 }, 13.4);
+        tl.fromTo(".opt", { y: 80, opacity: 0, scale: 0.8 },
+          { y: 0, opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.8)", stagger: 0.08 }, 13.55);
+        tl.fromTo("#finger", { x: 160, y: 220, opacity: 0 }, { x: 0, y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 13.95);
+        tl.to("#opt-ok", { scale: 0.9, duration: 0.08 }, 14.47);
+        tl.to("#opt-ok", { scale: 1.12, duration: 0.35, ease: "back.out(3)" }, 14.55);
+        tl.to("#finger", { opacity: 0, y: 40, duration: 0.25 }, 14.6);
+        tl.fromTo("#tap", { scale: 0.3, opacity: 0.9 }, { scale: 2.2, opacity: 0, duration: 0.6, ease: "power2.out" }, 14.5);
+        tl.to("#opt-ok-bg", { opacity: 1, duration: 0.2 }, 14.5);
+        tl.to(["#opt-a", "#opt-c"], { opacity: 0.35, scale: 0.9, duration: 0.3 }, 14.55);
+        // card lifts away, reward stack takes over
+        tl.to("#card-stage", { y: -60, scale: 0.88, opacity: 0, duration: 0.45, ease: "power2.in" }, 14.65);
+        tl.to("#s3-head", { opacity: 0, y: -40, duration: 0.4 }, 14.65);
+        tl.fromTo("#bravo-t", { scale: 0.3, opacity: 0, rotation: -8 },
+          { scale: 1, opacity: 1, rotation: 0, duration: 0.6, ease: "back.out(2.4)" }, 14.85);
+        tl.fromTo("#plus", { y: 80, scale: 0.6, opacity: 0 }, { y: 0, scale: 1, opacity: 1, duration: 0.5, ease: "back.out(2)" }, 15.0);
+        tl.fromTo("#xp", { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 15.15);
+        tl.fromTo("#xp-fill", { scaleX: 0.42 }, { scaleX: 0.9, duration: 0.9, ease: "power2.out" }, 15.35);
+        const fa = (n) => String(n).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[d]);
+        const xp = { v: 120 };
+        const xpEl = document.getElementById("xp-n");
+        tl.fromTo(xp, { v: 120 }, { v: 140, duration: 0.9, ease: "power2.out",
+          onUpdate: () => { xpEl.textContent = fa(Math.round(xp.v)) + " ⭐"; } }, 15.35);
+        // star burst from the tapped answer (pure function of T)
+        const burst = document.getElementById("burst");
+        const PCOUNT = 22, FLIGHT = 1.3, G = 1500;
+        const glyphs = ["⭐", "✨", "🌟"];
+        const parts = [];
+        for (let i = 0; i < PCOUNT; i++) {
+          const p = document.createElement("div");
+          p.className = "pt emo"; p.textContent = glyphs[i % 3];
+          p.style.opacity = "0";
+          burst.appendChild(p);
+          const ang = -Math.PI / 2 + (prand(i * 1.7) - 0.5) * 2.4;
+          const sp = 900 + prand(i * 3.3) * 900;
+          parts.push({ el: p, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, spin: (prand(i * 5.1) - 0.5) * 720, s: 0.7 + prand(i * 6.6) * 0.9 });
+        }
+        const drive = { T: 0 };
+        const drawBurst = () => {
+          const t = drive.T * FLIGHT;
+          parts.forEach((q) => {
+            const x = q.vx * t, y = q.vy * t + 0.5 * G * t * t;
+            const life = drive.T <= 0 ? 0 : drive.T > 0.7 ? Math.max(0, 1 - (drive.T - 0.7) / 0.3) : 1;
+            q.el.style.opacity = life.toFixed(3);
+            q.el.style.transform = "translate(" + x.toFixed(1) + "px," + y.toFixed(1) + "px) rotate(" + (q.spin * t).toFixed(1) + "deg) scale(" + q.s.toFixed(2) + ")";
+          });
+        };
+        tl.fromTo(drive, { T: 0 }, { T: 1, duration: FLIGHT, ease: "none", onUpdate: drawBurst }, 14.5);
+        tl.to("#sky-tint", { backgroundColor: "#3a2a08", duration: 0.6 }, 14.6);
+        tl.to("#bravo", { y: -80, opacity: 0, duration: 0.4, ease: "power2.in" }, 16.3);
+        tl.to("#opts", { y: 120, opacity: 0, duration: 0.35, ease: "power2.in" }, 16.25);
+
+        /* ---------- S5: features ---------- */
+        tl.to("#sky-tint", { opacity: 0, duration: 0.6 }, 16.4);
+        tl.fromTo("#s5-head", { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 16.6);
+        tl.fromTo("#s5-sub", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 16.75);
+        // beat-grid: tile pairs at 17.02s, 17.52s, 18.02s; full set holds to 19.9s
+        [["#t1", "#t2", 17.02], ["#t3", "#t4", 17.52], ["#t5", "#t6", 18.02]].forEach(([a, b, t]) => {
+          tl.fromTo([a, b], { y: 120, rotationX: -40, opacity: 0, scale: 0.9 },
+            { y: 0, rotationX: 0, opacity: 1, scale: 1, duration: 0.55, ease: "back.out(1.5)", stagger: 0.07 }, t - 0.04);
+        });
+        tl.fromTo(".tile .ic", { scale: 0.4 }, { scale: 1, duration: 0.5, ease: "back.out(3)", stagger: 0.25 }, 17.15);
+        tl.to("#s5", { opacity: 0, scale: 1.06, duration: 0.3, ease: "power2.in" }, 19.85);
+
+        /* ---------- S6: outro ---------- */
+        // beat-locked: 20.02s (strong cue) — logo lands
+        tl.fromTo("#o-halo", { scale: 0.3, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.8, ease: "power3.out" }, 20.0);
+        tl.fromTo("#o-emblem", { scale: 0.3, rotation: 20, opacity: 0 },
+          { scale: 1, rotation: 0, opacity: 1, duration: 0.7, ease: "back.out(1.8)" }, 20.0);
+        tl.fromTo("#o-ring", { scale: 0.4, rotation: -30, opacity: 0 }, { scale: 1, rotation: -14, opacity: 1, duration: 0.8, ease: "power3.out" }, 20.12);
+        tl.fromTo("#o-brand", { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "expo.out" }, 20.3);
+        tl.fromTo("#o-q", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 20.5);
+        tl.fromTo("#o-web", { y: 60, opacity: 0, scale: 0.85 }, { y: 0, opacity: 1, scale: 1, duration: 0.55, ease: "back.out(1.8)" }, 21.0);
+        tl.fromTo("#o-ig", { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.55, ease: "power3.out" }, 21.5);
+        tl.to("#ig-btn", { scale: 0.9, duration: 0.08 }, 22.37);
+        tl.to("#ig-btn", { scale: 1, duration: 0.3, ease: "back.out(3)" }, 22.45);
+        tl.fromTo("#ig-tap", { scale: 0.3, opacity: 0.9 }, { scale: 2.0, opacity: 0, duration: 0.55, ease: "power2.out" }, 22.4);
+        tl.to("#ig-btn .a", { opacity: 0, duration: 0.15 }, 22.45);
+        tl.to("#ig-btn .b", { opacity: 1, duration: 0.15 }, 22.45);
+        tl.fromTo("#o-foot", { opacity: 0 }, { opacity: 1, duration: 0.6 }, 22.6);
+        tl.fromTo("#o-web", { boxShadow: "0 30px 60px -20px rgba(245,181,63,.85)" },
+          { boxShadow: "0 30px 90px -10px rgba(255,216,122,1)", duration: 0.6, yoyo: true, repeat: 1, ease: "sine.inOut" }, 22.6);
+
+        /* ---------- audio-reactive: halo / aurora breathe with the music ---------- */
+        const AD = window.__AUDIO_DATA;
+        if (AD && AD.frames) {
+          const halo = document.getElementById("halo"), oHalo = document.getElementById("o-halo");
+          const auG = document.getElementById("au-gold"), auB = document.getElementById("au-blue");
+          for (let f = 0; f < AD.frames.length; f++) {
+            const fr = AD.frames[f];
+            tl.call(() => {
+              const bass = fr.bands[0], rms = fr.rms;
+              auG.style.filter = "blur(110px) brightness(" + (0.85 + rms * 0.5).toFixed(3) + ")";
+              auB.style.filter = "blur(110px) brightness(" + (0.85 + bass * 0.45).toFixed(3) + ")";
+              const glow = (0.85 + bass * 0.3).toFixed(3);
+              halo.style.filter = "brightness(" + glow + ")";
+              oHalo.style.filter = "brightness(" + glow + ")";
+            }, [], f / AD.fps);
+          }
+        }
+
+        window.__timelines["main"] = tl;
+      })();
+    </script>
+  </body>
+</html>
