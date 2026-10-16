@@ -13,3 +13,5 @@ audio-src/work/
 renders/*.log
 renders/work-*/
 renders/.hf-*
+renders/.*hf-transaction*/
+renders/starmah-16x9-4k60.mp4
