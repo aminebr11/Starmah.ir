@@ -72,6 +72,16 @@ class Announcement extends Model
             });
         }
 
+        // و آن‌هایی که از کارتابلِ اعلان‌ها (انتخابی یا «حذفِ همه») حذف کرده
+        if (\App\Support\DbSchema::hasTable('notification_hides')) {
+            $hidden = \Illuminate\Support\Facades\DB::table('notification_hides')->where('user_id', $user->id)
+                ->where('key', 'like', 'a%')->pluck('key')
+                ->filter(fn ($k) => preg_match('/^a\d+$/', $k))->map(fn ($k) => (int) substr($k, 1));
+            if ($hidden->isNotEmpty()) {
+                $q->whereNotIn('announcements.id', $hidden->all());
+            }
+        }
+
         return $q->where(function (Builder $w) use ($user, $isTeacher, $isStudent, $grade) {
             $w->where('audience', 'all');
             if ($isTeacher) {

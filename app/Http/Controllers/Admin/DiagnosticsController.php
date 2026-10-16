@@ -32,6 +32,7 @@ class DiagnosticsController extends Controller
         // «🎥 کلاسِ آنلاین»
         'online_schools' => ['school_id', 'enabled', 'max_participants'],
         'online_hosts' => ['school_id', 'user_id', 'can_host', 'supervisor'],
+        'class_supervisors' => ['school_id', 'user_id', 'classroom_id'],
         'online_rooms' => ['school_id', 'teacher_id', 'classroom_id', 'title', 'status', 'version', 'settings', 'recording_path'],
         'online_participants' => ['room_id', 'user_id', 'role', 'seconds', 'can_speak', 'can_draw', 'stars', 'xp'],
         'online_signals' => ['room_id', 'to_id', 'kind', 'payload'],

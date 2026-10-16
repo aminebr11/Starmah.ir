@@ -321,7 +321,7 @@ export const teacherMenu = [
     { key: 'audio', label: 'املا و روخوانی', icon: '🎧', href: '/teacher/audio' },
     { key: 'live', label: 'مسابقه‌ی زنده', icon: '🏆', href: '/teacher/live' },
     { key: 'online', label: 'کلاسِ آنلاین', icon: '🎥', href: '/teacher/online', flag: 'online' },
-    { key: 'online-sup', label: 'نظارتِ کلاس‌ها', icon: '🛡️', href: '/online/supervise', flag: 'onlineSup' },
+    { key: 'online-sup', label: 'نظارتِ کلاس‌ها', icon: '🛡️', href: '/teacher/supervise', flag: 'onlineSup' },
     { key: 'mybank', label: 'بانکِ سؤالاتِ من', icon: '🗄️', href: '/teacher/my-bank' },
     { key: 'materials', label: 'مطالب و محتوا', icon: '📚', href: '/teacher/materials' },
     { key: 'smart', label: 'آزمون هوشمند 🧪', icon: '🧠', href: '/teacher/smart-exams', flag: 'smart' },

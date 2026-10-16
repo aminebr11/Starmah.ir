@@ -1,5 +1,6 @@
 import { usePage, Link } from '@inertiajs/react';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
+import DashNotices from '@/Components/DashNotices';
 import { useSort, SortTh } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
@@ -29,6 +30,8 @@ export default function Overview() {
     return (
         <DashLayout title="پیشخوان ادمین کل" roleLabel="ادمین کل" menu={adminMenu} active="home"
             actions={<Link href={route('admin.schools')} className="btn btn-sm">🏫 مدیریت مدارس</Link>}>
+            <DashNotices />
+
 
             {/* خوش‌آمد */}
             <div className="panel" style={{ background: 'linear-gradient(135deg,#16264f,#0a1836)', border: 0, color: '#fff' }}>

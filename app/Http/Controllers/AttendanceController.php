@@ -46,7 +46,7 @@ class AttendanceController extends Controller
     {
         $user = $request->user();
         $q = $this->isTeacher($request)
-            ? Classroom::where('teacher_id', $user->id)
+            ? \App\Support\ClassSupervision::teacherClassrooms($user) // کلاس‌های خودش + کلاس‌هایی که ناظرشان است
             : Classroom::query(); // مدیر: BelongsToSchool به مدرسه محدود می‌کند
         return $q->orderBy('name')->get(['id', 'name', 'grade']);
     }
@@ -286,7 +286,8 @@ class AttendanceController extends Controller
     {
         $classroom = Classroom::findOrFail($classroomId);
         if ($this->isTeacher($request)) {
-            abort_unless($classroom->teacher_id === $request->user()->id, 403);
+            abort_unless($classroom->teacher_id === $request->user()->id
+                || \App\Support\ClassSupervision::covers($request->user(), $classroom->id), 403);
         } else {
             abort_unless($classroom->school_id === $request->user()->school_id, 403);
         }

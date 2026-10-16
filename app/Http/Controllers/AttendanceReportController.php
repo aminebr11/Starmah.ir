@@ -24,7 +24,7 @@ class AttendanceReportController extends Controller
 
         // دامنه‌ی کلاس‌های مجاز
         $classQuery = $isTeacher
-            ? Classroom::where('teacher_id', $user->id)
+            ? \App\Support\ClassSupervision::teacherClassrooms($user) // کلاس‌های خودش + کلاس‌هایی که ناظرشان است
             : Classroom::query(); // مدیر: BelongsToSchool به‌طور خودکار به مدرسه محدود می‌کند
         $classrooms = $classQuery->with('teacher:id,name')->get(['id', 'name', 'grade', 'teacher_id']);
 

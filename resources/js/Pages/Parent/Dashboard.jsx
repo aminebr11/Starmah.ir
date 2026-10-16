@@ -2,6 +2,7 @@ import { usePage, router, Link } from '@inertiajs/react';
 import MasteryPanel from '@/Components/MasteryPanel';
 import PointsTrend from '@/Components/PointsTrend';
 import DashLayout, { parentMenu } from '@/Layouts/DashLayout';
+import DashNotices from '@/Components/DashNotices';
 import Avatar from '@/Components/Avatar';
 import { AreaTrend, Donut, HBars, Heatmap, Gauge, Stat, OK, WARN, CRIT, PAL } from '@/Components/Charts';
 
@@ -15,6 +16,8 @@ export default function Dashboard() {
     if (!children.length) {
         return (
             <DashLayout title="وضعیتِ فرزندِ من" roleLabel="والد" menu={parentMenu} active="home">
+            <DashNotices />
+
                 <div className="panel" style={{ textAlign: 'center', padding: 40 }}>
                     <div style={{ fontSize: 44 }}>👨‍👩‍👧</div>
                     <h3>هنوز فرزندی به حسابِ شما متصل نشده</h3>
@@ -30,6 +33,8 @@ export default function Dashboard() {
 
     return (
         <DashLayout title="وضعیتِ فرزندِ من" roleLabel="والد" menu={parentMenu} active="home">
+            <DashNotices />
+
             {/* انتخابِ فرزند */}
             {children.length > 1 && (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>

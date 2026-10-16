@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
-use App\Models\Announcement;
 use App\Models\Assignment;
 use App\Models\Classroom;
 use App\Models\DisciplineRecord;
@@ -29,25 +28,14 @@ class TeacherDashboardController extends Controller
                 'join_code' => $c->join_code, 'students' => $c->students_count,
             ]);
 
-        $announcements = Announcement::forUser($teacher)
-            ->with('sender:id,name')->latest()->limit(5)->get()
-            ->map(fn ($a) => [
-                'id' => $a->id, 'title' => $a->title, 'body' => $a->body,
-                'personal' => $a->audience === 'personal',
-                'sender' => $a->sender?->name, 'date' => Jalali::format($a->created_at),
-            ]);
-
-        // آلارمِ پیام‌های ۲۴ ساعت اخیر — پس از دیدن/حذف از پیشخوان می‌رود
-        $dismissed = collect(json_decode((string) \App\Models\Setting::get('alarm_dismissed:'.$teacher->id, '[]'), true) ?: []);
-        $alarms = Announcement::forUser($teacher)->with('sender:id,name')
-            ->where('created_at', '>=', now()->subDay())
-            ->whereNotIn('id', $dismissed->all())
-            ->latest()->limit(10)->get()
-            ->map(fn ($a) => [
-                'id' => $a->id, 'title' => $a->title, 'body' => $a->body,
-                'personal' => $a->audience === 'personal',
-                'sender' => $a->sender?->name, 'date' => Jalali::format($a->created_at, true),
-            ]);
+        // اعلان‌های دیده‌نشده‌ی فیدِ یکپارچه (اطلاعیه، پیام، پاسخِ والدین، کاربرگ، …).
+        // هر چه «مطالعه شد» یا حذف شود، از پیشخوان هم می‌رود.
+        $unread = collect(\App\Support\Notifications::unread($teacher, 30));
+        $dayAgo = now()->subDay();
+        $isFresh = fn ($n) => isset($n['at']) && $n['at'] >= $dayAgo->timestamp;
+        // آلارم: دیده‌نشده‌های ۲۴ ساعتِ اخیر؛ پنل: بقیه‌ی دیده‌نشده‌ها
+        $alarms = $unread->filter($isFresh)->take(10)->values();
+        $announcements = $unread->reject($isFresh)->take(5)->values();
 
         // تولدهای امروز که هنوز تبریک نگرفته‌اند — کارتِ بالای پیشخوان
         try {
@@ -59,6 +47,8 @@ class TeacherDashboardController extends Controller
 
         return Inertia::render('Teacher/Dashboard', [
             'birthdaysToday' => $birthdaysToday,
+            // 🛡️ ناظر: چند کلاس که مدیر به او سپرده (کارتِ میان‌بر به «نظارتِ کلاس‌ها»)
+            'supervises' => count(\App\Support\ClassSupervision::classroomIds($teacher)),
             'classrooms' => $classrooms,
             'announcements' => $announcements,
             'alarms' => $alarms,
@@ -71,15 +61,13 @@ class TeacherDashboardController extends Controller
         ]);
     }
 
-    /** حذفِ آلارمِ یک پیام از پیشخوان (پس از دیده‌شدن). */
+    /** «دیدم» روی آلارمِ پیشخوان = «مطالعه شد» در همه‌جا (زنگوله، اعلان‌ها، پیشخوان). */
     public function dismissAlarm(Request $request): \Illuminate\Http\RedirectResponse
     {
-        $id = (int) $request->validate(['id' => ['required', 'integer']])['id'];
-        $key = 'alarm_dismissed:'.$request->user()->id;
-        $list = collect(json_decode((string) \App\Models\Setting::get($key, '[]'), true) ?: []);
-        $list = $list->push($id)->unique()->values();
-        \App\Models\Setting::put($key, json_encode($list->all()));
-        return back();
+        $key = (string) $request->validate(['id' => ['required', 'string', 'max:60']])['id'];
+        \App\Support\Notifications::markRead($request->user(), $key);
+
+        return back(303);
     }
 
     /** دفتر نمره: دانش‌آموزان × میانگین تسلط/امتیاز. */

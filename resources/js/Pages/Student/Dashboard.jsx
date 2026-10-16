@@ -2,6 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import ThemedDash from '@/Layouts/ThemedDash';
 import TeamHeader from '@/Components/TeamHeader';
+import openNotice from '@/lib/openNotice';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const MTYPE = { quiz: '🧠', podcast: '🎧', worksheet: '🎨', game: '🎮' };
@@ -25,7 +26,7 @@ const FLOAT_POS = [
 ];
 
 export default function Dashboard() {
-    const { auth, theme, me = {}, groups = [], sample, notices = [], notifications = [], unreadNotices = 0, levelXp = 150, levelNames = [], missionsToday = [], reviewDue = 0 } = usePage().props;
+    const { auth, theme, me = {}, groups = [], sample, dashNotices = [], unreadNotices = 0, levelXp = 150, levelNames = [], missionsToday = [], reviewDue = 0 } = usePage().props;
     const w = (k, d = '') => theme?.narrative?.[k] ?? d;
     const skin = theme?.skin ?? {};
     const [picked, setPicked] = useState(null);
@@ -181,24 +182,24 @@ export default function Dashboard() {
             </div>
 
             {/* ===== اعلان‌ها (قالب‌های رنگیِ متنوع + لیبل چشمک‌زنِ جدید) ===== */}
-            {notifications.length > 0 && (
-                <div className={`k3-card ${unreadNotices > 0 ? 'notice-blink' : ''}`} style={{ marginTop: 16 }}>
+            {dashNotices.length > 0 && (
+                <div className="k3-card notice-blink" style={{ marginTop: 16 }}>
                     <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-                        <div style={{ fontWeight: 900, fontSize: 16 }}>🔔 اعلان‌ها و پیام‌ها
+                        <div style={{ fontWeight: 900, fontSize: 16 }}>🔔 اعلان‌ها و پیام‌های تازه
                             {unreadNotices > 0 && <span className="new-badge" style={{ marginInlineStart: 8 }}>{fa(unreadNotices)} جدید ✨</span>}
                         </div>
                         <Link href="/notices" style={{ marginInlineStart: 'auto', color: 'var(--acc)', fontWeight: 800, fontSize: 13 }}>همه ←</Link>
                     </div>
                     <div style={{ display: 'grid', gap: 10 }}>
-                        {notifications.slice(0, 4).map((n, i) => (
-                            <Link key={n.id} href={n.href} className={`notice-tpl nt-c${i % 6}`} style={{ display: 'block' }}>
+                        {dashNotices.map((n, i) => (
+                            <a key={n.id} href={n.href} onClick={(e) => openNotice(n, e)} className={`notice-tpl nt-c${i % 6}`} style={{ display: 'block' }}>
                                 <div className="nt-title">
                                     <span style={{ marginInlineEnd: 6 }}>{n.icon}</span>{n.title}
-                                    {!n.read && <span className="new-badge" style={{ marginInlineStart: 8, background: 'rgba(255,255,255,.28)' }}>جدید</span>}
+                                    <span className="new-badge" style={{ marginInlineStart: 8, background: 'rgba(255,255,255,.28)' }}>جدید</span>
                                 </div>
                                 {n.body && <div className="nt-body" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.body}</div>}
                                 <div className="nt-meta">🕐 {n.date}</div>
-                            </Link>
+                            </a>
                         ))}
                     </div>
                 </div>

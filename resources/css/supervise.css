@@ -1,0 +1,44 @@
+/* 🛡️ ناظر: انتخابِ کلاس‌ها در «معلم‌ها» و صفحه‌ی «نظارتِ کلاس‌ها» */
+.sup-kind{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.sup-kind button{border:2px solid var(--line);background:#fff;border-radius:12px;padding:10px 8px;font:inherit;font-weight:800;font-size:13.5px;cursor:pointer;color:var(--ink)}
+.sup-kind button.on{border-color:var(--navy-700,#1d3a8a);background:#eef3ff;color:var(--navy-700,#1d3a8a)}
+.sup-note{display:block;color:var(--muted);font-size:12px;line-height:1.9;margin-top:10px}
+.sup-tag{display:inline-block;margin-top:4px;background:#eef3ff;color:#2a4aa8;border-radius:99px;padding:2px 10px;font-size:12px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sup-box{margin-top:12px;background:#f4f7ff;border:1px solid #d6e0ff;border-radius:12px;padding:14px}
+.sup-box>b{display:block;margin-bottom:8px}
+.sup-pick{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px}
+.sup-all{display:flex;align-items:center;gap:8px;font-weight:800;font-size:13.5px;padding-bottom:8px;border-bottom:1px dashed var(--line);margin-bottom:8px;cursor:pointer}
+.sup-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;max-height:240px;overflow:auto}
+.sup-list label{display:flex;align-items:flex-start;gap:8px;border:1px solid var(--line);border-radius:10px;padding:7px 9px;cursor:pointer;font-size:13px}
+.sup-list label.on{border-color:#7c9cff;background:#f2f6ff}
+.sup-list label span{display:flex;flex-direction:column;min-width:0}
+.sup-list small{color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn.on{background:#eef3ff}
+
+/* صفحه‌ی نظارت */
+.sv-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.sv-chips span{background:rgba(255,255,255,.7);border-radius:99px;padding:3px 12px;font-size:12.5px;font-weight:800;color:#2a4aa8}
+.sv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.sv-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:10px;box-shadow:0 8px 22px -18px rgba(20,30,80,.5)}
+.sv-card.warn{border-color:#ffc56b}.sv-card.crit{border-color:#ff8a8a}
+.sv-h{display:flex;align-items:flex-start;gap:8px}
+.sv-h b{font-size:16px}
+.sv-h small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+.sv-lv{margin-inline-start:auto;border-radius:99px;padding:2px 10px;font-size:11.5px;font-weight:800;white-space:nowrap}
+.sv-lv.ok{background:#e3f8ec;color:#167a45}.sv-lv.info{background:#e8f0ff;color:#2a4aa8}.sv-lv.warn{background:#fff1d6;color:#9a5b00}.sv-lv.crit{background:#ffe3e3;color:#b3261e}
+.sv-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.sv-stats div{background:var(--cream,#faf7f0);border-radius:12px;padding:8px 6px;text-align:center}
+.sv-stats b{display:block;font-size:17px}
+.sv-stats small{color:var(--muted);font-size:11px}
+.sv-today{font-size:13px;border-radius:10px;padding:7px 10px;background:#f4f7ff}
+.sv-today.none{background:#fff5e6;color:#8a5200}
+.sv-acts{display:flex;flex-wrap:wrap;gap:6px}
+.sv-alerts{display:grid;gap:8px}
+.sv-alert{border-radius:14px;padding:12px 14px;background:#fff;border:1px solid var(--line);border-inline-start:5px solid #7c9cff}
+.sv-alert.warn{border-inline-start-color:#f0a020}.sv-alert.crit{border-inline-start-color:#e8505b}
+.sv-alert b{display:block}
+.sv-alert p{margin:4px 0 0;color:var(--muted);font-size:13px;line-height:1.9}
+.sv-roster{width:100%;border-collapse:collapse;font-size:13.5px}
+.sv-roster th,.sv-roster td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:start}
+.sv-roster td.dim{color:var(--muted)}
+@media (max-width:560px){.sv-grid{grid-template-columns:1fr}}

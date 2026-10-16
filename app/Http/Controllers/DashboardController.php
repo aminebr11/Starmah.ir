@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Announcement;
 use App\Models\Skill;
 use App\Services\ThemeEngine;
 use App\Support\Jalali;
@@ -104,12 +103,6 @@ class DashboardController extends Controller
             ],
             'groups' => $groups,
             'sample' => $sample,
-            'notices' => Announcement::forUser($user)->with('sender:id,name')->latest()->limit(4)->get()
-                ->map(fn ($a) => [
-                    'id' => $a->id, 'title' => $a->title, 'body' => $a->body,
-                    'personal' => $a->audience === 'personal',
-                    'sender' => $a->sender?->name, 'date' => Jalali::format($a->created_at),
-                ]),
         ]);
     }
 }

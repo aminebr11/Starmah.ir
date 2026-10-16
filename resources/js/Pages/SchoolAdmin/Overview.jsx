@@ -1,6 +1,7 @@
 import { usePage, Link, useForm, router } from '@inertiajs/react';
 import { useState, useRef } from 'react';
 import DashLayout, { schoolMenu } from '@/Layouts/DashLayout';
+import DashNotices from '@/Components/DashNotices';
 import { useSort, SortTh } from '@/lib/useSort';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
@@ -37,6 +38,8 @@ export default function Overview() {
     return (
         <DashLayout title={`پیشخوان مدرسه${school ? ` — ${school.name}` : ''}`} roleLabel="مدیر مدرسه" menu={schoolMenu} active="home"
             actions={<Link href={route('school.teachers')} className="btn btn-sm">➕ معلم جدید</Link>}>
+            <DashNotices />
+
 
             {/* 🚨 هشدارِ زودهنگام */}
             {warning && (

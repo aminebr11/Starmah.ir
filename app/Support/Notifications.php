@@ -124,6 +124,15 @@ class Notifications
         return array_slice(self::all($user), 0, $limit);
     }
 
+    /**
+     * خلاصه‌ی پیشخوان: فقط اعلان‌های دیده‌نشده. حذف‌شده‌ها از قبل در build کنار رفته‌اند
+     * و هر چه «مطالعه شد» بخورد (کلیک، «همه را خواندم») از این‌جا هم می‌رود.
+     */
+    public static function unread(User $user, int $limit = 6): array
+    {
+        return array_slice(array_values(array_filter(self::all($user), fn ($n) => empty($n['read']))), 0, $limit);
+    }
+
     /** تعدادِ خوانده‌نشده‌ها (نشانِ روی زنگوله و منو). */
     public static function unreadCount(User $user): int
     {
@@ -381,6 +390,6 @@ class Notifications
         }
 
         return $items->sortByDesc('ts')->take($limit)->values()
-            ->map(fn ($i) => collect($i)->except('ts')->all())->all();
+            ->map(fn ($i) => collect($i)->put('at', $i['ts'])->except('ts')->all())->all();
     }
 }

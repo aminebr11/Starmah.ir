@@ -74,7 +74,7 @@ class NoticeController extends Controller
             'top' => $top ? [
                 'id' => $top['id'], 'title' => $top['title'], 'icon' => $top['icon'] ?? '🔔',
                 'body' => \Illuminate\Support\Str::limit(strip_tags((string) ($top['body'] ?? '')), 120),
-                'href' => $top['href'] ?? '/notices', 'ts' => $top['ts'] ?? 0,
+                'href' => $top['href'] ?? '/notices', 'ts' => $top['at'] ?? 0,
             ] : null,
         ])->header('Cache-Control', 'no-store');
     }

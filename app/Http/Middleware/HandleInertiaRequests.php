@@ -59,6 +59,8 @@ class HandleInertiaRequests extends Middleware
             'notifications' => fn () => $user ? \App\Support\Notifications::feed($user) : [],
             // شمار اعلان‌های خوانده‌نشده (برای نشان روی زنگوله و منوی اعلان‌ها)
             'unreadNotices' => fn () => $user ? \App\Support\Notifications::unreadCount($user) : 0,
+            // خلاصه‌ی پیشخوانِ همه‌ی نقش‌ها: فقط دیده‌نشده‌ها (حذف‌شده و خوانده‌شده نمی‌آیند)
+            'dashNotices' => fn () => $user ? \App\Support\Notifications::unread($user, 4) : [],
             // آزمایشگاه هوشمند آزمون — فقط برای گیتِ منو (خاموش = منو نمایش داده نمی‌شود)
             'smartLab' => fn () => $user ? \App\Support\SmartLab::enabledFor($user) : false,
             // آیا حبابِ دستیار برای این کاربر نمایش داده شود؟ (تصمیمِ مدیرِ مدرسه)
@@ -87,9 +89,8 @@ class HandleInertiaRequests extends Middleware
                 : null, null, true),
             // «🎥 کلاسِ آنلاین»: منو فقط برای کسی که دسترسی دارد؛ بنرِ «کلاس شروع شد» برای بچه‌ها
             'onlineClass' => fn () => (bool) rescue(fn () => \App\Support\OnlineAccess::menuFor($user), false, false),
-            // «🛡️ نظارتِ کلاس‌ها» برای ناظمی که مدیرِ مدرسه تعیین کرده (حسابِ معلم)
-            'onlineSup' => fn () => (bool) rescue(fn () => $user && $user->hasRole(\App\Support\Roles::TEACHER)
-                && \App\Support\OnlineAccess::ready() && \App\Support\OnlineAccess::canSupervise($user), false, false),
+            // «🛡️ نظارتِ کلاس‌ها» برای ناظری که مدیرِ مدرسه چند کلاس به او سپرده (حسابِ معلم)
+            'onlineSup' => fn () => (bool) rescue(fn () => \App\Support\ClassSupervision::isSupervisor($user), false, false),
             'onlineNow' => fn () => rescue(fn () => ($user && $user->isStudent() && \App\Support\OnlineAccess::ready() && \App\Support\OnlineAccess::schoolEnabled($user->school_id))
                 ? (\Illuminate\Support\Facades\Cache::remember('online-now:' . $user->id, 15, fn () => \App\Models\OnlineRoom::forStudent($user)
                     ->where('status', 'live')->latest('id')->first(['id', 'title'])?->only(['id', 'title']) ?: false) ?: null)

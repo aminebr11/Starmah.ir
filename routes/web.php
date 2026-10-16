@@ -146,6 +146,7 @@ Route::middleware(['auth', 'role:school_admin'])->prefix('school')->name('school
     Route::post('/branding', [SchoolDashboardController::class, 'updateBranding'])->name('branding');
     Route::get('/teachers', [SchoolTeacherController::class, 'index'])->name('teachers');
     Route::post('/teachers', [SchoolTeacherController::class, 'store'])->name('teachers.store');
+    Route::put('/teachers/{user}/supervise', [SchoolTeacherController::class, 'supervise'])->name('teachers.supervise');
     Route::get('/students', [SchoolDashboardController::class, 'students'])->name('students');
     Route::get('/announcements', [SchoolDashboardController::class, 'announcements'])->name('announcements');
     Route::post('/announcements', [SchoolDashboardController::class, 'storeAnnouncement'])->name('announcements.store');
@@ -280,6 +281,8 @@ Route::middleware(['auth', 'role:student'])->group(function () {
 Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')->group(function () {
     Route::get('/', [TeacherDashboardController::class, 'index'])->name('dashboard');
     Route::post('/dismiss-alarm', [TeacherDashboardController::class, 'dismissAlarm'])->name('dismiss-alarm');
+    // «🛡️ نظارتِ کلاس‌ها» — فقط کلاس‌هایی که مدیر به این ناظر سپرده
+    Route::get('/supervise', [\App\Http\Controllers\Teacher\SuperviseController::class, 'index'])->name('supervise');
     // حضور و غیاب
     Route::get('/attendance', [\App\Http\Controllers\AttendanceController::class, 'record'])->name('attendance');
     Route::post('/attendance', [\App\Http\Controllers\AttendanceController::class, 'store'])->name('attendance.store');

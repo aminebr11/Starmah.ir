@@ -1,11 +1,12 @@
 import { usePage, Link, router } from '@inertiajs/react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import Icon from '@/Components/Icon';
+import openNotice from '@/lib/openNotice';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const ALARM_C = [['#3d7bf0', '#2555c0'], ['#a24cf0', '#6f2fb0'], ['#2bb673', '#1a8a52'], ['#e8862e', '#c06712'], ['#e8505b', '#b0333f']];
 
 export default function Dashboard() {
-    const { auth, classrooms = [], totals = {}, announcements = [], alarms = [], smartLab = false, unreadNotices = 0, ui = 'classic', birthdaysToday = [] } = usePage().props;
+    const { auth, classrooms = [], totals = {}, announcements = [], alarms = [], smartLab = false, unreadNotices = 0, ui = 'classic', birthdaysToday = [], supervises = 0 } = usePage().props;
     const clay = ui === 'clay';
     // «امروز چه بسازیم؟» — چهار کارِ اصلیِ معلم، فقط در طرحِ خمیرماه
     const makers = [
@@ -80,11 +81,22 @@ export default function Dashboard() {
                 </div>
             </div>}
 
+            {supervises > 0 && (
+                <Link href={route('teacher.supervise')} className="panel" style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 20, borderColor: '#9db4ff', background: 'linear-gradient(135deg,#f2f6ff,#fff)', color: 'var(--ink)' }}>
+                    <span style={{ fontSize: 34 }}>🛡️</span>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 900 }}>نظارتِ کلاس‌ها — {fa(supervises)} کلاس به شما سپرده شده</div>
+                        <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 2 }}>کلاسِ آنلاینِ زنده، حضور و غیاب، هشدارها و دانش‌آموزانِ همان کلاس‌ها</div>
+                    </div>
+                    <span className="btn btn-sm">ورود ←</span>
+                </Link>
+            )}
+
             {/* آلارمِ پیام‌های ۲۴ ساعت اخیر — با دیدن/حذف از پیشخوان می‌رود */}
             {alarms.length > 0 && (
                 <div style={{ marginTop: 20 }}>
                     <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-                        🔔 پیام‌های جدید (۲۴ ساعت اخیر)
+                        🔔 اعلان‌ها و پیام‌های تازه (۲۴ ساعتِ اخیر)
                         <span className="tag" style={{ background: '#e8505b', color: '#fff' }}>{fa(alarms.length)}</span>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 12 }}>
@@ -92,10 +104,12 @@ export default function Dashboard() {
                             const [c1, c2] = ALARM_C[i % ALARM_C.length];
                             return (
                                 <div key={a.id} style={{ position: 'relative', borderRadius: 16, padding: '14px 40px 14px 16px', color: '#fff', background: `linear-gradient(135deg,${c1},${c2})`, boxShadow: '0 8px 20px -12px rgba(0,0,0,.5)' }}>
-                                    <button onClick={() => dismiss(a.id)} title="دیدم، حذف کن" style={{ position: 'absolute', top: 8, insetInlineEnd: 8, width: 26, height: 26, borderRadius: 8, border: 0, background: 'rgba(255,255,255,.25)', color: '#fff', cursor: 'pointer', fontWeight: 900 }}>✓</button>
-                                    <div style={{ fontWeight: 800, fontSize: 14.5 }}>{a.personal ? '✉️ ' : '📢 '}{a.title}</div>
-                                    <div style={{ fontSize: 12.5, opacity: .92, marginTop: 4, lineHeight: 1.9, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{a.body}</div>
-                                    <div style={{ fontSize: 11, opacity: .8, marginTop: 6 }}>از {a.sender || 'مدرسه'} · {a.date}</div>
+                                    <button onClick={() => dismiss(a.id)} title="دیدم" style={{ position: 'absolute', top: 8, insetInlineEnd: 8, width: 26, height: 26, borderRadius: 8, border: 0, background: 'rgba(255,255,255,.25)', color: '#fff', cursor: 'pointer', fontWeight: 900 }}>✓</button>
+                                    <a href={a.href} onClick={(e) => openNotice(a, e)} style={{ color: '#fff', display: 'block' }}>
+                                        <div style={{ fontWeight: 800, fontSize: 14.5 }}>{a.icon} {a.title}</div>
+                                        {a.body && <div style={{ fontSize: 12.5, opacity: .92, marginTop: 4, lineHeight: 1.9, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{a.body}</div>}
+                                        <div style={{ fontSize: 11, opacity: .8, marginTop: 6 }}>{a.sender ? `از ${a.sender} · ` : ''}{a.date}</div>
+                                    </a>
                                 </div>
                             );
                         })}
@@ -112,22 +126,22 @@ export default function Dashboard() {
                 ))}
             </div>
 
-            {/* اطلاعیه‌های مدرسه */}
+            {/* اعلان‌های دیده‌نشده‌ی قدیمی‌تر — با دیدن یا حذف، از این‌جا هم می‌روند */}
             {announcements.length > 0 && (
-                <div className={`panel ${unreadNotices > 0 ? 'notice-blink' : ''}`} style={{ marginTop: 20, borderColor: 'var(--gold)' }}>
-                    <h3>📢 اعلان‌ها و پیام‌ها
+                <div className="panel notice-blink" style={{ marginTop: 20, borderColor: 'var(--gold)' }}>
+                    <h3>📢 اعلان‌ها و پیام‌های دیده‌نشده
                         {unreadNotices > 0 && <span className="tag" style={{ background: '#e8505b', color: '#fff', marginInlineStart: 8 }}>{fa(unreadNotices)} نخوانده</span>}
                         <Link href="/notices" className="btn btn-ghost btn-sm" style={{ marginInlineStart: 'auto' }}>همه ←</Link>
                     </h3>
-                    {announcements.slice(0, 4).map((a) => (
-                        <Link key={a.id} href="/notices" style={{ display: 'block', padding: '10px 0', borderBottom: '1px solid var(--line)', color: 'var(--ink)' }}>
+                    {announcements.map((a) => (
+                        <a key={a.id} href={a.href} onClick={(e) => openNotice(a, e)} style={{ display: 'block', padding: '10px 0', borderBottom: '1px solid var(--line)', color: 'var(--ink)' }}>
                             <div style={{ fontWeight: 800 }}>
-                                {a.personal ? '✉️ ' : '📢 '}{a.title}
-                                {a.personal && <span className="tag" style={{ marginInlineStart: 6, background: '#efe9ff', color: '#4c2fb0', fontSize: 11 }}>شخصی</span>}
+                                {a.icon} {a.title}
+                                {a.group === 'personal' && <span className="tag" style={{ marginInlineStart: 6, background: '#efe9ff', color: '#4c2fb0', fontSize: 11 }}>شخصی</span>}
                                 <span style={{ color: 'var(--muted-2)', fontWeight: 400, fontSize: 12, marginInlineStart: 6 }}>· {a.date}</span>
                             </div>
-                            <div style={{ color: 'var(--muted)', fontSize: 13.5, whiteSpace: 'pre-wrap', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{a.body}</div>
-                        </Link>
+                            {a.body && <div style={{ color: 'var(--muted)', fontSize: 13.5, whiteSpace: 'pre-wrap', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{a.body}</div>}
+                        </a>
                     ))}
                 </div>
             )}

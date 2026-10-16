@@ -4,7 +4,7 @@ import DashLayout, { schoolMenu } from '@/Layouts/DashLayout';
 import Mascot from '@/Components/Mascot';
 import { fa, ReportModal } from '@/online/parts';
 
-/** «🎥 کلاسِ آنلاین» — کنترلِ مدیرِ مدرسه: اجازه‌ی معلم‌ها، ناظرها، کلاس‌های زنده و گزارش. */
+/** «🎥 کلاسِ آنلاین» — کنترلِ مدیرِ مدرسه: اجازه‌ی معلم‌ها، کلاس‌های زنده و گزارش. */
 export default function OnlineClasses({ ready, on, max, media, teachers, rooms, stats }) {
     const [report, setReport] = useState(null);
     const grant = (user, field, value) => router.post(route('school.online.grant'), { user, field, value }, { preserveScroll: true });
@@ -18,7 +18,7 @@ export default function OnlineClasses({ ready, on, max, media, teachers, rooms, 
                 <div className="oc-hero-m"><Mascot mood="idle" size={86} /></div>
                 <div>
                     <h2>کنترلِ کلاس‌های آنلاینِ مدرسه</h2>
-                    <p>به هر معلم اجازه‌ی برگزاری بدهید یا بردارید، ناظر تعیین کنید، وارد هر کلاسِ زنده شوید، آن را تمام کنید و حضور و غیابِ هر جلسه را ببینید.</p>
+                    <p>به هر معلم اجازه‌ی برگزاری بدهید یا بردارید، وارد هر کلاسِ زنده شوید، آن را تمام کنید و حضور و غیابِ هر جلسه را ببینید.</p>
                 </div>
             </div>
             {!ready && <div className="panel oc-warn">جدول‌های کلاسِ آنلاین هنوز ساخته نشده‌اند.</div>}
@@ -64,12 +64,12 @@ export default function OnlineClasses({ ready, on, max, media, teachers, rooms, 
                                     <b>{t.name}</b>
                                     <small>{t.rooms ? `${fa(t.rooms)} کلاس` : 'بدونِ کلاس'}</small>
                                     <label className="oc-sw"><input type="checkbox" checked={t.can_host} onChange={(e) => grant(t.id, 'can_host', e.target.checked)} /><i />برگزاریِ کلاس</label>
-                                    <label className="oc-sw"><input type="checkbox" checked={t.supervisor} onChange={(e) => grant(t.id, 'supervisor', e.target.checked)} /><i />ناظم / ناظر</label>
+                                    <a className="btn btn-sm btn-ghost" href={route('school.teachers')} title="تعیینِ ناظر در «معلم‌ها و کلاس‌ها»">{t.supervises ? `🛡️ ناظرِ ${fa(t.supervises)} کلاس` : '🛡️ تعیینِ ناظر'}</a>
                                 </div>
                             ))}
                             {!teachers.length && <div className="oc-empty">معلمی در مدرسه ثبت نشده است.</div>}
                         </div>
-                        <small className="oc-note">«ناظم / ناظر» در منوی خودش صفحه‌ی «🛡️ نظارتِ کلاس‌ها» را می‌بیند. از آن‌جا وارد هر کلاسِ مدرسه می‌شود، میکروفون‌ها را کنترل می‌کند، پیامِ نامناسب را پنهان می‌کند، کلاس را تمام می‌کند و حضور و فیلم‌ها را می‌بیند. برای ناظمی که درس نمی‌دهد، از «معلم‌ها» یک حساب بسازید (لازم نیست کلاسی داشته باشد) و فقط همین کلید را روشن کنید.</small>
+                        <small className="oc-note">🛡️ ناظر: در «معلم‌ها و کلاس‌ها» کنارِ هر معلم دکمه‌ی 🛡️ را بزنید و کلاس‌هایی را که باید زیرِ نظرش باشد انتخاب کنید (برای ناظری که درس نمی‌دهد، «فقط ناظر» بسازید). ناظر فقط واردِ کلاسِ آنلاینِ همان کلاس‌ها می‌شود و همان‌ها را کنترل می‌کند؛ معلم یا ناظرِ دیگری نمی‌سازد.</small>
                     </div>
 
                     <div className="oc-sec"><h3>📚 همه‌ی کلاس‌ها</h3>

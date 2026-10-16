@@ -12,8 +12,8 @@ use Illuminate\Support\Facades\DB;
  * دسترسی و تنظیماتِ «کلاسِ آنلاین» — سه لایه:
  *   ادمینِ کل   → کلاسِ آنلاین را برای هر مدرسه روشن/خاموش می‌کند و سقفِ نفرات را می‌گذارد؛
  *                 حالتِ رسانه (داخلی یا سرورِ LiveKit) و سرورهای اتصال را تنظیم می‌کند.
- *   مدیرِ مدرسه → به هر معلم اجازه‌ی برگزاری می‌دهد، ناظر تعیین می‌کند و هر کلاسی را
- *                 می‌بیند، واردش می‌شود یا می‌بندد.
+ *   مدیرِ مدرسه → به هر معلم اجازه‌ی برگزاری می‌دهد و هر کلاسی را می‌بیند، واردش می‌شود یا می‌بندد.
+ *   ناظر        → همین کارها، ولی فقط برای کلاس‌هایی که مدیر به او داده (ClassSupervision).
  *   معلم/دانش‌آموز → معلمِ مجاز کلاس می‌سازد؛ دانش‌آموزانِ همان کلاس وارد می‌شوند.
  */
 class OnlineAccess
@@ -70,7 +70,10 @@ class OnlineAccess
         return (bool) (self::hostRow($user)?->can_host ?? false);
     }
 
-    /** مدیرِ مدرسه، ناظرِ تعیین‌شده یا ادمینِ کل. */
+    /**
+     * مدیرِ مدرسه (همه‌ی کلاس‌ها)، ناظر (فقط کلاس‌هایی که مدیر به او داده) یا ادمینِ کل.
+     * بدونِ $room یعنی «آیا اصلاً بر کلاسی نظارت دارد؟» (برای منو و صفحه‌ی نظارت).
+     */
     public static function canSupervise(?User $user, ?OnlineRoom $room = null): bool
     {
         if (! $user) {
@@ -87,7 +90,7 @@ class OnlineAccess
             return true;
         }
 
-        return (bool) (self::hostRow($user)?->supervisor ?? false);
+        return $room ? ClassSupervision::coversRoom($user, $room) : ClassSupervision::isSupervisor($user);
     }
 
     /**

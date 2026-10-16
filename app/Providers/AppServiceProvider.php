@@ -20,6 +20,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // حافظه‌های موقتِ «هر درخواست» (فیدِ اعلان‌ها، کلاس‌های ناظر) بعد از پاسخ خالی شوند،
+        // تا در پردازه‌های ماندگار (صف، تست، Octane) داده‌ی کهنه به درخواستِ بعدی نرسد.
+        $this->app->terminating(function () {
+            \App\Support\Notifications::forget();
+            \App\Support\ClassSupervision::forget();
+        });
+
         // «کلاسِ آنلاین»: هر نوع درخواست شمارنده‌ی جدای خودش را دارد (برای هر نفر در هر کلاس)؛
         // throttle:N معمولی یک شمارنده‌ی مشترک برای همه‌ی مسیرها داشت و معلمی که با ۴۰ نفر
         // تبادلِ اتصال می‌کرد، همگام‌سازی‌اش «429» می‌گرفت.

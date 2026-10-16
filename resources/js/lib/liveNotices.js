@@ -82,7 +82,7 @@ function refresh() {
     const path = window.location.pathname;
     const full = FULL_RELOAD.some((p) => path === p || path.startsWith(p + '/'));
     router.reload({
-        only: full ? undefined : ['notifications', 'unreadNotices'],
+        only: full ? undefined : ['notifications', 'unreadNotices', 'dashNotices', 'alarms', 'announcements'],
         preserveScroll: true, preserveState: true, async: true,
     });
 }

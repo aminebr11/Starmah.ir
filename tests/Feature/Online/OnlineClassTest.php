@@ -503,39 +503,70 @@ class OnlineClassTest extends TestCase
         $this->actingAs($student)->postJson(route('online.control', $room), ['action' => 'reactions', 'value' => true])->assertForbidden();
     }
 
-    public function test_school_assigned_supervisor_sees_and_enters_every_class(): void
+    public function test_supervisor_only_sees_and_controls_assigned_classes(): void
     {
-        [$school, $teacher, $classroom, $student, $admin, $super, $room] = $this->live();
-        $nazem = $this->makeUser($school, Roles::TEACHER);   // ناظم: حسابِ معلم بدونِ کلاس
-        $other = $this->makeUser($this->makeSchool('other-school'), Roles::TEACHER);
+        [$school, $teacher, $classA, $student, $admin, $super, $roomA] = $this->live();
+        // کلاسِ دوم در همان مدرسه، با کلاسِ آنلاینِ زنده‌ی خودش
+        [$t2, $classB] = $this->makeClass($school);
+        $this->actingAs($admin)->post(route('school.online.grant'), ['user' => $t2->id, 'field' => 'can_host', 'value' => true]);
+        $this->actingAs($t2)->post(route('teacher.online.store'), ['title' => 'علوم', 'classroom_id' => $classB->id]);
+        $roomB = OnlineRoom::where('classroom_id', $classB->id)->firstOrFail();
+        $this->actingAs($t2)->postJson(route('online.join', $roomB))->assertOk();
+        $foreign = $this->makeClass($this->makeSchool('other-school'))[1];
 
-        // پیش از تعیین: راهی ندارد
-        $this->actingAs($nazem)->get(route('online.supervise'))->assertForbidden();
-        $this->assertNull(OnlineAccess::roleIn($nazem, $room));
+        // مدیر «فقط ناظر» می‌سازد: کلاس لازم ندارد، ولی دستِ‌کم یک کلاسِ نظارت لازم است
+        $this->actingAs($admin)->post(route('school.teachers.store'), ['kind' => 'supervisor', 'name' => 'ناظر', 'phone' => '09125550000'])
+            ->assertSessionHasErrors('supervise');
+        $this->actingAs($admin)->post(route('school.teachers.store'), ['kind' => 'supervisor', 'name' => 'ناظر', 'phone' => '09125550000',
+            'supervise' => [$classA->id, $foreign->id]])->assertSessionHasNoErrors()->assertRedirect();
+        $nazem = \App\Models\User::where('phone', '09125550000')->firstOrFail();
+        $nazem->forceFill(['must_change_password' => false])->save();   // اولین ورود: تغییرِ رمز (این‌جا لازم نیست)
+        $this->assertTrue($nazem->hasRole(Roles::TEACHER));
+        $this->assertSame(0, \App\Models\Classroom::where('teacher_id', $nazem->id)->count());
+        $this->assertSame([$classA->id], \App\Support\ClassSupervision::classroomIds($nazem));   // کلاسِ مدرسه‌ی دیگر پذیرفته نشد
 
-        // مدیرِ مدرسه ناظم تعیین می‌کند
-        $this->actingAs($admin)->post(route('school.online.grant'), ['user' => $nazem->id, 'field' => 'supervisor', 'value' => true])->assertRedirect();
-        $this->actingAs($admin)->post(route('school.online.grant'), ['user' => $other->id, 'field' => 'supervisor', 'value' => true])->assertNotFound();
-
-        $this->actingAs($nazem)->get(route('online.supervise'))->assertOk()
-            ->assertInertia(fn ($p) => $p->component('Online/Supervise')->has('rooms', 1)->where('rooms.0.status', 'live')->where('onlineSup', true));
+        // صفحه‌ی نظارت: فقط کلاسِ A و کلاسِ آنلاینِ A
+        $this->actingAs($nazem)->get(route('teacher.supervise'))->assertOk()->assertInertia(fn ($p) => $p->component('Online/Supervise')
+            ->has('classes', 1)->where('classes.0.id', $classA->id)->where('classes.0.students', 1)
+            ->has('rooms', 1)->where('rooms.0.id', $roomA->id)->where('onlineSup', true));
+        $this->actingAs($nazem)->get(route('online.supervise'))->assertRedirect(route('teacher.supervise'));
         $this->actingAs($nazem)->get(route('teacher.online'))->assertInertia(fn ($p) => $p->where('supervisor', true)->where('allowed', false));
-        $this->actingAs($nazem)->postJson(route('online.join', $room))->assertOk()->assertJsonPath('me.role', 'observer');
-        // ابزارِ نظارت: بی‌صدا کردنِ همه و گزارش؛ ولی کتاب‌های معلم را ندارد
-        $this->actingAs($nazem)->postJson(route('online.control', $room), ['action' => 'mute_all'])->assertOk();
-        $this->actingAs($nazem)->getJson(route('online.report', $room))->assertOk();
-        $this->actingAs($nazem)->getJson(route('online.books', $room))->assertForbidden();
-        // معلم ناظر را در فهرست می‌بیند
-        $people = collect($this->actingAs($teacher)->postJson(route('online.sync', $room), ['v' => 0])->json('state.people'));
-        $this->assertSame('observer', $people->firstWhere('id', $nazem->id)['role']);
-        // معلمِ عادی و مدیر: صفحه‌ی خودشان
-        $this->actingAs($teacher)->get(route('online.supervise'))->assertForbidden();
-        $this->actingAs($admin)->get(route('online.supervise'))->assertRedirect(route('school.online'));
-        // ناظم کلاس را تمام می‌کند
-        $this->actingAs($nazem)->post(route('online.end', $room))->assertRedirect();
-        $this->assertSame('ended', $room->fresh()->status);
-        // برداشتنِ نظارت
-        $this->actingAs($admin)->post(route('school.online.grant'), ['user' => $nazem->id, 'field' => 'supervisor', 'value' => false])->assertRedirect();
-        $this->actingAs($nazem)->get(route('online.supervise'))->assertForbidden();
+        $this->actingAs($nazem)->get(route('teacher.dashboard'))->assertInertia(fn ($p) => $p->where('supervises', 1));
+
+        // کلاسِ A: ورود به‌عنوانِ ناظر و ابزارهای مدیر؛ کلاسِ B: راهی ندارد
+        $this->actingAs($nazem)->postJson(route('online.join', $roomA))->assertOk()->assertJsonPath('me.role', 'observer');
+        $this->actingAs($nazem)->postJson(route('online.control', $roomA), ['action' => 'mute_all'])->assertOk();
+        $this->actingAs($nazem)->getJson(route('online.report', $roomA))->assertOk();
+        $this->actingAs($nazem)->getJson(route('online.books', $roomA))->assertForbidden();
+        $this->assertNull(OnlineAccess::roleIn($nazem, $roomB));
+        $this->actingAs($nazem)->get(route('online.room', $roomB))->assertForbidden();
+        $this->actingAs($nazem)->getJson(route('online.report', $roomB))->assertForbidden();
+        $this->actingAs($nazem)->post(route('online.end', $roomB))->assertForbidden();
+
+        // حضور و غیاب: کلاسِ A را دارد، B را نه
+        $this->actingAs($nazem)->get(route('teacher.attendance', ['classroom_id' => $classA->id]))->assertOk()
+            ->assertInertia(fn ($p) => $p->has('classrooms', 1)->where('classroom.id', $classA->id));
+        $this->actingAs($nazem)->get(route('teacher.attendance.report', ['classroom_id' => $classB->id]))->assertOk()
+            ->assertInertia(fn ($p) => $p->has('classrooms', 1));
+
+        // ناظر معلم یا ناظر نمی‌سازد
+        $this->actingAs($nazem)->post(route('school.teachers.store'), ['name' => 'x', 'phone' => '09120000999', 'class_name' => 'y', 'grade' => 'چهارم'])->assertForbidden();
+        $this->actingAs($nazem)->put(route('school.teachers.supervise', $t2), ['classes' => [$classA->id]])->assertForbidden();
+
+        // مدیر کلاسِ B را هم می‌سپارد، بعد نظارت را برمی‌دارد
+        $this->actingAs($admin)->put(route('school.teachers.supervise', $nazem), ['classes' => [$classA->id, $classB->id]])->assertRedirect();
+        \App\Support\ClassSupervision::forget();
+        $this->assertSame('observer', OnlineAccess::roleIn($nazem, $roomB));
+        $this->actingAs($admin)->get(route('school.teachers'))->assertInertia(fn ($p) => $p->where('teachers', fn ($t) => collect($t)->firstWhere('id', $nazem->id)['supervises'] === [$classA->id, $classB->id] || collect($t)->firstWhere('id', $nazem->id)['supervises'] === [$classB->id, $classA->id]));
+        $this->actingAs($nazem)->post(route('online.end', $roomA))->assertRedirect();
+        $this->assertSame('ended', $roomA->fresh()->status);
+
+        $this->actingAs($admin)->put(route('school.teachers.supervise', $nazem), ['classes' => []])->assertRedirect();
+        \App\Support\ClassSupervision::forget();
+        $this->actingAs($nazem)->get(route('teacher.supervise'))->assertForbidden();
+        $this->assertNull(OnlineAccess::roleIn($nazem, $roomB));
+        // مدیرِ مدرسه‌ی دیگر نمی‌تواند ناظرِ این مدرسه را تغییر دهد
+        $otherAdmin = $this->makeUser(\App\Models\School::where('slug', 'other-school')->first(), Roles::SCHOOL_ADMIN);
+        $this->actingAs($otherAdmin)->put(route('school.teachers.supervise', $nazem), ['classes' => [$foreign->id]])->assertNotFound();
     }
 }
