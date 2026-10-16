@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
+import { play, buzz, muted, setMuted, unlockSound } from '@/lib/mahooSound';
 import axios from 'axios';
 import Mascot from '@/Components/Mascot';
 import ErrorBoundary from '@/Components/ErrorBoundary';
@@ -84,6 +85,28 @@ const PEEK = {
     parent: (n) => `سلام ${n} 🌸 وضعیتِ فرزندتان را بپرسید.`,
     super_admin: (n) => `سلام ${n} 👋 کاری از دستم برمی‌آید؟`,
     default: (n) => `سلام ${n} 👋 سؤالی داری؟`,
+};
+
+/* واکنش به لمس — هر بار یکی، با صدا؛ پنج لمسِ تند = سرگیجه 😵‍💫 */
+const REACT = [
+    { mood: 'giggle', sfx: 'giggle', say: ['هی! قلقلکم میاد 😆', 'هههه! نکن دیگه 🤭', 'هی‌هی‌هی! 😂'] },
+    { mood: 'surprised', sfx: 'boing', say: ['اِ! سلام! 😮', 'وای! یهو اومدی 🙀', 'بوینگ! 🫨'] },
+    { mood: 'love', sfx: 'love', say: ['دوستت دارم 💛', 'تو بهترینی 💖', 'قلبم برات تاپ‌تاپ می‌کنه 💗'] },
+    { mood: 'cheer', sfx: 'tada', say: ['هورا! 🎉', 'بزن قدش! ✋', 'امروز روزِ توئه! 🌟'] },
+    { mood: 'wink', sfx: 'squeak', say: ['چشمک! 😉', 'یه راز: هر روز یه کم = کلی! 🤫', 'من حواسم بهت هست 😉'] },
+];
+const DIZZY = { mood: 'dizzy', sfx: 'dizzy', say: ['سرم گیج رفت! 😵‍💫', 'وااای... دور خودم چرخیدم 🌀'] };
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+
+/* «کارهایی که بلدم» — مثال برای هر کار؛ fill یعنی متن را در کادر بگذار تا کاربر کاملش کند */
+const ABILITY_EX = {
+    navigate: { student: 'برو به کارنامه', teacher: 'برو به مرکز امتیاز', school_admin: 'برو به اطلاعیه‌ها', parent: 'برو به اعلان‌ها', super_admin: 'برو به سلامت سیستم' },
+    timer: { q: 'تایمر ۱۵ دقیقه' },
+    fun: { q: 'یه چیستان بگو' },
+    award: { fill: 'به  ۵ امتیاز بده', caret: 3 },
+    class_notice: { fill: 'به کلاس بگو: ' },
+    school_notice: { fill: 'اطلاعیه بده برای همه: ' },
+    remedial: { q: 'از سؤال‌های سخت آزمون جبرانی بساز' },
 };
 
 // نام‌های رایجِ بخش‌ها که در پاسخ‌ها می‌آیند ولی عینِ عنوانِ منو نیستند
@@ -237,13 +260,153 @@ function Typed({ text, link, onNav, onDone, onTick, stopRef }) {
     return <Rich text={tokens.slice(0, n).join('')} link={link} onNav={onNav} caret={n < tokens.length} />;
 }
 
+/* ── جشنِ کوچک: ستاره و کاغذرنگی از یک نقطه ───────────────────────── */
+function burst(x, y, n = 18) {
+    if (typeof document === 'undefined' || reduced()) return;
+    const box = document.createElement('div');
+    box.className = 'mh-burst';
+    box.style.left = `${x}px`; box.style.top = `${y}px`;
+    const glyphs = ['✨', '⭐', '🌟', '💛', '🎉'];
+    for (let i = 0; i < n; i++) {
+        const p = document.createElement('i');
+        const a = (Math.PI * 2 * i) / n + Math.random() * 0.4; const r = 70 + Math.random() * 90;
+        p.textContent = i % 3 === 0 ? glyphs[i % glyphs.length] : '';
+        p.style.setProperty('--dx', `${Math.cos(a) * r}px`); p.style.setProperty('--dy', `${Math.sin(a) * r - 40}px`);
+        p.style.setProperty('--c', ['#ffd75e', '#ff8fa3', '#7c5cf0', '#34d399', '#60a5fa'][i % 5]);
+        p.style.animationDelay = `${Math.random() * 80}ms`;
+        box.appendChild(p);
+    }
+    document.body.appendChild(box);
+    setTimeout(() => box.remove(), 1400);
+}
+
+/**
+ * ورودِ نمایشی پس از ورود به حساب: ماهو از بالای صفحه می‌افتد، فرود می‌آید، دست تکان
+ * می‌دهد و خوش‌آمد می‌گوید؛ بعد کوچک می‌شود و به جای دکمه‌اش پرواز می‌کند. لمس = رد شدن.
+ */
+function Entrance({ first, role, voice, fabRef, onDone }) {
+    const [stage, setStage] = useState('fall');   // fall → hello → fly
+    const meRef = useRef(null);
+    const done = useRef(false);
+    const audio = useRef(null);
+    const line = role === 'student' ? 'امروز با هم کلی ستاره جمع می‌کنیم! ⭐' : role === 'parent' ? 'وضعیتِ فرزندتان را از من بپرسید 🌸' : 'هر کاری داشتید، من این‌جام ✨';
+
+    const fly = useCallback(() => {
+        if (done.current) return;
+        done.current = true;
+        setStage('fly');
+        play('whoosh');
+        const me = meRef.current; const fab = fabRef.current;
+        if (me && fab && me.animate) {
+            const a = me.getBoundingClientRect(); const b = fab.getBoundingClientRect();
+            const dx = b.left + b.width / 2 - (a.left + a.width / 2); const dy = b.top + b.height / 2 - (a.top + a.height / 2);
+            const anim = me.animate([{ transform: 'translate(0,0) scale(1) rotate(0)' }, { transform: `translate(${dx * 0.5}px,${dy * 0.5 - 80}px) scale(.7) rotate(-12deg)`, offset: 0.5 }, { transform: `translate(${dx}px,${dy}px) scale(.38) rotate(0)` }],
+                { duration: 700, easing: 'cubic-bezier(.5,0,.3,1)', fill: 'forwards' });
+            anim.onfinish = () => onDone();
+        } else {
+            onDone();
+        }
+    }, [fabRef, onDone]);
+
+    useEffect(() => {
+        play('whoosh');
+        const t1 = setTimeout(() => {
+            play('land'); buzz(25); setStage('hello');
+            const r = meRef.current?.getBoundingClientRect();
+            if (r) burst(r.left + r.width / 2, r.top + r.height * 0.75, 22);
+            setTimeout(() => play('chime'), 180);
+            if (voice) {
+                axios.post(url('assistant.voice', '/assistant/voice')).then(({ data }) => {
+                    if (data?.url && !done.current && !muted()) { audio.current = new Audio(data.url); audio.current.play().catch(() => {}); }
+                }).catch(() => {});
+            }
+        }, 900);
+        const t2 = setTimeout(fly, 4600);
+        return () => { clearTimeout(t1); clearTimeout(t2); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    useEffect(() => () => audio.current?.pause(), []);
+
+    return (
+        <div className={`mh-enter is-${stage}`} onClick={fly} role="dialog" aria-label="خوش‌آمدِ ماهو">
+            <div className="mh-enter-sky" aria-hidden="true">{Array.from({ length: 14 }, (_, i) => <i key={i} style={{ '--i': i }} />)}</div>
+            <div className="mh-enter-me" ref={meRef}>
+                <div className="mh-enter-trail" aria-hidden="true" />
+                <Mascot mood={stage === 'fall' ? 'surprised' : stage === 'hello' ? 'wave' : 'happy'} size={170} />
+            </div>
+            {stage === 'hello' && (
+                <div className="mh-enter-say">
+                    <b>سلام {first}! 🌙</b>
+                    <span>{line}</span>
+                    <small>برای ادامه، جایی را لمس کن</small>
+                </div>
+            )}
+        </div>
+    );
+}
+
+/** تایمرِ درس/استراحت کنارِ دکمه‌ی ماهو — بینِ صفحه‌ها هم می‌ماند. */
+const TIMER_KEY = 'mahoo-timer';
+function readTimer() { try { const t = JSON.parse(localStorage.getItem(TIMER_KEY)); return t && t.end > Date.now() - 2000 ? t : null; } catch { return null; } }
+function TimerPill({ timer, onCancel, style }) {
+    const [, tick] = useState(0);
+    useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(t); }, []);
+    const left = Math.max(0, Math.round((timer.end - Date.now()) / 1000));
+    const pct = 1 - left / (timer.min * 60);
+    return (
+        <div className="mh-timer" style={style} role="timer" aria-label={`تایمرِ ${timer.label}`}>
+            <svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15" /><circle className="p" cx="18" cy="18" r="15" style={{ strokeDashoffset: 94.25 * (1 - pct) }} /></svg>
+            <b>{fa(String(Math.floor(left / 60)).padStart(2, '0'))}:{fa(String(left % 60).padStart(2, '0'))}</b>
+            <small>{timer.label === 'استراحت' ? '☕' : '📚'}</small>
+            <button type="button" onClick={onCancel} aria-label="لغوِ تایمر">×</button>
+        </div>
+    );
+}
+
+/** کارتِ کار در گفت‌وگو: تأیید/انصراف، رفتن به صفحه، جوابِ چیستان. */
+function ActionView({ m, link, onConfirm, onCancel, onNav }) {
+    const a = m.action;
+    const [show, setShow] = useState(false);
+    if (!a) return null;
+    if (a.type === 'navigate') {
+        const href = link(a.target);
+        return href
+            ? <Link href={href} className="mh-act-go" onClick={onNav}>🧭 باز کردنِ «{a.target}» ↖</Link>
+            : <div className="mh-act-note">این بخش را در منوی شما پیدا نکردم؛ نامش را از منو بگو.</div>;
+    }
+    if (a.type === 'riddle') {
+        return show
+            ? <div className="mh-act-answer">💡 جواب: <b>{a.answer}</b></div>
+            : <button type="button" className="mh-act-go" onClick={(e) => { setShow(true); play('tada'); const r = e.currentTarget.getBoundingClientRect(); burst(r.left + r.width / 2, r.top, 14); }}>🤔 جواب را ببینم</button>;
+    }
+    if (a.type === 'timer') return <div className="mh-act-note">⏱️ تایمر کنارِ دکمه‌ی ماهو در حالِ شمارش است.</div>;
+    if (a.type !== 'confirm') return null;
+    return (
+        <div className={`mh-act ${a.state ?? ''}`}>
+            <div className="mh-act-h">{a.title}</div>
+            <ul>{a.lines.map((l, i) => <li key={i}>{l}</li>)}</ul>
+            {!a.state && (
+                <div className="mh-act-b">
+                    <button type="button" className="ok" onClick={(e) => onConfirm(m, e)}>{a.button}</button>
+                    <button type="button" onClick={() => onCancel(m)}>انصراف</button>
+                </div>
+            )}
+            {a.state === 'busy' && <div className="mh-act-s">در حالِ انجام… ⏳</div>}
+            {a.state === 'done' && <div className="mh-act-s ok">✅ انجام شد{a.href ? <> · <Link href={a.href} onClick={onNav}>مشاهده ↖</Link></> : null}</div>}
+            {a.state === 'fail' && <div className="mh-act-s bad">⛔ انجام نشد</div>}
+            {a.state === 'cancel' && <div className="mh-act-s">انصراف داده شد</div>}
+        </div>
+    );
+}
+
 /** هر خطایی در دستیار فقط خودِ دستیار را پنهان می‌کند، نه کلِ سایت را. */
 export default function AssistantWidget(props) {
     return <ErrorBoundary name="assistant" fallback={null}><Assistant {...props} /></ErrorBoundary>;
 }
 
 function Assistant({ menu = [] }) {
-    const { auth, assistantOn = true } = usePage().props;
+    const { auth, assistantOn = true, mahooLook } = usePage().props;
+    const look = mahooLook ?? { entrance: true, sound: true, voice: true };
     const roles = auth?.roles ?? [];
     const role = ROLES.find((r) => roles.includes(r)) ?? 'default';
     const words = String(auth?.user?.name ?? '').trim().split(/\s+/).filter(Boolean);
@@ -269,6 +432,14 @@ function Assistant({ menu = [] }) {
     const [atEnd, setAtEnd] = useState(true);
     const [copied, setCopied] = useState(null);
     const [peekAt, setPeekAt] = useState(null);
+    const [mute, setMute] = useState(() => muted());
+    const [react, setReact] = useState(null);       // واکنشِ لمس: { mood, text, where, k }
+    const [pos, setPos] = useState(() => { try { return JSON.parse(localStorage.getItem('mahoo-pos')) || null; } catch { return null; } });
+    const [dragging, setDragging] = useState(false);
+    const [landed, setLanded] = useState(0);
+    const [timer, setTimer] = useState(() => (typeof window !== 'undefined' ? readTimer() : null));
+    const [entering, setEntering] = useState(false);
+    const [fabAt, setFabAt] = useState(null);
 
     const boxRef = useRef(null);
     const taRef = useRef(null);
@@ -278,6 +449,119 @@ function Assistant({ menu = [] }) {
     const atEndRef = useRef(true);
 
     const started = msgs.length > 0;
+    const taps = useRef([]);
+    const drag = useRef(null);
+    const noClick = useRef(false);
+    const autoNav = useRef(null);
+
+    // ── صدا: تصمیمِ ادمین/مدرسه + انتخابِ خودِ کاربر
+    useEffect(() => { window.__mahooSound = look.sound !== false; unlockSound(); }, [look.sound]);
+    const toggleMute = () => { const v = !mute; setMute(v); setMuted(v); if (!v) play('pop', { force: true }); };
+
+    // ── لمس = واکنش با صدا؛ پنج لمسِ تند = سرگیجه
+    const poke = useCallback((where = 'fab') => {
+        const now = Date.now();
+        taps.current = [...taps.current.filter((t) => now - t < 2500), now];
+        const r = taps.current.length >= 5 ? DIZZY : pick(REACT);
+        if (r === DIZZY) taps.current = [];
+        play(r.sfx); buzz(14);
+        setReact({ mood: r.mood, text: pick(r.say), where, k: now });
+    }, []);
+    useEffect(() => {
+        if (!react) return undefined;
+        const t = setTimeout(() => setReact(null), react.mood === 'dizzy' ? 2600 : 2000);
+        return () => clearTimeout(t);
+    }, [react]);
+
+    // ── ورودِ نمایشی، یک بار پس از ورود به حساب (و نه در هر برگه‌ی تازه)
+    useEffect(() => {
+        if (!assistantOn || !look.entrance || reduced()) return;
+        const k = `mahoo-enter:${auth?.user?.id ?? 0}`;
+        try {
+            if (sessionStorage.getItem(k)) return;
+            const last = Number(localStorage.getItem(k) || 0);
+            sessionStorage.setItem(k, '1');
+            if (Date.now() - last < 30 * 60 * 1000) return;
+            localStorage.setItem(k, String(Date.now()));
+        } catch { return; }
+        const t = setTimeout(() => setEntering(true), 400);
+        return () => clearTimeout(t);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [assistantOn, look.entrance]);
+
+    // ── تایمر: پایانش با صدا و جشن
+    useEffect(() => {
+        if (!timer) return undefined;
+        const left = timer.end - Date.now();
+        const t = setTimeout(() => {
+            try { localStorage.removeItem(TIMER_KEY); } catch { /* */ }
+            setTimer(null);
+            play('alarm', { force: false }); buzz(200);
+            setReact({ mood: 'cheer', text: timer.label === 'استراحت' ? '⏰ استراحت تمام شد! برگردیم سرِ درس 💪' : `⏰ ${fa(timer.min)} دقیقه تمام شد! آفرین قهرمان 🎉`, where: 'fab', k: Date.now() });
+            const r = fabRef.current?.getBoundingClientRect();
+            if (r) burst(r.left + r.width / 2, r.top, 24);
+        }, Math.max(0, left));
+        return () => clearTimeout(t);
+    }, [timer]);
+    const startTimer = (min, label) => {
+        const t = { end: Date.now() + min * 60000, min, label };
+        try { localStorage.setItem(TIMER_KEY, JSON.stringify(t)); } catch { /* */ }
+        setTimer(t);
+    };
+    const cancelTimer = () => { try { localStorage.removeItem(TIMER_KEY); } catch { /* */ } setTimer(null); play('pop'); };
+
+    // ── جای دکمه (برای حباب‌ها و تایمر)
+    useEffect(() => {
+        const at = () => { const r = fabRef.current?.getBoundingClientRect(); if (r) setFabAt({ left: r.left, right: window.innerWidth - r.right, top: r.top, w: r.width, onLeft: r.left < window.innerWidth / 2 }); };
+        at();
+        window.addEventListener('resize', at);
+        return () => window.removeEventListener('resize', at);
+    }, [pos, landed, entering]);
+    const beside = (gap = 12) => (fabAt ? { bottom: window.innerHeight - fabAt.top + gap, ...(fabAt.onLeft ? { left: Math.max(10, fabAt.left) } : { right: Math.max(10, fabAt.right) }) } : { visibility: 'hidden' });
+
+    // ── جابه‌جا کردنِ ماهو با کشیدن؛ رها کردن = چسبیدن به نزدیک‌ترین لبه
+    const onFabDown = (e) => {
+        if (e.button && e.button !== 0) return;
+        drag.current = { x: e.clientX, y: e.clientY, moved: false, long: false };
+        drag.current.timer = setTimeout(() => { if (drag.current && !drag.current.moved) { drag.current.long = true; poke('fab'); } }, 480);
+    };
+    const onFabMove = (e) => {
+        const d = drag.current; const el = fabRef.current;
+        if (!d || !el) return;
+        if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8) {
+            d.moved = true; clearTimeout(d.timer);
+            try { el.setPointerCapture(e.pointerId); } catch { /* */ }
+            setDragging(true); hidePeek(); play('whoosh');
+        }
+        if (d.moved) {
+            const w = el.offsetWidth;
+            el.style.left = `${Math.min(window.innerWidth - w - 4, Math.max(4, e.clientX - w / 2))}px`;
+            el.style.top = `${Math.min(window.innerHeight - w - 4, Math.max(4, e.clientY - w / 2))}px`;
+            el.style.right = 'auto'; el.style.bottom = 'auto'; el.style.insetInlineEnd = 'auto';
+        }
+    };
+    const onFabUp = (e) => {
+        const d = drag.current; drag.current = null;
+        if (!d) return;
+        clearTimeout(d.timer);
+        if (d.moved) {
+            const el = fabRef.current; const w = el?.offsetWidth ?? 66;
+            const next = { side: e.clientX < window.innerWidth / 2 ? 'left' : 'right', bottom: Math.round(Math.min(window.innerHeight - w - 70, Math.max(12, window.innerHeight - e.clientY - w / 2))) };
+            if (el) { el.style.left = ''; el.style.top = ''; el.style.right = ''; el.style.bottom = ''; el.style.insetInlineEnd = ''; }
+            setPos(next); setDragging(false); setLanded(Date.now());
+            try { localStorage.setItem('mahoo-pos', JSON.stringify(next)); } catch { /* */ }
+            play('land'); buzz(20);
+            noClick.current = true;
+        } else if (d.long) {
+            noClick.current = true;
+        }
+        // «کلیکِ» پس از رها کردن (اگر مرورگر بفرستد) نادیده گرفته شود، ولی لمسِ بعدی نه
+        if (noClick.current) setTimeout(() => { noClick.current = false; }, 60);
+    };
+    // جای انتخابیِ کاربر با متغیرِ CSS (قاعده‌ی «!important»ِ طرح‌ها را هم کنار می‌زند)
+    const fabStyle = pos ? { '--mh-b': `${pos.bottom}px` } : undefined;
+    const panelStyle = pos ? { [pos.side]: 18, [pos.side === 'left' ? 'right' : 'left']: 'auto', insetInlineEnd: 'auto' } : undefined;
+
     const thinking = THINKING[role] ?? THINKING.default;
 
     // ── نگه‌داشتنِ گفت‌وگو بینِ صفحه‌ها
@@ -377,6 +661,15 @@ function Assistant({ menu = [] }) {
         setTimeout(() => toEnd(), 40);
         setJoy(true);
         setTimeout(() => setJoy(false), 1800);
+        // «برو به …»: بعد از نوشتنِ پاسخ، خودش صفحه را باز می‌کند
+        const nav = autoNav.current; autoNav.current = null;
+        if (nav) {
+            setTimeout(() => {
+                play('whoosh');
+                if (window.matchMedia('(max-width: 560px)').matches) setOpen(false);
+                router.visit(nav);
+            }, 650);
+        }
     }, [toEnd]);
 
     const send = async (text) => {
@@ -386,14 +679,19 @@ function Assistant({ menu = [] }) {
         setMsgs((m) => [...m, { id: uid(), role: 'user', content: message, at: Date.now() }]);
         setInput('');
         setBusy(true);
+        play('send');
         atEndRef.current = true;
         const ctrl = new AbortController();
         abortRef.current = ctrl;
         try {
             const { data } = await axios.post(url('assistant.chat', '/assistant/chat'), { message, history }, { signal: ctrl.signal });
             const id = uid();
-            setMsgs((m) => [...m, { id, role: 'assistant', content: data.reply, diag: data.diag, mode: data.mode, at: Date.now(), fresh: true }]);
+            const action = data.action ?? null;
+            if (action?.type === 'timer') startTimer(action.minutes, action.label);
+            if (action?.type === 'navigate') autoNav.current = link(action.target);
+            setMsgs((m) => [...m, { id, role: 'assistant', content: data.reply, diag: data.diag, mode: data.mode, action, at: Date.now(), fresh: true }]);
             setTyping(id);
+            play(action?.type === 'confirm' ? 'squeak' : 'msg');
         } catch (err) {
             if (axios.isCancel?.(err) || err?.name === 'CanceledError') {
                 setMsgs((m) => [...m, { id: uid(), role: 'assistant', content: '⏹ باشد، نگه داشتم. هر وقت خواستی دوباره بپرس.', local: true, at: Date.now() }]);
@@ -415,6 +713,35 @@ function Assistant({ menu = [] }) {
             abortRef.current = null;
             setBusy(false);
         }
+    };
+
+    // «✅ انجام بده»: فقط با تأییدِ خودِ کاربر؛ سرور دوباره اجازه را بررسی می‌کند
+    const setAct = (id, patch) => setMsgs((list) => list.map((x) => (x.id === id ? { ...x, action: { ...x.action, ...patch } } : x)));
+    const confirmAct = async (m, e) => {
+        const r = e?.currentTarget?.getBoundingClientRect();
+        setAct(m.id, { state: 'busy' });
+        try {
+            const { data } = await axios.post(url('assistant.act', '/assistant/act'), { token: m.action.token });
+            setAct(m.id, { state: data.ok ? 'done' : 'fail', href: data.href, token: null });
+            setMsgs((list) => [...list, { id: uid(), role: 'assistant', content: data.reply, local: true, err: !data.ok, at: Date.now() }]);
+            if (data.ok) { play('tada'); if (r) burst(r.left + r.width / 2, r.top, 22); setJoy(true); setTimeout(() => setJoy(false), 1800); } else play('boing');
+        } catch {
+            setAct(m.id, { state: 'fail' });
+            setMsgs((list) => [...list, { id: uid(), role: 'assistant', content: 'الان نشد؛ چند لحظه بعد دوباره امتحان کنید.', local: true, err: true, at: Date.now() }]);
+        }
+    };
+    const cancelAct = (m) => { setAct(m.id, { state: 'cancel', token: null }); play('pop'); };
+
+    // «کارهایی که بلدم»: مثال را بفرست یا در کادر بگذار تا کامل شود
+    const tryAbility = (ab) => {
+        const ex = ABILITY_EX[ab.key];
+        if (!ex) return;
+        if (ex.fill) {
+            setInput(ex.fill);
+            setTimeout(() => { const t = taRef.current; if (t) { t.focus(); const p = ex.caret ?? ex.fill.length; t.setSelectionRange(p, p); } }, 60);
+            return;
+        }
+        send(ex.q ?? ex[role] ?? ex.student);
     };
 
     const stop = () => {
@@ -447,32 +774,58 @@ function Assistant({ menu = [] }) {
     const asked = new Set(msgs.filter((m) => m.role === 'user').map((m) => norm(m.content)));
     const chips = (CHIPS[role] ?? CHIPS.default).filter((c) => !asked.has(norm(c)));
     const cards = CARDS[role] ?? [];
-    const fabMood = open ? 'happy' : peek ? 'wave' : sleepy ? 'sleep' : 'idle';
+    const fabMood = react?.where === 'fab' ? react.mood : dragging ? 'surprised' : open ? 'happy' : timer ? 'think' : peek ? 'wave' : sleepy ? 'sleep' : 'idle';
+    const heroMood = react?.where === 'hero' ? react.mood : 'wave';
+    const headMood = react && react.where !== 'fab' ? react.mood : mood;
+    const abilities = hello?.abilities ?? [];
     const canSend = input.trim() && !busy && !typing;
 
     return (
         <>
-            {peek && !open && (
+            {entering && <Entrance first={first} role={role} voice={look.voice} fabRef={fabRef} onDone={() => { setEntering(false); setLanded(Date.now()); play('pop'); }} />}
+
+            {timer && !open && !entering && <TimerPill timer={timer} onCancel={cancelTimer} style={beside(react || peek ? 70 : 12)} />}
+
+            {react?.where === 'fab' && !open && (
+                <div key={react.k} className="mahoo-say" role="status" style={beside(timer ? 64 : 14)}>{react.text}</div>
+            )}
+
+            {peek && !open && !react && (
                 <div className="mahoo-peek" role="status" style={peekAt ?? { visibility: 'hidden' }}>
                     <button type="button" className="mahoo-peek-x" onClick={hidePeek} aria-label="بستنِ پیام">×</button>
                     <button type="button" className="mahoo-peek-t" onClick={() => { hidePeek(); setOpen(true); }}>{(PEEK[role] ?? PEEK.default)(first)}</button>
                 </div>
             )}
 
-            <button ref={fabRef} type="button" onClick={() => { hidePeek(); setOpen((o) => !o); }} title="گفت‌وگو با ماهو، دستیارِ هوشمند"
-                className={`assistant-fab mahoo-fab ${open ? 'is-open' : ''}`} aria-label="دستیار هوشمند" aria-expanded={open}>
-                <Mascot mood={fabMood} size={58} />
+            <button ref={fabRef} type="button" title="گفت‌وگو با ماهو — بکشید تا جابه‌جا شود"
+                onClick={() => {
+                    if (noClick.current) { noClick.current = false; return; }
+                    hidePeek();
+                    if (!open) { poke('panel'); play('pop'); }
+                    setOpen((o) => !o);
+                }}
+                onPointerDown={onFabDown} onPointerMove={onFabMove} onPointerUp={onFabUp} onPointerCancel={onFabUp}
+                onContextMenu={(e) => e.preventDefault()}
+                style={fabStyle}
+                className={`assistant-fab mahoo-fab ${open ? 'is-open' : ''} ${dragging ? 'is-drag' : ''} ${entering ? 'is-hidden' : ''} ${pos && !dragging ? `is-placed on-${pos.side}` : ''}`} aria-label="دستیار هوشمند" aria-expanded={open}>
+                <span key={landed} className="mahoo-fab-in"><Mascot mood={fabMood} size={58} /></span>
                 {!open && <span className="mahoo-fab-dot" aria-hidden="true" />}
             </button>
 
             {open && (
-                <section className={`assistant-panel mahoo-panel ${wide ? 'is-wide' : ''}`} dir="rtl" role="dialog" aria-label="ماهو، دستیارِ هوشمند">
+                <section className={`assistant-panel mahoo-panel ${wide ? 'is-wide' : ''}`} style={panelStyle} dir="rtl" role="dialog" aria-label="ماهو، دستیارِ هوشمند">
                     <header className="mh-head">
-                        <div className="mh-avatar"><Mascot mood={mood} size={46} /></div>
+                        <div className="mh-head-stars" aria-hidden="true"><i /><i /><i /><i /><i /></div>
+                        <button type="button" className="mh-avatar" onClick={() => poke('head')} aria-label="ماهو را لمس کن"><Mascot mood={headMood} size={46} /></button>
                         <div className="mh-id">
                             <b>ماهو <span className="mh-badge">{hello?.ai ? '✨ هوشمند' : 'دستیار'}</span></b>
                             <span className={`mh-status ${busy || typing ? 'live' : ''}`}><i />{status}</span>
                         </div>
+                        {look.sound !== false && (
+                            <button type="button" className="mh-hbtn" onClick={toggleMute} title={mute ? 'روشن کردنِ صدا' : 'بی‌صدا'} aria-label={mute ? 'روشن کردنِ صدا' : 'بی‌صدا'}>
+                                <span aria-hidden="true" style={{ fontSize: 17 }}>{mute ? '🔇' : '🔊'}</span>
+                            </button>
+                        )}
                         <button type="button" className="mh-hbtn" onClick={reset} title="گفت‌وگوی تازه" aria-label="گفت‌وگوی تازه"><Ic n="plus" s={19} /></button>
                         <button type="button" className="mh-hbtn mh-only-desk" onClick={() => setWide((w) => !w)} title={wide ? 'کوچک‌تر' : 'بزرگ‌تر'} aria-label={wide ? 'کوچک‌تر' : 'بزرگ‌تر'}><Ic n={wide ? 'shrink' : 'expand'} s={18} /></button>
                         <button type="button" className="mh-hbtn" onClick={() => setOpen(false)} title="بستن" aria-label="بستن"><Ic n="close" s={19} /></button>
@@ -482,9 +835,13 @@ function Assistant({ menu = [] }) {
                         {!started && (
                             <div className="mh-welcome">
                                 <div className="mh-hero">
-                                    <Mascot mood="wave" size={104} />
+                                    <button type="button" className="mh-hero-me" onClick={() => poke('hero')} aria-label="ماهو را لمس کن">
+                                        <Mascot mood={heroMood} size={112} />
+                                        {react?.where === 'hero' && <span key={react.k} className="mh-hero-say">{react.text}</span>}
+                                    </button>
                                     <h3>سلام {first}!</h3>
                                     <p>{INTRO[role] ?? INTRO.default}</p>
+                                    <small className="mh-hero-tip">👆 به من دست بزن! · می‌توانی دکمه‌ام را بکشی و هر جا بگذاری</small>
                                 </div>
                                 {hello === null && <div className="mh-stats"><div className="mh-stat sk" /><div className="mh-stat sk" /><div className="mh-stat sk" /></div>}
                                 {hello?.stats?.length > 0 && (
@@ -495,6 +852,16 @@ function Assistant({ menu = [] }) {
                                                 <div key={i} className="mh-stat" style={{ animationDelay: `${i * 70}ms` }}>
                                                     <span className="ic">{s.icon}</span><b>{s.value}</b><small>{s.label}</small>
                                                 </div>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                                {abilities.length > 0 && (
+                                    <>
+                                        <div className="mh-label">🛠️ کارهایی که برایت انجام می‌دهم</div>
+                                        <div className="mh-abls">
+                                            {abilities.map((a, i) => (
+                                                <button key={a.key} type="button" className="mh-abl" style={{ animationDelay: `${80 + i * 60}ms` }} onClick={() => tryAbility(a)} title={a.desc}>{a.title}</button>
                                             ))}
                                         </div>
                                     </>
@@ -525,6 +892,7 @@ function Assistant({ menu = [] }) {
                                             : <Rich text={m.content} link={link} onNav={onNav} />}
                                     </div>
                                     {m.diag && <div className="mh-diag">⚠️ {m.diag}</div>}
+                                    {m.action && typing !== m.id && <ActionView m={m} link={link} onConfirm={confirmAct} onCancel={cancelAct} onNav={onNav} />}
                                     {typing !== m.id && (
                                         <div className="mh-tools">
                                             <time>{clock(m.at)}</time>

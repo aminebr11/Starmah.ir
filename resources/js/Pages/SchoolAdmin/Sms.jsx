@@ -119,6 +119,7 @@ function AssistantAccess({ a }) {
                 برنامه‌ی امروزش را می‌گوید؛ برای معلم یک «دستیارِ آموزشی» که وضعیتِ کلاس و پیشنهادِ مأموریت می‌دهد؛
                 برای شما یک «تحلیلگرِ مدرسه».
             </p>
+            <a href="/school/mahoo" className="btn btn-sm" style={{ display: 'inline-block' }}>🌙 تنظیماتِ کاملِ ماهو (کارهایی که انجام می‌دهد، ورودِ نمایشی، صدا) ←</a>
 
             <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
                 <Row k="students" icon="🎓" title="دستیار برای دانش‌آموزان باز باشد"

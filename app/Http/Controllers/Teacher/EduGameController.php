@@ -372,59 +372,18 @@ class EduGameController extends Controller
             'title' => ['nullable', 'string', 'max:150'],
         ], ['questions.required' => 'دستِ‌کم یک سؤال را انتخاب کنید.']);
 
-        $eduGame->load('questions', 'targets');
-        $picked = $eduGame->questions->whereIn('id', array_map('intval', $data['questions']))->values();
-        abort_if($picked->isEmpty(), 422, 'سؤال‌های انتخاب‌شده در این بازی نیستند.');
-
-        // دانش‌آموزانی که دستِ‌کم یکی از این سؤال‌ها را غلط زده‌اند
-        $index = $eduGame->questions->values()->pluck('id')->flip();   // id → شماره‌ی سؤال در بازی
-        $want = $picked->map(fn ($q) => $index[$q->id])->all();
-        $wrongIds = $eduGame->attempts()->get(['student_id', 'progress'])->filter(function ($a) use ($want) {
-            foreach ($want as $i) {
-                $ans = ($a->progress['answers'] ?? [])[$i] ?? null;
-                if ($ans && isset($ans['correct']) && ! $ans['correct']) {
-                    return true;
-                }
-            }
-
-            return false;
-        })->pluck('student_id')->unique()->values();
         $onlyWrong = ($data['audience'] ?? 'wrong') === 'wrong';
-        if ($onlyWrong && $wrongIds->isEmpty()) {
-            return back()->withErrors(['questions' => 'هیچ دانش‌آموزی این سؤال‌ها را اشتباه نزده است.']);
+        $res = app(\App\Services\RemedialGameService::class)->build($eduGame, $data['questions'], $onlyWrong, $data['title'] ?? null);
+        if (is_string($res)) {
+            return back()->withErrors(['questions' => $res]);
         }
-
-        $copy = \Illuminate\Support\Facades\DB::transaction(function () use ($eduGame, $picked, $data, $onlyWrong, $wrongIds) {
-            $copy = $eduGame->replicate(['created_at', 'updated_at']);
-            $copy->title = trim($data['title'] ?? '') ?: mb_substr('🔁 جبرانی: ' . $eduGame->title, 0, 150);
-            $copy->status = 'draft';
-            $copy->publish_at = null;
-            $copy->close_at = null;
-            $copy->save();
-            foreach ($picked as $n => $q) {
-                $nq = $q->replicate(['created_at', 'updated_at']);
-                $nq->edu_game_id = $copy->id;
-                $nq->sort = $n + 1;
-                $nq->save();
-            }
-            if ($onlyWrong) {
-                foreach ($wrongIds as $sid) {
-                    $copy->targets()->create(['student_id' => $sid]);
-                }
-            } else {
-                foreach ($eduGame->targets as $t) {
-                    $copy->targets()->create(['theme_id' => $t->theme_id, 'student_id' => $t->student_id]);
-                }
-            }
-
-            return $copy;
-        });
+        ['game' => $copy, 'questions' => $qn, 'students' => $sn] = $res;
 
         $fa = fn ($n) => \App\Support\Jalali::fa((string) $n);
 
         return redirect()->route('teacher.studio.edit', $copy->id)->with('flash',
-            '🔁 آزمونِ جبرانی با ' . $fa($picked->count()) . ' سؤال ساخته شد'
-            . ($onlyWrong ? ' (فقط برای ' . $fa($wrongIds->count()) . ' دانش‌آموزی که اشتباه زده بودند)' : '')
+            '🔁 آزمونِ جبرانی با ' . $fa($qn) . ' سؤال ساخته شد'
+            . ($onlyWrong ? ' (فقط برای ' . $fa($sn) . ' دانش‌آموزی که اشتباه زده بودند)' : '')
             . '. بازبینی کنید و «انتشار» را بزنید.');
     }
 

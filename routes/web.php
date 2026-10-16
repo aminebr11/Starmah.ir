@@ -129,6 +129,9 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::post('/diagnostics/clear', [\App\Http\Controllers\Admin\DiagnosticsController::class, 'clearCaches'])->name('diagnostics.clear');
     Route::post('/diagnostics/test-save', [\App\Http\Controllers\Admin\DiagnosticsController::class, 'testSave'])->name('diagnostics.test');
     Route::get('/ai', [\App\Http\Controllers\Admin\AiCenterController::class, 'index'])->name('ai');
+    // 🌙 ماهو: کارهای مجاز در کلِ سامانه، ورودِ نمایشی، صدا و خوش‌آمدِ گفتاری
+    Route::get('/mahoo', [\App\Http\Controllers\MahooSettingsController::class, 'show'])->name('mahoo');
+    Route::put('/mahoo', [\App\Http\Controllers\MahooSettingsController::class, 'save'])->name('mahoo.save');
     Route::post('/ai', [\App\Http\Controllers\Admin\AiCenterController::class, 'save'])->name('ai.save');
     Route::post('/ai/tts', [\App\Http\Controllers\Admin\AiCenterController::class, 'tts'])->name('ai.tts');
     Route::post('/ai/test', [\App\Http\Controllers\Admin\AiCenterController::class, 'test'])->middleware('throttle:15,1')->name('ai.test');
@@ -180,6 +183,9 @@ Route::middleware(['auth', 'role:school_admin'])->prefix('school')->name('school
     Route::post('/sms/student/{student}', [\App\Http\Controllers\SmsController::class, 'studentAccess'])->name('sms.student');
     // دسترسیِ دستیارِ هوشمند (در همان صفحه‌ی تنظیماتِ مدرسه)
     Route::post('/assistant-access', [\App\Http\Controllers\SmsController::class, 'assistant'])->name('assistant.access');
+    // 🌙 ماهو: دیده‌شدن، هوش مصنوعی و کارهای مجاز برای معلم‌ها و دانش‌آموزانِ همین مدرسه
+    Route::get('/mahoo', [\App\Http\Controllers\MahooSettingsController::class, 'show'])->name('mahoo');
+    Route::put('/mahoo', [\App\Http\Controllers\MahooSettingsController::class, 'save'])->name('mahoo.save');
 });
 
 /* ---------------- دانش‌آموز ---------------- */
@@ -509,6 +515,10 @@ Route::middleware('auth')->group(function () {
         ->middleware('throttle:20,1')->name('assistant.chat');
     Route::get('/assistant/hello', [\App\Http\Controllers\AssistantController::class, 'hello'])
         ->middleware('throttle:30,1')->name('assistant.hello');
+    Route::post('/assistant/act', [\App\Http\Controllers\AssistantController::class, 'act'])
+        ->middleware('throttle:20,1')->name('assistant.act');
+    Route::post('/assistant/voice', [\App\Http\Controllers\AssistantController::class, 'voice'])
+        ->middleware('throttle:10,1')->name('assistant.voice');
 
     // ارتباطِ محرمانه‌ی معلم/مدیر با والدین (کنترلِ نقش داخلِ کنترلر)
     Route::get('/family-notes', [\App\Http\Controllers\ParentNoteController::class, 'index'])->name('family.notes');

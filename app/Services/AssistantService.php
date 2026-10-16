@@ -65,6 +65,18 @@ class AssistantService
      */
     public function reply(User $user, array $history, string $message): array
     {
+        // درخواستِ روشنِ «یک کار انجام بده» (امتیاز، پیام، تایمر، باز کردنِ صفحه…) — فوری و بی‌هزینه
+        $actions = app(MahooActions::class);
+        try {
+            $direct = $actions->understand($user, $message);
+        } catch (\Throwable $e) {
+            Log::warning('mahoo understand failed: ' . $e->getMessage());
+            $direct = null;
+        }
+        if ($direct) {
+            return $direct + ['mode' => 'action', 'skipped' => []];
+        }
+
         try {
             $context = $this->userContext($user);
         } catch (\Throwable $e) {
@@ -77,7 +89,9 @@ class AssistantService
             try {
                 $reply = $this->llm($this->systemPrompt($user, $context), $history, $message);
                 if (trim($reply) !== '') {
-                    return ['reply' => $reply, 'mode' => 'ai', 'skipped' => $this->skippedParts()];
+                    [$reply, $action] = $actions->fromAi($user, $reply);
+
+                    return array_filter(['reply' => $reply, 'mode' => 'ai', 'action' => $action, 'skipped' => $this->skippedParts()], fn ($v) => $v !== null);
                 }
             } catch (\Throwable $e) {
                 Log::info('assistant AI unavailable, using templates: ' . $e->getMessage());
@@ -291,6 +305,8 @@ class AssistantService
             . "۶) نامِ تو «ماهو» است؛ شخصیتِ ماهِ کوچولوی ستاره‌ماه. گرم و زنده حرف بزن و گاهی یک ایموجیِ به‌جا بگذار.\n"
             . "۷) وقتی به بخشی از سایت اشاره می‌کنی، نامش را دقیقاً همان‌طور که در راهنما آمده داخلِ «» بنویس تا برای کاربر دکمه شود.\n"
             . "۸) برای تیتر از **پررنگ** و برای فهرست از «• » استفاده کن؛ جدول و کد ننویس.\n\n"
+            . "۹) خلاق و بامزه باش: برای بچه‌ها گاهی یک تشبیهِ کوچک، چیستان یا تشویقِ گرم بگذار؛ ولی کوتاه.\n\n"
+            . (($ag = MahooActions::aiGuide($user)) !== '' ? "=== کارها ===\n{$ag}\n\n" : '')
             . "=== راهنمای سایت ===\n{$guide}\n\n=== اطلاعاتِ کاربر ===\n{$context}";
     }
 

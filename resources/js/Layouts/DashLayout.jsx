@@ -266,6 +266,7 @@ export const adminMenu = [
     { key: 'online', label: 'کلاسِ آنلاین', icon: '🎥', href: '/admin/online' },
     { key: 'visits', label: 'گزارشِ بازدیدها', icon: '👁️', href: '/admin/visits' },
     { key: 'ai', label: 'مرکزِ هوش مصنوعی', icon: '🤖', href: '/admin/ai' },
+    { key: 'mahoo', label: 'ماهو (دستیار)', icon: '🌙', href: '/admin/mahoo' },
     { key: 'users', label: 'کاربران و شماره‌ها', icon: '👥', href: '/admin/users' },
     { key: 'sms', label: 'سامانه‌ی پیامک', icon: '📩', href: '/admin/sms' },
     { key: 'integrations', label: 'درگاه‌ها (پیامک/پرداخت)', icon: '🔌', href: '/admin/integrations' },
@@ -287,6 +288,7 @@ export const schoolMenu = [
     { key: 'bank', label: 'بانک سؤالات', icon: '🗄️', href: '/question-bank' },
     { key: 'examreports', label: 'گزارش آزمون‌ها', icon: '📊', href: '/school/exam-reports' },
     { key: 'xprules', label: 'مدیریتِ امتیازها (XP)', icon: '⚡', href: '/school/xp-rules' },
+    { key: 'mahoo', label: 'ماهو (دستیار)', icon: '🌙', href: '/school/mahoo' },
 
     { divider: 'ارتباط و گزارش' },
     { key: 'familynotes', label: 'پیامِ محرمانه به والدین', icon: '🔐', href: '/family-notes' },

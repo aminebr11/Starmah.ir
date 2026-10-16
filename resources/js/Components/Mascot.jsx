@@ -6,6 +6,7 @@ import '@/../css/assistant.css';
  * که منگوله‌اش یک ستاره است (ماه + ستاره + مدرسه).
  *
  * حالت‌ها (mood): idle | think | talk | happy | wave | sleep
+ *                 giggle (قلقلک) | surprised | dizzy | love | wink | cheer (هورا)
  * نگاه: با متغیرهای CSS «--lx/--ly» مردمک‌ها جابه‌جا می‌شوند (دنبال‌کردنِ نشانگر).
  * همه‌ی حرکت‌ها CSS است و با «کاهشِ حرکت»ِ سیستم خاموش می‌شود.
  */
@@ -40,7 +41,7 @@ export default function Mascot({ mood = 'idle', size = 56, className = '', style
                 <circle className="mh-aura" cx="60" cy="70" r="50" fill={`url(#${glow})`} />
 
                 {/* دست‌ها */}
-                <path className="mh-arm mh-arm-l" d="M25 80 q-11 1 -13 -9" />
+                <g className="mh-arm-lg"><path className="mh-arm mh-arm-l" d="M25 80 q-11 1 -13 -9" /></g>
                 <g className="mh-arm-r"><path className="mh-arm" d="M95 80 q11 1 13 -9" /></g>
 
                 {/* بدن: ماه با دهانه‌ها و برق */}
@@ -69,6 +70,26 @@ export default function Mascot({ mood = 'idle', size = 56, className = '', style
                     <path d="M40 71 q7 6 14 0" />
                     <path d="M66 71 q7 6 14 0" />
                 </g>
+                <g className="mh-surprised-eyes">
+                    <circle cx="47" cy="70" r="10.5" fill="#fff" />
+                    <circle cx="73" cy="70" r="10.5" fill="#fff" />
+                    <circle cx="47" cy="71" r="3.6" fill="#2a1b5e" />
+                    <circle cx="73" cy="71" r="3.6" fill="#2a1b5e" />
+                </g>
+                <g className="mh-dizzy-eyes mh-line">
+                    <path d="M47 71 m-6 0 a6 6 0 1 0 6 -6 a4 4 0 1 0 -4 4 a2 2 0 1 0 2 -2" />
+                    <path d="M73 71 m-6 0 a6 6 0 1 0 6 -6 a4 4 0 1 0 -4 4 a2 2 0 1 0 2 -2" />
+                </g>
+                <g className="mh-love-eyes">
+                    <path d="M47 79 l-8 -8 a4.6 4.6 0 0 1 8 -5 a4.6 4.6 0 0 1 8 5 z" fill="#ff4f7b" />
+                    <path d="M73 79 l-8 -8 a4.6 4.6 0 0 1 8 -5 a4.6 4.6 0 0 1 8 5 z" fill="#ff4f7b" />
+                </g>
+                <g className="mh-wink-eyes">
+                    <path className="mh-wl" d="M40 72 q7 -7 14 0" />
+                    <ellipse cx="73" cy="71" rx="8.6" ry="10" fill="#fff" />
+                    <circle cx="74" cy="73" r="5.3" fill="#2a1b5e" />
+                    <circle cx="76" cy="70.6" r="1.9" fill="#fff" />
+                </g>
 
                 {/* گونه‌ها و دهان */}
                 <ellipse className="mh-cheek" cx="36" cy="85" rx="6.2" ry="3.6" />
@@ -79,6 +100,8 @@ export default function Mascot({ mood = 'idle', size = 56, className = '', style
                     <ellipse cx="60" cy="91.6" rx="3.4" ry="1.8" fill="#ff8fa3" />
                 </g>
                 <circle className="mh-o" cx="62" cy="89" r="2.8" fill="#7a2e0e" />
+                <path className="mh-laugh" d="M49 84 q11 0 22 0 q-2 12 -11 12 q-9 0 -11 -12z" fill="#7a2e0e" />
+                <path className="mh-laugh mh-tongue" d="M54 92 q6 -4 12 0 q-2 4 -6 4 q-4 0 -6 -4z" fill="#ff8fa3" />
 
                 {/* کلاهِ فارغ‌التحصیلی با منگوله‌ی ستاره */}
                 <g transform="rotate(-9 60 34)">
@@ -100,6 +123,10 @@ export default function Mascot({ mood = 'idle', size = 56, className = '', style
                     <circle cx="98" cy="44" r="3" />
                     <circle cx="105" cy="33" r="4" />
                     <circle cx="112" cy="20" r="5" />
+                </g>
+                <g className="mh-hearts">
+                    <path d="M100 30 l-5 -5 a2.9 2.9 0 0 1 5 -3 a2.9 2.9 0 0 1 5 3 z" />
+                    <path d="M16 46 l-4 -4 a2.3 2.3 0 0 1 4 -2.4 a2.3 2.3 0 0 1 4 2.4 z" />
                 </g>
                 <g className="mh-z">
                     <text x="92" y="36">z</text>

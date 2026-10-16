@@ -61,6 +61,42 @@ class AssistantController extends Controller
         return response()->json($result);
     }
 
+    /** «✅ انجام بده»: کاری که ماهو پیشنهاد کرده بود، بعد از تأییدِ خودِ کاربر. */
+    public function act(Request $request, \App\Services\MahooActions $actions): JsonResponse
+    {
+        $user = $request->user();
+        if (! AssistantAccess::visible($user)) {
+            return response()->json(['ok' => false, 'reply' => 'دستیار برای حسابِ شما بسته است.'], 403);
+        }
+        $data = $request->validate(['token' => ['required', 'string', 'max:4000']]);
+        try {
+            $res = $actions->execute($user, $data['token']);
+        } catch (\Throwable $e) {
+            Log::warning('mahoo act failed: ' . get_class($e) . ' — ' . $e->getMessage());
+            $res = ['ok' => false, 'reply' => 'انجامِ این کار نشد؛ کمی بعد دوباره امتحان کنید.'];
+        }
+
+        return response()->json($res);
+    }
+
+    /** خوش‌آمدِ گفتاری (اگر سرویسِ صدا روشن باشد): فایلِ صدای «سلام <نام>!» */
+    public function voice(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (! AssistantAccess::visible($user) || ! (\App\Support\MahooAbilities::look($user)['voice'] ?? false) || ! \App\Services\SpeechService::available()) {
+            return response()->json(['url' => null]);
+        }
+        // متن را خودِ سرور می‌سازد (فقط خوش‌آمد)، تا این مسیر برای ساختنِ صدای دلخواه به کار نرود
+        $words = preg_split('/\s+/u', trim((string) $user->name)) ?: [];
+        $first = preg_match('/^(خانم|آقای|آقا|دکتر|استاد)$/u', $words[0] ?? '') ? implode(' ', array_slice($words, 0, 2)) : ($words[0] ?? '');
+        $text = $user->isStudent()
+            ? "سلام {$first}! من ماهو هستم. خوش اومدی! امروز با هم کلی چیز یاد می‌گیریم."
+            : "سلام {$first}، خوش آمدید! من ماهو هستم، هر کاری داشتید در خدمتم.";
+        $url = rescue(fn () => app(\App\Services\SpeechService::class)->urlFor($text, $user->isStudent() ? 'kid' : 'reading'), null, false);
+
+        return response()->json(['url' => $url]);
+    }
+
     /** صفحه‌ی خوش‌آمد: نامِ کوچک، «نمای من» و اینکه پاسخ‌ها زنده (AI) است یا سریع. */
     public function hello(Request $request, AssistantService $assistant): JsonResponse
     {
@@ -83,6 +119,8 @@ class AssistantController extends Controller
             'first' => trim(explode(' ', trim((string) $user->name))[0] ?? ''),
             'stats' => $stats,
             'ai'    => app(\App\Services\AiContentService::class)->isConfigured() && AssistantAccess::aiAllowed($user),
+            // کارهایی که ماهو برای این کاربر انجام می‌دهد (به انتخابِ ادمینِ کل و مدیرِ مدرسه)
+            'abilities' => \App\Support\MahooAbilities::forUser($user),
         ]);
     }
 }

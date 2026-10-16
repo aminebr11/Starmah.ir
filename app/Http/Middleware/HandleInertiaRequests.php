@@ -65,6 +65,8 @@ class HandleInertiaRequests extends Middleware
             'smartLab' => fn () => $user ? \App\Support\SmartLab::enabledFor($user) : false,
             // آیا حبابِ دستیار برای این کاربر نمایش داده شود؟ (تصمیمِ مدیرِ مدرسه)
             'assistantOn' => fn () => \App\Support\AssistantAccess::visible($user),
+            // ظاهرِ ماهو: ورودِ نمایشی، صدا و خوش‌آمدِ گفتاری (ادمینِ کل + مدیرِ مدرسه)
+            'mahooLook' => fn () => $user ? rescue(fn () => \App\Support\MahooAbilities::look($user), \App\Support\MahooAbilities::LOOK, false) : null,
             // پیامِ خوانده‌نشده‌ی «بخشِ والدین» (نشان روی منوی دانش‌آموز)
             'familyNew' => fn () => ($user && $user->isStudent() && \App\Support\DbSchema::hasTable('parent_notes'))
                 ? \App\Models\ParentNote::where('student_id', $user->id)->where('from_parent', false)->whereNull('read_at')->count()
