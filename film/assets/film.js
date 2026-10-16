@@ -917,18 +917,19 @@ export async function createFilm({ canvas, width, height, layout = "land", sampl
       finalGlow.material.opacity = 0.85 + 0.15 * Math.sin(t * 1.5);
       finalGold.material.opacity = 0.7 + 0.3 * Math.sin(t * 2.1);
       skyMat.color.setScalar(0.55);
-      if (t >= 50.5) {
-        const inn = easeOutBack(win(t, 50.5, 51.35));
-        const wink = t > 51.55 && t < 51.95;
+      const D8 = VERT ? 2.2 : 0; // time shift of the finale gesture for the Reels cut
+      if (t >= 50.5 + D8) {
+        const inn = easeOutBack(win(t, 50.5 + D8, 51.35 + D8));
+        const wink = t > 51.55 + D8 && t < 51.95 + D8;
         mVis = true; sVis = true;
-        const mx = VERT ? -1.9 : -5.1, sx = VERT ? 2.0 : 5.15, yy = VERT ? -2.55 : 0.15;
+        const mx = VERT ? -2.15 : -5.1, sx = VERT ? 2.15 : 5.15, yy = VERT ? -3.5 : 0.15;
         mP = FINAL.clone().add(V(lerp(mx - 4, mx, inn), yy + Math.sin(t * 1.2) * 0.08, 0.6));
-        mS = (VERT ? 0.62 : 0.95) * Math.max(0.001, inn); mR = [0, 0.35, Math.sin(t * 1.1) * 0.05];
+        mS = (VERT ? 0.56 : 0.95) * Math.max(0.001, inn); mR = [0, 0.35, Math.sin(t * 1.1) * 0.05];
         mBl = 0; mBr = wink ? 1 : 0; mMouth = wink ? 0.85 : 0.7; mLook = [1, 0];
-        const wave = t > 51.6 && t < 53.2 ? Math.sin((t - 51.6) * 11) * 0.28 * (1 - win(t, 52.7, 53.2)) : 0;
+        const wave = t > 51.6 + D8 && t < 53.2 + D8 * 0.75 ? Math.sin((t - 51.6 - D8) * 11) * 0.28 * (1 - win(t, 52.7 + D8 * 0.75, 53.2 + D8 * 0.75)) : 0;
         sP = FINAL.clone().add(V(lerp(sx + 4, sx, inn), yy + 0.3 + Math.sin(t * 1.6) * 0.1, 0.6));
-        sS = (VERT ? 0.42 : 0.6) * Math.max(0.001, inn); sR = [0, -0.35, wave]; sSq = 1 + Math.abs(wave) * 0.2;
-        sMouth = 0.85; sBl = sBr = t > 51.6 && t < 52.2 ? 1 : 0; sLook = [-1, 0];
+        sS = (VERT ? 0.38 : 0.6) * Math.max(0.001, inn); sR = [0, -0.35, wave]; sSq = 1 + Math.abs(wave) * 0.2;
+        sMouth = 0.85; sBl = sBr = t > 51.6 + D8 && t < 52.2 + D8 ? 1 : 0; sLook = [-1, 0];
       }
     }
 
