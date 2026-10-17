@@ -263,6 +263,37 @@ class LiveContestTest extends TestCase
         $this->assertSame(['question', 2], [$c->fresh()->phase, $c->fresh()->current]);   // سؤالِ ۳ دیده می‌شود، ۴ نه
     }
 
+    public function test_auto_mode_moves_one_question_at_a_time_even_with_late_board_commands(): void
+    {
+        [$teacher, $classroom, $student] = $this->make(['mode' => 'auto', 'starts_at' => now()->addMinute()->format('Y-m-d H:i:s'), 'questions' => array_merge($this->questions(), [
+            ['prompt' => '۳ × ۳ = ?', 'choices' => ['۹', '۶'], 'answer' => 0],
+            ['prompt' => '۱۰ − ۴ = ?', 'choices' => ['۵', '۶'], 'answer' => 1],
+        ])]);
+        $c = LiveContest::firstOrFail();
+        $poll = fn () => $this->actingAs($student)->getJson(route('live.poll', $c))->json();
+        $go = fn (array $b) => $this->actingAs($teacher)->postJson(route('teacher.live.go', $c), $b)->json();
+        $this->travel(61)->seconds();
+        $this->assertSame('question', $poll()['phase']);            // سرِ ساعت خودش شروع شد
+        $this->travel(4)->seconds();
+        // همه جواب دادند → سرور خودش جواب را نشان می‌دهد
+        $this->actingAs($student)->postJson(route('live.answer', $c), ['q' => 0, 'choice' => 1])->assertOk();
+        $this->assertSame('reveal', $poll()['phase']);
+        // «نمایشِ جوابِ» خودکارِ تخته که دیر رسید: اثری ندارد
+        $go(['action' => 'reveal', 'q' => 0, 'from' => 'question']);
+        $this->assertSame(['reveal', 0], [$c->fresh()->phase, $c->fresh()->current]);
+        // ۷ ثانیه بعد سرور خودش سؤالِ بعد را می‌آورد؛ «بعدیِ» دیررسیده‌ی تخته برای سؤالِ قبل اثری ندارد
+        $this->travel(8)->seconds();
+        $this->assertSame(1, $poll()['current']);
+        $go(['action' => 'next', 'q' => 0, 'from' => 'reveal']);
+        $go(['action' => 'reveal', 'q' => 0, 'from' => 'question']);
+        $this->assertSame(['question', 1], [$c->fresh()->phase, $c->fresh()->current]);
+        // حتی اگر مدتی هیچ‌کس وضعیت نپرسد، با هر پرسش فقط یک قدم جلو می‌رود (نه چند سؤال یک‌جا)
+        $this->travel(60)->seconds();
+        $this->assertSame(['reveal', 1], [$poll()['phase'], $c->fresh()->current]);
+        $this->travel(8)->seconds();
+        $this->assertSame(['question', 2], [$poll()['phase'], $c->fresh()->current]);
+    }
+
     private function clientUpload(string $name, string $mime): \Illuminate\Http\UploadedFile
     {
         $tmp = tempnam(sys_get_temp_dir(), 'up');
