@@ -22,6 +22,7 @@ export default function LivePlay({ contest }) {
     const [now, setNow] = useState(performance.now());
     const [picked, setPicked] = useState({});
     const [msg, setMsg] = useState(null);
+    const [missed, setMissed] = useState(null);   // «سؤالِ … را از دست دادی» پس از قطعیِ اینترنت
     const [tip, setTip] = useState(0);
     const got = useRef({ at: 0, remaining: 0, lead: 0, starts: null });
     // 🎵 آهنگِ مسابقه (اگر معلم گذاشته): خودکار پخش، هنگامِ سؤال آرام‌تر، با دکمه‌ی قطع که در گوشی می‌ماند
@@ -33,13 +34,20 @@ export default function LivePlay({ contest }) {
 
     const load = useCallback(async () => {
         try {
-            const { data } = await axios.get(route('live.poll', contest.id));
+            // بی‌مهلت، یک درخواستِ گیرکرده روی اینترنتِ ضعیف همه‌ی به‌روزرسانی‌ها را متوقف می‌کرد
+            // و گوشی سؤالِ قدیمی را نشان می‌داد تا یک‌باره چند سؤال جلو بپرد
+            const { data } = await axios.get(route('live.poll', contest.id), { timeout: 5000 });
             got.current = { at: performance.now(), remaining: data.remaining, lead: data.lead || 0, starts: data.starts_in, ends: data.ends_in };
             setTrackId(data.music || null);
             setS((old) => {
                 // لرزشِ گوشی: درست/نادرست
                 if (data.phase === 'reveal' && old?.phase !== 'reveal' && data.mine) buzz(data.mine.correct ? [40, 60, 40] : 160);
                 if (data.phase === 'question' && (old?.phase !== 'question' || old?.current !== data.current)) buzz(25);
+                // گوشی به‌خاطرِ اینترنت عقب مانده بود و یک یا چند سؤال گذشت
+                if (old && old.current >= 0 && ['question', 'reveal'].includes(data.phase) && data.current > old.current + 1) {
+                    const from = old.current + 2; const to = data.current;
+                    setMissed(from === to ? `سؤالِ ${fa(from)}` : `سؤال‌های ${fa(from)} تا ${fa(to)}`);
+                }
                 return data;
             });
             setMsg(null);
@@ -98,12 +106,16 @@ export default function LivePlay({ contest }) {
 
     if (s && (last.current.phase !== s.phase || last.current.q !== s.current)) last.current = { phase: s.phase, q: s.current };
 
+    useEffect(() => { if (!missed) return undefined; const t = setTimeout(() => setMissed(null), 6000); return () => clearTimeout(t); }, [missed]);
+    // اگر چند ثانیه هیچ پاسخی از سرور نرسیده، صفحه‌ی گوشی ممکن است کهنه باشد
+    const stale = s && ['question', 'reveal'].includes(s.phase) && since > 4500;
+
     const answer = async (k) => {
         if (!s || s.phase !== 'question' || leadMs > 0 || picked[s.current] != null || s.mine) return;
         setPicked((p) => ({ ...p, [s.current]: k }));
         buzz(30);
         try {
-            await axios.post(route('live.answer', contest.id), { q: s.current, choice: k });
+            await axios.post(route('live.answer', contest.id), { q: s.current, choice: k }, { timeout: 8000 });
         } catch (e) {
             setPicked((p) => ({ ...p, [s.current]: undefined }));
             setMsg(e?.response?.data?.message || 'جواب نرسید؛ دوباره بزن.');
@@ -129,6 +141,8 @@ export default function LivePlay({ contest }) {
                 {s?.me && <span className="lvp-score"><small>امتیاز</small>{fa(s.me.score)}</span>}
             </header>
             {msg && <div className="lvp-msg">{msg}</div>}
+            {stale && !msg && <div className="lvp-msg lvp-weak">📶 اینترنتِ تو ضعیف است؛ صفحه ممکن است عقب باشد… در حالِ وصل شدن</div>}
+            {missed && <div className="lvp-msg lvp-missed">📶 به‌خاطرِ اینترنت، {missed} را از دست دادی. اشکالی ندارد، ادامه بده! 💪</div>}
             {trackId && <audio key={trackId} ref={music} src={route('live.music', contest.id) + '?t=' + trackId} loop preload="auto" playsInline
                 autoPlay={!muted} onPlay={() => setBlocked(false)} onCanPlay={() => { if (!muted && music.current?.paused) playMusic(); }} />}
 

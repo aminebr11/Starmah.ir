@@ -299,3 +299,5 @@
 .lv-hstats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .lv-hstats span { background: rgba(255,255,255,.14); border-radius: 10px; padding: 1px 8px; font-size: 12px; font-weight: 700; }
 
+.lvp-msg.lvp-weak { background: #f59e0b; color: #2b1d00; }
+.lvp-msg.lvp-missed { background: #3d7bf0; }

@@ -41,7 +41,12 @@ export default function LiveHost({ contest }) {
     const autoRevealed = useRef(-1);
     const lastTick = useRef(-1);
 
+    const now = useRef(null);          // آخرین وضعیتِ سرور (برای فرمان‌ها؛ نه وضعیتِ کهنه‌ی رندر)
+    const cool = useRef(0);            // بعد از هر فرمان، چند لحظه فرمانِ دوم پذیرفته نشود (دو بار زدن)
+    const autoTimer = useRef(null);
+
     const apply = useCallback((data) => {
+        now.current = data;
         got.current = { at: performance.now(), remaining: data.remaining, lead: data.lead || 0, ends: data.ends_in };
         setS((old) => {
             if (data.phase === 'end' && old?.phase !== 'end') [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => beep(sound, f, 220, 'triangle'), i * 160));
@@ -52,13 +57,19 @@ export default function LiveHost({ contest }) {
     }, [sound]);
 
     const load = useCallback(async () => {
-        try { apply((await axios.get(route('teacher.live.state', contest.id))).data); } catch { setErr('اتصال قطع است؛ دوباره تلاش می‌شود…'); }
+        try { apply((await axios.get(route('teacher.live.state', contest.id), { timeout: 8000 })).data); } catch { setErr('اتصال قطع است؛ دوباره تلاش می‌شود…'); }
     }, [contest.id, apply]);
 
-    const go = async (action) => {
-        if (busy.current) return;
+    const go = async (action, expect = null) => {
+        if (busy.current || (action !== 'end' && action !== 'reset' && Date.now() < cool.current)) return;
         busy.current = true;
-        try { apply((await axios.post(route('teacher.live.go', contest.id), { action })).data); } catch { setErr('فرمان نرسید؛ دوباره بزنید.'); } finally { busy.current = false; }
+        const st = expect ?? now.current;
+        // سؤال و مرحله‌ای که الان روی تخته است همراهِ فرمان می‌رود؛ سرور فرمانِ کهنه را اجرا نمی‌کند
+        const body = { action, ...(st && ['reveal', 'next'].includes(action) ? { q: st.current, from: st.phase } : {}) };
+        try {
+            apply((await axios.post(route('teacher.live.go', contest.id), body, { timeout: 10000 })).data);
+            cool.current = Date.now() + 700;
+        } catch { setErr('فرمان نرسید؛ دوباره بزنید.'); } finally { busy.current = false; }
     };
 
     const playMusic = useCallback(() => {
@@ -114,15 +125,22 @@ export default function LiveHost({ contest }) {
     useEffect(() => {
         if (s?.phase === 'question' && !s.lead && s.online > 0 && s.answered >= s.online && autoRevealed.current !== s.current) {
             autoRevealed.current = s.current;
-            setTimeout(() => go('reveal'), 900);
+            const q = s.current;
+            clearTimeout(autoTimer.current);
+            // فقط اگر هنوز همان سؤال روی تخته است (معلم در این فاصله خودش جلو نرفته باشد)
+            autoTimer.current = setTimeout(() => {
+                const cur = now.current;
+                if (cur?.phase === 'question' && cur.current === q) go('reveal', { current: q, phase: 'question' });
+            }, 900);
         }
     }, [s?.phase, s?.answered, s?.online, s?.current]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => () => clearTimeout(autoTimer.current), []);
 
     const primary = !s ? null : s.phase === 'lobby' || s.phase === 'draft' ? ['start', '▶ شروعِ مسابقه'] : s.phase === 'question' ? ['reveal', '👀 نمایشِ جواب']
         : s.phase === 'reveal' ? ['next', s.current + 1 >= s.total ? '🏆 پایان و سکوی قهرمانی' : 'سؤالِ بعد ←'] : null;
 
     useEffect(() => {
-        const onKey = (e) => { if ((e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowLeft') && primary) { e.preventDefault(); go(primary[0]); } };
+        const onKey = (e) => { if ((e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowLeft') && primary && !e.repeat && !e.target?.closest?.('button,input,textarea,select')) { e.preventDefault(); go(primary[0]); } };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
     }); // eslint-disable-line react-hooks/exhaustive-deps

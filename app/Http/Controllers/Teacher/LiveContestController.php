@@ -268,11 +268,21 @@ class LiveContestController extends Controller
     public function go(Request $request, LiveContest $contest): JsonResponse
     {
         $this->mine($request, $contest);
-        $action = $request->validate(['action' => ['required', 'in:start,reveal,next,end,reset']])['action'];
+        $data = $request->validate(['action' => ['required', 'in:start,reveal,next,end,reset'], 'q' => ['nullable', 'integer'], 'from' => ['nullable', 'string', 'max:10']]);
+        $action = $data['action'];
         $contest->tick();
+        // فرمانِ کهنه یا تکراری (دو بار زدن، شبکه‌ی کُند، «نمایشِ جوابِ» خودکاری که دیر رسید) نادیده گرفته شود:
+        // فرمان فقط روی همان سؤال و مرحله‌ای اثر دارد که تخته‌ی معلم موقعِ زدنِ دکمه می‌دید.
+        // پیش از این، دو «بعدی» پشتِ سرِ هم یک سؤال را برای بچه‌ها رد می‌کرد (سؤالِ ۲ ← ۴).
+        $stale = array_key_exists('q', $data) && $data['q'] !== null && ((int) $data['q'] !== (int) $contest->current
+            || (! empty($data['from']) && $data['from'] !== $contest->phase));
+        if ($stale && in_array($action, ['reveal', 'next'], true)) {
+            return $this->state($request, $contest->fresh());
+        }
         match ($action) {
             'start' => in_array($contest->phase, ['lobby', 'draft'], true) && $contest->total() ? $contest->moveTo('question', 0) : null,
-            'reveal' => $contest->phase === 'question' ? $contest->moveTo('reveal') : null,
+            // در شمارشِ «۳، ۲، ۱» هنوز کسی جواب نداده؛ نمایشِ جواب معنا ندارد
+            'reveal' => $contest->phase === 'question' && $contest->lead() <= 300 ? $contest->moveTo('reveal') : null,
             'next' => $contest->phase === 'reveal' ? $contest->next() : null,
             'end' => $contest->phase !== 'end' ? $contest->moveTo('end') : null,
             'reset' => $this->reset($contest),

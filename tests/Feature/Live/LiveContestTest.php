@@ -233,6 +233,36 @@ class LiveContestTest extends TestCase
     }
 
     /** فایلی مثلِ آپلودِ واقعیِ مرورگر: نام و نوعی که خودِ کاربر/مرورگر گزارش داده. */
+    public function test_duplicate_or_stale_board_commands_never_skip_a_question(): void
+    {
+        [$teacher, $classroom, $student] = $this->make(['questions' => array_merge($this->questions(), [
+            ['prompt' => '۳ × ۳ = ?', 'choices' => ['۹', '۶'], 'answer' => 0],
+            ['prompt' => '۱۰ − ۴ = ?', 'choices' => ['۵', '۶'], 'answer' => 1],
+        ])]);
+        $c = \App\Models\LiveContest::firstOrFail();
+        $go = fn (array $body) => $this->actingAs($teacher)->postJson(route('teacher.live.go', $c), $body)->json();
+        $go(['action' => 'start']);
+        $this->travel(4)->seconds();
+        $go(['action' => 'reveal', 'q' => 0, 'from' => 'question']);
+        $this->assertSame(['reveal', 0], [$c->fresh()->phase, $c->fresh()->current]);
+
+        // «بعدی» دو بار (دوبار زدن / شبکه‌ی کُند) → فقط یک سؤال جلو
+        $go(['action' => 'next', 'q' => 0, 'from' => 'reveal']);
+        $go(['action' => 'next', 'q' => 0, 'from' => 'reveal']);
+        $this->assertSame(['question', 1], [$c->fresh()->phase, $c->fresh()->current]);
+
+        // «نمایشِ جوابِ» خودکاری که دیر رسید (برای سؤالِ قبلی) روی سؤالِ تازه اثر ندارد،
+        // و در شمارشِ «۳، ۲، ۱» هم جواب نمایش داده نمی‌شود
+        $go(['action' => 'reveal', 'q' => 0, 'from' => 'question']);
+        $go(['action' => 'reveal']);
+        $this->assertSame(['question', 1], [$c->fresh()->phase, $c->fresh()->current]);
+
+        $this->travel(4)->seconds();
+        $go(['action' => 'reveal', 'q' => 1, 'from' => 'question']);
+        $go(['action' => 'next', 'q' => 1, 'from' => 'reveal']);
+        $this->assertSame(['question', 2], [$c->fresh()->phase, $c->fresh()->current]);   // سؤالِ ۳ دیده می‌شود، ۴ نه
+    }
+
     private function clientUpload(string $name, string $mime): \Illuminate\Http\UploadedFile
     {
         $tmp = tempnam(sys_get_temp_dir(), 'up');
