@@ -88,7 +88,7 @@ class AudioTask extends Model
 
     /**
      * متن → جمله‌ها فقط سرِ نقطه/علامت (برای صدای پیوسته؛ ویرگول شکسته نمی‌شود و خودِ صدا مکثِ کوتاهش را دارد).
-     * فاصله‌ی پیش از نقطه («آن‌ها .») برداشته می‌شود و تکه‌های یک‌دو کلمه‌ای به جمله‌ی کنارشان می‌چسبند،
+     * فاصله‌ی پیش از نقطه («آن‌ها .») برداشته می‌شود و تکه‌های تک‌کلمه‌ای به جمله‌ی کنارشان می‌چسبند،
      * تا «آن‌ها .» یک جمله‌ی جدا (و یک صدای بی‌معنا) نشود.
      */
     public static function speechSentences(string $text): array
@@ -100,13 +100,13 @@ class AudioTask extends Model
         $words = fn ($p) => count(preg_split('/\s+/u', $p) ?: []);
         $out = [];
         foreach ($parts as $p) {
-            if ($out && $words($p) <= 2 && $words(end($out)) < 25) {
+            if ($out && $words($p) <= 1 && $words(end($out)) < 25) {
                 $out[count($out) - 1] .= ' ' . $p;
             } else {
                 $out[] = $p;
             }
         }
-        if (count($out) > 1 && $words($out[0]) <= 2) {
+        if (count($out) > 1 && $words($out[0]) <= 1) {
             $out[1] = $out[0] . ' ' . $out[1];
             array_shift($out);
         }

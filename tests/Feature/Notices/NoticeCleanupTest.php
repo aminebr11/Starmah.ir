@@ -96,6 +96,9 @@ class NoticeCleanupTest extends TestCase
         ])->assertSessionHasNoErrors();
 
         $task = AudioTask::firstOrFail();
+        // صدا در صفحه‌ی تکلیف، قدم‌به‌قدم ساخته می‌شود
+        $this->actingAs($teacher)->postJson(route('teacher.audio.build', $task))->assertJsonPath('done', true);
+        $task->refresh();
         $this->assertNotNull($task->audio_path);
         $this->assertStringEndsWith('.wav', $task->audio_path);
         Http::assertSentCount(3); // سه جمله (ویرگول جمله را نمی‌شکند)
