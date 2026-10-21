@@ -1,5 +1,6 @@
-import { Link, usePage } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import ThemedDash from '@/Layouts/ThemedDash';
+import StartLink from '@/Components/StartGate';
 import { useHighlightFromQuery } from '@/lib/highlight';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
@@ -113,7 +114,10 @@ function Card({ g, i, locked }) {
         </>
     );
     if (locked) return <div className="gw-card" data-hl={g.id} style={{ opacity: .72 }}>{inner}</div>;
-    return <Link href={route('gameworld.play', g.id)} data-hl={g.id} className={`gw-card ${g.status === 'new' ? 'is-new' : ''}`}>{inner}</Link>;
+    return (
+        <StartLink href={route('gameworld.play', g.id)} data-hl={g.id} kind="game" title={g.title} count={g.questions}
+            resume={g.status === 'in_progress'} practice={g.status === 'done'} className={`gw-card ${g.status === 'new' ? 'is-new' : ''}`}>{inner}</StartLink>
+    );
 }
 
 function Chip({ icon, v, l }) {

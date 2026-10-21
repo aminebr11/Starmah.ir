@@ -76,7 +76,8 @@ class AudioTaskController extends Controller
             'kind' => ['required', 'in:dictation,reading'],
             'title' => ['required', 'string', 'max:150'],
             'classroom_id' => ['required', 'integer'],
-            'source' => ['required', 'in:voice,upload,tts'],
+            // none: فقط متن (روخوانی بدونِ صدای الگو)
+            'source' => ['required', 'in:voice,upload,tts,none'],
             'text' => ['nullable', 'string', 'max:4000'],
             'audio' => ['nullable', 'file', 'max:20480'],
             'score_type' => ['required', 'in:descriptive,numeric'],
@@ -100,6 +101,9 @@ class AudioTaskController extends Controller
         if ($data['kind'] === 'dictation' && ! AudioTask::dictationAllowed($room->grade)) {
             throw ValidationException::withMessages(['classroom_id' => 'پایه‌ی «' . ($room->grade ?: '—') . '» درسِ املا ندارد؛ برای این کلاس «روخوانی» بسازید.']);
         }
+        if ($data['source'] === 'none' && $data['kind'] === 'dictation') {
+            throw ValidationException::withMessages(['source' => 'املا بدونِ صدا نمی‌شود؛ صدای خودتان، فایل یا هوش مصنوعی را انتخاب کنید.']);
+        }
         $text = trim((string) ($data['text'] ?? ''));
         if (($data['source'] === 'tts' || $data['kind'] === 'reading') && $text === '') {
             throw ValidationException::withMessages(['text' => $data['kind'] === 'reading' ? 'متنِ روخوانی را بنویسید.' : 'متنِ املا را بنویسید تا سیستم بخواند.']);
@@ -109,7 +113,7 @@ class AudioTaskController extends Controller
         }
 
         $audioPath = null;
-        if ($request->hasFile('audio')) {
+        if ($data['source'] !== 'none' && $request->hasFile('audio')) {
             if (! $this->audioExtension($request->file('audio'), self::AUDIO_EXT)) {
                 throw ValidationException::withMessages(['audio' => 'فرمتِ صوتی معتبر نیست (mp3، m4a، wav، ogg، webm).']);
             }
@@ -189,7 +193,7 @@ class AudioTaskController extends Controller
             'text' => ['nullable', 'string', 'max:4000'],
             'pace' => ['nullable', 'in:short,normal,long'],
             'due_at' => ['nullable', 'date'],
-            'source' => ['nullable', 'in:tts,voice,upload'],
+            'source' => ['nullable', 'in:tts,voice,upload,none'],
             'score_type' => ['nullable', 'in:descriptive,numeric'],
             'penalty' => ['nullable', 'numeric', 'min:0', 'max:5'],
         ], ['title.required' => 'عنوان را بنویسید.']);
@@ -198,7 +202,10 @@ class AudioTaskController extends Controller
         if (($source === 'tts' || $task->kind === 'reading') && $text === '') {
             throw ValidationException::withMessages(['text' => 'متن را بنویسید.']);
         }
-        if ($source !== 'tts' && $source !== $task->source && ! $task->audio_path) {
+        if ($source === 'none' && $task->kind === 'dictation') {
+            throw ValidationException::withMessages(['source' => 'املا بدونِ صدا نمی‌شود.']);
+        }
+        if (! in_array($source, ['tts', 'none'], true) && $source !== $task->source && ! $task->audio_path) {
             throw ValidationException::withMessages(['source' => 'برای صدای خودتان، از «عوض‌کردنِ صدا» ضبط کنید.']);
         }
         $old = $task->wantHash();
@@ -304,7 +311,7 @@ class AudioTaskController extends Controller
         if ($task->audio_path) {
             Storage::disk('public')->delete($task->audio_path);
         }
-        $task->update(['audio_path' => $path, 'source' => $task->source === 'tts' ? 'voice' : $task->source]);
+        $task->update(['audio_path' => $path, 'source' => in_array($task->source, ['tts', 'none'], true) ? 'voice' : $task->source]);
 
         return back()->with('flash', '✅ صدای تازه جایگزین شد؛ بچه‌ها از همین حالا صدای تازه را می‌شنوند.');
     }
@@ -359,7 +366,7 @@ class AudioTaskController extends Controller
         return [
             'id' => $task->id, 'kind' => $task->kind, 'title' => $task->title, 'source' => $task->source,
             // ?v= تا بعد از عوض‌کردنِ صدا، مرورگر نسخه‌ی کش‌شده‌ی قبلی را پخش نکند
-            'audio' => $task->audio_path ? route('audio.task-audio', $task->id) . '?v=' . ($task->updated_at?->timestamp ?? 0) : null,
+            'audio' => $task->audio_path && $task->source !== 'none' ? route('audio.task-audio', $task->id) . '?v=' . ($task->updated_at?->timestamp ?? 0) : null,
             // ضبطِ قدیمیِ webm/ogg روی آیفون و برخی گوشی‌ها پخش نمی‌شود → به معلم پیشنهادِ ضبطِ دوباره
             'audio_legacy' => $task->audio_path && in_array(strtolower(pathinfo($task->audio_path, PATHINFO_EXTENSION)), ['webm', 'ogg', 'oga'], true),
             'sentences' => $sentences->all(),

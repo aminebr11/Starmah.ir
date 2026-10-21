@@ -11,6 +11,7 @@ const SOURCES = {
     voice: { ic: '🎤', t: 'صدای خودم', d: 'همین‌جا ضبط کنید؛ بچه‌ها صدای خودِ شما را می‌شنوند.' },
     tts: { ic: '🤖', t: 'متن ← صدای هوش مصنوعی', d: 'متن را بنویسید؛ صدا جمله‌به‌جمله ساخته می‌شود، گوش می‌دهید و تأیید می‌کنید.' },
     upload: { ic: '📁', t: 'فایلِ صوتی', d: 'فایلِ آماده (mp3، m4a، wav…) را بارگذاری کنید.' },
+    none: { ic: '📄', t: 'هیچ‌کدام (فقط متن)', d: 'صدای الگو لازم نیست؛ بچه‌ها خودشان متن را می‌خوانند و صدایشان را می‌فرستند.', reading: true },
 };
 
 /** معلم: «🎧 املا و روخوانی» — ساختن، فرستادن و رفتن به تصحیح. */
@@ -47,7 +48,8 @@ export default function AudioTasks() {
                 <form className="panel at-form" onSubmit={submit}>
                     <div className="at-kinds">
                         {[['dictation', '📝', 'املای صوتی', 'گوش بده و بنویس'], ['reading', '🎙️', 'روخوانی', 'بخوان و صدایت را بفرست']].map(([k, ic, t, sub]) => (
-                            <button key={k} type="button" className={`at-kind ${d.kind === k ? 'on' : ''}`} onClick={() => form.setData('kind', k)}>
+                            <button key={k} type="button" className={`at-kind ${d.kind === k ? 'on' : ''}`}
+                                onClick={() => form.setData((v) => ({ ...v, kind: k, source: k === 'dictation' && v.source === 'none' ? (tts ? 'tts' : 'voice') : v.source }))}>
                                 <span>{ic}</span><b>{t}</b><small>{sub}</small>
                             </button>
                         ))}
@@ -72,7 +74,7 @@ export default function AudioTasks() {
 
                     <h4 className="at-h">صدا از کجا بیاید؟</h4>
                     <div className="at-sources">
-                        {Object.entries(SOURCES).map(([k, s]) => (
+                        {Object.entries(SOURCES).filter(([, s]) => !s.reading || d.kind === 'reading').map(([k, s]) => (
                             <button key={k} type="button" className={`at-src ${d.source === k ? 'on' : ''}`} onClick={() => form.setData('source', k)}>
                                 <span>{s.ic}</span><b>{s.t}</b><small>{s.d}</small>
                                 {k === 'tts' && !tts && <em>صدای سرور خاموش است؛ صدای گوشیِ بچه‌ها پخش می‌شود</em>}
@@ -90,6 +92,8 @@ export default function AudioTasks() {
                         <AudioFilePicker style={{ marginTop: 10 }} file={d.audio} onPick={(f) => form.setData('audio', f)} label="📁 انتخابِ فایلِ صوتی (mp3، m4a، wav)" />
                     )}
                     {errors.audio && <div className="rm-err">{errors.audio}</div>}
+                    {errors.source && <div className="rm-err">{errors.source}</div>}
+                    {d.source === 'none' && <p className="at-tip">📄 فقط متن را بنویسید؛ دانش‌آموز متن را می‌بیند، خودش می‌خواند و صدایش را برای شما می‌فرستد.</p>}
 
                     <label className="at-text">
                         {d.kind === 'reading' ? 'متنِ روخوانی (بچه‌ها همین را می‌بینند و می‌خوانند)'
@@ -165,7 +169,11 @@ export default function AudioTasks() {
                             <b>{t.title}</b>
                             <span>{t.classroom} · {t.date}{t.due ? ` · ⏰ ${t.due}` : ''}</span>
                             <div className="at-prog"><i style={{ width: `${t.students ? Math.round((t.submitted / t.students) * 100) : 0}%` }} /></div>
-                            <span>📥 {fa(t.submitted)}{t.students ? ` از ${fa(t.students)}` : ''} فرستاده · ✅ {fa(t.graded)} تصحیح‌شده {t.submitted - t.graded > 0 && <em className="at-badge">⏳ {fa(t.submitted - t.graded)} منتظر</em>}</span>
+                            <div className="at-stats">
+                                <span>📥 {fa(t.submitted)}{t.students ? ` از ${fa(t.students)}` : ''} فرستاده</span>
+                                <span>✅ {fa(t.graded)} تصحیح‌شده</span>
+                                {t.submitted - t.graded > 0 && <em className="at-badge">⏳ {fa(t.submitted - t.graded)} منتظر</em>}
+                            </div>
                         </div>
                         <span className={`at-pub ${t.published ? 'on' : ''}`}>{t.published ? 'فرستاده‌شده' : t.building ? '🤖 در انتظارِ صدا' : t.scheduled ? `🗓️ ${t.scheduled}` : 'پیش‌نویس'}</span>
                     </Link>

@@ -1625,3 +1625,29 @@ a, button, [role="button"], summary { -webkit-tap-highlight-color: transparent; 
 }
 .qk-inline-ctx{margin:10px 0 4px;padding:10px;border-radius:12px;background:#fffaf0;border:1px dashed #f0c96a}
 .qk-btn.wait{opacity:.75}
+
+/* ── پیش از شروعِ بازی/آزمون: «مطمئنی؟ باید تا آخر انجام بدهی» ── */
+.sg-back{position:fixed;inset:0;z-index:2100;background:rgba(10,8,30,.62);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;
+  padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));animation:sg-fade .18s ease-out}
+.sg-box{width:min(420px,100%);max-height:100%;overflow:auto;border-radius:26px;padding:22px 18px 18px;color:#fff;text-align:center;direction:rtl;
+  background:linear-gradient(160deg,#3b2a8f,#1d1652);border:1.5px solid rgba(255,255,255,.16);box-shadow:0 24px 60px -18px rgba(0,0,0,.7);animation:sg-pop .28s cubic-bezier(.2,1.4,.4,1)}
+.sg-box.game{background:linear-gradient(160deg,#1f6fd6,#16337f)}
+.sg-ic{font-size:46px;width:78px;height:78px;margin:-4px auto 6px;border-radius:24px;display:grid;place-items:center;background:rgba(255,255,255,.14);animation:sg-bob 2.2s ease-in-out infinite}
+.sg-box h3{margin:4px 0 2px;font-size:20px;font-weight:900;line-height:1.6}
+.sg-title{font-weight:800;opacity:.9;font-size:14.5px;line-height:1.8}
+.sg-chips{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+.sg-chips span{background:rgba(255,255,255,.14);border-radius:99px;padding:3px 11px;font-size:12.5px;font-weight:800}
+.sg-rules{list-style:none;margin:14px 0 4px;padding:0;display:grid;gap:8px;text-align:start}
+.sg-rules li{display:flex;gap:10px;align-items:flex-start;background:rgba(255,255,255,.09);border-radius:14px;padding:10px 12px;font-size:13.5px;line-height:1.85}
+.sg-rules li>b:first-child{font-size:18px;line-height:1.4}
+.sg-rules li.warn{background:rgba(255,196,0,.16);border:1px solid rgba(255,206,70,.55)}
+.sg-rules li.warn b{color:#ffd76a}
+.sg-act{display:grid;gap:8px;margin-top:14px}
+.sg-act button{font:inherit;border:0;cursor:pointer;border-radius:16px;min-height:50px;font-weight:900;font-size:15.5px}
+.sg-go{background:linear-gradient(180deg,#ffd23f,#e9a400);color:#2b1d00;box-shadow:0 5px 0 #b47d00}
+.sg-go:active{transform:translateY(3px);box-shadow:0 2px 0 #b47d00}
+.sg-later{background:rgba(255,255,255,.14);color:#fff}
+@keyframes sg-fade{from{opacity:0}to{opacity:1}}
+@keyframes sg-pop{from{opacity:0;transform:translateY(24px) scale(.94)}to{opacity:1;transform:none}}
+@keyframes sg-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@media (prefers-reduced-motion:reduce){.sg-back,.sg-box,.sg-ic{animation:none}}

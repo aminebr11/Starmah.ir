@@ -1,6 +1,7 @@
 import { Link, usePage, router } from '@inertiajs/react';
 import { useState, useRef, useEffect } from 'react';
 import ThemedDash from '@/Layouts/ThemedDash';
+import useLeaveGuard from '@/lib/useLeaveGuard';
 import Confetti from '@/Components/Confetti';
 import useGameSound from '@/hooks/useGameSound';
 import ReadAloud from '@/Components/ReadAloud';
@@ -46,6 +47,7 @@ export default function GamePlayer() {
     const correctIdx = q ? q.choices.findIndex((c) => c.correct) : -1;
     // بازیِ بدونِ سؤال (در پیش‌نمایشِ پیش‌نویس ممکن است) نباید صفحه را بشکند
     const emptyGame = total === 0;
+    useLeaveGuard(!done && !preview && !alreadyDone && !emptyGame, '⚠️ بازی هنوز تمام نشده! اگر الان بیرون بروی، نیمه‌کاره می‌ماند و امتیازت صفر ثبت می‌شود.\n\nبیرون می‌روی؟');
 
     // حرکتِ نرمِ مهره: از موقعیتِ فعلی تا correctCount، یک خانه در هر تیک با صدای قدم
     const stepToken = (target) => {

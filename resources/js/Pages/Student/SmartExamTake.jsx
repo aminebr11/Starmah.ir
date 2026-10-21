@@ -1,5 +1,6 @@
 import { usePage, router } from '@inertiajs/react';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import useLeaveGuard from '@/lib/useLeaveGuard';
 import axios from 'axios';
 import ThemedDash from '@/Layouts/ThemedDash';
 import ReadAloud from '@/Components/ReadAloud';
@@ -20,6 +21,7 @@ export default function SmartExamTake() {
     const startRef = useRef(Date.now());
     const durationSec = (rules.duration || 60) * 60;
     const [left, setLeft] = useState(durationSec);
+    useLeaveGuard(!submitting && !pv && !preview, '⚠️ آزمون هنوز تمام نشده! اگر الان بیرون بروی، نیمه‌کاره می‌ماند و امتیازت صفر ثبت می‌شود.\n\nبیرون می‌روی؟');
 
     // تایمر واقعی
     useEffect(() => {

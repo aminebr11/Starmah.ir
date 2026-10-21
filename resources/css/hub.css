@@ -550,3 +550,37 @@ fieldset.lv-q { border: 0; margin: 0; min-width: 0; }
 .at-sched { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
 .at-edit { margin-top: 12px; display: grid; gap: 10px; background: var(--soft, #f7f7fb); border-radius: 16px; padding: 14px; }
 .at-edit label { display: grid; gap: 4px; font-size: 13px; font-weight: 700; }
+
+/* ── املا/روخوانی: چیدمانِ موبایل (کارت‌ها، دکمه‌ها، آمار) ── */
+.at-stats { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 2px; }
+.at-stats span { font-size: 12px; color: #4d5875; background: #f2f4fa; border-radius: 99px; padding: 2px 9px; white-space: nowrap; }
+.at-stats .at-badge { margin: 0; padding: 2px 9px; font-size: 12px; white-space: nowrap; }
+.at-hero-a { display: flex; gap: 8px; flex-wrap: wrap; }
+.at-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; }
+.at-novoice { border-radius: 16px; padding: 12px 14px; background: #f3f6ff; border: 1.5px dashed #c9d4f5; color: #3d4a6b; font-size: 13.5px; line-height: 1.9; margin-bottom: 12px; }
+.at-card-b b { line-height: 1.7; overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+    .at-hero { padding: 14px; gap: 10px 12px; border-radius: 18px; }
+    .at-hero-ic { width: 54px; height: 54px; font-size: 30px; border-radius: 16px; flex: 0 0 54px; }
+    .at-hero > div:nth-child(2) { min-width: 0; flex: 1 1 calc(100% - 70px); }
+    .at-hero h2 { font-size: 17px; line-height: 1.6; overflow-wrap: anywhere; }
+    .at-hero p { font-size: 12.5px; line-height: 1.8; }
+    .at-hero > .btn { width: 100%; }
+    .at-hero-a { width: 100%; flex-wrap: nowrap; }
+    .at-hero-a .btn { flex: 1 1 0; min-width: 0; padding-inline: 8px; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .at-card { position: relative; gap: 12px; padding: 12px; align-items: flex-start; }
+    .at-card-ic { width: 46px; height: 46px; flex: 0 0 46px; font-size: 24px; border-radius: 14px; }
+    .at-card-b b { font-size: 14.5px; display: block; padding-inline-end: 92px; min-height: 26px; }
+    .at-pub { position: absolute; top: 12px; inset-inline-end: 12px; font-size: 11.5px; padding: 3px 10px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+    .at-review { padding: 12px; }
+    .at-review-a { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .at-review-a .btn, .at-tools .btn, .at-edit-btn { width: 100%; justify-content: center; }
+    .at-tools { display: grid; grid-template-columns: 1fr; gap: 0; }
+    .at-tools > div { width: 100%; }
+    .at-sched { display: grid; grid-template-columns: 1fr; }
+    .at-sched > div { min-width: 0 !important; }
+    .at-kinds, .at-sources, .at-pubmodes { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .at-kind, .at-src { padding: 10px; border-radius: 14px; }
+    .at-kind span, .at-src span { font-size: 26px; }
+    .at-pubmodes { grid-template-columns: 1fr; }
+}

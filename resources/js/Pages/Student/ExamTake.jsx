@@ -1,5 +1,6 @@
 import { usePage, router } from '@inertiajs/react';
 import { useState } from 'react';
+import useLeaveGuard from '@/lib/useLeaveGuard';
 import axios from 'axios';
 import ThemedDash from '@/Layouts/ThemedDash';
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
@@ -14,6 +15,7 @@ export default function ExamTake() {
     const [descText, setDescText] = useState('');
     const [busy, setBusy] = useState(false);
     const [result, setResult] = useState(null);
+    useLeaveGuard(!result && (questions?.length || 0) > 0, '⚠️ آزمون هنوز تمام نشده! اگر الان بیرون بروی، نیمه‌کاره می‌ماند و امتیازت صفر ثبت می‌شود.\n\nبیرون می‌روی؟');
     const q = questions[idx];
     const last = idx === questions.length - 1;
 

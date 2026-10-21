@@ -97,4 +97,33 @@ class AudioVoiceBuildTest extends TestCase
         $this->assertStringContainsString('کلید', $r['error']);
         $this->assertSame(1, $r['failed']);
     }
+
+    public function test_reading_can_be_text_only_without_any_voice(): void
+    {
+        $this->seedRoles();
+        Storage::fake('public');
+        [$teacher, $classroom, $student] = $this->makeClass($this->makeSchool());
+
+        // املا بدونِ صدا ممکن نیست
+        $this->actingAs($teacher)->post(route('teacher.audio.store'), [
+            'kind' => 'dictation', 'title' => 'املا', 'classroom_id' => $classroom->id, 'source' => 'none', 'score_type' => 'descriptive',
+            'text' => 'نوروز آمد.', 'publish_mode' => 'now',
+        ])->assertSessionHasErrors('source');
+
+        // روخوانی: فقط متن، بدونِ فایل → همین حالا منتشر می‌شود
+        $this->actingAs($teacher)->post(route('teacher.audio.store'), [
+            'kind' => 'reading', 'title' => 'روخوانیِ کوچه', 'classroom_id' => $classroom->id, 'source' => 'none', 'score_type' => 'descriptive',
+            'text' => 'کوچه‌ی ما پر از درخت است.', 'publish_mode' => 'now',
+        ])->assertSessionHasNoErrors();
+        $task = AudioTask::where('kind', 'reading')->firstOrFail();
+        $this->assertSame('none', $task->source);
+        $this->assertNull($task->audio_path);
+        $this->assertTrue($task->audioReady());
+        $this->assertFalse($task->needsBuild());
+        $this->assertTrue($task->is_published);
+
+        // دانش‌آموز متن را می‌بیند (بدونِ صدای الگو)
+        $this->actingAs($student)->get(route('listen.show', $task))->assertOk()
+            ->assertInertia(fn ($p) => $p->where('task.source', 'none')->where('task.audio', null)->where('task.reading_text', 'کوچه‌ی ما پر از درخت است.'));
+    }
 }

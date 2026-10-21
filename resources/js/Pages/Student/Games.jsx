@@ -1,5 +1,6 @@
-import { Link, usePage } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import ThemedDash from '@/Layouts/ThemedDash';
+import StartLink from '@/Components/StartGate';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -22,7 +23,7 @@ export default function Games() {
             {live.length > 0 && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 14, marginTop: 16 }}>
                     {live.map((g, i) => (
-                        <Link key={g.id} href={route('games.play', g.id)} className="k3-homecard" style={{ '--c1': PAL[i % PAL.length][0], '--c2': PAL[i % PAL.length][1] }}>
+                        <StartLink key={g.id} href={route('games.play', g.id)} kind="game" title={g.title} count={g.count} practice={!!g.played} className="k3-homecard" style={{ '--c1': PAL[i % PAL.length][0], '--c2': PAL[i % PAL.length][1] }}>
                             <span className="hc-em">🎮</span>
                             <span className="hc-lbl">{g.title}</span>
                             <span className="hc-sub">{g.subject ? `${g.subject} · ` : ''}{fa(g.count)} سؤال</span>
@@ -30,7 +31,7 @@ export default function Games() {
                                 <span style={{ background: 'rgba(0,0,0,.25)', borderRadius: 20, padding: '3px 10px', fontSize: 11.5, fontWeight: 800 }}>⚡ {fa(g.points)} امتیاز</span>
                                 {g.played && <span style={{ background: 'rgba(255,255,255,.28)', borderRadius: 20, padding: '3px 10px', fontSize: 11.5, fontWeight: 800 }}>✓ انجام‌شده</span>}
                             </div>
-                        </Link>
+                        </StartLink>
                     ))}
                 </div>
             )}

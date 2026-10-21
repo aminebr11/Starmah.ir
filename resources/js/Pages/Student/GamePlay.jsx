@@ -1,6 +1,7 @@
 import { Link, usePage, useForm, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import ThemedDash from '@/Layouts/ThemedDash';
+import useLeaveGuard from '@/lib/useLeaveGuard';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -11,6 +12,7 @@ export default function GamePlay() {
     const [answers, setAnswers] = useState({});
     const [done, setDone] = useState(false);
     const [result, setResult] = useState(null);
+    useLeaveGuard(!done && !alreadyPlayed && (questions?.length || 0) > 0, '⚠️ بازی هنوز تمام نشده! اگر الان بیرون بروی، نیمه‌کاره می‌ماند و امتیازت صفر ثبت می‌شود.\n\nبیرون می‌روی؟');
 
     useEffect(() => { if (flash?.flash) setResult(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); }, [flash]);
 

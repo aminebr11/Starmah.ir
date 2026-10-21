@@ -1,6 +1,7 @@
 import { Link, usePage, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import ThemedDash from '@/Layouts/ThemedDash';
+import StartLink from '@/Components/StartGate';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const DIFF = { easy: 'آسان', medium: 'متوسط', hard: 'دشوار' };
@@ -314,7 +315,9 @@ function MissionCard({ m }) {
                             : <Link href={route('missions.play', m.id)} className="k3-btn" style={{ width: '100%', textAlign: 'center' }}>🚀 {t.go}</Link>)
                         : m.claimable
                             ? <button onClick={() => router.post(route('missions.claim', m.id), {}, { preserveScroll: true })} className="k3-btn" style={{ width: '100%', background: 'linear-gradient(135deg,#2bb673,#0f9d58)' }}>🎁 دریافتِ جایزه (+{fa(m.xp_reward)})</button>
-                            : <Link href={m.link || '#'} className="k3-btn ghost" style={{ width: '100%', textAlign: 'center' }}>← {t.go}</Link>}
+                            : /\/(play|take)$/.test(m.link || '')
+                                ? <StartLink href={m.link} kind={m.type === 'exam' ? 'exam' : 'game'} title={m.title} className="k3-btn ghost" style={{ width: '100%', textAlign: 'center' }}>← {t.go}</StartLink>
+                                : <Link href={m.link || '#'} className="k3-btn ghost" style={{ width: '100%', textAlign: 'center' }}>← {t.go}</Link>}
             </div>
         </div>
     );

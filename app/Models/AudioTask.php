@@ -143,6 +143,11 @@ class AudioTask extends Model
     /** صدای قابلِ پخش دارد؟ (برای انتشار) */
     public function audioReady(): bool
     {
+        // روخوانیِ «بدونِ صدا»: فقط متن؛ همیشه آماده است
+        if ($this->source === 'none') {
+            return true;
+        }
+
         return $this->source === 'tts' ? ! $this->needsBuild() : (bool) $this->audio_path;
     }
 

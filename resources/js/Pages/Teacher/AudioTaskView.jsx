@@ -26,7 +26,7 @@ export default function AudioTaskView() {
                     <h2>{task.title}</h2>
                     <p>{task.classroom} · {task.date}{task.due ? ` · ⏰ مهلت: ${task.due}` : ''} · نمره: {task.score_type === 'numeric' ? `عددی از ۲۰${dictation ? ` (هر غلط ${fa(task.penalty)})` : ''}` : 'توصیفی'}</p>
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div className="at-hero-a">
                     {task.published && <button type="button" className="btn" onClick={toggle}>⏸️ پنهان‌کردن از بچه‌ها</button>}
                     <button type="button" className="btn btn-ghost" onClick={del}>🗑️ حذف</button>
                 </div>
@@ -35,10 +35,11 @@ export default function AudioTaskView() {
             <div className="at-two">
                 <div className="panel">
                     <h3 style={{ marginTop: 0 }}>🎧 همان چیزی که بچه‌ها می‌شنوند</h3>
-                    {task.needs_build && <VoiceBuilder task={task} />}
-                    {!task.needs_build && <SentencePlayer key={task.audio || 'tts'} task={task} dark={false} />}
+                    {task.source === 'none' ? (
+                        <div className="at-novoice">📄 این روخوانی صدای الگو ندارد؛ بچه‌ها فقط متن را می‌بینند، خودشان می‌خوانند و صدایشان را می‌فرستند.</div>
+                    ) : task.needs_build ? <VoiceBuilder task={task} /> : <SentencePlayer key={task.audio || 'tts'} task={task} dark={false} />}
                     <Review task={task} onPublish={toggle} />
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                    <div className="at-tools">
                         <ReplaceAudio task={task} />
                         {task.source === 'tts' && !task.needs_build && (
                             <button type="button" className="btn btn-sm btn-ghost" style={{ marginTop: 12 }}
@@ -163,7 +164,7 @@ function EditTask({ task, ttsOn }) {
     const [open, setOpen] = useState(false);
     const f = useForm({ title: task.title, text: task.text || '', pace: task.pace || 'normal', due_at: task.due_at || '', source: task.source, score_type: task.score_type, penalty: task.penalty });
     const save = (e) => { e.preventDefault(); f.put(route('teacher.audio.update', task.id), { preserveScroll: true, onSuccess: () => setOpen(false) }); };
-    if (!open) return <button type="button" className="btn btn-sm btn-ghost" style={{ marginTop: 10 }} onClick={() => setOpen(true)}>✏️ ویرایش (عنوان، متن، مکث، مهلت)</button>;
+    if (!open) return <button type="button" className="btn btn-sm btn-ghost at-edit-btn" style={{ marginTop: 10 }} onClick={() => setOpen(true)}>✏️ ویرایش (عنوان، متن، مکث، مهلت)</button>;
     return (
         <form className="at-edit" onSubmit={save}>
             <label>عنوان<input className="input" value={f.data.title} onChange={(e) => f.setData('title', e.target.value)} /></label>
@@ -172,10 +173,17 @@ function EditTask({ task, ttsOn }) {
                 <textarea className="input" rows={6} value={f.data.text} onChange={(e) => f.setData('text', e.target.value)} />
             </label>
             {errors.text && <div className="rm-err">{errors.text}</div>}
+            {errors.source && <div className="rm-err">{errors.source}</div>}
             {task.source !== 'tts' && ttsOn && f.data.text.trim() && (
                 <label style={{ display: 'flex', flexDirection: 'row', gap: 8, alignItems: 'center', fontWeight: 600 }}>
                     <input type="checkbox" checked={f.data.source === 'tts'} onChange={(e) => f.setData('source', e.target.checked ? 'tts' : task.source)} />
                     🤖 صدا را با هوش مصنوعی از همین متن بساز (به‌جای صدای فعلی)
+                </label>
+            )}
+            {task.kind === 'reading' && task.source !== 'none' && (
+                <label style={{ display: 'flex', flexDirection: 'row', gap: 8, alignItems: 'center', fontWeight: 600 }}>
+                    <input type="checkbox" checked={f.data.source === 'none'} onChange={(e) => f.setData('source', e.target.checked ? 'none' : task.source)} />
+                    📄 بدونِ صدای الگو (بچه‌ها فقط متن را ببینند)
                 </label>
             )}
             {(f.data.source === 'tts') && (
@@ -213,7 +221,7 @@ function ReplaceAudio({ task }) {
                 </div>
             )}
             {!open ? (
-                <button type="button" className="btn btn-sm btn-ghost" onClick={() => setOpen(true)}>🎤 {task.audio ? 'عوض‌کردنِ صدا (ضبطِ دوباره)' : 'گذاشتنِ صدای خودم'}</button>
+                <button type="button" className="btn btn-sm btn-ghost" onClick={() => setOpen(true)}>🎤 {task.audio ? 'عوض‌کردنِ صدا (ضبطِ دوباره)' : task.source === 'none' ? 'افزودنِ صدای الگو (اختیاری)' : 'گذاشتنِ صدای خودم'}</button>
             ) : (
                 <form onSubmit={save} className="panel" style={{ background: 'var(--soft, #f7f7fb)', margin: 0 }}>
                     <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>

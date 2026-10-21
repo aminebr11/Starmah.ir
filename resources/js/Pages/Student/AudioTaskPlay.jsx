@@ -45,19 +45,21 @@ export default function AudioTaskPlay() {
 
             {/* مراحل */}
             <div className="lt-steps">
-                {(dictation ? ['🎧 گوش بده و بنویس', '📸 عکسش را بفرست', '✅ نمره'] : ['🎧 گوش بده', '🎙️ بخوان و ضبط کن', '✅ نمره']).map((s, k) => (
+                {(dictation ? ['🎧 گوش بده و بنویس', '📸 عکسش را بفرست', '✅ نمره'] : [task.source === 'none' ? '📖 متن را ببین' : '🎧 گوش بده', '🎙️ بخوان و ضبط کن', '✅ نمره']).map((s, k) => (
                     <button key={k} type="button" className={`${step === k + 1 ? 'on' : ''} ${step > k + 1 ? 'done' : ''}`} onClick={() => setStep(k + 1)}>{fa(k + 1)}. {s}</button>
                 ))}
             </div>
 
             {step === 1 && (
                 <div className="k3-card" style={{ marginTop: 12 }}>
-                    {dictation ? (
+                    {task.source === 'none' ? (
+                        <div className="lt-tip">📖 متن را اول یک بار آرام برای خودت بخوان؛ بعد با صدای بلند و شمرده بخوان و ضبط کن.</div>
+                    ) : dictation ? (
                         <div className="lt-tip">✏️ یک برگه و مداد بردار. بالای برگه اسمت و عنوانِ املا را بنویس. هر جمله را گوش بده، بنویس، بعد برو جمله‌ی بعد. هر جا لازم شد «🔁 دوباره» را بزن.</div>
                     ) : (
                         <div className="lt-tip">👂 اول به خوانشِ معلم خوب گوش بده؛ بعد خودت با صدای بلند و شمرده بخوان.</div>
                     )}
-                    <SentencePlayer task={task} onPlayed={played} />
+                    {task.source !== 'none' && <SentencePlayer task={task} onPlayed={played} />}
                     {!dictation && task.reading_text && <div className="sv-reading-text" style={{ marginTop: 12 }}>{task.reading_text}</div>}
                     <button type="button" className="k3-btn" style={{ width: '100%', marginTop: 12 }} onClick={() => setStep(2)}>{dictation ? 'نوشتم! بریم عکس بگیریم ←' : 'آماده‌ام بخوانم ←'}</button>
                 </div>

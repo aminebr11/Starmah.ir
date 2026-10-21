@@ -1,5 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import ThemedDash from '@/Layouts/ThemedDash';
+import StartLink from '@/Components/StartGate';
 import { useHighlightFromQuery } from '@/lib/highlight';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
@@ -52,7 +53,8 @@ export default function SmartExams() {
                             {e.opens && <div style={{ fontSize: 10.5, color: '#c4b5fd', marginTop: 4 }}>🗓️ باز می‌شود: {e.opens}</div>}
                             {e.closes && <div style={{ fontSize: 10.5, opacity: .6, marginTop: 4 }}>مهلت: {e.closes}</div>}
                             {playable
-                                ? <Link href={route('student.smart.take', e.id)} className="k3-btn" style={{ display: 'block', marginTop: 10, fontSize: 13, textAlign: 'center', textDecoration: 'none' }}>{s.btn}</Link>
+                                ? <StartLink href={route('student.smart.take', e.id)} kind="exam" title={e.title} count={e.count} duration={e.duration}
+                                    resume={e.status === 'in_progress'} className="k3-btn" style={{ display: 'block', marginTop: 10, fontSize: 13, textAlign: 'center', textDecoration: 'none' }}>{s.btn}</StartLink>
                                 : !e.lastAttemptId && <div style={{ marginTop: 10, textAlign: 'center', fontWeight: 800, fontSize: 12, opacity: .8, background: 'rgba(0,0,0,.25)', borderRadius: 12, padding: '8px' }}>{e.status === 'expired' ? '⌛ زمان‌گذشته' : e.status === 'scheduled' ? '🗓️ هنوز باز نشده' : '🔒 در دسترس نیست'}</div>}
                             {/* پاسخنامه/نتیجه — همیشه وقتی آزمون را داده باشد */}
                             {e.lastAttemptId && (
