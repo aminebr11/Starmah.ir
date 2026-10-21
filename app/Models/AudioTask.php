@@ -18,10 +18,11 @@ class AudioTask extends Model
     protected $fillable = [
         'school_id', 'teacher_id', 'classroom_id', 'kind', 'title', 'subject', 'grade', 'text', 'sentences', 'source',
         'audio_path', 'pace', 'score_type', 'penalty', 'grade_column_id', 'due_at', 'is_published', 'published_at',
+        'publish_at', 'audio_hash',
     ];
 
     protected $casts = [
-        'sentences' => 'array', 'due_at' => 'datetime', 'published_at' => 'datetime', 'is_published' => 'boolean', 'penalty' => 'float',
+        'sentences' => 'array', 'due_at' => 'datetime', 'published_at' => 'datetime', 'publish_at' => 'datetime', 'is_published' => 'boolean', 'penalty' => 'float',
     ];
 
     public const KINDS = ['dictation' => '📝 املا', 'reading' => '🎙️ روخوانی'];
@@ -85,13 +86,107 @@ class AudioTask extends Model
         return array_slice($out, 0, 40);
     }
 
-    /** متن → جمله‌ها فقط سرِ نقطه/علامت (برای صدای پیوسته؛ ویرگول شکسته نمی‌شود و خودِ صدا مکثِ کوتاهش را دارد). */
+    /**
+     * متن → جمله‌ها فقط سرِ نقطه/علامت (برای صدای پیوسته؛ ویرگول شکسته نمی‌شود و خودِ صدا مکثِ کوتاهش را دارد).
+     * فاصله‌ی پیش از نقطه («آن‌ها .») برداشته می‌شود و تکه‌های یک‌دو کلمه‌ای به جمله‌ی کنارشان می‌چسبند،
+     * تا «آن‌ها .» یک جمله‌ی جدا (و یک صدای بی‌معنا) نشود.
+     */
     public static function speechSentences(string $text): array
     {
         $text = trim(preg_replace('/[ \t]+/u', ' ', $text) ?? $text);
-        $parts = preg_split('/(?<=[.!؟?…])\s+|\n+/u', $text) ?: [];
+        $text = preg_replace('/\s+([.!؟?…،؛:])/u', '$1', $text) ?? $text;
+        $parts = array_values(array_filter(array_map('trim', preg_split('/(?<=[.!؟?…])\s+|\n+/u', $text) ?: []),
+            fn ($p) => $p !== '' && preg_match('/[\p{L}\p{N}]/u', $p)));
+        $words = fn ($p) => count(preg_split('/\s+/u', $p) ?: []);
+        $out = [];
+        foreach ($parts as $p) {
+            if ($out && $words($p) <= 2 && $words(end($out)) < 25) {
+                $out[count($out) - 1] .= ' ' . $p;
+            } else {
+                $out[] = $p;
+            }
+        }
+        if (count($out) > 1 && $words($out[0]) <= 2) {
+            $out[1] = $out[0] . ' ' . $out[1];
+            array_shift($out);
+        }
 
-        return array_slice(array_values(array_filter(array_map('trim', $parts), fn ($p) => $p !== '')), 0, 60);
+        return array_slice($out, 0, 60);
+    }
+
+    /** سبکِ خواندنِ سیستم برای این تکلیف. */
+    public function speechStyle(): string
+    {
+        return $this->kind === 'dictation' ? 'dictation' : 'reading';
+    }
+
+    /** اثرانگشتِ متن و مکث‌ها — اگر عوض شد، صدای سیستم باید دوباره ساخته شود. */
+    public function wantHash(): string
+    {
+        return sha1($this->kind . '|' . ($this->pace ?: 'normal') . '|' . implode("\n", array_column($this->sentences ?? [], 'text')));
+    }
+
+    /** صدای سیستم (متن ← صدا) هنوز ساخته نشده یا با متنِ فعلی نمی‌خواند؟ */
+    public function needsBuild(): bool
+    {
+        // بدونِ سرویسِ صدا چیزی برای ساختن نیست؛ بچه‌ها با صدای فارسیِ گوشیِ خودشان می‌شنوند (مثلِ قبل)
+        if ($this->source !== 'tts' || ! $this->sentences || ! \App\Services\SpeechService::available()) {
+            return false;
+        }
+        if (! $this->audio_path) {
+            return true;
+        }
+        // تکلیف‌های قدیمی (پیش از این ستون) که صدایشان ساخته شده، دوباره ساخته نمی‌شوند
+        return \App\Support\DbSchema::hasColumn('audio_tasks', 'audio_hash') && $this->audio_hash !== null && $this->audio_hash !== $this->wantHash();
+    }
+
+    /** صدای قابلِ پخش دارد؟ (برای انتشار) */
+    public function audioReady(): bool
+    {
+        return $this->source === 'tts' ? ! $this->needsBuild() : (bool) $this->audio_path;
+    }
+
+    /** انتشار برای کلاس (با اعلان، فقط بارِ اول). */
+    public function publishNow(): void
+    {
+        $first = ! $this->published_at;
+        $this->update(['is_published' => true, 'published_at' => $this->published_at ?? now()]
+            + (\App\Support\DbSchema::hasColumn('audio_tasks', 'publish_at') ? ['publish_at' => null] : []));
+        if (! $first) {
+            return;
+        }
+        rescue(function () {
+            $ids = Classroom::find($this->classroom_id)?->students()->pluck('users.id')->all() ?? [];
+            if (! $ids) {
+                return;
+            }
+            $ann = Announcement::create([
+                'school_id' => $this->school_id, 'sender_id' => $this->teacher_id, 'audience' => 'personal',
+                'title' => ($this->kind === 'dictation' ? '📝 املای صوتیِ تازه — ' : '🎙️ روخوانیِ تازه — ') . $this->title,
+                'body' => $this->kind === 'dictation'
+                    ? 'یک برگه و مداد بردار، گوش بده و بنویس؛ بعد عکسش را برای معلم بفرست.'
+                    : 'متن را با صدای بلند بخوان و صدایت را برای معلم بفرست.',
+                'link' => route('listen.show', $this->id, false),
+            ]);
+            $ann->recipients()->sync($ids);
+        }, null, true);
+    }
+
+    /** انتشارِ زمان‌بندی‌شده: سرِ ساعت (بدونِ cron؛ با هر بارگذاریِ صفحه بررسی می‌شود). */
+    public static function releaseDue(): void
+    {
+        if (! self::ready() || ! \App\Support\DbSchema::hasColumn('audio_tasks', 'publish_at')) {
+            return;
+        }
+        rescue(function () {
+            self::where('is_published', false)->whereNotNull('publish_at')->where('publish_at', '<=', now())->limit(20)->get()
+                ->each(function (self $t) {
+                    // صدایش آماده نیست → منتشر نمی‌شود (معلم در صفحه‌ی تکلیف هشدار می‌بیند)
+                    if ($t->audioReady()) {
+                        $t->publishNow();
+                    }
+                });
+        }, null, false);
     }
 
     /** نمره‌ی پیشنهادی از تعدادِ غلط (توصیفی و عددیِ ۲۰). */

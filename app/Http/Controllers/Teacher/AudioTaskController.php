@@ -54,6 +54,8 @@ class AudioTaskController extends Controller
                 'id' => $t->id, 'kind' => $t->kind, 'title' => $t->title, 'source' => $t->source,
                 'classroom' => $rooms->firstWhere('id', $t->classroom_id)?->name,
                 'sentences' => count($t->sentences ?? []), 'published' => $t->is_published,
+                'scheduled' => $t->publish_at && ! $t->is_published ? Jalali::format($t->publish_at, true) . ' ساعت ' . Jalali::fa($t->publish_at->format('H:i')) : null,
+                'building' => $t->needsBuild(),
                 'due' => $t->due_at ? Jalali::format($t->due_at, true) : null,
                 'date' => Jalali::format($t->created_at),
                 'submitted' => (int) $t->submitted, 'graded' => (int) $t->graded,
@@ -81,11 +83,19 @@ class AudioTaskController extends Controller
             'penalty' => ['nullable', 'numeric', 'min:0', 'max:5'],
             'due_at' => ['nullable', 'date'],
             'publish' => ['nullable', 'boolean'],
+            // review: اول گوش می‌دهم بعد منتشر می‌کنم · schedule: سرِ ساعتِ مشخص · now: همین حالا
+            'publish_mode' => ['nullable', 'in:review,schedule,now'],
+            'publish_at' => ['nullable', 'required_if:publish_mode,schedule', 'date'],
             'pace' => ['nullable', 'in:short,normal,long'],
         ], [
             'title.required' => 'عنوان را بنویسید.',
             'audio.max' => 'فایلِ صوتی حداکثر ۲۰ مگابایت.',
+            'publish_at.required_if' => 'زمانِ انتشار را انتخاب کنید.',
         ]);
+        $mode = $data['publish_mode'] ?? (! empty($data['publish']) ? 'now' : 'review');
+        if ($mode === 'schedule' && \Illuminate\Support\Carbon::parse($data['publish_at'])->lte(now())) {
+            throw ValidationException::withMessages(['publish_at' => 'زمانِ انتشار باید در آینده باشد.']);
+        }
         $room = Classroom::where('teacher_id', $teacher->id)->findOrFail($data['classroom_id']);
         if ($data['kind'] === 'dictation' && ! AudioTask::dictationAllowed($room->grade)) {
             throw ValidationException::withMessages(['classroom_id' => 'پایه‌ی «' . ($room->grade ?: '—') . '» درسِ املا ندارد؛ برای این کلاس «روخوانی» بسازید.']);
@@ -106,20 +116,10 @@ class AudioTaskController extends Controller
             $audioPath = $this->storeAudio($request->file('audio'), 'audio-tasks', self::AUDIO_EXT) ?: null;
         }
 
-        // متن → یک صدای پیوسته‌ی فارسی: تا آخرِ متن خوانده می‌شود و سرِ هر نقطه چند ثانیه مکث می‌کند.
-        // بچه‌ها هر جا خواستند مکث می‌کنند، ادامه می‌دهند یا از اول گوش می‌دهند.
+        // متن → صدای سیستم: این‌جا ساخته نمی‌شود (۲۰ جمله در یک درخواست از مهلتِ سرور و سرویسِ هوش مصنوعی
+        // بیشتر می‌شد و ارتباط قطع می‌شد). صفحه‌ی تکلیف جمله‌به‌جمله می‌سازد و پیشرفت را نشان می‌دهد.
         $pace = $data['pace'] ?? 'normal';
         $sentences = $text !== '' ? array_map(fn ($s) => ['text' => $s, 'audio' => null], AudioTask::speechSentences($text)) : [];
-        $missing = 0;
-        if ($data['source'] === 'tts' && $sentences) {
-            $built = rescue(fn () => $speech->continuousPath(array_column($sentences, 'text'), $data['kind'] === 'dictation' ? 'dictation' : 'reading', $pace), null, true);
-            // کپیِ جدا برای این تکلیف (فایلِ کش ممکن است مالِ تکلیفِ دیگری هم باشد)
-            if ($built) {
-                $copy = 'audio-tasks/tts-' . \Illuminate\Support\Str::random(24) . '.wav';
-                $audioPath = Storage::disk('public')->copy($built, $copy) ? $copy : null;
-            }
-            $missing = $audioPath ? 0 : count($sentences);
-        }
 
         $task = AudioTask::create([
             'school_id' => $teacher->school_id, 'teacher_id' => $teacher->id, 'classroom_id' => $room->id,
@@ -128,49 +128,161 @@ class AudioTaskController extends Controller
             'text' => $text ?: null, 'sentences' => $sentences, 'source' => $data['source'], 'audio_path' => $audioPath,
             'score_type' => $data['score_type'], 'penalty' => $data['penalty'] ?? 0.5, 'pace' => $pace,
             'due_at' => $data['due_at'] ?? null,
-        ]);
-        if (! empty($data['publish'])) {
-            $this->doPublish($task);
+        ] + ($this->hasSchedule() ? ['publish_at' => $mode === 'schedule' ? $data['publish_at'] : null] : []));
+        // «همین حالا» فقط وقتی صدا آماده است (صدای خودِ معلم یا فایل)؛ صدای سیستم بعد از ساخته‌شدن و گوش‌دادن
+        if ($mode === 'now' && $task->audioReady()) {
+            $task->publishNow();
         }
 
-        $msg = '✅ «' . $task->title . '» ساخته شد' . (! empty($data['publish']) ? ' و برای کلاس فرستاده شد' : ' (پیش‌نویس)');
-        if ($missing) {
-            $msg .= ' — ⚠️ صدای فارسیِ سرور ساخته نشد؛ دانش‌آموزان با صدای گوشیِ خودشان می‌شنوند. برای صدای بهتر، صدای خودتان را ضبط کنید یا کلیدِ صدا را در «مرکزِ هوش مصنوعی» ثبت کنید.';
+        $msg = '✅ «' . $task->title . '» ذخیره شد' . ($task->is_published ? ' و برای کلاس فرستاده شد.' : '.');
+        if ($task->needsBuild()) {
+            $msg .= ' 🤖 صدای سیستم الان جمله‌به‌جمله ساخته می‌شود؛ بعد گوش بدهید و تأیید کنید.';
+        } elseif (! $task->is_published) {
+            $msg .= $mode === 'schedule' ? ' 🗓️ سرِ زمانِ تعیین‌شده خودش منتشر می‌شود.' : ' 🎧 گوش بدهید و اگر خوب بود «تأیید و انتشار» را بزنید.';
         }
 
         return redirect()->route('teacher.audio.show', $task)->with('flash', $msg);
     }
 
-    private function doPublish(AudioTask $task): void
+    private function hasSchedule(): bool
     {
-        $first = ! $task->published_at;
-        $task->update(['is_published' => true, 'published_at' => $task->published_at ?? now()]);
-        if (! $first) {
-            return;
-        }
-        rescue(function () use ($task) {
-            $ids = Classroom::find($task->classroom_id)?->students()->pluck('users.id')->all() ?? [];
-            if (! $ids) {
-                return;
-            }
-            $ann = Announcement::create([
-                'school_id' => $task->school_id, 'sender_id' => $task->teacher_id, 'audience' => 'personal',
-                'title' => ($task->kind === 'dictation' ? '📝 املای صوتیِ تازه — ' : '🎙️ روخوانیِ تازه — ') . $task->title,
-                'body' => $task->kind === 'dictation'
-                    ? 'یک برگه و مداد بردار، گوش بده و بنویس؛ بعد عکسش را برای معلم بفرست.'
-                    : 'متن را با صدای بلند بخوان و صدایت را برای معلم بفرست.',
-                'link' => route('listen.show', $task->id, false),
-            ]);
-            $ann->recipients()->sync($ids);
-        }, null, true);
+        return \App\Support\DbSchema::hasColumn('audio_tasks', 'publish_at');
     }
 
     public function publish(Request $request, AudioTask $task): RedirectResponse
     {
         $this->mine($request, $task);
-        $task->is_published ? $task->update(['is_published' => false]) : $this->doPublish($task);
+        if ($task->is_published) {
+            $task->update(['is_published' => false]);
 
-        return back()->with('flash', $task->fresh()->is_published ? '📣 برای کلاس فرستاده شد' : '⏸️ از دیدِ دانش‌آموزان پنهان شد');
+            return back()->with('flash', '⏸️ از دیدِ دانش‌آموزان پنهان شد');
+        }
+        if (! $task->audioReady()) {
+            return back()->with('flash', '⏳ اول صدا باید کامل ساخته شود؛ بعد گوش بدهید و منتشر کنید.');
+        }
+        $task->publishNow();
+
+        return back()->with('flash', '📣 برای کلاس فرستاده شد');
+    }
+
+    /** 🗓️ زمان‌بندیِ انتشار (یا لغوِ آن با خالی گذاشتن). */
+    public function schedule(Request $request, AudioTask $task): RedirectResponse
+    {
+        $this->mine($request, $task);
+        abort_unless($this->hasSchedule(), 503, 'جدولِ این بخش به‌روز نیست؛ «به‌روزرسانیِ پایگاه‌داده» را اجرا کنید.');
+        $data = $request->validate(['publish_at' => ['nullable', 'date']]);
+        $at = ! empty($data['publish_at']) ? \Illuminate\Support\Carbon::parse($data['publish_at']) : null;
+        if ($at && $at->lte(now())) {
+            throw ValidationException::withMessages(['publish_at' => 'زمانِ انتشار باید در آینده باشد.']);
+        }
+        $task->update(['publish_at' => $at]);
+
+        return back()->with('flash', $at ? '🗓️ زمان‌بندی شد: ' . Jalali::format($at, true) . ' ساعت ' . Jalali::fa($at->format('H:i')) : 'زمان‌بندیِ انتشار لغو شد.');
+    }
+
+    /** ✏️ ویرایش: عنوان، متن، مکث، مهلت؛ با عوض‌شدنِ متن/مکث، صدای سیستم دوباره ساخته می‌شود. */
+    public function update(Request $request, AudioTask $task): RedirectResponse
+    {
+        $this->mine($request, $task);
+        $data = $request->validate([
+            'title' => ['required', 'string', 'max:150'],
+            'text' => ['nullable', 'string', 'max:4000'],
+            'pace' => ['nullable', 'in:short,normal,long'],
+            'due_at' => ['nullable', 'date'],
+            'source' => ['nullable', 'in:tts,voice,upload'],
+            'score_type' => ['nullable', 'in:descriptive,numeric'],
+            'penalty' => ['nullable', 'numeric', 'min:0', 'max:5'],
+        ], ['title.required' => 'عنوان را بنویسید.']);
+        $text = trim((string) ($data['text'] ?? ''));
+        $source = $data['source'] ?? $task->source;
+        if (($source === 'tts' || $task->kind === 'reading') && $text === '') {
+            throw ValidationException::withMessages(['text' => 'متن را بنویسید.']);
+        }
+        if ($source !== 'tts' && $source !== $task->source && ! $task->audio_path) {
+            throw ValidationException::withMessages(['source' => 'برای صدای خودتان، از «عوض‌کردنِ صدا» ضبط کنید.']);
+        }
+        $old = $task->wantHash();
+        $task->fill([
+            'title' => $data['title'], 'text' => $text ?: null, 'pace' => $data['pace'] ?? $task->pace,
+            'due_at' => $data['due_at'] ?? null, 'source' => $source,
+            'score_type' => $data['score_type'] ?? $task->score_type, 'penalty' => $data['penalty'] ?? $task->penalty,
+            'sentences' => $text !== '' ? array_map(fn ($s) => ['text' => $s, 'audio' => null], AudioTask::speechSentences($text)) : [],
+        ]);
+        $rebuild = $source === 'tts' && ($task->wantHash() !== $old || $task->getOriginal('source') !== 'tts');
+        if ($rebuild && \App\Support\DbSchema::hasColumn('audio_tasks', 'audio_hash')) {
+            $task->audio_hash = 'stale';   // صدای قبلی تا ساخته‌شدنِ صدای تازه پخش می‌شود
+        }
+        $task->save();
+
+        return back()->with('flash', $rebuild ? '✏️ ذخیره شد؛ 🤖 صدای تازه الان ساخته می‌شود — بعد گوش بدهید و تأیید کنید.' : '✏️ ذخیره شد.');
+    }
+
+    /** 🔁 ساختِ دوباره‌ی صدای سیستم (اگر خواندنِ قبلی را نپسندید). */
+    public function rebuild(Request $request, AudioTask $task, SpeechService $speech): RedirectResponse
+    {
+        $this->mine($request, $task);
+        abort_unless($task->source === 'tts' && $task->sentences, 422);
+        foreach ($task->sentences as $s) {
+            $speech->forgetPcm((string) ($s['text'] ?? ''), $task->speechStyle());
+        }
+        $task->update(\App\Support\DbSchema::hasColumn('audio_tasks', 'audio_hash') ? ['audio_hash' => 'stale'] : ['audio_path' => null]);
+
+        return back()->with('flash', '🔁 صدا دوباره ساخته می‌شود…');
+    }
+
+    /**
+     * 🤖 ساختِ قدم‌به‌قدمِ صدای سیستم: هر درخواست چند جمله (در مهلتِ کوتاه)، صفحه پشتِ سرِ هم صدا می‌زند
+     * تا همه ساخته شوند؛ بعد صدای پیوسته از جمله‌های ساخته‌شده چسبانده می‌شود (بی‌هزینه و سریع).
+     */
+    public function build(Request $request, AudioTask $task, SpeechService $speech): \Illuminate\Http\JsonResponse
+    {
+        $this->mine($request, $task);
+        @set_time_limit(120);
+        $list = array_values(array_column($task->sentences ?? [], 'text'));
+        $total = count($list);
+        if (! $task->needsBuild()) {
+            return response()->json(['done' => true, 'built' => $total, 'total' => $total]);
+        }
+        if (! SpeechService::available()) {
+            return response()->json(['done' => false, 'error' => 'سرویسِ صدای هوش مصنوعی تنظیم نشده یا خاموش است (مدیرِ کل: «مرکزِ هوش مصنوعی»).', 'built' => 0, 'total' => $total]);
+        }
+        $style = $task->speechStyle();
+        $t0 = microtime(true);
+        foreach ($list as $i => $sentence) {
+            if ($speech->hasPcm($sentence, $style)) {
+                continue;
+            }
+            // جمله‌ی تازه فقط اگر وقت باقی است (هر جمله تا چند ثانیه طول می‌کشد)
+            if (microtime(true) - $t0 > 12) {
+                break;
+            }
+            if ($speech->sentencePcm($sentence, $style) === null) {
+                $built = count(array_filter($list, fn ($x) => $speech->hasPcm($x, $style)));
+
+                return response()->json(['done' => false, 'built' => $built, 'total' => $total, 'failed' => $i + 1,
+                    'error' => 'جمله‌ی ' . Jalali::fa((string) ($i + 1)) . ' ساخته نشد: ' . (SpeechService::$lastError ?: 'سرویسِ هوش مصنوعی پاسخ نداد.')]);
+            }
+        }
+        $built = count(array_filter($list, fn ($x) => $speech->hasPcm($x, $style)));
+        if ($built < $total) {
+            return response()->json(['done' => false, 'built' => $built, 'total' => $total]);
+        }
+        // همه‌ی جمله‌ها آماده → یک صدای پیوسته با مکثِ سرِ هر نقطه
+        $path = $speech->continuousPath($list, $style, $task->pace ?: 'normal');
+        if (! $path) {
+            return response()->json(['done' => false, 'built' => $built, 'total' => $total, 'error' => 'چسباندنِ صدای جمله‌ها نشد؛ دوباره تلاش کنید.']);
+        }
+        $copy = 'audio-tasks/tts-' . \Illuminate\Support\Str::random(24) . '.wav';
+        if (! Storage::disk('public')->copy($path, $copy)) {
+            return response()->json(['done' => false, 'built' => $built, 'total' => $total, 'error' => 'ذخیره‌ی فایلِ صدا نشد.']);
+        }
+        $oldPath = $task->audio_path;
+        $task->update(['audio_path' => $copy] + (\App\Support\DbSchema::hasColumn('audio_tasks', 'audio_hash') ? ['audio_hash' => $task->wantHash()] : []));
+        if ($oldPath && $oldPath !== $copy && str_starts_with($oldPath, 'audio-tasks/tts-')) {
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        return response()->json(['done' => true, 'built' => $total, 'total' => $total]);
     }
 
     /** عوض‌کردنِ صدای معلم (ضبطِ دوباره یا فایلِ تازه) بدونِ ساختنِ تکلیفِ تازه؛ پاسخ‌ها و نمره‌ها می‌مانند. */
@@ -229,6 +341,7 @@ class AudioTaskController extends Controller
             'submissions' => $subs->map(fn ($s) => $s->viewData() + ['student' => $s->student?->name, 'worksheet' => $task->title])->values(),
             'waiting' => $roster->reject(fn ($s) => isset($sent[$s->id]))->map(fn ($s) => $s->name)->values(),
             'grades' => AudioTask::GRADES,
+            'ttsOn' => SpeechService::available(),
         ]);
     }
 
@@ -253,6 +366,12 @@ class AudioTaskController extends Controller
             'reading_text' => $task->kind === 'reading' ? $task->text : null,
             'score_type' => $task->score_type, 'penalty' => (float) $task->penalty,
             'published' => (bool) $task->is_published,
+            'needs_build' => $task->needsBuild(),
+            'ready' => $task->audioReady(),
+            'publish_at' => $task->publish_at && ! $task->is_published ? $task->publish_at->format('Y-m-d H:i') : null,
+            'publish_at_fa' => $task->publish_at && ! $task->is_published ? Jalali::format($task->publish_at, true) . ' ساعت ' . Jalali::fa($task->publish_at->format('H:i')) : null,
+            'pace' => $task->pace ?: 'normal',
+            'due_at' => $task->due_at?->format('Y-m-d H:i'),
             'due' => $task->due_at ? Jalali::format($task->due_at, true) : null,
             'date' => Jalali::format($task->created_at),
         ];

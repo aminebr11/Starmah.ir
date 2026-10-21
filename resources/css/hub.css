@@ -533,3 +533,20 @@ fieldset.lv-q { border: 0; margin: 0; min-width: 0; }
 
 @keyframes lvBob { 50% { transform: translateY(-14px) rotate(-4deg); } }
 @keyframes lvGlow { 50% { box-shadow: 0 0 0 3px #ffd23f, 0 0 30px rgba(255,210,63,.6); } }
+/* املا و روخوانی: انتشار، ساختِ صدا، تأیید و ویرایش */
+.at-pubmodes { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.at-build { border-radius: 18px; padding: 14px 16px; background: linear-gradient(135deg, #eef3ff, #f7f2ff); border: 1.5px solid #d6e0ff; margin-bottom: 12px; }
+.at-build b { display: block; font-size: 15px; }
+.at-build small { display: block; color: var(--muted); font-size: 12.5px; line-height: 1.9; margin-top: 4px; }
+.at-build-bar { height: 12px; border-radius: 99px; background: #dde4fb; overflow: hidden; margin: 10px 0 4px; }
+.at-build-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #7c3aed, #3d7bf0); transition: width .5s ease; }
+.at-build.err { background: #fff4f4; border-color: #ffc9c9; }
+.at-build .btn { margin-top: 8px; }
+.at-review { border-radius: 18px; padding: 14px 16px; background: #fffbea; border: 1.5px solid #ffe08a; margin-bottom: 12px; }
+.at-review b { display: block; font-size: 15px; margin-bottom: 4px; }
+.at-review p { margin: 0 0 10px; font-size: 13px; color: #6b5a1e; line-height: 1.9; }
+.at-review-a { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.at-review.sched { background: #eef9f2; border-color: #a7e8c3; }
+.at-sched { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.at-edit { margin-top: 12px; display: grid; gap: 10px; background: var(--soft, #f7f7fb); border-radius: 16px; padding: 14px; }
+.at-edit label { display: grid; gap: 4px; font-size: 13px; font-weight: 700; }

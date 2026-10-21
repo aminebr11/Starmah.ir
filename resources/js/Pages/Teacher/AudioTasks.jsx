@@ -9,7 +9,7 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
 
 const SOURCES = {
     voice: { ic: '🎤', t: 'صدای خودم', d: 'همین‌جا ضبط کنید؛ بچه‌ها صدای خودِ شما را می‌شنوند.' },
-    tts: { ic: '🤖', t: 'متن ← صدای سیستم', d: 'متن را بنویسید؛ سیستم یک‌جا تا آخر می‌خواند و سرِ هر نقطه مکث می‌کند.' },
+    tts: { ic: '🤖', t: 'متن ← صدای هوش مصنوعی', d: 'متن را بنویسید؛ صدا جمله‌به‌جمله ساخته می‌شود، گوش می‌دهید و تأیید می‌کنید.' },
     upload: { ic: '📁', t: 'فایلِ صوتی', d: 'فایلِ آماده (mp3، m4a، wav…) را بارگذاری کنید.' },
 };
 
@@ -20,7 +20,7 @@ export default function AudioTasks() {
     const form = useForm({
         kind: classrooms.some((c) => c.dictation) ? 'dictation' : 'reading',
         classroom_id: classrooms[0]?.id ?? '', title: '', source: tts ? 'tts' : 'voice', text: '', audio: null,
-        score_type: 'descriptive', penalty: 0.5, due_at: '', publish: true, pace: 'normal',
+        score_type: 'descriptive', penalty: 0.5, due_at: '', publish_mode: 'review', publish_at: '', pace: 'normal',
     });
     const d = form.data;
     const room = classrooms.find((c) => String(c.id) === String(d.classroom_id));
@@ -128,11 +128,29 @@ export default function AudioTasks() {
                                 </select>
                             </label>
                         )}
-                        <label className="at-check"><input type="checkbox" checked={d.publish} onChange={(e) => form.setData('publish', e.target.checked)} /> همین حالا برای کلاس بفرست (اعلان برای بچه‌ها)</label>
                     </div>
 
+                    <h4 className="at-h">کِی برای بچه‌ها منتشر شود؟</h4>
+                    <div className="at-pubmodes">
+                        {[
+                            ['review', '🎧', 'اول گوش می‌دهم، بعد تأیید می‌کنم', 'ذخیره می‌شود؛ در صفحه‌ی بعد صدا را می‌شنوید و «تأیید و انتشار» می‌زنید.'],
+                            ['schedule', '🗓️', 'انتشار در زمانِ مشخص', 'سرِ ساعتِ انتخابی خودش برای کلاس فرستاده می‌شود (اگر صدا آماده باشد).'],
+                            ...(d.source === 'tts' ? [] : [['now', '📣', 'همین حالا بفرست', 'صدا را در همین صفحه شنیده‌اید؛ همین الان اعلان برای بچه‌ها می‌رود.']]),
+                        ].map(([k, ic, t, sub]) => (
+                            <button key={k} type="button" className={`at-src ${d.publish_mode === k ? 'on' : ''}`} onClick={() => form.setData('publish_mode', k)}>
+                                <span>{ic}</span><b>{t}</b><small>{sub}</small>
+                            </button>
+                        ))}
+                    </div>
+                    {d.publish_mode === 'schedule' && (
+                        <label className="at-text" style={{ maxWidth: 360 }}>زمانِ انتشار
+                            <JalaliDatePicker value={d.publish_at} onChange={(v) => form.setData('publish_at', v)} withTime placeholder="روز و ساعت را انتخاب کنید" />
+                        </label>
+                    )}
+                    {errors.publish_at && <div className="rm-err">{errors.publish_at}</div>}
+
                     <button type="submit" className="btn at-go" disabled={form.processing || dictBlocked}>
-                        {form.processing ? (d.source === 'tts' ? 'در حالِ ساختنِ صدا… (چند ثانیه)' : 'در حالِ ذخیره…') : d.kind === 'dictation' ? '📝 ساختنِ املا' : '🎙️ ساختنِ روخوانی'}
+                        {form.processing ? 'در حالِ ذخیره…' : d.source === 'tts' ? '🤖 ذخیره و ساختنِ صدا' : d.kind === 'dictation' ? '📝 ساختنِ املا' : '🎙️ ساختنِ روخوانی'}
                     </button>
                 </form>
             )}
@@ -149,7 +167,7 @@ export default function AudioTasks() {
                             <div className="at-prog"><i style={{ width: `${t.students ? Math.round((t.submitted / t.students) * 100) : 0}%` }} /></div>
                             <span>📥 {fa(t.submitted)}{t.students ? ` از ${fa(t.students)}` : ''} فرستاده · ✅ {fa(t.graded)} تصحیح‌شده {t.submitted - t.graded > 0 && <em className="at-badge">⏳ {fa(t.submitted - t.graded)} منتظر</em>}</span>
                         </div>
-                        <span className={`at-pub ${t.published ? 'on' : ''}`}>{t.published ? 'فرستاده‌شده' : 'پیش‌نویس'}</span>
+                        <span className={`at-pub ${t.published ? 'on' : ''}`}>{t.published ? 'فرستاده‌شده' : t.building ? '🤖 در انتظارِ صدا' : t.scheduled ? `🗓️ ${t.scheduled}` : 'پیش‌نویس'}</span>
                     </Link>
                 ))}
             </div>

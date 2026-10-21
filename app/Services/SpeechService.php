@@ -138,12 +138,67 @@ class SpeechService
         return $path;
     }
 
+    /** آخرین دلیلِ شکست (برای پیامِ روشن به معلم). */
+    public static ?string $lastError = null;
+
+    private function pcmPath(string $text, string $style): string
+    {
+        $hash = sha1('pcm|' . self::engine() . '|' . $style . '|' . $text);
+
+        return 'tts/pcm/' . substr($hash, 0, 2) . '/' . $hash . '.pcm';
+    }
+
+    /** صدای این جمله از قبل ساخته شده است؟ (بی‌هزینه) */
+    public function hasPcm(string $text, string $style): bool
+    {
+        $text = self::clean($text);
+
+        return $text !== '' && self::engine() !== null && Storage::disk('public')->exists($this->pcmPath($text, $style));
+    }
+
+    /** پاک‌کردنِ صدای ساخته‌شده‌ی یک جمله (برای «ساختِ دوباره»). */
+    public function forgetPcm(string $text, string $style): void
+    {
+        $text = self::clean($text);
+        if ($text !== '' && self::engine()) {
+            Storage::disk('public')->delete($this->pcmPath($text, $style));
+        }
+    }
+
+    /**
+     * ساختِ صدای یک جمله با تلاشِ دوباره — برای ساختِ قدم‌به‌قدمِ املا (هر درخواست چند جمله).
+     * null یعنی نشد؛ دلیلش در SpeechService::$lastError است.
+     */
+    public function sentencePcm(string $text, string $style, int $tries = 3): ?string
+    {
+        $text = self::clean($text);
+        if ($text === '' || ! self::available()) {
+            self::$lastError = 'سرویسِ صدا (کلیدِ OpenAI یا Gemini) تنظیم نشده یا خاموش است.';
+
+            return null;
+        }
+        for ($k = 1; $k <= $tries; $k++) {
+            $pcm = $this->pcmFor($text, $style);
+            if ($pcm !== null) {
+                return $pcm;
+            }
+            // کلیدِ نادرست یا تمام‌شدنِ اعتبار با تلاشِ دوباره درست نمی‌شود
+            if (self::$lastError && preg_match('/(کلید|اعتبار|دسترسی)/u', self::$lastError)) {
+                break;
+            }
+            if ($k < $tries) {
+                usleep(900000 * $k);
+            }
+        }
+
+        return null;
+    }
+
     /** PCMِ خامِ ۲۴ کیلوهرتزِ یک جمله (با کش؛ ساختِ دوباره‌ی یک متن هزینه ندارد). */
     private function pcmFor(string $text, string $style): ?string
     {
         $engine = self::engine();
-        $hash = sha1('pcm|' . $engine . '|' . $style . '|' . $text);
-        $path = 'tts/pcm/' . substr($hash, 0, 2) . '/' . $hash . '.pcm';
+        $path = $this->pcmPath($text, $style);
         $disk = Storage::disk('public');
         if ($disk->exists($path)) {
             return $disk->get($path);
@@ -166,21 +221,49 @@ class SpeechService
         return $pcm;
     }
 
+    /** درخواستِ HTTP بی‌استثنا: قطعیِ اتصال یا مهلت → null و دلیلِ روشن. */
+    private function send(callable $fn): ?\Illuminate\Http\Client\Response
+    {
+        try {
+            $res = $fn();
+        } catch (\Throwable $e) {
+            self::$lastError = 'ارتباط با سرویسِ هوش مصنوعی برقرار نشد یا خیلی طول کشید (' . class_basename($e) . ').';
+            \Illuminate\Support\Facades\Log::info('tts connection failed: ' . $e->getMessage());
+
+            return null;
+        }
+        if (! $res->successful()) {
+            self::$lastError = match (true) {
+                in_array($res->status(), [401, 403], true) => 'کلیدِ هوش مصنوعی نامعتبر است یا دسترسیِ صدا ندارد (' . $res->status() . ').',
+                $res->status() === 429 => 'اعتبار یا سهمیه‌ی سرویسِ هوش مصنوعی تمام شده یا درخواست‌ها زیاد است (429).',
+                $res->status() >= 500 => 'سرویسِ هوش مصنوعی موقتاً پاسخ نداد (' . $res->status() . ').',
+                default => 'سرویسِ هوش مصنوعی خطا داد (' . $res->status() . ').',
+            };
+            \Illuminate\Support\Facades\Log::info('tts http ' . $res->status() . ': ' . mb_substr((string) $res->body(), 0, 300));
+        }
+
+        return $res;
+    }
+
     private function openai(string $text, string $style = 'kid', string $format = 'mp3'): ?string
     {
         $key = AiConfig::key('openai');
         $body = ['model' => 'gpt-4o-mini-tts', 'voice' => 'nova', 'input' => $text, 'response_format' => $format,
             'instructions' => self::STYLES[$style] ?? self::STYLES['kid']];
-        $res = Http::withToken($key)->timeout(30)->post('https://api.openai.com/v1/audio/speech', $body);
-        if ($res->status() === 400 || $res->status() === 404) {
+        $http = fn () => Http::withToken($key)->connectTimeout(10)->timeout(40);
+        $res = $this->send(fn () => $http()->post('https://api.openai.com/v1/audio/speech', $body));
+        if ($res && ($res->status() === 400 || $res->status() === 404)) {
             // حساب‌هایی که به مدلِ تازه دسترسی ندارند
             unset($body['instructions']);
             // مدلِ قدیمی دستورِ لحن نمی‌فهمد؛ برای املا آهسته‌تر پخش شود
-            $res = Http::withToken($key)->timeout(30)->post('https://api.openai.com/v1/audio/speech',
-                ['model' => 'tts-1'] + $body + ($style === 'dictation' ? ['speed' => 0.8] : []));
+            $res = $this->send(fn () => $http()->post('https://api.openai.com/v1/audio/speech',
+                ['model' => 'tts-1'] + $body + ($style === 'dictation' ? ['speed' => 0.8] : [])));
+        }
+        if ($res && $res->successful() && strlen($res->body()) <= 200) {
+            self::$lastError = 'سرویسِ هوش مصنوعی صدای خالی برگرداند.';
         }
 
-        return $res->successful() && strlen($res->body()) > 200 ? $res->body() : null;
+        return $res && $res->successful() && strlen($res->body()) > 200 ? $res->body() : null;
     }
 
     private function gemini(string $text, string $style = 'kid'): ?string
@@ -195,15 +278,26 @@ class SpeechService
         $key = AiConfig::key('gemini');
         // Gemini دستورِ لحن را از خودِ متن می‌گیرد؛ برای «kid» فقط متن (مثلِ قبل)
         $prompt = $style === 'kid' ? $text : (self::STYLES[$style] . "\n\n" . $text);
-        $res = Http::timeout(30)->post('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=' . urlencode((string) $key), [
+        $payload = [
             'contents' => [['parts' => [['text' => $prompt]]]],
             'generationConfig' => [
                 'responseModalities' => ['AUDIO'],
                 'speechConfig' => ['voiceConfig' => ['prebuiltVoiceConfig' => ['voiceName' => 'Kore']]],
             ],
-        ]);
-        $b64 = $res->successful() ? data_get($res->json(), 'candidates.0.content.parts.0.inlineData.data') : null;
+        ];
+        // اگر یک مدلِ صدا در دسترس نبود (نامِ تازه/قدیمی)، مدلِ دیگر امتحان شود
+        foreach (['gemini-2.5-flash-preview-tts', 'gemini-2.5-pro-preview-tts'] as $model) {
+            $res = $this->send(fn () => Http::connectTimeout(10)->timeout(45)
+                ->post('https://generativelanguage.googleapis.com/v1beta/models/' . $model . ':generateContent?key=' . urlencode((string) $key), $payload));
+            if (! $res || ! in_array($res->status(), [400, 404], true)) {
+                break;
+            }
+        }
+        $b64 = $res && $res->successful() ? data_get($res->json(), 'candidates.0.content.parts.0.inlineData.data') : null;
         $pcm = $b64 ? base64_decode($b64, true) : null;
+        if ($res && $res->successful() && ! $pcm) {
+            self::$lastError = 'سرویسِ هوش مصنوعی صدایی برنگرداند (شاید متن خیلی کوتاه یا نامفهوم است).';
+        }
 
         return $pcm ?: null;
     }

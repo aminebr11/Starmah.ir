@@ -181,6 +181,8 @@ class Notifications
         $limit = 200;
         // محتوای زمان‌دارِ سررسیده را همین‌جا منتشر می‌کنیم (میزبان cron ندارد)
         ContentRelease::releaseDue();
+        // املا/روخوانیِ زمان‌بندی‌شده سرِ ساعتش برای کلاس فرستاده شود
+        \App\Models\AudioTask::releaseDue();
         // بازی/آزمونِ زمان‌دارِ سررسیده هم سرِ ساعتش اعلان شود
         ActivityNotifier::releaseDue();
 

@@ -50,6 +50,7 @@ class AudioSubmissionController extends Controller
     {
         $user = $request->user();
         $ids = $user->classrooms()->pluck('classrooms.id');
+        AudioTask::releaseDue();
         $tasks = AudioTask::ready() ? AudioTask::whereIn('classroom_id', $ids)->where('is_published', true)->latest('published_at')->get() : collect();
         $mine = $tasks->isEmpty() ? collect() : AudioSubmission::where('student_id', $user->id)->whereIn('audio_task_id', $tasks->pluck('id'))->get()->keyBy('audio_task_id');
 

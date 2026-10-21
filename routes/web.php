@@ -417,6 +417,11 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::get('/audio/{task}', [\App\Http\Controllers\Teacher\AudioTaskController::class, 'show'])->name('audio.show');
     Route::post('/audio/{task}/publish', [\App\Http\Controllers\Teacher\AudioTaskController::class, 'publish'])->name('audio.publish');
     Route::post('/audio/{task}/audio', [\App\Http\Controllers\Teacher\AudioTaskController::class, 'replaceAudio'])->middleware('throttle:20,1')->name('audio.replace');
+    Route::put('/audio/{task}', [\App\Http\Controllers\Teacher\AudioTaskController::class, 'update'])->name('audio.update');
+    Route::post('/audio/{task}/schedule', [\App\Http\Controllers\Teacher\AudioTaskController::class, 'schedule'])->name('audio.schedule');
+    Route::post('/audio/{task}/rebuild', [\App\Http\Controllers\Teacher\AudioTaskController::class, 'rebuild'])->middleware('throttle:10,1')->name('audio.rebuild');
+    // ساختِ قدم‌به‌قدمِ صدای سیستم (صفحه پشتِ سرِ هم صدا می‌زند)
+    Route::post('/audio/{task}/build', [\App\Http\Controllers\Teacher\AudioTaskController::class, 'build'])->middleware('throttle:120,1')->name('audio.build');
     Route::delete('/audio/{task}', [\App\Http\Controllers\Teacher\AudioTaskController::class, 'destroy'])->name('audio.destroy');
     Route::get('/worksheet-inbox', [\App\Http\Controllers\Teacher\WorksheetController::class, 'inbox'])->name('worksheets.inbox');
     Route::get('/worksheets/{worksheet}', [\App\Http\Controllers\Teacher\WorksheetController::class, 'show'])->name('worksheets.show');
