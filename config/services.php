@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    // کلیدهای هوش مصنوعی از .env (پشتیبانِ تنظیماتِ ادمین) — این‌جا خوانده می‌شوند تا با config:cache هم کار کنند
+    'ai_env' => [
+        'anthropic' => env('ANTHROPIC_API_KEY'),
+        'openai' => env('OPENAI_API_KEY'),
+        'deepseek' => env('DEEPSEEK_API_KEY'),
+        'gemini' => env('GEMINI_API_KEY'),
+        'anthropic_model' => env('ANTHROPIC_MODEL'),
+    ],
+
 ];

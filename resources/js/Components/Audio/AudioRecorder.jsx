@@ -5,7 +5,7 @@ const mmss = (s) => fa(`${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padSt
 
 /**
  * بهترین قالبِ ضبطِ مرورگر. اولویت با AAC (mp4) است چون روی همه‌ی گوشی‌ها (آیفون، اندروید) و
- * کامپیوترها پخش می‌شود؛ webm/ogg روی آیفون و بعضی گوشی‌ها پخش نمی‌شود و بعد از ضبط به WAV تبدیل می‌شود.
+ * کامپیوترها پخش می‌شود؛ webm/ogg روی آیفون و بعضی گوشی‌ها پخش نمی‌شود و بعد از ضبط به MP3 تبدیل می‌شود.
  */
 function pickMime() {
     if (typeof MediaRecorder === 'undefined') return null;
@@ -17,8 +17,8 @@ function pickMime() {
 const extOf = (mime) => (mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? 'ogg' : 'webm');
 const universal = (mime) => mime.includes('mp4') || mime.includes('mpeg') || mime.includes('wav');
 
-/** صدای webm/ogg → WAVِ تک‌کاناله‌ی ۱۶ کیلوهرتز (روی همه‌ی دستگاه‌ها پخش می‌شود؛ هر دقیقه حدودِ ۲ مگابایت). */
-async function toWav(blob, rate = 16000) {
+/** صدای ضبط‌شده → PCMِ تک‌کاناله با بلندیِ یکنواخت (تا صدای آرام هم واضح شنیده شود). */
+async function decodeMono(blob, rate) {
     const AC = window.AudioContext || window.webkitAudioContext;
     const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
     if (!AC || !OAC) return null;
@@ -31,27 +31,60 @@ async function toWav(blob, rate = 16000) {
         node.connect(off.destination);
         node.start();
         const pcm = (await off.startRendering()).getChannelData(0);
-        // بلندیِ صدا را یکنواخت کن تا صدای آرامِ معلم هم واضح شنیده شود
         let peak = 0;
         for (let k = 0; k < pcm.length; k++) peak = Math.max(peak, Math.abs(pcm[k]));
         const gain = peak > 0.01 ? Math.min(4, 0.9 / peak) : 1;
-        const buf = new ArrayBuffer(44 + pcm.length * 2);
-        const v = new DataView(buf);
-        const str = (o, t) => { for (let k = 0; k < t.length; k++) v.setUint8(o + k, t.charCodeAt(k)); };
-        str(0, 'RIFF'); v.setUint32(4, 36 + pcm.length * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
-        v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
-        v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
-        str(36, 'data'); v.setUint32(40, pcm.length * 2, true);
+        const out = new Int16Array(pcm.length);
         for (let k = 0; k < pcm.length; k++) {
             const x = Math.max(-1, Math.min(1, pcm[k] * gain));
-            v.setInt16(44 + k * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true);
+            out[k] = x < 0 ? x * 0x8000 : x * 0x7fff;
         }
-        return new Blob([buf], { type: 'audio/wav' });
+        return out;
     } catch {
         return null;
     } finally {
         ctx.close?.().catch(() => {});
     }
+}
+
+/**
+ * webm/ogg → MP3ِ تک‌کاناله (۲۲ کیلوهرتز، ۴۰ کیلوبیت): روی همه‌ی گوشی‌ها پخش می‌شود و هر دقیقه
+ * حدودِ ۳۰۰ کیلوبایت است (WAVِ قبلی ۲ مگابایت بود) — فرستادن و پخشش برای بچه‌ها و معلم خیلی سریع‌تر است.
+ * کتابخانه‌ی MP3 فقط همین‌جا و همان لحظه بارگذاری می‌شود.
+ */
+async function toMp3(blob, rate = 22050, kbps = 40) {
+    const pcm = await decodeMono(blob, rate);
+    if (!pcm) return null;
+    try {
+        const { Mp3Encoder } = await import('@breezystack/lamejs');
+        const enc = new Mp3Encoder(1, rate, kbps);
+        const parts = [];
+        const step = 1152 * 40;
+        for (let k = 0; k < pcm.length; k += step) {
+            const b = enc.encodeBuffer(pcm.subarray(k, k + step));
+            if (b.length) parts.push(new Uint8Array(b));
+            // گوشی قفل نشود: هر چند تکه یک نفس
+            if ((k / step) % 8 === 7) await new Promise((r) => setTimeout(r, 0));
+        }
+        const tail = enc.flush();
+        if (tail.length) parts.push(new Uint8Array(tail));
+        return new Blob(parts, { type: 'audio/mpeg' });
+    } catch {
+        return toWav(pcm, rate);
+    }
+}
+
+/** پشتیبان: WAVِ ۱۶ بیتی (اگر MP3 ساخته نشد). */
+function toWav(pcm, rate) {
+    const buf = new ArrayBuffer(44 + pcm.length * 2);
+    const v = new DataView(buf);
+    const str = (o, t) => { for (let k = 0; k < t.length; k++) v.setUint8(o + k, t.charCodeAt(k)); };
+    str(0, 'RIFF'); v.setUint32(4, 36 + pcm.length * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    str(36, 'data'); v.setUint32(40, pcm.length * 2, true);
+    new Int16Array(buf, 44).set(pcm);
+    return new Blob([buf], { type: 'audio/wav' });
 }
 
 /**
@@ -113,7 +146,9 @@ export default function AudioRecorder({ onDone, max = 600, label = 'ضبط کن'
                 tick();
             } catch { /* بدونِ نوار هم ضبط می‌شود */ }
             chunks.current = [];
-            const r = new MediaRecorder(s, mime ? { mimeType: mime } : undefined);
+            // صدای گفتار با ۴۸ کیلوبیت کاملاً واضح است و فایل ۳ برابر کوچک‌تر می‌شود
+            let r;
+            try { r = new MediaRecorder(s, mime ? { mimeType: mime, audioBitsPerSecond: 48000 } : { audioBitsPerSecond: 48000 }); } catch { r = new MediaRecorder(s, mime ? { mimeType: mime } : undefined); }
             r.ondataavailable = (e) => { if (e.data?.size) chunks.current.push(e.data); };
             r.onstop = async () => {
                 cleanup();
@@ -122,8 +157,8 @@ export default function AudioRecorder({ onDone, max = 600, label = 'ضبط کن'
                 let ext = extOf(type);
                 if (!universal(type)) {
                     setState('busy');
-                    const wav = await toWav(blob);
-                    if (wav) { blob = wav; type = 'audio/wav'; ext = 'wav'; }
+                    const out = await toMp3(blob);
+                    if (out) { blob = out; type = out.type; ext = out.type === 'audio/mpeg' ? 'mp3' : 'wav'; }
                 }
                 const u = URL.createObjectURL(blob);
                 setUrl((old) => { if (old) URL.revokeObjectURL(old); return u; });

@@ -82,7 +82,7 @@ export default function AudioTaskPlay() {
                     <input className="input" style={{ marginTop: 10 }} placeholder="یادداشت برای معلم (اختیاری)" value={form.data.note} onChange={(e) => form.setData('note', e.target.value)} maxLength={300} />
                     {(errors.file || form.errors.file) && <div className="sp-msg" style={{ marginTop: 8 }}>{errors.file || form.errors.file}</div>}
                     <button type="submit" className="k3-btn" style={{ width: '100%', marginTop: 12, background: 'linear-gradient(180deg,#ffd23f,#e9a400)', color: '#2b1d00' }} disabled={!form.data.file || form.processing}>
-                        {form.processing ? 'در حالِ فرستادن…' : `📨 بفرست برای معلم${!submitted && submitXp > 0 ? ` (+${fa(submitXp)} امتیاز)` : ''}`}
+                        {form.processing ? `در حالِ فرستادن…${form.progress?.percentage != null ? ` ${fa(form.progress.percentage)}٪` : ''}` : `📨 بفرست برای معلم${!submitted && submitXp > 0 ? ` (+${fa(submitXp)} امتیاز)` : ''}`}
                     </button>
                 </form>
             )}

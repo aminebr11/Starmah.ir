@@ -85,9 +85,7 @@ class AiConfig
         $p ??= self::provider();
         $m = self::PROVIDERS[$p] ?? null;
         if (! $m) return null;
-        $env = ['anthropic' => 'ANTHROPIC_API_KEY', 'openai' => 'OPENAI_API_KEY', 'deepseek' => 'DEEPSEEK_API_KEY', 'gemini' => 'GEMINI_API_KEY'][$p] ?? null;
-
-        return Setting::get($m['key']) ?: ($env ? env($env) : null);
+        return Setting::get($m['key']) ?: (config('services.ai_env.' . $p) ?: null);
     }
 
     public static function model(?string $p = null): string
@@ -95,7 +93,7 @@ class AiConfig
         $p ??= self::provider();
         $m = self::PROVIDERS[$p] ?? self::PROVIDERS['anthropic'];
 
-        return (string) (Setting::get($m['model']) ?: ($p === 'anthropic' ? env('ANTHROPIC_MODEL', $m['default']) : $m['default']));
+        return (string) (Setting::get($m['model']) ?: ($p === 'anthropic' ? (config('services.ai_env.anthropic_model') ?: $m['default']) : $m['default']));
     }
 
     public static function base(?string $p = null): ?string

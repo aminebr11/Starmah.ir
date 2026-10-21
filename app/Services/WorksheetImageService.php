@@ -51,12 +51,12 @@ class WorksheetImageService
 
     private function openAiKey(): ?string
     {
-        return Setting::get('openai_image_key') ?: Setting::get('openai_key') ?: (env('OPENAI_API_KEY') ?: null);
+        return Setting::get('openai_image_key') ?: Setting::get('openai_key') ?: (config('services.ai_env.openai') ?: null);
     }
 
     private function geminiKey(): ?string
     {
-        return Setting::get('gemini_key') ?: (env('GEMINI_API_KEY') ?: null);
+        return Setting::get('gemini_key') ?: (config('services.ai_env.gemini') ?: null);
     }
 
     /** تنظیمِ خامِ ادمین. */

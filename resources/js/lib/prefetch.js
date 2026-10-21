@@ -27,6 +27,7 @@ function linkOf(target) {
 function go(href, resolve) {
     const now = Date.now();
     if (href === lastHref && now - lastAt < 15000) return;   // همین تازگی گرفته شده
+    if (now - (started.get(href) || 0) < 20000) return;
     lastHref = href; lastAt = now;
     started.set(href, now);
     try {
@@ -51,7 +52,20 @@ export function initPrefetch(resolve) {
     });
     // اینترنتِ «کم‌مصرف» را محترم بشمار
     if (navigator.connection?.saveData) return;
-    document.addEventListener('touchstart', (e) => { const h = linkOf(e.target); if (h) go(h, resolve); }, { passive: true, capture: true });
+    // روی گوشی: فقط «لمسِ واقعی» — اگر انگشت برای اسکرول حرکت کرد، چیزی از سرور گرفته نمی‌شود
+    // (پیش از این هر اسکرولی که روی یک کارت شروع می‌شد یک درخواستِ بی‌مصرف به سرور می‌فرستاد)
+    let touchT = null;
+    const cancelTouch = () => clearTimeout(touchT);
+    document.addEventListener('touchstart', (e) => {
+        clearTimeout(touchT);
+        if (e.touches && e.touches.length > 1) return;
+        const h = linkOf(e.target);
+        if (h) touchT = setTimeout(() => go(h, resolve), 70);
+    }, { passive: true, capture: true });
+    document.addEventListener('touchmove', cancelTouch, { passive: true, capture: true });
+    document.addEventListener('touchcancel', cancelTouch, { passive: true, capture: true });
+    document.addEventListener('touchend', cancelTouch, { passive: true, capture: true }); // ضربه‌ی سریع: خودِ کلیک صفحه را می‌آورد
+    window.addEventListener('scroll', cancelTouch, { passive: true, capture: true });
     document.addEventListener('mouseover', (e) => {
         const h = linkOf(e.target);
         clearTimeout(hoverT);

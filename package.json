@@ -22,6 +22,7 @@
         "vite": "^8.0.0"
     },
     "dependencies": {
+        "@breezystack/lamejs": "^1.2.7",
         "livekit-client": "2.22.4",
         "pdfjs-dist": "4.10.38",
         "react-date-object": "^2.1.9",

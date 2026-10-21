@@ -155,6 +155,7 @@ class Notifications
     {
         if ($user) {
             unset(self::$cache[$user->id]);
+            rescue(fn () => \Illuminate\Support\Facades\Cache::forget('notif-pulse:'.$user->id), null, false);
         } else {
             self::$cache = [];
         }
@@ -175,16 +176,25 @@ class Notifications
         return array_slice($rows, 0, $limit);
     }
 
+    /**
+     * انتشارِ زمان‌دارهای سررسیده (میزبان cron ندارد): محتوا، املا/روخوانی، بازی/آزمون.
+     * در کلِ سایت حداکثر هر ۲۰ ثانیه یک بار — نه در هر درخواستِ هر دانش‌آموز (بارِ سرور).
+     */
+    public static function releaseDue(): void
+    {
+        if (! app()->runningUnitTests() && ! rescue(fn () => \Illuminate\Support\Facades\Cache::add('release-due-lock', 1, 20), true, false)) {
+            return;
+        }
+        ContentRelease::releaseDue();
+        \App\Models\AudioTask::releaseDue();
+        ActivityNotifier::releaseDue();
+    }
+
     /** @return array<int,array<string,mixed>> */
     private static function build(User $user): array
     {
         $limit = 200;
-        // محتوای زمان‌دارِ سررسیده را همین‌جا منتشر می‌کنیم (میزبان cron ندارد)
-        ContentRelease::releaseDue();
-        // املا/روخوانیِ زمان‌بندی‌شده سرِ ساعتش برای کلاس فرستاده شود
-        \App\Models\AudioTask::releaseDue();
-        // بازی/آزمونِ زمان‌دارِ سررسیده هم سرِ ساعتش اعلان شود
-        ActivityNotifier::releaseDue();
+        self::releaseDue();
 
         $seen = self::seenAt($user);
         $read = self::readKeys($user);
