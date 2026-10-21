@@ -54,7 +54,8 @@ export default function AlbumGallery({ albums = [], mode = 'student', classrooms
     const filtered = albums.filter((a) => (!day || a.day === day) && (!q || (a.title + ' ' + (a.description || '')).includes(q)));
     const s = useSort(filtered, { new: 'ts', title: 'title', count: 'count' }, { key: 'new', dir: 'desc', id: `albums-${mode}`, firstDir: { new: 'desc', count: 'desc' } });
     const open = albums.find((a) => a.id === openId);
-    const totalPhotos = albums.reduce((t, a) => t + a.count, 0);
+    const totalPhotos = albums.reduce((t, a) => t + a.count - (a.videos || 0), 0);
+    const totalVideos = albums.reduce((t, a) => t + (a.videos || 0), 0);
 
     // بستنِ آلبومی که حذف شد
     useEffect(() => { if (openId && !open) setOpenId(null); }, [albums.length]); // eslint-disable-line
@@ -66,7 +67,7 @@ export default function AlbumGallery({ albums = [], mode = 'student', classrooms
                     <span className="ag-hello-ic">📸</span>
                     <div>
                         <b>گالریِ کلاس</b>
-                        <small>{fa(albums.length)} آلبوم · {fa(totalPhotos)} عکس</small>
+                        <small>{fa(albums.length)} آلبوم · {fa(totalPhotos)} عکس{totalVideos > 0 ? ` · ${fa(totalVideos)} فیلم` : ''}</small>
                     </div>
                 </div>
                 {teacher && <button type="button" className="ag-new" onClick={() => setCreating(true)}>➕ آلبومِ تازه</button>}
@@ -87,7 +88,7 @@ export default function AlbumGallery({ albums = [], mode = 'student', classrooms
                 <div className="ag-empty">
                     <div className="ag-empty-art">🖼️<span>✨</span></div>
                     <b>{teacher ? 'هنوز آلبومی نساخته‌ای' : 'هنوز آلبومی منتشر نشده'}</b>
-                    <p>{teacher ? 'عکس‌های اردو، جشن یا کارهای کلاسی را در یک آلبوم بگذار؛ یکی را کاور کن و بقیه داخلش می‌نشینند.' : 'وقتی معلمت عکس‌های کلاس را بگذارد، اینجا آلبوم‌به‌آلبوم می‌بینی‌شان.'}</p>
+                    <p>{teacher ? 'عکس‌ها و فیلم‌های اردو، جشن یا کارهای کلاسی را در یک آلبوم بگذار؛ یکی را کاور کن و بقیه داخلش می‌نشینند.' : 'وقتی معلمت عکس‌های کلاس را بگذارد، اینجا آلبوم‌به‌آلبوم می‌بینی‌شان.'}</p>
                     {teacher && <button type="button" className="ag-new" onClick={() => setCreating(true)}>➕ ساختِ نخستین آلبوم</button>}
                 </div>
             )}
@@ -105,7 +106,7 @@ export default function AlbumGallery({ albums = [], mode = 'student', classrooms
 
 function AlbumCard({ a, i, teacher, onOpen }) {
     const [c1, c2, emo] = themeOf(a);
-    const back = a.photos.filter((p) => p.id !== a.cover_id).slice(-2);
+    const back = a.photos.filter((p) => p.id !== a.cover_id && !p.video).slice(-2);
     return (
         <button type="button" className={`ag-card ${!a.is_visible || a.live === false ? 'dim' : ''}`} onClick={onOpen}
             style={{ '--c1': c1, '--c2': c2, animationDelay: `${Math.min(i, 12) * 45}ms` }}>
@@ -113,7 +114,8 @@ function AlbumCard({ a, i, teacher, onOpen }) {
                 {back.map((p, k) => <span key={p.id} className={`ag-layer l${k}`} style={{ backgroundImage: `url("${p.url}")` }} />)}
                 {back.length < 2 && [0, 1].slice(back.length).map((k) => <span key={k} className={`ag-layer l${k} plain`} />)}
                 <span className="ag-cover" style={{ backgroundImage: a.cover ? `url("${a.cover}")` : undefined }}>
-                    <span className="ag-count">🖼️ {fa(a.count)}</span>
+                    {!a.cover && a.cover_video && <video className="ag-cover-vid" src={`${a.cover_video}#t=0.5`} preload="metadata" muted playsInline />}
+                    <span className="ag-count">🖼️ {fa(a.count - (a.videos || 0))}{a.videos > 0 ? ` · 🎬 ${fa(a.videos)}` : ''}</span>
                     {teacher && !a.is_visible && <span className="ag-flag">🙈 مخفی</span>}
                     {teacher && a.is_visible && a.live === false && <span className="ag-flag warn">⏰ زمان‌دار</span>}
                 </span>
@@ -190,7 +192,8 @@ function AlbumView({ a, teacher, albums, classrooms, onClose, onViewed }) {
                             <h2>{emo} {a.title}</h2>
                             {a.description && <p>{a.description}</p>}
                             <div className="ag-hero-meta">
-                                <span>🖼️ {fa(a.count)} عکس</span>
+                                <span>🖼️ {fa(a.count - (a.videos || 0))} عکس</span>
+                                {a.videos > 0 && <span>🎬 {fa(a.videos)} فیلم</span>}
                                 <span>📅 {fa(a.date)}</span>
                                 {teacher && <span>{a.is_visible ? (a.live === false ? `⏰ ${fa(a.publish_at)}` : '👁️ منتشرشده') : '🙈 مخفی'}</span>}
                                 {teacher && a.classroom_id && <span>🏫 {classrooms.find((c) => c.id === a.classroom_id)?.name}</span>}
@@ -199,7 +202,7 @@ function AlbumView({ a, teacher, albums, classrooms, onClose, onViewed }) {
                     </div>
                     {teacher && (
                         <div className="ag-tools">
-                            <button type="button" onClick={() => setAdding(true)}>➕ افزودنِ عکس</button>
+                            <button type="button" onClick={() => setAdding(true)}>➕ افزودنِ عکس / فیلم</button>
                             <button type="button" onClick={() => setEditing(true)}>✏️ ویرایشِ آلبوم</button>
                             <button type="button" onClick={() => post('teacher.gallery.albums.visibility', a.id)}>{a.is_visible ? '🙈 مخفی‌کردن' : '👁️ نمایش'}</button>
                             <button type="button" className={selMode ? 'on' : ''} onClick={() => { setSelMode(!selMode); setSel([]); }}>☑️ انتخابِ چندتایی</button>
@@ -224,8 +227,13 @@ function AlbumView({ a, teacher, albums, classrooms, onClose, onViewed }) {
                             {groups.length > 1 && <h4>📅 {fa(g.date)} <small>{fa(g.items.length)} عکس</small></h4>}
                             <div className="ag-masonry">
                                 {g.items.map(([p, idx]) => (
-                                    <figure key={p.id} className={`ag-ph ${sel.includes(p.id) ? 'sel' : ''} ${!p.is_visible ? 'hid' : ''}`}>
-                                        <img src={p.url} alt={p.title} loading="lazy" onClick={() => (selMode ? toggleSel(p.id) : setLb(idx))} />
+                                    <figure key={p.id} className={`ag-ph ${sel.includes(p.id) ? 'sel' : ''} ${!p.is_visible ? 'hid' : ''} ${p.video ? 'vid' : ''}`}>
+                                        {p.video ? (
+                                            <div className="ag-vid" onClick={() => (selMode ? toggleSel(p.id) : setLb(idx))}>
+                                                <video src={`${p.url}#t=0.5`} preload="metadata" muted playsInline />
+                                                <span className="ag-play" aria-hidden="true">▶</span>
+                                            </div>
+                                        ) : <img src={p.url} alt={p.title} loading="lazy" onClick={() => (selMode ? toggleSel(p.id) : setLb(idx))} />}
                                         {p.id === a.cover_id && <span className="ag-cover-badge">⭐ کاور</span>}
                                         {selMode && <span className="ag-check" onClick={() => toggleSel(p.id)}>{sel.includes(p.id) ? '✔' : ''}</span>}
                                         {!teacher && p.viewed && <span className="ag-seen" title="دیده‌ای">✓</span>}
@@ -235,10 +243,10 @@ function AlbumView({ a, teacher, albums, classrooms, onClose, onViewed }) {
                                         </figcaption>
                                         {teacher && !selMode && (
                                             <div className="ag-ph-tools">
-                                                {p.id !== a.cover_id && <button type="button" title="کاورِ آلبوم شود" onClick={() => post('teacher.gallery.albums.cover', [a.id, p.id])}>⭐</button>}
+                                                {p.id !== a.cover_id && !p.video && <button type="button" title="کاورِ آلبوم شود" onClick={() => post('teacher.gallery.albums.cover', [a.id, p.id])}>⭐</button>}
                                                 <button type="button" title="ویرایشِ عنوان" onClick={() => setPhotoEdit(p)}>✏️</button>
                                                 <button type="button" title={p.is_visible ? 'مخفی' : 'نمایش'} onClick={() => post('teacher.materials.visibility', p.id)}>{p.is_visible ? '🙈' : '👁️'}</button>
-                                                <button type="button" title="حذف" className="danger" onClick={() => { if (confirm('این عکس حذف شود؟')) router.delete(route('teacher.materials.destroy', p.id), { preserveScroll: true, preserveState: true }); }}>🗑️</button>
+                                                <button type="button" title="حذف" className="danger" onClick={() => { if (confirm(p.video ? 'این فیلم حذف شود؟' : 'این عکس حذف شود؟')) router.delete(route('teacher.materials.destroy', p.id), { preserveScroll: true, preserveState: true }); }}>🗑️</button>
                                             </div>
                                         )}
                                     </figure>
@@ -281,7 +289,7 @@ function Lightbox({ photos, index, album, onIndex, onClose, onViewed }) {
         if (p && onViewed) onViewed(p);
         stripRef.current?.querySelector('.on')?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
         // پیش‌بارگذاریِ عکسِ بعد و قبل
-        [1, -1].forEach((d) => { const n = photos[(index + d + photos.length) % photos.length]; if (n) { const im = new Image(); im.src = n.url; } });
+        [1, -1].forEach((d) => { const n = photos[(index + d + photos.length) % photos.length]; if (n && !n.video) { const im = new Image(); im.src = n.url; } });
     }, [index]); // eslint-disable-line
 
     if (!p) return null;
@@ -292,12 +300,15 @@ function Lightbox({ photos, index, album, onIndex, onClose, onViewed }) {
             <div className="ag-lb-top" onClick={(e) => e.stopPropagation()}>
                 <span className="ag-lb-n">{fa(index + 1)} / {fa(photos.length)}</span>
                 <span className="ag-lb-t">{album.title}</span>
-                <a className="ag-lb-btn" href={p.url} download target="_blank" rel="noreferrer" title="دریافتِ عکس">⬇️</a>
+                <a className="ag-lb-btn" href={p.url} download target="_blank" rel="noreferrer" title={p.video ? 'دریافتِ فیلم' : 'دریافتِ عکس'}>⬇️</a>
                 <button type="button" className="ag-lb-btn close" onClick={close} aria-label="بستن">✕</button>
             </div>
             <div className="ag-lb-stage" onClick={(e) => e.stopPropagation()}>
                 {photos.length > 1 && <button type="button" className="ag-lb-nav prev" onClick={() => go(-1)} aria-label="قبلی">›</button>}
-                <img key={p.id} src={p.url} alt={p.title} className="ag-lb-img" />
+                {p.video
+                    ? <video key={p.id} src={p.url} className="ag-lb-img ag-lb-video" controls playsInline autoPlay preload="metadata"
+                        onTouchStart={(e) => e.stopPropagation()} onTouchEnd={(e) => e.stopPropagation()} />
+                    : <img key={p.id} src={p.url} alt={p.title} className="ag-lb-img" />}
                 {photos.length > 1 && <button type="button" className="ag-lb-nav next" onClick={() => go(1)} aria-label="بعدی">‹</button>}
             </div>
             <div className="ag-lb-cap" onClick={(e) => e.stopPropagation()}>
@@ -307,7 +318,9 @@ function Lightbox({ photos, index, album, onIndex, onClose, onViewed }) {
             </div>
             {photos.length > 1 && (
                 <div className="ag-lb-strip" ref={stripRef} onClick={(e) => e.stopPropagation()}>
-                    {photos.map((x, i) => <img key={x.id} src={x.url} alt="" className={i === index ? 'on' : ''} onClick={() => onIndex(i)} loading="lazy" />)}
+                    {photos.map((x, i) => (x.video
+                        ? <span key={x.id} className={`ag-strip-vid ${i === index ? 'on' : ''}`} onClick={() => onIndex(i)}>🎬</span>
+                        : <img key={x.id} src={x.url} alt="" className={i === index ? 'on' : ''} onClick={() => onIndex(i)} loading="lazy" />))}
                 </div>
             )}
         </div>
@@ -394,10 +407,10 @@ function PhotoEdit({ p, albums, onClose }) {
         router.post(route('teacher.gallery.photos.update', p.id), d, { preserveScroll: true, preserveState: true, onSuccess: onClose, onError: setErrs });
     };
     return (
-        <Modal title="✏️ ویرایشِ عکس" onClose={onClose}>
+        <Modal title={p.video ? '✏️ ویرایشِ فیلم' : '✏️ ویرایشِ عکس'} onClose={onClose}>
             <form onSubmit={save}>
-                <img src={p.url} alt="" className="ag-dlg-img" />
-                <F label="عنوانِ عکس" err={errs.title}><input className="input" value={d.title} onChange={(e) => setD({ ...d, title: e.target.value })} autoFocus /></F>
+                {p.video ? <video src={p.url} className="ag-dlg-img" controls playsInline preload="metadata" /> : <img src={p.url} alt="" className="ag-dlg-img" />}
+                <F label={p.video ? 'عنوانِ فیلم' : 'عنوانِ عکس'} err={errs.title}><input className="input" value={d.title} onChange={(e) => setD({ ...d, title: e.target.value })} autoFocus /></F>
                 <F label="توضیح (اختیاری)"><textarea className="input" rows="2" value={d.description} onChange={(e) => setD({ ...d, description: e.target.value })} placeholder="مثلاً: لحظه‌ی برنده‌شدنِ تیمِ ستاره‌ها" /></F>
                 {albums.length > 1 && (
                     <F label="آلبوم (برای انتقال عوض کن)">
@@ -415,10 +428,44 @@ function PhotoEdit({ p, albums, onClose }) {
     );
 }
 
+const VIDEO_MAX_MB = 500;
+const VCHUNK = 4 * 1024 * 1024;
+const isVideoFile = (f) => f.type.startsWith('video/') || /\.(mp4|m4v|mov|webm)$/i.test(f.name);
+const rid = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => (b % 36).toString(36)).join('');
+
 /**
- * ساختِ آلبومِ تازه یا افزودنِ عکس به آلبومِ موجود.
+ * 🎬 یک فیلم، تکه‌تکه (۴ مگابایتی) — سقفِ آپلودِ هاست مانع نمی‌شود و با قطعیِ کوتاهِ اینترنت
+ * همان تکه دوباره فرستاده می‌شود. onBytes(n) پیشرفت را می‌گوید. خروجی: پاسخِ آخرین تکه.
+ */
+async function sendVideo(file, fields, onBytes) {
+    const chunks = Math.max(1, Math.ceil(file.size / VCHUNK));
+    const upload = rid();
+    let last = null;
+    for (let seq = 0; seq < chunks; seq++) {
+        const fd = new FormData();
+        fd.append('upload', upload); fd.append('seq', String(seq)); fd.append('chunks', String(chunks)); fd.append('name', file.name);
+        fd.append('chunk', file.slice(seq * VCHUNK, (seq + 1) * VCHUNK), 'part');
+        Object.entries(seq === chunks - 1 ? fields : { ...fields, final: '0' }).forEach(([k, v]) => { if (v !== null && v !== undefined && v !== '') fd.append(k, v); });
+        for (let tryN = 0; ; tryN++) {
+            try {
+                ({ data: last } = await axios.post(route('teacher.gallery.video'), fd, { headers: { Accept: 'application/json' }, timeout: 120000 }));
+                break;
+            } catch (e) {
+                const st = e?.response?.status;
+                if (tryN >= 3 || [403, 409, 413, 422].includes(st)) throw e;
+                await new Promise((r) => setTimeout(r, 1500 * (tryN + 1)));
+            }
+        }
+        onBytes(Math.min(file.size, (seq + 1) * VCHUNK));
+    }
+    return last;
+}
+
+/**
+ * ساختِ آلبومِ تازه یا افزودنِ عکس و فیلم به آلبومِ موجود.
  * عکس‌ها در مرورگر کوچک می‌شوند و چند تکه با axios فرستاده می‌شوند؛ تکه‌ی اول
- * آلبوم را می‌سازد و شناسه‌اش برای تکه‌های بعدی استفاده می‌شود.
+ * آلبوم را می‌سازد و شناسه‌اش برای تکه‌های بعدی استفاده می‌شود. فیلم‌ها بعد از عکس‌ها،
+ * هر کدام تکه‌تکه فرستاده می‌شوند.
  */
 function Uploader({ classrooms, album = null, onClose, onDone }) {
     const [d, setD] = useState({ title: '', description: '', classroom_id: '' });
@@ -432,46 +479,58 @@ function Uploader({ classrooms, album = null, onClose, onDone }) {
 
     useEffect(() => () => pics.forEach((p) => URL.revokeObjectURL(p.url)), []); // eslint-disable-line
     const add = (list) => {
-        const fresh = Array.from(list || []).filter((f) => f.type.startsWith('image/'))
-            .map((file) => ({ file, url: URL.createObjectURL(file), key: `${file.name}-${file.size}-${file.lastModified}` }));
+        const all = Array.from(list || []);
+        const big = all.filter((f) => isVideoFile(f) && f.size > VIDEO_MAX_MB * 1024 * 1024);
+        const fresh = all.filter((f) => f.type.startsWith('image/') || (isVideoFile(f) && !big.includes(f)))
+            .map((file) => ({ file, video: isVideoFile(file), url: URL.createObjectURL(file), key: `${file.name}-${file.size}-${file.lastModified}` }));
         setPics((cur) => { const k = new Set(cur.map((x) => x.key)); return [...cur, ...fresh.filter((x) => !k.has(x.key))].slice(0, 100); });
-        setErr(null);
+        setErr(big.length ? `«${big[0].name}» بیش از ${fa(VIDEO_MAX_MB)} مگابایت است؛ فیلمِ کوتاه‌تری بگذار.` : null);
     };
     const drop = (key) => setPics((cur) => cur.filter((x) => x.key !== key));
-    const coverKey = cover && pics.some((p) => p.key === cover) ? cover : pics[0]?.key;
+    const images = pics.filter((p) => !p.video);
+    const videos = pics.filter((p) => p.video);
+    const coverKey = cover && images.some((p) => p.key === cover) ? cover : images[0]?.key;
 
     const submit = async () => {
         if (!album && !d.title.trim()) { setErr('عنوانِ آلبوم را بنویس.'); return; }
-        if (!pics.length) { setErr('دستِ‌کم یک عکس انتخاب کن.'); return; }
+        if (!pics.length) { setErr('دستِ‌کم یک عکس یا فیلم انتخاب کن.'); return; }
         setErr(null);
         const total = pics.length;
         try {
-            // ترتیبِ انتخاب حفظ می‌شود؛ کاور فقط علامت می‌خورد
-            const coverAt = album ? -1 : pics.findIndex((p) => p.key === coverKey);
+            // ترتیبِ انتخاب حفظ می‌شود؛ کاور فقط علامت می‌خورد (کاور همیشه عکس است)
+            const coverAt = album ? -1 : images.findIndex((p) => p.key === coverKey);
             const files = [];
-            for (const p of pics) {
+            for (const p of images) {
                 setBusy({ done: files.length, total, phase: 'آماده‌سازیِ عکس‌ها' });
                 files.push(await compressImage(p.file));
             }
-            const chunks = chunkFiles(files);
+            const chunks = files.length ? chunkFiles(files) : [];
             let albumId = album?.id || null, sent = 0;
+            const albumFields = () => (albumId ? { album_id: albumId } : {
+                title: d.title, description: d.description || '', classroom_id: d.classroom_id || '',
+                publish_at: pubDate ? `${pubDate} ${pubTime || '00:00'}` : '',
+            });
             for (let i = 0; i < chunks.length; i++) {
                 const coverLocal = coverAt >= sent && coverAt < sent + chunks[i].length ? coverAt - sent : null;
-                setBusy({ done: sent, total, phase: 'بارگذاری' });
+                setBusy({ done: sent, total, phase: 'بارگذاریِ عکس‌ها' });
                 const fd = new FormData();
                 chunks[i].forEach((f) => fd.append('files[]', f));
-                if (albumId) fd.append('album_id', albumId);
-                else {
-                    fd.append('title', d.title); fd.append('description', d.description || '');
-                    if (d.classroom_id) fd.append('classroom_id', d.classroom_id);
-                    if (pubDate) fd.append('publish_at', `${pubDate} ${pubTime || '00:00'}`);
-                }
+                Object.entries(albumFields()).forEach(([k, v]) => { if (v !== '') fd.append(k, v); });
                 if (coverLocal !== null) fd.append('cover_local', String(coverLocal));
-                fd.append('final', i === chunks.length - 1 ? '1' : '0');
+                fd.append('final', i === chunks.length - 1 && !videos.length ? '1' : '0');
                 fd.append('total', String(total));
                 fd.append('is_new', album ? '0' : '1');
                 const { data } = await axios.post(route('teacher.gallery.upload'), fd, { headers: { Accept: 'application/json' } });
                 albumId = data.album_id; sent += chunks[i].length;
+            }
+            for (let v = 0; v < videos.length; v++) {
+                const f = videos[v].file;
+                const mb = (n) => fa((n / 1048576).toFixed(1));
+                setBusy({ done: sent, total, phase: `بارگذاریِ فیلمِ ${fa(v + 1)} از ${fa(videos.length)}`, pct: 0 });
+                const data = await sendVideo(f, {
+                    ...albumFields(), final: v === videos.length - 1 ? '1' : '0', total: String(total), is_new: album ? '0' : '1',
+                }, (n) => setBusy({ done: sent, total, phase: `بارگذاریِ فیلمِ ${fa(v + 1)} از ${fa(videos.length)} (${mb(n)} از ${mb(f.size)} مگابایت)`, pct: n / f.size }));
+                albumId = data.album_id; sent += 1;
             }
             setBusy({ done: total, total, phase: 'تمام شد' });
             router.reload({ preserveScroll: true, onFinish: () => onDone(albumId) });
@@ -483,7 +542,7 @@ function Uploader({ classrooms, album = null, onClose, onDone }) {
     };
 
     return (
-        <Modal title={album ? `➕ افزودنِ عکس به «${album.title}»` : '📸 آلبومِ تازه'} onClose={busy ? () => {} : onClose} wide>
+        <Modal title={album ? `➕ افزودنِ عکس و فیلم به «${album.title}»` : '📸 آلبومِ تازه (عکس و فیلم)'} onClose={busy ? () => {} : onClose} wide>
             {!album && (
                 <div className="ag-up-grid">
                     <F label="عنوانِ آلبوم"><input className="input" value={d.title} onChange={(e) => setD({ ...d, title: e.target.value })} placeholder="مثلاً: اردوی علمی به رصدخانه" autoFocus /></F>
@@ -503,22 +562,22 @@ function Uploader({ classrooms, album = null, onClose, onDone }) {
                 onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('on'); }}
                 onDragLeave={(e) => e.currentTarget.classList.remove('on')}
                 onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove('on'); add(e.dataTransfer.files); }}>
-                <input ref={inputRef} type="file" accept="image/*" multiple hidden onChange={(e) => { add(e.target.files); e.target.value = ''; }} />
-                <span className="gl-drop-ic">🖼️</span>
-                <b>{pics.length ? '➕ عکس‌های بیشتر' : 'انتخابِ عکس‌ها'}</b>
-                <small>چند عکس را با هم از گوشی انتخاب کن یا اینجا رها کن</small>
+                <input ref={inputRef} type="file" accept="image/*,video/mp4,video/quicktime,video/webm,video/*" multiple hidden onChange={(e) => { add(e.target.files); e.target.value = ''; }} />
+                <span className="gl-drop-ic">🖼️🎬</span>
+                <b>{pics.length ? '➕ عکس و فیلمِ بیشتر' : 'انتخابِ عکس‌ها و فیلم‌ها'}</b>
+                <small>چند عکس و فیلم را با هم از گوشی انتخاب کن یا اینجا رها کن (هر فیلم تا {fa(VIDEO_MAX_MB)} مگابایت)</small>
             </label>
             {pics.length > 0 && (
                 <>
                     <div className="gl-picked-h">
-                        <span>{fa(pics.length)} عکس · {album ? 'به ترتیبِ زمانِ آپلود داخلِ آلبوم می‌نشینند.' : <>روی ⭐ بزن تا <b>کاورِ آلبوم</b> شود.</>}</span>
+                        <span>{fa(images.length)} عکس{videos.length ? ` · ${fa(videos.length)} فیلم` : ''} · {album ? 'به ترتیبِ زمانِ آپلود داخلِ آلبوم می‌نشینند.' : <>روی ⭐ بزن تا <b>کاورِ آلبوم</b> شود.</>}</span>
                         {!busy && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPics([])}>پاک‌کردنِ همه</button>}
                     </div>
                     <div className="gl-picked">
                         {pics.map((p) => (
-                            <div key={p.key} className={`gl-thumb ${!album && p.key === coverKey ? 'cover' : ''}`}>
-                                <img src={p.url} alt="" />
-                                {!album && <button type="button" className="star" title="کاور" onClick={() => setCover(p.key)}>{p.key === coverKey ? '⭐' : '☆'}</button>}
+                            <div key={p.key} className={`gl-thumb ${!album && p.key === coverKey ? 'cover' : ''} ${p.video ? 'vid' : ''}`}>
+                                {p.video ? <><video src={p.url} muted playsInline preload="metadata" /><span className="gl-vid-tag">🎬 {fa((p.file.size / 1048576).toFixed(1))}MB</span></> : <img src={p.url} alt="" />}
+                                {!album && !p.video && <button type="button" className="star" title="کاور" onClick={() => setCover(p.key)}>{p.key === coverKey ? '⭐' : '☆'}</button>}
                                 {!busy && <button type="button" onClick={() => drop(p.key)} title="برداشتن">✕</button>}
                             </div>
                         ))}
@@ -527,18 +586,18 @@ function Uploader({ classrooms, album = null, onClose, onDone }) {
             )}
             {busy && (
                 <div className="gl-prog">
-                    <div className="gl-prog-bar"><div style={{ width: `${Math.round((busy.done / busy.total) * 100)}%` }} /></div>
+                    <div className="gl-prog-bar"><div style={{ width: `${Math.round(((busy.done + (busy.pct || 0)) / busy.total) * 100)}%` }} /></div>
                     <span>{busy.phase}… {fa(busy.done)} از {fa(busy.total)}</span>
                 </div>
             )}
             {err && <div className="ag-err" style={{ marginTop: 8 }}>{err}</div>}
             <div className="ag-dlg-f">
                 <button type="button" className="btn" onClick={submit} disabled={!!busy || !pics.length}>
-                    {busy ? 'در حالِ بارگذاری…' : album ? `➕ افزودنِ ${fa(pics.length)} عکس` : `📸 ساختِ آلبوم با ${fa(pics.length || 0)} عکس`}
+                    {busy ? 'در حالِ بارگذاری…' : album ? `➕ افزودنِ ${fa(pics.length)} مورد` : `📸 ساختِ آلبوم با ${fa(pics.length || 0)} ${videos.length ? 'عکس و فیلم' : 'عکس'}`}
                 </button>
                 {!busy && <button type="button" className="btn btn-ghost" onClick={onClose}>انصراف</button>}
             </div>
-            <p className="ag-note">عکس‌های بزرگ پیش از ارسال خودکار کوچک می‌شوند. برای همه‌ی عکس‌ها فقط یک اعلان به دانش‌آموزان می‌رود.</p>
+            <p className="ag-note">عکس‌های بزرگ پیش از ارسال خودکار کوچک می‌شوند؛ فیلم‌ها تکه‌تکه فرستاده می‌شوند (تا پایانِ بارگذاری این پنجره را نبندید). برای همه‌ی عکس‌ها و فیلم‌ها فقط یک اعلان به دانش‌آموزان می‌رود.</p>
         </Modal>
     );
 }

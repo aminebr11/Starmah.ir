@@ -357,6 +357,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::delete('/materials/{classContent}', [\App\Http\Controllers\Teacher\ClassContentController::class, 'destroy'])->name('materials.destroy');
     // گالریِ آلبومی
     Route::post('/gallery/upload', [\App\Http\Controllers\Teacher\GalleryController::class, 'upload'])->name('gallery.upload');
+    Route::post('/gallery/video', [\App\Http\Controllers\Teacher\GalleryController::class, 'uploadVideo'])->middleware('throttle:900,1')->name('gallery.video');
     Route::post('/gallery/albums/{album}', [\App\Http\Controllers\Teacher\GalleryController::class, 'update'])->name('gallery.albums.update');
     Route::post('/gallery/albums/{album}/visibility', [\App\Http\Controllers\Teacher\GalleryController::class, 'visibility'])->name('gallery.albums.visibility');
     Route::post('/gallery/albums/{album}/cover/{photo}', [\App\Http\Controllers\Teacher\GalleryController::class, 'cover'])->name('gallery.albums.cover');
@@ -507,8 +508,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/audio-submissions/{submission}/ungrade', [\App\Http\Controllers\AudioSubmissionController::class, 'ungrade'])
         ->middleware('throttle:60,1')->name('audio.ungrade');
     // خودِ کاربرگ (خالی): عکس/فایلِ معلم — هم از مسیرِ سایت تا 403 نگیرد
-    Route::get('/worksheet-sheet/{worksheet}/{which}', [\App\Http\Controllers\WorksheetSubmissionController::class, 'sheet'])
-        ->whereIn('which', ['file', 'image'])->name('worksheet.sheet');
+    Route::get('/worksheet-sheet/{worksheet}/{which}/{n?}', [\App\Http\Controllers\WorksheetSubmissionController::class, 'sheet'])
+        ->whereIn('which', ['file', 'image'])->whereNumber('n')->name('worksheet.sheet');
     Route::post('/worksheet-submissions/{submission}/grade', [\App\Http\Controllers\WorksheetSubmissionController::class, 'grade'])
         ->middleware('throttle:60,1')->name('worksheet.grade');
     // سقفِ نرخ: هزینه‌ی کلیدِ هوش مصنوعی را از تکرارِ پرشتاب حفظ می‌کند

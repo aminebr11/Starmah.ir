@@ -145,6 +145,9 @@ class WorksheetController extends Controller
             'save_to_bank' => ['nullable', 'boolean'],
             'difficulty' => ['nullable', 'in:easy,medium,hard'],
             'file' => ['nullable', 'file', 'max:20480'],
+            // کاربرگِ چندصفحه‌ای: چند فایل (هر صفحه یک عکس/PDF)
+            'files' => ['nullable', 'array', 'max:12'],
+            'files.*' => ['file', 'max:20480'],
             'questions' => ['nullable', 'array'],
             // هر زیرکلید باید قاعده داشته باشد، وگرنه validate() آن را دور می‌ریزد
             // و گزینه‌های سؤالِ چهارگزینه‌ای خاموش گم می‌شدند.
@@ -170,12 +173,18 @@ class WorksheetController extends Controller
         $questions = array_values(array_filter($data['questions'] ?? [], fn ($q) => trim((string) ($q['prompt'] ?? '')) !== ''));
 
         // اعتبارسنجیِ وابسته به حالت
+        $uploads = array_values(array_filter(array_merge(
+            $request->hasFile('file') ? [$request->file('file')] : [],
+            (array) ($request->file('files') ?? []),
+        )));
         if ($mode === 'upload') {
-            if (! $request->hasFile('file')) {
+            if (! $uploads) {
                 return back()->withErrors(['file' => 'در حالتِ «بارگذاری» باید فایلِ کاربرگ را انتخاب کنید.']);
             }
-            if (! $this->extensionAllowed($request->file('file'), ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp'])) {
-                return back()->withErrors(['file' => 'فرمتِ مجاز: PDF، Word یا تصویر (jpg/png/webp).']);
+            foreach ($uploads as $u) {
+                if (! $this->extensionAllowed($u, ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp'])) {
+                    return back()->withErrors(['file' => 'فرمتِ مجاز: PDF، Word یا تصویر (jpg/png/webp): ' . $u->getClientOriginalName()]);
+                }
             }
         } elseif (empty($questions)) {
             return back()->withErrors(['questions' => 'حداقل یک سؤال لازم است (یا از حالتِ «بارگذاری فایل» استفاده کنید).']);
@@ -183,9 +192,19 @@ class WorksheetController extends Controller
 
         // فایلِ بارگذاری‌شده (حالتِ upload)
         $filePath = null;
-        if ($request->hasFile('file')) {
-            $filePath = $this->storeUpload($request->file('file'), 'worksheets');
+        $pages = [];
+        foreach ($mode === 'upload' ? $uploads : [] as $u) {
+            $stored = $this->storeUpload($u, 'worksheets');
+            if ($stored === false) {
+                foreach ($pages as $done) {
+                    Storage::disk('public')->delete($done);
+                }
+
+                return back()->withErrors(['file' => 'ذخیره‌ی «' . $u->getClientOriginalName() . '» روی سرور ممکن نشد.']);
+            }
+            $pages[] = $stored;
         }
+        $filePath = $pages[0] ?? null;
 
         // ── تصویرِ کاربرگ ───────────────────────────────────────────────
         // ai    → موتورِ هوش مصنوعی (و در صورتِ خطا، برگشت به موتورِ محلی)
@@ -236,6 +255,7 @@ class WorksheetController extends Controller
                 'difficulty' => $q['difficulty'] ?? ($data['difficulty'] ?? 'medium'),
             ], $questions),
             'render_html' => $html, 'image_path' => $imagePath, 'file_path' => $filePath,
+            ...(count($pages) > 1 && \App\Support\DbSchema::hasColumn('worksheets', 'files') ? ['files' => $pages] : []),
             'is_published' => $publish, 'published_at' => $publish ? now() : null,
         ]);
 
@@ -410,6 +430,7 @@ class WorksheetController extends Controller
                 'image' => $worksheet->image_path ? route('worksheet.sheet', [$worksheet->id, 'image'], false) : null,
                 'file' => $worksheet->file_path ? route('worksheet.sheet', [$worksheet->id, 'file'], false) : null,
                 'file_pdf' => \App\Models\WorksheetSubmission::isPdf($worksheet->file_path),
+                'pages' => $worksheet->pagesData(),
                 'subject' => $worksheet->subject, 'grade' => $worksheet->grade,
                 'lesson_no' => $worksheet->lesson_no, 'mode' => $worksheet->mode,
                 'theme' => $worksheet->theme,
@@ -500,7 +521,7 @@ class WorksheetController extends Controller
     public function destroy(Request $request, Worksheet $worksheet): RedirectResponse
     {
         abort_unless(WorksheetAccess::canEdit($request->user(), $worksheet), 403);
-        foreach ([$worksheet->image_path, $worksheet->file_path] as $f) {
+        foreach (array_unique(array_filter([$worksheet->image_path, $worksheet->file_path, ...$worksheet->pagePaths()])) as $f) {
             if ($f) {
                 Storage::disk('public')->delete($f);
             }

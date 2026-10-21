@@ -56,18 +56,19 @@ class WorksheetSubmissionController extends Controller
     }
 
     /** فایل/عکسِ خودِ کاربرگ (خالی) برای دانش‌آموزِ کلاس یا معلم/مدیر. */
-    public function sheet(Request $request, \App\Models\Worksheet $worksheet, string $which): BinaryFileResponse
+    public function sheet(Request $request, \App\Models\Worksheet $worksheet, string $which, ?int $n = null): BinaryFileResponse
     {
         $user = $request->user();
         $student = $worksheet->is_published && ($worksheet->classroom_id === null
             || $user->classrooms()->where('classrooms.id', $worksheet->classroom_id)->exists());
         abort_unless($student || WorksheetAccess::visibleQuery($user)->whereKey($worksheet->id)->exists(), 403);
-        $path = $which === 'image' ? $worksheet->image_path : $worksheet->file_path;
+        // کاربرگِ چندصفحه‌ای: صفحه‌ی n (از صفر)
+        $path = $which === 'image' ? $worksheet->image_path : ($worksheet->pagePaths()[$n ?? 0] ?? null);
         abort_unless($path && Storage::disk('public')->exists($path), 404, 'فایل روی سرور پیدا نشد.');
 
         return response()->file(Storage::disk('public')->path($path), [
             'Cache-Control' => 'private, max-age=86400',
-            'Content-Disposition' => 'inline; filename="worksheet-' . $worksheet->id . '.' . pathinfo($path, PATHINFO_EXTENSION) . '"',
+            'Content-Disposition' => 'inline; filename="worksheet-' . $worksheet->id . ($n ? '-' . ($n + 1) : '') . '.' . pathinfo($path, PATHINFO_EXTENSION) . '"',
             'X-Content-Type-Options' => 'nosniff',
         ]);
     }

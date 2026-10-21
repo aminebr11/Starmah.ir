@@ -43,13 +43,16 @@ class ContentRelease
     {
         $first = ClassContent::withoutGlobalScopes()->where('album_id', $album->id)->orderBy('id')->first();
         if (! $first) return;
+        // آلبومی که فیلم هم دارد: «عکس و فیلم»
+        $what = ClassContent::withoutGlobalScopes()->where('album_id', $album->id)->get(['file_path'])
+            ->contains(fn ($c) => \App\Support\GalleryAlbums::isVideo($c->file_path)) ? 'عکس و فیلم' : 'عکس';
         $title = $added
-            ? '🖼️ ' . Jalali::fa((string) $count) . ' عکسِ تازه در آلبومِ «' . $album->title . '»'
-            : '📸 آلبومِ تازه: ' . $album->title . ' (' . Jalali::fa((string) $count) . ' عکس)';
+            ? '🖼️ ' . Jalali::fa((string) $count) . ' ' . $what . 'ِ تازه در آلبومِ «' . $album->title . '»'
+            : '📸 آلبومِ تازه: ' . $album->title . ' (' . Jalali::fa((string) $count) . ' ' . $what . ')';
         try {
             self::doNotify($first, max(1, $count), [
                 'title' => $title,
-                'body' => "معلمت " . ($added ? 'عکس‌های تازه‌ای به آلبومِ' : 'آلبومِ تازه‌ای با') . " «{$album->title}» گذاشت. روی همین اعلان بزن تا ببینی 📷",
+                'body' => "معلمت " . ($added ? ($what === 'عکس' ? 'عکس‌های' : 'عکس و فیلم‌های') . ' تازه‌ای به آلبومِ' : 'آلبومِ تازه‌ای با') . " «{$album->title}» گذاشت. روی همین اعلان بزن تا ببینی 📷",
                 'link' => '/class-content?tab=gallery&album=' . $album->id,
                 'source_type' => \App\Models\GalleryAlbum::class, 'source_id' => $album->id,
                 'classroom_id' => $album->classroom_id,

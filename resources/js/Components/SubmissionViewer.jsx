@@ -363,9 +363,13 @@ function paint(g, m, k) {
     g.restore();
 }
 
-/** عکس + علامت‌ها (حداکثر ۱۶۰۰ پیکسل، زیرِ سقفِ آپلودِ هاست) → JPEG برای ذخیره. */
+/**
+ * عکس + علامت‌ها → JPEG برای ذخیره (زیرِ سقفِ آپلودِ هاست).
+ * پهنا حداکثر ۱۶۰۰ و مساحت حداکثر ۱۲ میلیون پیکسل؛ برگه‌ی چندصفحه‌ایِ بلند (صفحه‌ها زیرِ هم)
+ * پهنای خواناش را نگه می‌دارد و مثلِ قبل به ۱۶۰۰ پیکسلِ بلندا کوچک نمی‌شود.
+ */
 function composite(img, size, marks) {
-    const scale = Math.min(1, 1600 / Math.max(size.w, size.h));
+    const scale = Math.min(1, 1600 / size.w, Math.sqrt(12_000_000 / (size.w * size.h)));
     const c = document.createElement('canvas');
     c.width = Math.round(size.w * scale); c.height = Math.round(size.h * scale);
     const g = c.getContext('2d');

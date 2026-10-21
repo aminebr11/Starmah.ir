@@ -50,6 +50,7 @@ class StudentWorksheetController extends Controller
                 'image' => $worksheet->image_path ? route('worksheet.sheet', [$worksheet->id, 'image'], false) : null,
                 'file' => $worksheet->file_path ? route('worksheet.sheet', [$worksheet->id, 'file'], false) : null,
                 'file_pdf' => \App\Models\WorksheetSubmission::isPdf($worksheet->file_path),
+                'pages' => $worksheet->pagesData(),
             ],
             // امتیازِ واقعی طبقِ قاعده‌ی امتیازِ مدرسه (۰ = خاموش)
             'downloadXp' => XpRules::apply($user, 'worksheet_download', self::DOWNLOAD_XP),

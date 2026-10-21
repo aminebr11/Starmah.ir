@@ -53,6 +53,7 @@ class DiagnosticsController extends Controller
         'class_contents' => ['type', 'publish_at', 'is_visible', 'notified_at', 'album_id'],
         'remediations' => ['student_id', 'source', 'source_id', 'q_key', 'objective_id', 'question', 'cap_xp', 'recovered_xp', 'step', 'due_on', 'status', 'plan'],
         'remediation_plans' => ['classroom_id', 'teacher_id', 'settings'],
+        'worksheets' => ['file_path', 'files', 'mode'],
         'audio_tasks' => ['school_id', 'teacher_id', 'classroom_id', 'kind', 'title', 'text', 'sentences', 'source', 'audio_path', 'score_type', 'penalty', 'grade_column_id', 'due_at', 'is_published', 'publish_at', 'audio_hash'],
         'audio_submissions' => ['audio_task_id', 'student_id', 'file_path', 'file_kind', 'mistakes', 'grade', 'score', 'feedback', 'marked_path', 'graded_at'],
         'live_contests' => ['school_id', 'teacher_id', 'classroom_id', 'title', 'code', 'mode', 'starts_at', 'phase', 'current', 'phase_at', 'seconds', 'questions', 'music_track_id'],

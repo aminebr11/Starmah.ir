@@ -285,7 +285,7 @@
 /* فهرستِ کاربرگ‌های ارسالی برای معلم */
 .ws-subs { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
 .ws-sub { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #fff; cursor: pointer; text-align: start; padding: 0; font: inherit; color: var(--ink); }
-.ws-sub-thumb { height: 150px; background: #eef2fb center/cover no-repeat; display: flex; align-items: center; justify-content: center; font-size: 34px; position: relative; }
+.ws-sub-thumb { height: 150px; background: #eef2fb top center/cover no-repeat; display: flex; align-items: center; justify-content: center; font-size: 34px; position: relative; }
 .ws-sub-badge { position: absolute; top: 8px; inset-inline-start: 8px; border-radius: 999px; padding: 3px 9px; font-size: 11.5px; font-weight: 800; background: #ffd23f; color: #2b1d00; }
 .ws-sub-badge.done { background: #1fa463; color: #fff; }
 .ws-sub-b { padding: 9px 10px; }
@@ -592,3 +592,39 @@ fieldset.lv-q { border: 0; margin: 0; min-width: 0; }
 .sv-danger button.all { background: #b3261e; border-color: #b3261e; color: #fff; }
 .sv-danger button:disabled { opacity: .55; cursor: wait; }
 .sv-board-note { background: #eef9f2; border: 1px solid #a7e8c3; color: #136b3e; border-radius: 12px; padding: 8px 12px; font-weight: 700; font-size: 13px; }
+
+/* ── کاربرگِ چندصفحه‌ای ── */
+.ws-pages-pick { display: grid; gap: 6px; margin: 4px 0 10px; }
+.ws-pages-h { font-size: 12.5px; color: var(--muted); font-weight: 700; }
+.ws-page-row { display: flex; align-items: center; gap: 8px; background: var(--soft, #f6f7fb); border: 1px solid var(--line); border-radius: 12px; padding: 6px 10px; font-size: 13px; }
+.ws-page-row b { white-space: nowrap; }
+.ws-page-row span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); direction: ltr; text-align: end; }
+.ws-page-row button { border: 0; background: #e9edf7; border-radius: 8px; width: 30px; height: 28px; cursor: pointer; font: inherit; }
+.ws-page-row button.x { background: #fde8ea; color: #b3261e; }
+.ws-page-row button:disabled { opacity: .35; }
+.wsg { display: grid; gap: 12px; margin-top: 12px; }
+.wsg-h { font-weight: 800; font-size: 13.5px; }
+.wsg-page { margin: 0; text-align: center; padding: 10px !important; }
+.wsg-page figcaption { font-size: 12px; font-weight: 800; color: #5d6886; margin-bottom: 6px; }
+.wsg-page img { max-width: 100%; border-radius: 10px; cursor: zoom-in; display: block; margin: 0 auto; }
+.wsg-file { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: #fff; border: 1px solid var(--line, #e3e6ef); border-radius: 16px; padding: 12px 14px; color: #1b2742; }
+.wsg-file > div { flex: 1; min-width: 140px; display: grid; }
+.wsg-file small { color: #6b7590; font-size: 12px; }
+.wsg-ic { font-size: 30px; }
+@media print { .wsg-page { break-after: page; box-shadow: none !important; } .wsg-page:last-child { break-after: auto; } }
+/* دانش‌آموز: انتخابِ صفحه‌های کاربرگِ پرشده */
+.wsp-pick { width: 100%; display: grid; justify-items: center; gap: 4px; padding: 18px 12px; border-radius: 16px; border: 2px dashed rgba(255,255,255,.4); background: rgba(255,255,255,.08); color: #fff; font: inherit; cursor: pointer; text-align: center; }
+.wsp-pick span { font-size: 34px; }
+.wsp-pick small { opacity: .82; font-size: 12.5px; line-height: 1.8; }
+.wsp-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+.wsp-item { position: relative; aspect-ratio: 3 / 4; border-radius: 12px; overflow: hidden; background: #fff; }
+.wsp-item img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.wsp-pdf { height: 100%; display: grid; place-items: center; align-content: center; font-size: 34px; color: #1b2742; padding: 6px; text-align: center; }
+.wsp-pdf small { font-size: 10.5px; word-break: break-all; }
+.wsp-n { position: absolute; top: 4px; inset-inline-start: 4px; background: rgba(20,24,40,.75); color: #fff; font-size: 11px; font-weight: 800; border-radius: 8px; padding: 1px 7px; }
+.wsp-tools { position: absolute; bottom: 4px; inset-inline: 4px; display: flex; gap: 4px; justify-content: center; }
+.wsp-tools button { border: 0; border-radius: 8px; width: 30px; height: 28px; background: rgba(20,24,40,.72); color: #fff; font: inherit; cursor: pointer; }
+.wsp-tools button.x { background: rgba(200,40,50,.9); }
+.wsp-tools button:disabled { opacity: .35; }
+.wsp-add { aspect-ratio: 3 / 4; border-radius: 12px; border: 2px dashed rgba(255,255,255,.45); background: rgba(255,255,255,.06); color: #fff; font: inherit; font-weight: 800; cursor: pointer; display: grid; place-items: center; align-content: center; gap: 2px; }
+.wsp-add span { font-size: 26px; }

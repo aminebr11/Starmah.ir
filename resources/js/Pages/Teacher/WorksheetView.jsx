@@ -4,6 +4,7 @@ import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import QuestionEditor, { Q_TYPES, blankQ } from '@/Components/QuestionEditor';
 import SubmissionsBoard from '@/Components/SubmissionsBoard';
 import FileViewer from '@/Components/FileViewer';
+import WorksheetPages from '@/Components/WorksheetPages';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -112,11 +113,9 @@ export default function WorksheetView() {
                     <img src={worksheet.image} alt={worksheet.title} onClick={() => setShowFile({ url: worksheet.image, pdf: false })} style={{ maxWidth: '100%', borderRadius: 16, cursor: 'zoom-in' }} />
                 </div>
             )}
-            {!worksheet.html && worksheet.file && (
-                <div className="panel" style={{ marginTop: 12, textAlign: 'center' }}>
-                    <div style={{ fontWeight: 800, marginBottom: 8 }}>📄 فایلِ کاربرگ</div>
-                    <button type="button" onClick={() => setShowFile({ url: worksheet.file, pdf: worksheet.file_pdf })} className="btn">📂 بازکردنِ فایل</button>
-                    <a href={worksheet.file} download className="btn btn-ghost" style={{ marginInlineStart: 8 }}>⬇️ دانلود</a>
+            {!worksheet.html && worksheet.pages?.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                    <WorksheetPages pages={worksheet.pages} title={worksheet.title} onOpen={(p) => setShowFile({ url: p.url, pdf: p.pdf })} />
                 </div>
             )}
 

@@ -4,6 +4,7 @@ import { usePage, router } from '@inertiajs/react';
 import axios from 'axios';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import QuestionEditor, { Q_TYPES, blankQ, typeLabel } from '@/Components/QuestionEditor';
+import shrinkImage from '@/lib/shrinkImage';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
@@ -17,7 +18,15 @@ export default function WorksheetCreate() {
     const { themes = [], curriculum = [], classrooms = [], image = {} } = usePage().props;
     const [mode, setMode] = useState('ai');
     const fileRef = useRef(null);
-    const [file, setFile] = useState(null);
+    // کاربرگِ چندصفحه‌ای: یک یا چند فایل (هر صفحه یک عکس یا PDF) به ترتیبِ صفحه
+    const [files, setFiles] = useState([]);
+    const addFiles = async (list) => {
+        const picked = [];
+        for (const f of Array.from(list || [])) picked.push(await shrinkImage(f));
+        setFiles((cur) => [...cur, ...picked].slice(0, 12));
+    };
+    const moveFile = (i, d) => setFiles((cur) => { const a = [...cur]; const j = i + d; if (j < 0 || j >= a.length) return a; [a[i], a[j]] = [a[j], a[i]]; return a; });
+    const totalMb = files.reduce((t, f) => t + f.size, 0) / 1048576;
     // پیش‌فرض: پایه و مقطعِ کلاسِ خودِ معلم
     const firstClass = classrooms.find((c) => c.grade) || {};
     const [spec, setSpec] = useState({
@@ -89,7 +98,8 @@ export default function WorksheetCreate() {
 
     const save = () => {
         if (!spec.title.trim()) { setMsg({ t: 'err', m: 'عنوان کاربرگ را وارد کن.' }); return; }
-        if (mode === 'upload' && !file) { setMsg({ t: 'err', m: 'فایلِ کاربرگ را انتخاب کن.' }); return; }
+        if (mode === 'upload' && !files.length) { setMsg({ t: 'err', m: 'فایلِ کاربرگ را انتخاب کن (یک یا چند صفحه).' }); return; }
+        if (mode === 'upload' && totalMb > 38) { setMsg({ t: 'err', m: 'حجمِ همه‌ی فایل‌ها با هم بیش از ۳۸ مگابایت است؛ صفحه‌ها را کم‌حجم‌تر کنید (مثلاً عکس به‌جای PDFِ اسکن‌شده).' }); return; }
         if (mode !== 'upload' && questions.length === 0) { setMsg({ t: 'err', m: mode === 'ai' ? 'ابتدا سؤال‌ها را تولید کن.' : 'حداقل یک سؤال اضافه کن.' }); return; }
         setSaving(true);
         router.post(route('teacher.worksheets.store'), {
@@ -101,7 +111,7 @@ export default function WorksheetCreate() {
             difficulty: spec.difficulty,
             theme: spec.theme, spec: spec.topic + (spec.goal ? ' | ' + spec.goal : ''),
             questions: mode === 'upload' ? [] : questions,
-            file: mode === 'upload' ? file : null,
+            files: mode === 'upload' ? files : [],
         }, { forceFormData: mode === 'upload', onFinish: () => setSaving(false) });
     };
 
@@ -136,9 +146,25 @@ export default function WorksheetCreate() {
                         <Field label="درس"><select className="input" value={spec.subject} onChange={(e) => { set('subject', e.target.value); set('chapter_id', ''); }} disabled={!spec.grade}><option value="">— انتخاب —</option>{subjects.map((s) => <option key={s} value={s}>{s}</option>)}</select></Field>
                         <Field label="شماره درس"><input className="input" value={spec.lesson_no} onChange={(e) => set('lesson_no', e.target.value)} placeholder="مثلاً: ۳" dir="ltr" /></Field>
                     </div>
-                    <Field label="فایلِ کاربرگ (PDF/تصویر/Word — حداکثر ۲۰ مگابایت)">
-                        <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,image/*" className="input" style={{ padding: 9 }} onChange={(e) => setFile(e.target.files[0] || null)} />
+                    <Field label="فایل‌های کاربرگ — یک یا چند صفحه (PDF/تصویر/Word؛ هر فایل تا ۲۰ مگابایت)">
+                        <input ref={fileRef} type="file" multiple accept=".pdf,.doc,.docx,image/*" className="input" style={{ padding: 9 }}
+                            onChange={async (e) => { await addFiles(e.target.files); e.target.value = ''; }} />
                     </Field>
+                    {files.length > 0 && (
+                        <div className="ws-pages-pick">
+                            <div className="ws-pages-h">📑 {files.length} صفحه · {totalMb.toFixed(1)} مگابایت — به همین ترتیب به دانش‌آموز نشان داده می‌شود</div>
+                            {files.map((f, i) => (
+                                <div key={`${f.name}-${i}`} className="ws-page-row">
+                                    <b>صفحه‌ی {i + 1}</b>
+                                    <span>{/\.pdf$/i.test(f.name) ? '📄' : /\.docx?$/i.test(f.name) ? '📝' : '🖼️'} {f.name}</span>
+                                    <button type="button" onClick={() => moveFile(i, -1)} disabled={i === 0} title="بالاتر">▲</button>
+                                    <button type="button" onClick={() => moveFile(i, 1)} disabled={i === files.length - 1} title="پایین‌تر">▼</button>
+                                    <button type="button" className="x" onClick={() => setFiles((cur) => cur.filter((_, k) => k !== i))} title="برداشتن">✕</button>
+                                </div>
+                            ))}
+                            <button type="button" className="btn btn-sm btn-ghost" onClick={() => fileRef.current?.click()}>➕ افزودنِ صفحه‌ی دیگر</button>
+                        </div>
+                    )}
                     <Field label="انتشار برای کلاس (اختیاری)">
                         <select className="input" value={spec.classroom_id} onChange={(e) => set('classroom_id', e.target.value)}>
                             <option value="">— بدون انتشار (فقط ذخیره در بانک) —</option>

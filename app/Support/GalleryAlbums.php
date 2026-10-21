@@ -74,6 +74,12 @@ class GalleryAlbums
         ]);
     }
 
+    /** فیلمِ کلاس است (نه عکس)؟ */
+    public static function isVideo(?string $path): bool
+    {
+        return $path && in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['mp4', 'm4v', 'mov', 'webm'], true);
+    }
+
     public static function url(?string $path): ?string
     {
         return $path ? Storage::disk('public')->url($path) : null;
@@ -95,6 +101,14 @@ class GalleryAlbums
             if (! $a) continue;
             $items = $items->sortBy(fn ($p) => [$p->created_at?->timestamp ?? 0, $p->id])->values();
             $cover = $items->firstWhere('id', $a->cover_id) ?? $items->first();
+            // کاور عکس باشد؛ اگر کاور فیلم است، نخستین عکسِ آلبوم (آلبومِ فقط‌فیلم: فریمِ خودِ فیلم)
+            $coverVideo = null;
+            if ($cover && self::isVideo($cover->file_path)) {
+                $img = $items->first(fn ($p) => ! self::isVideo($p->file_path));
+                $coverVideo = $img ? null : self::url($cover->file_path);
+                $cover = $img ?? null;
+            }
+            $videos = $items->filter(fn ($p) => self::isVideo($p->file_path))->count();
             $last = $items->max('created_at');
             $out[] = [
                 'id' => $a->id,
@@ -102,9 +116,11 @@ class GalleryAlbums
                 'description' => $a->description,
                 'classroom_id' => $a->classroom_id,
                 'theme' => $a->theme ?: GalleryAlbum::THEMES[$a->id % count(GalleryAlbum::THEMES)],
-                'cover_id' => $cover?->id,
+                'cover_id' => $cover?->id ?? $a->cover_id,
                 'cover' => self::url($cover?->file_path) ?? $cover?->external_url,
+                'cover_video' => $coverVideo,
                 'count' => $items->count(),
+                'videos' => $videos,
                 'day' => $a->created_at?->toDateString(),
                 'date' => $a->created_at ? Jalali::format($a->created_at) : null,
                 'updated' => $last ? Jalali::format($last) : null,
@@ -118,6 +134,7 @@ class GalleryAlbums
                     'title' => $p->title,
                     'description' => $p->description,
                     'url' => self::url($p->file_path) ?? $p->external_url,
+                    'video' => self::isVideo($p->file_path),
                     'is_visible' => $p->is_visible !== false,
                     'date' => Jalali::format($p->created_at),
                     'time' => $p->created_at ? Jalali::fa($p->created_at->format('H:i')) : null,

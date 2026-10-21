@@ -58,19 +58,7 @@ class GalleryController extends Controller
             }
         }
 
-        if (! empty($data['album_id'])) {
-            $album = GalleryAlbum::where('teacher_id', $teacher->id)->findOrFail($data['album_id']);
-        } else {
-            $album = GalleryAlbum::create([
-                'teacher_id' => $teacher->id,
-                'school_id' => $teacher->school_id,
-                'classroom_id' => $data['classroom_id'] ?? null,
-                'title' => $data['title'],
-                'description' => $data['description'] ?? null,
-                'publish_at' => $data['publish_at'] ?? null,
-                'is_visible' => true,
-            ]);
-        }
+        $album = $this->albumFor($teacher, $data);
 
         $ids = [];
         foreach ($request->file('files') as $i => $f) {
@@ -78,26 +66,58 @@ class GalleryController extends Controller
             if ($path === false) {
                 return response()->json(['message' => 'ذخیره‌ی «' . $f->getClientOriginalName() . '» روی سرور ممکن نشد.', 'album_id' => $album->id], 500);
             }
-            // عنوانِ هر عکس: نامِ فایل بدونِ پسوند (قابلِ ویرایش)، نه تکرارِ عنوانِ آلبوم
-            $name = trim(preg_replace('/[_\-]+/', ' ', pathinfo($f->getClientOriginalName(), PATHINFO_FILENAME)));
-            $photo = ClassContent::create([
-                'school_id' => $album->school_id ?? $teacher->school_id,
-                'teacher_id' => $teacher->id,
-                'classroom_id' => $album->classroom_id,
-                'album_id' => $album->id,
-                'type' => 'gallery',
-                'title' => mb_substr($this->niceName($name) ?: $album->title, 0, 150),
-                'file_path' => $path,
-                'publish_at' => $album->publish_at,
-                'is_visible' => true,
-                // آلبومِ زنده: اعلان را خودِ این متد می‌دهد، نه releaseDue
-                'notified_at' => $album->isLive() ? now() : null,
-            ]);
+            $photo = $this->addItem($teacher, $album, $path, $f->getClientOriginalName());
             $ids[] = $photo->id;
             if (isset($data['cover_local']) && (int) $data['cover_local'] === $i) {
                 $album->forceFill(['cover_id' => $photo->id])->save();
             }
         }
+
+        return $this->finish($request, $album, $data, $ids);
+    }
+
+    /** آلبومِ موجودِ همین معلم، یا ساختِ آلبومِ تازه (تکه‌ی اول). */
+    private function albumFor($teacher, array $data): GalleryAlbum
+    {
+        if (! empty($data['album_id'])) {
+            return GalleryAlbum::where('teacher_id', $teacher->id)->findOrFail($data['album_id']);
+        }
+
+        return GalleryAlbum::create([
+            'teacher_id' => $teacher->id,
+            'school_id' => $teacher->school_id,
+            'classroom_id' => $data['classroom_id'] ?? null,
+            'title' => $data['title'],
+            'description' => $data['description'] ?? null,
+            'publish_at' => $data['publish_at'] ?? null,
+            'is_visible' => true,
+        ]);
+    }
+
+    /** یک عکس/فیلم در آلبوم. */
+    private function addItem($teacher, GalleryAlbum $album, string $path, string $original): ClassContent
+    {
+        // عنوانِ هر مورد: نامِ فایل بدونِ پسوند (قابلِ ویرایش)، نه تکرارِ عنوانِ آلبوم
+        $name = trim(preg_replace('/[_\-]+/', ' ', pathinfo($original, PATHINFO_FILENAME)));
+
+        return ClassContent::create([
+            'school_id' => $album->school_id ?? $teacher->school_id,
+            'teacher_id' => $teacher->id,
+            'classroom_id' => $album->classroom_id,
+            'album_id' => $album->id,
+            'type' => 'gallery',
+            'title' => mb_substr($this->niceName($name) ?: $album->title, 0, 150),
+            'file_path' => $path,
+            'publish_at' => $album->publish_at,
+            'is_visible' => true,
+            // آلبومِ زنده: اعلان را خودِ آپلود می‌دهد، نه releaseDue
+            'notified_at' => $album->isLive() ? now() : null,
+        ]);
+    }
+
+    /** پایانِ هر درخواست: ترمیمِ کاور و (در آخرین تکه) یک اعلانِ یک‌باره. */
+    private function finish(Request $request, GalleryAlbum $album, array $data, array $ids): JsonResponse
+    {
         GalleryAlbums::repair($album);
 
         if ($request->boolean('final') && $album->isLive()) {
@@ -107,13 +127,111 @@ class GalleryController extends Controller
         }
 
         $msg = $album->isLive()
-            ? '🖼️ ' . Jalali::fa((string) ($data['total'] ?? count($ids))) . ' عکس در آلبومِ «' . $album->title . '» قرار گرفت ✅'
+            ? '🖼️ ' . Jalali::fa((string) ($data['total'] ?? count($ids))) . ' عکس و فیلم در آلبومِ «' . $album->title . '» قرار گرفت ✅'
             : '⏰ آلبومِ «' . $album->title . '» در ' . Jalali::format($album->publish_at) . ' ساعت ' . Jalali::fa($album->publish_at->format('H:i')) . ' منتشر می‌شود.';
         if ($request->boolean('final')) {
             session()->flash('flash', $msg);
         }
 
         return response()->json(['ok' => true, 'album_id' => $album->id, 'ids' => $ids, 'message' => $msg]);
+    }
+
+    /** پسوندهای فیلم (روی گوشی و مرورگرها پخش می‌شوند). */
+    public const VIDEO_EXT = ['mp4', 'm4v', 'mov', 'webm'];
+
+    /** حداکثرِ حجمِ هر فیلم (مگابایت). */
+    public const VIDEO_MAX_MB = 500;
+
+    /**
+     * 🎬 فیلمِ کلاس — تکه‌تکه (هر تکه ۴ مگابایت) تا سقفِ آپلودِ هاست (۳۰ مگ) مانع نشود.
+     * تکه‌ها پشتِ هم به یک فایلِ موقت چسبانده می‌شوند؛ با آخرین تکه، فایل بررسی و به آلبوم اضافه می‌شود.
+     * تکه‌ای که دوباره فرستاده شود (قطعیِ اینترنت) دو بار چسبانده نمی‌شود.
+     */
+    public function uploadVideo(Request $request): JsonResponse
+    {
+        $teacher = $request->user();
+        $data = $request->validate([
+            'upload'       => ['required', 'string', 'regex:/^[A-Za-z0-9]{8,40}$/'],
+            'seq'          => 'required|integer|min:0|max:400',
+            'chunks'       => 'required|integer|min:1|max:400',
+            'chunk'        => 'required|file|max:10240',
+            'name'         => 'required|string|max:200',
+            'album_id'     => 'nullable|integer',
+            'title'        => 'required_without:album_id|nullable|string|max:150',
+            'description'  => 'nullable|string|max:2000',
+            'classroom_id' => 'nullable|integer|exists:classrooms,id',
+            'publish_at'   => 'nullable|date',
+            'final'        => 'nullable|boolean',
+            'total'        => 'nullable|integer|min:1|max:500',
+            'is_new'       => 'nullable|boolean',
+        ], ['title.required_without' => 'عنوانِ آلبوم را بنویسید.', 'chunk.uploaded' => 'یک تکه از فیلم به سرور نرسید؛ دوباره تلاش می‌شود.']);
+
+        $ext = strtolower(pathinfo($data['name'], PATHINFO_EXTENSION));
+        if (! in_array($ext, self::VIDEO_EXT, true)) {
+            return response()->json(['message' => 'فیلم باید MP4، MOV یا WEBM باشد: ' . $data['name']], 422);
+        }
+        $disk = Storage::disk('local');
+        $base = 'gallery-tmp/' . $teacher->id . '-' . $data['upload'];
+        $part = $base . '.part';
+        $meta = $base . '.json';
+        if ((int) $data['seq'] === 0) {
+            $this->sweepTmp();
+            $disk->delete([$part, $meta]);
+        }
+        $next = (int) (json_decode((string) ($disk->get($meta) ?? ''), true)['next'] ?? 0);
+        if ((int) $data['seq'] > $next) {
+            return response()->json(['message' => 'ترتیبِ تکه‌های فیلم به هم خورد؛ دوباره بفرستید.'], 409);
+        }
+        if ((int) $data['seq'] === $next) {
+            $bytes = file_get_contents($request->file('chunk')->getRealPath());
+            $disk->makeDirectory('gallery-tmp');
+            file_put_contents($disk->path($part), $bytes, FILE_APPEND | LOCK_EX);
+            $disk->put($meta, json_encode(['next' => $next + 1]));
+            if (filesize($disk->path($part)) > self::VIDEO_MAX_MB * 1024 * 1024) {
+                $disk->delete([$part, $meta]);
+
+                return response()->json(['message' => 'فیلم بیش از ' . Jalali::fa((string) self::VIDEO_MAX_MB) . ' مگابایت است؛ کوتاه‌ترش کنید.'], 422);
+            }
+        }
+        if ((int) $data['seq'] < (int) $data['chunks'] - 1) {
+            return response()->json(['ok' => true, 'next' => (int) $data['seq'] + 1]);
+        }
+
+        // آخرین تکه: بررسیِ اینکه واقعاً فیلم است (نه فایلِ دیگری با پسوندِ فیلم)
+        $head = (string) @file_get_contents($disk->path($part), false, null, 0, 16);
+        $isVideo = substr($head, 4, 4) === 'ftyp' || str_starts_with($head, "\x1A\x45\xDF\xA3");
+        if (! $isVideo) {
+            $disk->delete([$part, $meta]);
+
+            return response()->json(['message' => 'این فایل فیلمِ سالم نیست: ' . $data['name']], 422);
+        }
+        $album = $this->albumFor($teacher, $data);
+        $path = 'class-content/gallery/' . \Illuminate\Support\Str::random(40) . '.' . ($ext === 'm4v' ? 'mp4' : $ext);
+        $stream = fopen($disk->path($part), 'rb');
+        $ok = Storage::disk('public')->writeStream($path, $stream);
+        if (is_resource($stream)) {
+            fclose($stream);
+        }
+        $disk->delete([$part, $meta]);
+        if (! $ok) {
+            return response()->json(['message' => 'ذخیره‌ی فیلم روی سرور ممکن نشد (فضای هاست؟).', 'album_id' => $album->id], 500);
+        }
+        $item = $this->addItem($teacher, $album, $path, $data['name']);
+
+        return $this->finish($request, $album, $data, [$item->id]);
+    }
+
+    /** فایل‌های موقتِ نیمه‌کاره‌ی قدیمی‌تر از یک روز. */
+    private function sweepTmp(): void
+    {
+        rescue(function () {
+            $disk = Storage::disk('local');
+            foreach ($disk->files('gallery-tmp') as $f) {
+                if ($disk->lastModified($f) < now()->subDay()->timestamp) {
+                    $disk->delete($f);
+                }
+            }
+        }, null, false);
     }
 
     /** «IMG 2024…» و نام‌های بی‌معنای دوربین عنوانِ خوبی نیستند. */

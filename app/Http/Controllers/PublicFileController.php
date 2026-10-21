@@ -54,6 +54,20 @@ class PublicFileController extends Controller
             abort(404);
         }
 
+        // فیلم و صدا: پاسخِ فایل با پشتیبانیِ Range (۲۰۶) — آیفون بدونِ آن فیلم را پخش نمی‌کند و جلو/عقب‌بردن کار نمی‌کند
+        $media = ['mp4' => 'video/mp4', 'm4v' => 'video/mp4', 'mov' => 'video/quicktime', 'webm' => 'video/webm',
+            'mp3' => 'audio/mpeg', 'm4a' => 'audio/mp4', 'wav' => 'audio/wav', 'ogg' => 'audio/ogg'];
+        if (isset($media[$ext])) {
+            $res = response()->file($disk->path($path), [
+                'Content-Type' => $media[$ext],
+                'Cache-Control' => 'public, max-age=31536000',
+                'X-Content-Type-Options' => 'nosniff',
+            ]);
+            $res->headers->set('Accept-Ranges', 'bytes');
+
+            return $res;
+        }
+
         return $disk->response($path, null, [
             // فایل‌های آپلودی نامِ تصادفی دارند و عوض نمی‌شوند، پس کشِ طولانی امن است
             'Cache-Control' => 'public, max-age=31536000',
