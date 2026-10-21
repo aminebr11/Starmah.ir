@@ -65,7 +65,7 @@ export default function AudioTaskView() {
             <div className="panel">
                 <h3 style={{ marginTop: 0 }}>{dictation ? '📸 برگه‌های املای بچه‌ها' : '🎙️ صدای روخوانیِ بچه‌ها'} ({fa(submissions.length)})</h3>
                 <SubmissionsBoard initial={submissions} grades={grades}
-                    audio={{ kind: task.kind, score_type: task.score_type, penalty: task.penalty, text: task.text, gradeUrl: (it) => route('audio.grade', it.id) }} />
+                    audio={{ kind: task.kind, score_type: task.score_type, penalty: task.penalty, text: task.text, gradeUrl: (it) => route('audio.grade', it.id), ungradeUrl: (it) => route('audio.ungrade', it.id) }} />
             </div>
         </DashLayout>
     );

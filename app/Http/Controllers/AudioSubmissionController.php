@@ -11,6 +11,7 @@ use App\Models\Classroom;
 use App\Models\Grade;
 use App\Models\GradeColumn;
 use App\Models\User;
+use App\Models\XpEntry;
 use App\Services\GamificationService;
 use App\Support\Jalali;
 use App\Support\MediaFile;
@@ -217,6 +218,7 @@ class AudioSubmissionController extends Controller
             return response()->json(['message' => 'یکی از ارزشیابی‌ها (خیلی خوب … نیاز به تلاش) را انتخاب کنید.'], 422);
         }
 
+        $regrade = (bool) $submission->graded_at;
         try {
             $disk = Storage::disk('public');
             if ($request->hasFile('marked') && $this->extensionSafe($request->file('marked'), ['jpg', 'jpeg', 'png', 'webp'])) {
@@ -246,14 +248,14 @@ class AudioSubmissionController extends Controller
                 rescue(fn () => \App\Services\LearningService::fromGradeColumn($col->fresh()), null, true);
             }
 
-            rescue(function () use ($submission, $task, $teacher, $data) {
+            rescue(function () use ($submission, $task, $teacher, $data, $regrade) {
                 if (! $submission->student?->school_id) {
                     return;
                 }
                 $value = $task->score_type === 'numeric' ? Jalali::fa((string) $data['score']) . ' از ۲۰' : $data['grade'];
                 $ann = Announcement::create([
                     'school_id' => $submission->student->school_id, 'sender_id' => $teacher->id, 'audience' => 'personal',
-                    'title' => ($task->kind === 'dictation' ? '📝 املایت تصحیح شد — ' : '🎙️ روخوانی‌ات بررسی شد — ') . $task->title,
+                    'title' => ($regrade ? '✏️ نمره‌ات ویرایش شد — ' : ($task->kind === 'dictation' ? '📝 املایت تصحیح شد — ' : '🎙️ روخوانی‌ات بررسی شد — ')) . $task->title,
                     'body' => 'نمره: ' . $value . (($data['mistakes'] ?? null) !== null ? ' — تعدادِ غلط: ' . Jalali::fa((string) $data['mistakes']) : '')
                         . (! empty($data['feedback']) ? "\n💬 " . $data['feedback'] : ''),
                     'link' => route('listen.show', $task->id, false),
@@ -268,6 +270,68 @@ class AudioSubmissionController extends Controller
             return response()->json(['message' => 'ثبتِ نمره انجام نشد: ' . \App\Http\Controllers\Concerns\FriendlySaveErrors::explainError($e)
                 . ' [' . class_basename($e) . ': ' . mb_substr($e->getMessage(), 0, 200) . ']'], 500);
         }
+    }
+
+    /**
+     * 🗑️ حذفِ تصحیح (معلم).
+     *  mode=grade → فقط نمره: نمره‌ی دفتر و امتیازِ آن حذف می‌شود؛ کار دوباره «منتظرِ تصحیح» است.
+     *  mode=all   → همه‌چیز: نمره، امتیازِ نمره، امتیازِ ارسال و فایل‌ها پاک می‌شوند و دانش‌آموز می‌تواند دوباره بفرستد.
+     */
+    public function ungrade(Request $request, AudioSubmission $submission): JsonResponse
+    {
+        $teacher = $request->user();
+        $submission->load('task', 'student');
+        $task = $submission->task;
+        abort_unless($task && $this->teaches($teacher, $task), 403);
+        $mode = $request->validate(['mode' => ['required', Rule::in(['grade', 'all'])]])['mode'];
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($submission, $task, $mode) {
+            // نمره‌ی دفترِ نمره و امتیازی که از همان نمره آمده بود
+            if ($task->grade_column_id && ($col = GradeColumn::withoutGlobalScopes()->find($task->grade_column_id))) {
+                $grades = Grade::where('grade_column_id', $col->id)->where('student_id', $submission->student_id)->get();
+                foreach ($grades as $g) {
+                    XpEntry::where('source_type', Grade::class)->where('source_id', $g->id)->delete();
+                    $g->delete();
+                }
+            }
+            $disk = Storage::disk('public');
+            if ($submission->marked_path) {
+                $disk->delete($submission->marked_path);
+            }
+            $reset = ['grade' => null, 'score' => null, 'mistakes' => null, 'feedback' => null, 'graded_at' => null, 'graded_by' => null, 'marked_path' => null];
+            if ($mode === 'all') {
+                // امتیازِ ارسال هم برمی‌گردد (با ارسالِ دوباره دوباره داده می‌شود)
+                XpEntry::where('source_type', AudioSubmission::class)->where('source_id', $submission->id)->delete();
+                if ($submission->file_path) {
+                    $disk->delete($submission->file_path);
+                }
+                $reset += ['file_path' => null, 'file_kind' => null, 'note' => null, 'submitted_at' => null, 'submit_xp' => false];
+            }
+            $submission->forceFill($reset)->save();
+        });
+        \App\Services\MasteryService::forgetMany([$submission->student_id]);
+        if ($task->grade_column_id && ($col = GradeColumn::withoutGlobalScopes()->find($task->grade_column_id))) {
+            rescue(fn () => \App\Services\LearningService::fromGradeColumn($col), null, true);
+        }
+
+        rescue(function () use ($submission, $task, $teacher, $mode) {
+            if (! $submission->student?->school_id) {
+                return;
+            }
+            $what = $task->kind === 'dictation' ? 'املای' : 'روخوانیِ';
+            $ann = Announcement::create([
+                'school_id' => $submission->student->school_id, 'sender_id' => $teacher->id, 'audience' => 'personal',
+                'title' => ($mode === 'all' ? '🔁 دوباره بفرست — ' : '✏️ نمره برداشته شد — ') . $what . ' ' . $task->title,
+                'body' => $mode === 'all'
+                    ? 'معلم کارِ قبلی و نمره‌اش را برداشت؛ دوباره انجام بده و برایش بفرست.'
+                    : 'معلم نمره‌ی قبلی را برداشت و کارت را دوباره بررسی می‌کند.',
+                'link' => route('listen.show', $task->id, false),
+            ]);
+            $ann->recipients()->sync([$submission->student_id]);
+        }, null, true);
+
+        return response()->json(['ok' => true, 'mode' => $mode, 'removed' => $mode === 'all',
+            'submission' => $mode === 'all' ? ['id' => $submission->id] : $submission->fresh()->viewData() + ['student' => $submission->student?->name, 'worksheet' => $task->title]]);
     }
 
     /** ستونِ دفترِ نمره‌ی این تکلیف (یک‌بار ساخته می‌شود). */

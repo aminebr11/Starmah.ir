@@ -126,4 +126,57 @@ class AudioVoiceBuildTest extends TestCase
         $this->actingAs($student)->get(route('listen.show', $task))->assertOk()
             ->assertInertia(fn ($p) => $p->where('task.source', 'none')->where('task.audio', null)->where('task.reading_text', 'کوچه‌ی ما پر از درخت است.'));
     }
+
+    public function test_teacher_can_edit_or_delete_a_grade_and_student_can_resend(): void
+    {
+        $this->seedRoles();
+        Storage::fake('public');
+        [$teacher, $classroom, $student] = $this->makeClass($this->makeSchool());
+        $this->actingAs($teacher)->post(route('teacher.audio.store'), [
+            'kind' => 'reading', 'title' => 'روخوانی', 'classroom_id' => $classroom->id, 'source' => 'none', 'score_type' => 'descriptive',
+            'text' => 'کوچه‌ی ما پر از درخت است.', 'publish_mode' => 'now',
+        ])->assertSessionHasNoErrors();
+        $task = AudioTask::firstOrFail();
+        $xp = fn () => (int) \App\Models\XpEntry::where('student_id', $student->id)->sum('amount');
+
+        $this->actingAs($student)->post(route('listen.submit', $task), ['file' => \Illuminate\Http\UploadedFile::fake()->create('r.mp3', 20, 'audio/mpeg')])
+            ->assertSessionHasNoErrors();
+        $sub = \App\Models\AudioSubmission::firstOrFail();
+        $afterSubmit = $xp();
+
+        $this->actingAs($teacher)->postJson(route('audio.grade', $sub), ['grade' => 'خیلی خوب'])->assertOk();
+        $col = $task->fresh()->grade_column_id;
+        $this->assertSame('خیلی خوب', \App\Models\Grade::where('grade_column_id', $col)->where('student_id', $student->id)->value('text'));
+        $high = $xp();
+        $this->assertGreaterThan($afterSubmit, $high);
+
+        // ویرایش: نمره و امتیاز عوض می‌شود (دو بار شمرده نمی‌شود)
+        $this->actingAs($teacher)->postJson(route('audio.grade', $sub), ['grade' => 'قابل قبول'])->assertOk();
+        $this->assertSame('قابل قبول', \App\Models\Grade::where('grade_column_id', $col)->where('student_id', $student->id)->value('text'));
+        $mid = $xp();
+        $this->assertLessThan($high, $mid);
+        $this->assertGreaterThan($afterSubmit, $mid);
+
+        // حذفِ فقط نمره: امتیازِ نمره برمی‌گردد، کار می‌ماند
+        $this->actingAs($teacher)->postJson(route('audio.ungrade', $sub), ['mode' => 'grade'])->assertOk();
+        $this->assertSame($afterSubmit, $xp());
+        $this->assertFalse(\App\Models\Grade::where('grade_column_id', $col)->where('student_id', $student->id)->exists());
+        $this->assertNull($sub->fresh()->graded_at);
+        $this->assertNotNull($sub->fresh()->file_path);
+
+        // حذفِ کامل: همه‌ی امتیازها و فایل پاک؛ دانش‌آموز دوباره می‌فرستد
+        $this->actingAs($teacher)->postJson(route('audio.grade', $sub), ['grade' => 'خوب'])->assertOk();
+        $this->actingAs($teacher)->postJson(route('audio.ungrade', $sub), ['mode' => 'all'])->assertOk();
+        $this->assertSame(0, $xp());
+        $this->assertNull($sub->fresh()->file_path);
+        $this->actingAs($student)->get(route('listen.show', $task))->assertInertia(fn ($p) => $p->where('submitted', null));
+        $this->actingAs($student)->post(route('listen.submit', $task), ['file' => \Illuminate\Http\UploadedFile::fake()->create('r2.mp3', 20, 'audio/mpeg')])
+            ->assertSessionHasNoErrors();
+        $this->assertNotNull($sub->fresh()->file_path);
+        $this->assertSame($afterSubmit, $xp());
+
+        // معلمِ دیگر اجازه ندارد
+        [$other] = $this->makeClass($this->makeSchool('other-school'));
+        $this->actingAs($other)->postJson(route('audio.ungrade', $sub), ['mode' => 'all'])->assertForbidden();
+    }
 }

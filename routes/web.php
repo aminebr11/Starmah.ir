@@ -504,6 +504,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/audio-task-sentence/{task}/{i}', [\App\Http\Controllers\AudioSubmissionController::class, 'sentence'])->whereNumber('i')->name('audio.sentence');
     Route::post('/audio-submissions/{submission}/grade', [\App\Http\Controllers\AudioSubmissionController::class, 'grade'])
         ->middleware('throttle:60,1')->name('audio.grade');
+    Route::post('/audio-submissions/{submission}/ungrade', [\App\Http\Controllers\AudioSubmissionController::class, 'ungrade'])
+        ->middleware('throttle:60,1')->name('audio.ungrade');
     // خودِ کاربرگ (خالی): عکس/فایلِ معلم — هم از مسیرِ سایت تا 403 نگیرد
     Route::get('/worksheet-sheet/{worksheet}/{which}', [\App\Http\Controllers\WorksheetSubmissionController::class, 'sheet'])
         ->whereIn('which', ['file', 'image'])->name('worksheet.sheet');

@@ -584,3 +584,11 @@ fieldset.lv-q { border: 0; margin: 0; min-width: 0; }
     .at-kind span, .at-src span { font-size: 26px; }
     .at-pubmodes { grid-template-columns: 1fr; }
 }
+
+/* ── ویرایش/حذفِ تصحیحِ املا و روخوانی ── */
+.sv-regrade { background: #eef6ff; border: 1px solid #cfe2ff; color: #22406e; border-radius: 12px; padding: 8px 10px; font-size: 12.5px; line-height: 1.8; }
+.sv-danger { display: grid; gap: 6px; margin-top: 4px; padding-top: 10px; border-top: 1px dashed #e3e6ef; }
+.sv-danger button { font: inherit; font-size: 13px; font-weight: 800; border-radius: 12px; min-height: 40px; cursor: pointer; border: 1.5px solid #f3c2c2; background: #fff6f6; color: #b3261e; }
+.sv-danger button.all { background: #b3261e; border-color: #b3261e; color: #fff; }
+.sv-danger button:disabled { opacity: .55; cursor: wait; }
+.sv-board-note { background: #eef9f2; border: 1px solid #a7e8c3; color: #136b3e; border-radius: 12px; padding: 8px 12px; font-weight: 700; font-size: 13px; }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { router } from '@inertiajs/react';
 import SubmissionViewer from '@/Components/SubmissionViewer';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
@@ -27,10 +28,21 @@ export default function SubmissionsBoard({ initial = [], grades = {}, maxXp = 50
     // نمایشگر فهرستِ ثابتِ لحظه‌ی بازشدن را می‌گیرد (با فیلترِ «منتظرِ تصحیح» موردِ تصحیح‌شده از زیرِ دستش نپرد)
     const saved = (sub) => { setList((l) => merge(l, sub)); setOpen((o) => (o ? { ...o, items: merge(o.items, sub) } : o)); };
 
-    if (!list.length) return <p style={{ color: 'var(--muted)' }}>هنوز کسی کاربرگِ پرشده نفرستاده است.</p>;
+    const [note, setNote] = useState(null);
+    // حذفِ کامل: از فهرست بیرون می‌رود و دانش‌آموز دوباره در «هنوز نفرستاده‌اند» دیده می‌شود
+    const removed = (sub) => {
+        const who = list.find((x) => x.id === sub.id)?.student;
+        setList((l) => l.filter((x) => x.id !== sub.id));
+        setNote(`🔁 کارِ ${who || 'دانش‌آموز'} و نمره و امتیازهایش حذف شد؛ اعلان رفت که دوباره بفرستد.`);
+        setTimeout(() => setNote(null), 5000);
+        router.reload({ only: ['waiting'], preserveScroll: true });
+    };
+
+    if (!list.length) return note ? <p className="sv-board-note">{note}</p> : ( <p style={{ color: 'var(--muted)' }}>هنوز کسی کاربرگِ پرشده نفرستاده است.</p>);
 
     return (
         <>
+            {note && <p className="sv-board-note">{note}</p>}
             <p style={{ color: 'var(--muted)', fontSize: 12.5, margin: '0 0 8px' }}>روی هر کاربرگ بزنید: همان‌جا باز می‌شود، روی برگه تیک/ضربدر بزنید و نمره و امتیاز بدهید. با ✕ به همین فهرست برمی‌گردید.</p>
             {worksheets && worksheets.length > 1 && (
                 <div className="ws-filter">
@@ -68,7 +80,7 @@ export default function SubmissionsBoard({ initial = [], grades = {}, maxXp = 50
             )}
             {open && (
                 <SubmissionViewer items={open.items} index={open.index} canGrade grades={grades} maxXp={maxXp} audio={audio}
-                    onSaved={saved} onClose={() => setOpen(null)} />
+                    onSaved={saved} onRemoved={removed} onClose={() => setOpen(null)} />
             )}
         </>
     );

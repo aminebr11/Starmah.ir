@@ -20,7 +20,7 @@ const TOOLS = [
  *   علامت‌ها روی خودِ عکس ذخیره می‌شوند و دانش‌آموز همان برگه‌ی تصحیح‌شده را می‌بیند.
  * - جابه‌جایی بینِ کاربرگ‌های بچه‌ها با «قبلی/بعدی».
  */
-export default function SubmissionViewer({ items, index = 0, onClose, canGrade = false, grades = {}, maxXp = 50, onSaved, audio = null }) {
+export default function SubmissionViewer({ items, index = 0, onClose, canGrade = false, grades = {}, maxXp = 50, onSaved, onRemoved, audio = null }) {
     const [i, setI] = useState(index);
     const [list, setList] = useState(false);
     const [toast, setToast] = useState(null);
@@ -75,6 +75,12 @@ export default function SubmissionViewer({ items, index = 0, onClose, canGrade =
                 </div>
             )}
             <Sheet key={item.id} item={item} canGrade={canGrade} grades={grades} maxXp={maxXp} audio={audio}
+                onRemoved={(s, mode) => {
+                    if (mode === 'all') { onRemoved?.(s, mode); close(); return; }
+                    onSaved?.(s);
+                    setToast(`🗑️ نمره‌ی ${item.student || ''} حذف شد؛ امتیازش هم برداشته شد و دوباره منتظرِ تصحیح است.`);
+                    setTimeout(() => setToast(null), 3200);
+                }}
                 onSaved={(s) => {
                     onSaved?.(s);
                     const next = items.findIndex((x, k) => k > i && !x.graded);
@@ -91,7 +97,7 @@ export default function SubmissionViewer({ items, index = 0, onClose, canGrade =
  * audio (اختیاری): «املا/روخوانی» — {kind, score_type, penalty, text, gradeUrl}
  * به‌جای امتیازِ دستی، نمره‌ی توصیفی/عددی و «تعدادِ غلط» ثبت می‌شود (امتیاز از قاعده‌ی دفترِ نمره).
  */
-function Sheet({ item, canGrade, grades, maxXp, onSaved, audio = null }) {
+function Sheet({ item, canGrade, grades, maxXp, onSaved, onRemoved, audio = null }) {
     const [tool, setTool] = useState(null);          // null = فقط دیدن/بزرگ‌نمایی
     const [marks, setMarks] = useState([]);         // در مختصاتِ طبیعیِ عکس
     const [showOriginal, setShowOriginal] = useState(false);
@@ -195,6 +201,22 @@ function Sheet({ item, canGrade, grades, maxXp, onSaved, audio = null }) {
 
     const pickGrade = (g) => { setGrade(g); if (!audio) setXp(grades[g] ?? xp); };
 
+    // 🗑️ حذفِ تصحیح: grade = فقط نمره (کار می‌ماند و دوباره منتظرِ تصحیح است) · all = همه‌چیز، دانش‌آموز دوباره می‌فرستد
+    const ungrade = async (mode) => {
+        const ok = window.confirm(mode === 'all'
+            ? `کارِ «${item.student || 'دانش‌آموز'}» کامل حذف شود؟\n\nنمره از دفترِ نمره، امتیازهای این کار و فایلِ فرستاده‌شده پاک می‌شوند و دانش‌آموز می‌تواند دوباره بفرستد.`
+            : `نمره‌ی «${item.student || 'دانش‌آموز'}» حذف شود؟\n\nنمره از دفترِ نمره و امتیازِ آن برداشته می‌شود؛ کارش می‌ماند و دوباره «منتظرِ تصحیح» می‌شود.`);
+        if (!ok) return;
+        setBusy(true); setMsg(null);
+        try {
+            const { data } = await axios.post(audio.ungradeUrl(item), { mode });
+            if (mode === 'grade') { setGrade(''); setScore(''); setMistakes(''); setFeedback(''); }
+            onRemoved?.(data.submission, mode);
+        } catch (e) {
+            setMsg({ ok: false, text: e.response?.data?.message || 'حذف انجام نشد؛ دوباره امتحان کنید.' });
+        } finally { setBusy(false); }
+    };
+
     return (
         <div className={`sv-body ${canGrade ? 'with-panel' : ''}`}>
             <div className={`sv-stage ${zoom ? 'zoom' : ''} ${tool ? 'drawing' : ''}`}>
@@ -224,6 +246,7 @@ function Sheet({ item, canGrade, grades, maxXp, onSaved, audio = null }) {
 
             {canGrade ? (
                 <aside className="sv-panel">
+                    {audio && item.graded && <div className="sv-regrade">✏️ این کار تصحیح شده است. برای <b>ویرایش</b>، نمره یا توضیح را عوض کنید و «به‌روزرسانیِ تصحیح» را بزنید؛ امتیازِ دانش‌آموز هم خودکار درست می‌شود.</div>}
                     {!item.pdf && !item.audio && !failed && (
                         <div className="sv-tools">
                             <button type="button" className={!tool ? 'on' : ''} onClick={() => setTool(null)} title="دیدن و بزرگ‌نمایی">🔍</button>
@@ -293,6 +316,12 @@ function Sheet({ item, canGrade, grades, maxXp, onSaved, audio = null }) {
                         {busy ? 'در حالِ ثبت…' : item.graded ? '💾 به‌روزرسانیِ تصحیح' : audio ? '💾 ثبتِ نمره در دفتر' : '💾 ثبتِ تصحیح و امتیاز'}
                     </button>
                     {item.note && <div className="sv-note">📝 یادداشتِ دانش‌آموز: {item.note}</div>}
+                    {audio?.ungradeUrl && (
+                        <div className="sv-danger">
+                            {item.graded && <button type="button" onClick={() => ungrade('grade')} disabled={busy}>🗑️ حذفِ نمره (کار بماند)</button>}
+                            <button type="button" className="all" onClick={() => ungrade('all')} disabled={busy}>🔁 حذفِ کامل — دانش‌آموز دوباره بفرستد</button>
+                        </div>
+                    )}
                 </aside>
             ) : (item.graded || item.feedback) && (
                 <aside className="sv-panel sv-result">
