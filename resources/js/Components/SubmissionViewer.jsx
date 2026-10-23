@@ -2,21 +2,17 @@ import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { pushOverlay, closeOverlay } from '@/lib/overlayBack';
 import { WholeAudio } from '@/Components/Audio/SentencePlayer';
+import MarkStage, { paint } from '@/Components/MarkStage';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const QUICK = ['آفرین! 🌟', 'عالی بود 👏', 'دقتت را بیشتر کن', 'جواب‌های قرمز را دوباره ببین', 'خط خواناتر بنویس'];
-const TOOLS = [
-    { key: 'pen', icon: '✏️', label: 'قلم' },
-    { key: 'ok', icon: '✔', label: 'درست', color: '#16a34a' },
-    { key: 'no', icon: '✘', label: 'غلط', color: '#dc2626' },
-    { key: 'star', icon: '⭐', label: 'ستاره' },
-];
 
 /**
  * نمایشگرِ تمام‌صفحه‌ی کاربرگِ پرشده (موبایل و کامپیوتر).
  *
  * - دکمه‌ی ✕ همیشه بالا؛ «بازگشتِ» گوشی و Esc هم می‌بندد (در اپ، صفحه‌ی خامِ عکس راهِ برگشت نداشت).
- * - معلم: قلمِ قرمز، تیک، ضربدر و ستاره مستقیم روی برگه + نمره‌ی توصیفی، امتیاز و توضیح.
+ * - برگه: دو انگشت = زوم، یک انگشت = جابه‌جایی (✋) یا نوشتن (✏️) — MarkStage.
+ * - معلم: قلم (رنگ و اندازه‌ی دلخواه)، تیک، ضربدر و ستاره مستقیم روی برگه + نمره‌ی توصیفی، امتیاز و توضیح.
  *   علامت‌ها روی خودِ عکس ذخیره می‌شوند و دانش‌آموز همان برگه‌ی تصحیح‌شده را می‌بیند.
  * - جابه‌جایی بینِ کاربرگ‌های بچه‌ها با «قبلی/بعدی».
  */
@@ -98,11 +94,10 @@ export default function SubmissionViewer({ items, index = 0, onClose, canGrade =
  * به‌جای امتیازِ دستی، نمره‌ی توصیفی/عددی و «تعدادِ غلط» ثبت می‌شود (امتیاز از قاعده‌ی دفترِ نمره).
  */
 function Sheet({ item, canGrade, grades, maxXp, onSaved, onRemoved, audio = null }) {
-    const [tool, setTool] = useState(null);          // null = فقط دیدن/بزرگ‌نمایی
     const [marks, setMarks] = useState([]);         // در مختصاتِ طبیعیِ عکس
     const [showOriginal, setShowOriginal] = useState(false);
-    const [zoom, setZoom] = useState(false);
     const [size, setSize] = useState(null);         // {w,h} طبیعی
+    const [panelOpen, setPanelOpen] = useState(true);
     const [grade, setGrade] = useState(item.grade || '');
     const [xp, setXp] = useState(item.graded ? item.xp : 0);
     const [feedback, setFeedback] = useState(item.feedback || '');
@@ -121,57 +116,9 @@ function Sheet({ item, canGrade, grades, maxXp, onSaved, onRemoved, audio = null
     const [msg, setMsg] = useState(null);
     const [failed, setFailed] = useState(false);
     const imgRef = useRef(null);
-    const canvasRef = useRef(null);
-    const drawing = useRef(null);
 
     // پایه‌ی علامت‌گذاری: نسخه‌ی تصحیح‌شده‌ی قبلی (اگر هست) تا علامت‌ها روی هم جمع شوند
     const base = !showOriginal && item.marked_url ? item.marked_url : item.url;
-
-    // چرخشِ گوشی/تغییرِ اندازه‌ی پنجره → بوم دوباره هم‌اندازه‌ی عکس شود
-    const [, bump] = useState(0);
-    useEffect(() => {
-        const r = () => bump((n) => n + 1);
-        window.addEventListener('resize', r);
-        return () => window.removeEventListener('resize', r);
-    }, []);
-
-    // بازکشیدنِ علامت‌ها روی بوم (اندازه‌ی نمایشی)
-    useEffect(() => {
-        const c = canvasRef.current, img = imgRef.current;
-        if (!c || !img || !size) return;
-        const w = img.clientWidth, h = img.clientHeight;
-        c.width = w; c.height = h;
-        const k = w / size.w;
-        const g = c.getContext('2d');
-        g.clearRect(0, 0, w, h);
-        marks.forEach((m) => paint(g, m, k));
-    });
-
-    const point = (e) => {
-        const r = canvasRef.current.getBoundingClientRect();
-        const k = size.w / r.width;
-        return [(e.clientX - r.left) * k, (e.clientY - r.top) * k];
-    };
-    const down = (e) => {
-        if (!tool || !size) return;
-        e.preventDefault();
-        canvasRef.current.setPointerCapture?.(e.pointerId);
-        const [x, y] = point(e);
-        const unit = Math.max(size.w, size.h) / 40;
-        if (tool === 'pen') {
-            drawing.current = { type: 'pen', pts: [[x, y]], w: Math.max(3, unit / 5) };
-            setMarks((m) => [...m, drawing.current]);
-        } else {
-            setMarks((m) => [...m, { type: tool, x, y, s: unit * 1.6 }]);
-        }
-    };
-    const move = (e) => {
-        if (!drawing.current) return;
-        e.preventDefault();
-        drawing.current.pts.push(point(e));
-        setMarks((m) => [...m]);
-    };
-    const up = () => { drawing.current = null; };
 
     const save = async () => {
         setBusy(true); setMsg(null);
@@ -219,7 +166,7 @@ function Sheet({ item, canGrade, grades, maxXp, onSaved, onRemoved, audio = null
 
     return (
         <div className={`sv-body ${canGrade ? 'with-panel' : ''}`}>
-            <div className={`sv-stage ${zoom ? 'zoom' : ''} ${tool ? 'drawing' : ''}`}>
+            <div className={`sv-stage ${!item.audio && !item.pdf && !failed ? 'sv-stage-img' : ''}`}>
                 {item.audio ? (
                     <div className="sv-audio">
                         <WholeAudio src={item.url} dark={false} title={`🎙️ صدای ${item.student || 'دانش‌آموز'}`} />
@@ -233,36 +180,22 @@ function Sheet({ item, canGrade, grades, maxXp, onSaved, onRemoved, audio = null
                 ) : failed ? (
                     <div className="sv-fail">فایل باز نشد. <a href={base} target="_blank" rel="noreferrer">دوباره امتحان کن</a></div>
                 ) : (
-                    <div className="sv-paper">
-                        <img ref={imgRef} src={base} alt="کاربرگِ پرشده" draggable={false}
-                            onLoad={(e) => setSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
-                            onError={() => setFailed(true)}
-                            onClick={() => !tool && setZoom((z) => !z)} />
-                        <canvas ref={canvasRef} className="sv-canvas"
-                            onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onPointerLeave={up} />
-                    </div>
+                    <MarkStage key={base} src={base} marks={marks} setMarks={setMarks} editable={canGrade} imgRef={imgRef}
+                        onSize={setSize} onError={() => setFailed(true)}
+                        extra={item.marked_url ? (
+                            <button type="button" className={`ms-tool ${showOriginal ? 'on' : ''}`}
+                                onClick={() => { if (marks.length && !window.confirm('علامت‌های تازه پاک شوند؟')) return; setShowOriginal(!showOriginal); setMarks([]); }}
+                                title="نسخه‌ی اصلی / تصحیح‌شده"><span>{showOriginal ? '🖍️' : '📄'}</span><small>{showOriginal ? 'تصحیح‌شده' : 'اصلی'}</small></button>
+                        ) : null} />
                 )}
             </div>
 
             {canGrade ? (
-                <aside className="sv-panel">
+                <aside className={`sv-panel ${panelOpen ? '' : 'shut'}`}>
+                    <button type="button" className="sv-handle" onClick={() => setPanelOpen((o) => !o)}>
+                        {panelOpen ? '▼ کوچک‌کردنِ فرمِ نمره (برگه بزرگ‌تر)' : `▲ نمره و توضیح${marks.length ? ` · ${fa(marks.length)} علامت` : ''}`}
+                    </button>
                     {audio && item.graded && <div className="sv-regrade">✏️ این کار تصحیح شده است. برای <b>ویرایش</b>، نمره یا توضیح را عوض کنید و «به‌روزرسانیِ تصحیح» را بزنید؛ امتیازِ دانش‌آموز هم خودکار درست می‌شود.</div>}
-                    {!item.pdf && !item.audio && !failed && (
-                        <div className="sv-tools">
-                            <button type="button" className={!tool ? 'on' : ''} onClick={() => setTool(null)} title="دیدن و بزرگ‌نمایی">🔍</button>
-                            {TOOLS.map((t) => (
-                                <button key={t.key} type="button" className={tool === t.key ? 'on' : ''} onClick={() => setTool(t.key)} title={t.label}
-                                    style={t.color ? { color: t.color } : undefined}>{t.icon}<small>{t.label}</small></button>
-                            ))}
-                            <button type="button" onClick={() => setMarks((m) => m.slice(0, -1))} disabled={!marks.length} title="برگرداندن">↶<small>برگردان</small></button>
-                            {item.marked_url && (
-                                <button type="button" className={showOriginal ? 'on' : ''} onClick={() => { setShowOriginal(!showOriginal); setMarks([]); }}
-                                    title="نسخه‌ی اصلی / تصحیح‌شده">{showOriginal ? '🖍️' : '📄'}<small>{showOriginal ? 'تصحیح‌شده' : 'اصلی'}</small></button>
-                            )}
-                        </div>
-                    )}
-                    {tool && <div className="sv-hint">{tool === 'pen' ? 'روی برگه بکشید' : 'روی جای جواب ضربه بزنید'}</div>}
-
                     {audio?.kind === 'dictation' && audio.text && (
                         <div className="sv-ref">
                             <button type="button" onClick={() => setShowText(!showText)}>{showText ? '🙈 پنهان‌کردنِ متنِ املا' : '📄 دیدنِ متنِ املا برای مقایسه'}</button>
@@ -339,28 +272,6 @@ function Sheet({ item, canGrade, grades, maxXp, onSaved, onRemoved, audio = null
             )}
         </div>
     );
-}
-
-/** کشیدنِ یک علامت (k = نسبتِ اندازه‌ی نمایشی به طبیعی). */
-function paint(g, m, k) {
-    g.save();
-    g.lineCap = 'round'; g.lineJoin = 'round';
-    if (m.type === 'pen') {
-        g.strokeStyle = '#e11d48'; g.lineWidth = m.w * k;
-        g.beginPath();
-        m.pts.forEach(([x, y], j) => (j ? g.lineTo(x * k, y * k) : g.moveTo(x * k, y * k)));
-        if (m.pts.length === 1) g.lineTo(m.pts[0][0] * k + 0.1, m.pts[0][1] * k);
-        g.stroke();
-    } else {
-        const s = m.s * k;
-        g.font = `bold ${s}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-        g.fillStyle = m.type === 'ok' ? '#16a34a' : m.type === 'no' ? '#dc2626' : '#f59e0b';
-        g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = Math.max(2, s / 10);
-        const glyph = m.type === 'ok' ? '✔' : m.type === 'no' ? '✘' : '★';
-        g.strokeText(glyph, m.x * k, m.y * k);
-        g.fillText(glyph, m.x * k, m.y * k);
-    }
-    g.restore();
 }
 
 /**
