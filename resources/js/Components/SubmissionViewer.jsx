@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { pushOverlay, closeOverlay } from '@/lib/overlayBack';
 import { WholeAudio } from '@/Components/Audio/SentencePlayer';
@@ -35,12 +36,16 @@ export default function SubmissionViewer({ items, index = 0, onClose, canGrade =
         };
         window.addEventListener('keydown', onKey);
         document.body.style.overflow = 'hidden';
-        return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
+        // منوی پایینِ صفحه، ماهو و دکمه‌های شناور زیرِ فرمِ تصحیح نمانند
+        document.body.classList.add('sv-open');
+        return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = ''; document.body.classList.remove('sv-open'); };
     }, [i, items.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
     if (!item) return null;
 
-    return (
+    // پنجره مستقیم روی <body> رندر می‌شود: داخلِ صفحه (با انیمیشن/transform) «fixed» به همان صفحه گیر می‌کرد
+    // و منوی پایینِ گوشی (مثلاً سامسونگ) روی دکمه‌های آخرِ فرم می‌افتاد.
+    return createPortal(
         <div className="sv" dir="rtl" role="dialog" aria-modal="true">
             <header className="sv-bar">
                 <button type="button" className="sv-x" onClick={close} aria-label="بستن و بازگشت به فهرست" title="بستن و بازگشت به فهرست">✕</button>
@@ -85,7 +90,8 @@ export default function SubmissionViewer({ items, index = 0, onClose, canGrade =
                     if (next > 0) setTimeout(() => setI(next), 900);
                 }} />
             {toast && <div className="sv-toast">{toast}</div>}
-        </div>
+        </div>,
+        document.body,
     );
 }
 
