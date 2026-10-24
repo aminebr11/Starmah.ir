@@ -23,7 +23,7 @@ const RATING_COLOR = {
 const ICON = { 'غایب': '🚫', 'کامل': '✅', 'ناقص': '⚠️', 'انجام نداده': '❌' };
 
 export default function Gradebook() {
-    const { classroom, subjects = [], students = [], activities = [], descriptiveOptions = [], homeworkOptions = [], flash, highlight } = usePage().props;
+    const { classroom, subjects = [], students = [], activities = [], descriptiveOptions = [], homeworkOptions = [], flash, highlight, impact } = usePage().props;
     // ترتیبِ دانش‌آموزان در همه‌ی جدول‌های دفتر (نام / نام خانوادگی)
     const ss = useSort(students, { name: (r) => firstName(r.name), family: (r) => lastName(r.name) }, { key: 'family', id: 'gradebook-students' });
     const ordered = ss.sorted;
@@ -31,7 +31,7 @@ export default function Gradebook() {
     const [tab, setTab] = useState(highlight ? 'history' : 'new'); // new | history
     // پس از ثبت/ویرایش، کارتِ همان فعالیت در سوابق برجسته و دیده می‌شود
     const hiRef = useRef(null);
-    useEffect(() => { if (highlight) { setTab('history'); setTimeout(() => hiRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120); } }, [highlight]);
+    useEffect(() => { if (highlight) { setTab('history'); setOpenCards((o) => ({ ...o, [highlight]: true })); setTimeout(() => hiRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 160); } }, [highlight]);
     useEffect(() => { if (flash?.flash) setBanner(typeof flash.flash === 'string' ? flash.flash : flash.flash.message); }, [flash]);
 
     // فرم فعالیت جدید
@@ -56,16 +56,44 @@ export default function Gradebook() {
     const st = form.data.score_type;
     const opts = st === 'descriptive' ? descriptiveOptions : st === 'homework' ? homeworkOptions : [];
 
-    // فیلترهای سوابق
+    // فیلترها، ترتیب و گروه‌بندیِ سوابق (ترتیب و گروه روی همین دستگاه می‌ماند)
     const [fLesson, setFLesson] = useState('');
     const [fType, setFType] = useState('');
     const [fStudent, setFStudent] = useState('');
     const [fq, setFq] = useState('');
+    const [showFilters, setShowFilters] = useState(false);
+    const pref = (k, d) => { try { return localStorage.getItem('gb-' + k) || d; } catch { return d; } };
+    const [sortBy, setSortByS] = useState(() => pref('sort', 'new'));      // new | old | lesson | title
+    const [groupBy, setGroupByS] = useState(() => pref('group', 'month')); // month | lesson | none
+    const setSortBy = (v) => { setSortByS(v); try { localStorage.setItem('gb-sort', v); } catch { /* */ } };
+    const setGroupBy = (v) => { setGroupByS(v); try { localStorage.setItem('gb-group', v); } catch { /* */ } };
+    const [openCards, setOpenCards] = useState(() => (highlight ? { [highlight]: true } : {}));
+    const [closedGroups, setClosedGroups] = useState({});
+    const toggleCard = (id) => setOpenCards((o) => ({ ...o, [id]: !o[id] }));
     const filtered = activities.filter((a) =>
         (!fLesson || a.lesson === fLesson) &&
         (!fType || a.score_type === fType) &&
         (!fStudent || a.grades?.[fStudent]) &&
-        (!fq || (a.title || '').includes(fq) || (a.topic || '').includes(fq)));
+        (!fq || (a.title || '').includes(fq) || (a.topic || '').includes(fq) || (a.chapter || '').includes(fq) || (a.lesson || '').includes(fq)));
+    const sorted = [...filtered].sort((x, y) => (
+        sortBy === 'old' ? (x.ts - y.ts || x.id - y.id)
+            : sortBy === 'lesson' ? ((x.lesson || '~').localeCompare(y.lesson || '~', 'fa') || y.ts - x.ts)
+                : sortBy === 'title' ? ((x.title || '').localeCompare(y.title || '', 'fa'))
+                    : (y.ts - x.ts || y.id - x.id)));
+    const groups = [];
+    sorted.forEach((a) => {
+        const key = groupBy === 'month' ? (a.ym || '—') : groupBy === 'lesson' ? (a.lesson || 'بدونِ درس') : 'all';
+        const label = groupBy === 'month' ? (a.month || 'بدونِ تاریخ') : groupBy === 'lesson' ? (a.lesson || 'بدونِ درس') : '';
+        let g = groups.find((x) => x.key === key);
+        if (!g) { g = { key, label, items: [] }; groups.push(g); }
+        g.items.push(a);
+    });
+    const lessonsUsed = [...new Set(activities.map((a) => a.lesson).filter(Boolean))];
+    const anyFilter = fLesson || fType || fStudent || fq;
+    const allOpen = sorted.length > 0 && sorted.every((a) => openCards[a.id]);
+    const setAll = (v) => { setOpenCards(v ? Object.fromEntries(sorted.map((a) => [a.id, true])) : {}); setClosedGroups({}); };
+    const [printing, setPrinting] = useState(false);
+    const doPrint = () => { setPrinting(true); setTimeout(() => { window.print(); setPrinting(false); }, 250); };
 
     // ویرایشِ یک فعالیت — هم مشخصات (درس، موضوع، نوع، بارم، عنوان، تاریخ) و هم نمرات
     const [editAct, setEditAct] = useState(null);
@@ -79,6 +107,7 @@ export default function Gradebook() {
         setErows(r); setEerr({});
         setEmeta({ title: a.title || '', lesson: a.lesson || '', topic: a.topic || '', chapter_id: a.chapter_id || '', score_type: a.score_type || 'descriptive', max: a.max || 20, date: a.date || '' });
         setEditAct(a.id);
+        setOpenCards((o) => ({ ...o, [a.id]: true }));
     };
     const setERow = (sid, patch) => setErows((r) => ({ ...r, [sid]: { ...r[sid], ...patch } }));
     const setEM = (patch) => setEmeta((m) => ({ ...m, ...patch }));
@@ -194,145 +223,275 @@ export default function Gradebook() {
             )}
 
             {tab === 'history' && (
-                <div className="panel printable">
-                    <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                        <h3 style={{ margin: 0 }}>📚 سوابق نمرات — {classroom?.name}</h3>
-                        <button onClick={() => window.print()} className="btn btn-ghost btn-sm" style={{ marginInlineStart: 'auto' }}>🖨️ پرینت</button>
+                <div className={`panel printable gbh ${printing ? 'printing' : ''}`}>
+                    <div className="gbh-head no-print">
+                        <div>
+                            <h3>📚 سوابقِ نمرات — {classroom?.name}</h3>
+                            <small>{fa(activities.length)} فعالیت{anyFilter ? ` · ${fa(sorted.length)} موردِ پیدا شده` : ''}{impact === undefined && activities.length ? ' · 🧠 تحلیلِ تسلط در حالِ بارگذاری…' : ''}</small>
+                        </div>
+                        <div className="gbh-head-a">
+                            {sorted.length > 0 && <button type="button" onClick={() => setAll(!allOpen)} className="btn btn-ghost btn-sm">{allOpen ? '▴ بستنِ همه' : '▾ بازکردنِ همه'}</button>}
+                            <button type="button" onClick={doPrint} className="btn btn-ghost btn-sm">🖨️ پرینت</button>
+                        </div>
                     </div>
-                    <h3 className="print-title">دفتر کلاسی — {classroom?.name}</h3>
+                    <h3 className="print-title">دفتر کلاسی — {classroom?.name}{fStudent ? ` — ${students.find((x) => String(x.id) === String(fStudent))?.name}` : ''}</h3>
 
-                    {/* فیلترها */}
                     {activities.length > 0 && (
-                        <div className="no-print" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12, background: 'var(--cream)', padding: 12, borderRadius: 12 }}>
-                            <select className="input" style={{ width: 'auto' }} value={fLesson} onChange={(e) => setFLesson(e.target.value)}>
-                                <option value="">همه‌ی درس‌ها</option>
-                                {[...new Set(activities.map((a) => a.lesson).filter(Boolean))].map((l) => <option key={l} value={l}>{l}</option>)}
-                            </select>
-                            <select className="input" style={{ width: 'auto' }} value={fType} onChange={(e) => setFType(e.target.value)}>
-                                <option value="">همه‌ی انواع</option>
-                                {TYPES.map((t) => <option key={t.v} value={t.v}>{t.t}</option>)}
-                            </select>
-                            <select className="input" style={{ width: 'auto' }} value={fStudent} onChange={(e) => setFStudent(e.target.value)}>
-                                <option value="">همه‌ی دانش‌آموزان</option>
-                                {students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                            </select>
-                            <input className="input" style={{ width: 'auto', flex: 1, minWidth: 140 }} value={fq} onChange={(e) => setFq(e.target.value)} placeholder="🔍 عنوان یا موضوع…" />
-                            {(fLesson || fType || fStudent || fq) && <button onClick={() => { setFLesson(''); setFType(''); setFStudent(''); setFq(''); }} className="btn btn-ghost btn-sm">پاک کردن</button>}
+                        <div className="gbh-tools no-print">
+                            <div className="gbh-search">
+                                <input className="input" value={fq} onChange={(e) => setFq(e.target.value)} placeholder="🔍 جست‌وجو در عنوان، درس، فصل یا موضوع…" />
+                                <button type="button" className={`gbh-fbtn ${showFilters || anyFilter ? 'on' : ''}`} onClick={() => setShowFilters((v) => !v)}>
+                                    ⚙️ فیلتر{anyFilter ? ` (${fa([fLesson, fType, fStudent].filter(Boolean).length + (fq ? 1 : 0))})` : ''}
+                                </button>
+                            </div>
+                            <div className="gbh-seg" role="group" aria-label="ترتیب">
+                                <span>ترتیب:</span>
+                                {[['new', '🕒 جدیدترین'], ['old', 'قدیمی‌ترین'], ['lesson', '📖 درس'], ['title', '🔤 عنوان']].map(([k, t]) => (
+                                    <button key={k} type="button" className={sortBy === k ? 'on' : ''} onClick={() => setSortBy(k)}>{t}</button>
+                                ))}
+                            </div>
+                            <div className="gbh-seg" role="group" aria-label="گروه‌بندی">
+                                <span>گروه:</span>
+                                {[['month', '📅 ماه'], ['lesson', '📖 درس'], ['none', 'بدونِ گروه']].map(([k, t]) => (
+                                    <button key={k} type="button" className={groupBy === k ? 'on' : ''} onClick={() => setGroupBy(k)}>{t}</button>
+                                ))}
+                            </div>
+                            {(showFilters || anyFilter) && (
+                                <div className="gbh-filters">
+                                    {lessonsUsed.length > 0 && (
+                                        <div className="gbh-chips">
+                                            <button type="button" className={!fLesson ? 'on' : ''} onClick={() => setFLesson('')}>همه‌ی درس‌ها</button>
+                                            {lessonsUsed.map((l) => <button key={l} type="button" className={fLesson === l ? 'on' : ''} onClick={() => setFLesson(fLesson === l ? '' : l)}>{l}</button>)}
+                                        </div>
+                                    )}
+                                    <div className="gbh-chips">
+                                        <button type="button" className={!fType ? 'on' : ''} onClick={() => setFType('')}>همه‌ی انواع</button>
+                                        {TYPES.map((t) => <button key={t.v} type="button" className={fType === t.v ? 'on' : ''} onClick={() => setFType(fType === t.v ? '' : t.v)}>{t.t}</button>)}
+                                    </div>
+                                    <div className="gbh-frow">
+                                        <select className="input" value={fStudent} onChange={(e) => setFStudent(e.target.value)}>
+                                            <option value="">👥 همه‌ی دانش‌آموزان</option>
+                                            {ordered.map((st2) => <option key={st2.id} value={st2.id}>👤 {st2.name}</option>)}
+                                        </select>
+                                        <SortBar s={ss} label="ترتیبِ نام‌ها:" options={[['name', 'نام'], ['family', 'نام خانوادگی']]} />
+                                        {anyFilter && <button type="button" onClick={() => { setFLesson(''); setFType(''); setFStudent(''); setFq(''); }} className="btn btn-ghost btn-sm">✕ پاک‌کردنِ فیلترها</button>}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
-                    {activities.length > 0 && <SortBar s={ss} label="ترتیبِ دانش‌آموزان:" options={[['name', 'نام'], ['family', 'نام خانوادگی']]} />}
+                    {fStudent && <StudentSummary student={students.find((x) => String(x.id) === String(fStudent))} acts={sorted} />}
                     {activities.length === 0 && <p className="no-print" style={{ color: 'var(--muted)' }}>هنوز فعالیتی ثبت نشده. از تب «ثبت فعالیت» شروع کن.</p>}
-                    {activities.length > 0 && filtered.length === 0 && <p className="no-print" style={{ color: 'var(--muted)' }}>با این فیلترها موردی پیدا نشد.</p>}
+                    {activities.length > 0 && sorted.length === 0 && <p className="no-print" style={{ color: 'var(--muted)' }}>با این فیلترها موردی پیدا نشد.</p>}
 
-                    {filtered.map((a) => {
-                        const editing = editAct === a.id;
-                        const rowStudents = fStudent ? ordered.filter((s) => String(s.id) === String(fStudent)) : ordered;
-                        const etype = editing ? emeta.score_type : a.score_type;
-                        const aopts = optsFor(etype);
-                        const mi = a.mastery;
-                        const isHi = String(highlight) === String(a.id);
+                    {groups.map((g) => {
+                        const gClosed = !printing && closedGroups[g.key];
                         return (
-                            <div key={a.id} ref={isHi ? hiRef : null} className={isHi ? 'gb-hi' : ''} style={{ border: '1px solid var(--line)', borderRadius: 14, padding: 14, marginBottom: 12 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-                                    <b>{a.title}</b>
-                                    {a.lesson && <span className="tag tag-info">{a.lesson}</span>}
-                                    {a.chapter && <span className="tag" style={{ background: '#eef4ff', color: '#1d3d8f' }}>📘 {a.chapter}</span>}
-                                    {a.topic && <span style={{ color: 'var(--muted)', fontSize: 12 }}>· {a.topic}</span>}
-                                    <span className="tag" style={{ background: '#eef2fb', color: 'var(--navy-700)' }}>{TYPES.find((t) => t.v === a.score_type)?.t || a.score_type}</span>
-                                    {a.jdate && <span style={{ color: 'var(--muted)', fontSize: 12 }}>📅 {a.jdate}</span>}
-                                    <div className="no-print" style={{ marginInlineStart: 'auto', display: 'flex', gap: 6 }}>
-                                        {editing ? <>
-                                            <button onClick={() => saveEditAct(a)} disabled={esaving || !emeta.title} className="btn btn-sm">{esaving ? '…' : '💾 ذخیره'}</button>
-                                            <button onClick={() => setEditAct(null)} className="btn btn-ghost btn-sm">انصراف</button>
-                                        </> : <>
-                                            <button onClick={() => startEditAct(a)} className="btn btn-ghost btn-sm">✏️ ویرایش</button>
-                                            <button onClick={() => del(a.id)} className="btn btn-ghost btn-sm" style={{ color: '#e8505b' }}>🗑️ حذف</button>
-                                        </>}
-                                    </div>
-                                </div>
-                                {editing && (
-                                    <div className="gb-edit no-print">
-                                        <div className="gb-edit-h">✏️ مشخصاتِ فعالیت</div>
-                                        <div className="gb-edit-grid">
-                                            <Field label="🏷️ عنوان" err={eerr.title}><input className="input" value={emeta.title} onChange={(e) => setEM({ title: e.target.value })} /></Field>
-                                            <Field label="📖 درس" err={eerr.lesson}>
-                                                <LessonPicker subjects={lessonOptions(emeta.lesson)} value={emeta.lesson} placeholder="— بدون درس —" onChange={(v) => setEM({ lesson: v, chapter_id: '' })} />
-                                            </Field>
-                                            <Field label="📘 فصل" err={eerr.chapter_id}>
-                                                <ChapterPick grade={classroom?.grade} lesson={emeta.lesson} value={emeta.chapter_id} onChange={(v) => setEM({ chapter_id: v })} />
-                                            </Field>
-                                            <Field label="📋 موضوع" err={eerr.topic}><input className="input" value={emeta.topic} onChange={(e) => setEM({ topic: e.target.value })} placeholder="مثلاً: کسرها" /></Field>
-                                            <Field label="🎯 نوع نمره" err={eerr.score_type}>
-                                                <select className="input" value={emeta.score_type} onChange={(e) => setEM({ score_type: e.target.value })}>
-                                                    {TYPES.map((t) => <option key={t.v} value={t.v}>{t.t}</option>)}
-                                                </select>
-                                            </Field>
-                                            {emeta.score_type === 'numeric' && <Field label="بارم" err={eerr.max}><input type="number" className="input" value={emeta.max} onChange={(e) => setEM({ max: e.target.value })} /></Field>}
-                                            <Field label="📅 تاریخ" err={eerr.date}><JalaliDatePicker value={emeta.date} onChange={(v) => setEM({ date: v })} placeholder="تاریخ" /></Field>
+                            <section key={g.key} className="gbh-group">
+                                {groupBy !== 'none' && (
+                                    <button type="button" className={`gbh-ghead ${gClosed ? 'shut' : ''}`} onClick={() => setClosedGroups((c) => ({ ...c, [g.key]: !c[g.key] }))}>
+                                        <span className="chev">▾</span>
+                                        <b>{groupBy === 'month' ? '📅' : '📖'} {g.label}</b>
+                                        <small>{fa(g.items.length)} فعالیت</small>
+                                    </button>
+                                )}
+                                {!gClosed && g.items.map((a) => {
+                                    const editing = editAct === a.id;
+                                    const open = printing || editing || openCards[a.id];
+                                    const mi = impact?.[a.id];
+                                    const isHi = String(highlight) === String(a.id);
+                                    const stats = statsOf(a, students);
+                                    const mine = fStudent ? a.grades?.[fStudent] : null;
+                                    return (
+                                        <div key={a.id} ref={isHi ? hiRef : null} className={`gbh-card ${open ? 'open' : ''} ${isHi ? 'gb-hi' : ''}`}>
+                                            <button type="button" className="gbh-sum" onClick={() => !editing && toggleCard(a.id)} aria-expanded={!!open}>
+                                                <span className={`gbh-date t-${a.score_type}`}>{a.jdate ? <><b>{fa(a.jdate.split(' ')[0])}</b><small>{a.jdate.split(' ')[1]}</small></> : '—'}</span>
+                                                <span className="gbh-main">
+                                                    <b>{a.title}</b>
+                                                    <span className="gbh-meta">
+                                                        {a.lesson && <span className="tag tag-info">{a.lesson}</span>}
+                                                        <span className="gbh-type">{TYPES.find((t) => t.v === a.score_type)?.t || a.score_type}</span>
+                                                        {a.chapter && <span className="gbh-ch">📘 {a.chapter}</span>}
+                                                        {a.topic && <span className="gbh-topic">· {a.topic}</span>}
+                                                    </span>
+                                                </span>
+                                                <span className="gbh-stats">
+                                                    {mine ? <GradeChip a={a} g={mine} /> : <>
+                                                        {a.score_type === 'numeric'
+                                                            ? (stats.avg != null && <span className="gbh-avg">میانگین <b>{fa(stats.avg)}</b><small>/{fa(a.max)}</small></span>)
+                                                            : <Dist dist={stats.dist} total={stats.n} />}
+                                                        <small className="gbh-count">✍️ {fa(stats.n)}/{fa(students.length)}</small>
+                                                    </>}
+                                                    {mi?.avg_delta != null && <span className={`gb-d ${mi.avg_delta > 0 ? 'up' : mi.avg_delta < 0 ? 'down' : ''}`} title="میانگینِ سهمِ این نمره در تسلط">🧠 {mi.avg_delta > 0 ? '+' : ''}{fa(mi.avg_delta)}٪</span>}
+                                                </span>
+                                                {!editing && <span className="gbh-chev no-print">▾</span>}
+                                            </button>
+
+                                            {open && (
+                                                <div className="gbh-body">
+                                                    <div className="gbh-acts no-print">
+                                                        {editing ? <>
+                                                            <button onClick={() => saveEditAct(a)} disabled={esaving || !emeta.title} className="btn btn-sm">{esaving ? '…' : '💾 ذخیره‌ی تغییرات'}</button>
+                                                            <button onClick={() => setEditAct(null)} className="btn btn-ghost btn-sm">انصراف</button>
+                                                        </> : <>
+                                                            <button onClick={() => startEditAct(a)} className="btn btn-ghost btn-sm">✏️ ویرایش</button>
+                                                            <button onClick={() => del(a.id)} className="btn btn-ghost btn-sm" style={{ color: '#e8505b' }}>🗑️ حذف</button>
+                                                        </>}
+                                                    </div>
+                                                    {editing ? (
+                                                        <EditBlock a={a} emeta={emeta} setEM={setEM} eerr={eerr} erows={erows} setERow={setERow} ordered={fStudent ? ordered.filter((x) => String(x.id) === String(fStudent)) : ordered}
+                                                            optsFor={optsFor} lessonOptions={lessonOptions} classroom={classroom} />
+                                                    ) : (
+                                                        <>
+                                                            {mi && Object.keys(mi.students || {}).length > 0 && (
+                                                                <div className="gb-impact">
+                                                                    <span>🧠 اثر در تسلطِ <b>{mi.subject}</b></span>
+                                                                    {mi.avg_delta != null && <span className={`gb-d ${mi.avg_delta > 0 ? 'up' : mi.avg_delta < 0 ? 'down' : ''}`}>میانگینِ سهم: {mi.avg_delta > 0 ? '+' : ''}{fa(mi.avg_delta)}٪</span>}
+                                                                    <span className="gb-impact-note">سهم = تسلطِ فعلی منهای تسلط بدونِ این نمره</span>
+                                                                </div>
+                                                            )}
+                                                            <div className="gbh-list">
+                                                                <div className="gbh-row gbh-row-h">
+                                                                    <span>دانش‌آموز</span><span>{a.score_type === 'numeric' ? `نمره (از ${fa(a.max)})` : 'ارزیابی'}</span><span>بازخورد</span><span className="gb-mcol">🧠 تسلط</span>
+                                                                </div>
+                                                                {(fStudent ? ordered.filter((x) => String(x.id) === String(fStudent)) : ordered).map((st2) => {
+                                                                    const g = a.grades?.[st2.id];
+                                                                    return (
+                                                                        <div key={st2.id} className={`gbh-row ${g ? '' : 'none'}`}>
+                                                                            <span className="nm">{st2.name}</span>
+                                                                            <span className="gr">{g ? <GradeChip a={a} g={g} /> : <span className="gbh-empty">—</span>}</span>
+                                                                            <span className="fb">{g?.feedback || ''}</span>
+                                                                            <span className="gb-mcol ms">{impact === undefined ? <span className="gbh-wait">…</span> : <Impact r={mi?.students?.[st2.id]} />}</span>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
-                                        {emeta.score_type !== a.score_type && (
-                                            <div className="gb-warn">⚠️ نوعِ نمره عوض شد؛ ارزیابی‌های قبلی با نوعِ تازه سازگار نیستند. نمره‌ی هر دانش‌آموز را دوباره انتخاب کن (خانه‌های خالی حذف می‌شوند).</div>
-                                        )}
-                                        {emeta.score_type === 'numeric' && Object.values(erows).some((r) => r.score !== '' && r.score != null && Number(r.score) > Number(emeta.max)) && (
-                                            <div className="gb-warn">⚠️ بعضی نمره‌ها از بارمِ {fa(emeta.max)} بیشترند؛ در تسلط، بیشتر از بارم «۱۰۰٪» حساب می‌شود. اگر بارم را کم کرده‌ای، نمره‌ها را هم اصلاح کن.</div>
-                                        )}
-                                        {(emeta.lesson !== (a.lesson || '') || emeta.topic !== (a.topic || '')) && (
-                                            <div className="gb-mhint" style={{ marginTop: 8 }}>🧠 با ذخیره، این نمره‌ها از تسلطِ «{a.lesson || 'سایر'}» برداشته و در تسلطِ «{emeta.lesson || 'سایر'}»{emeta.topic ? ` (مبحثِ ${emeta.topic})` : ''} حساب می‌شوند.</div>
-                                        )}
-                                    </div>
-                                )}
-                                {!editing && mi && Object.keys(mi.students || {}).length > 0 && (
-                                    <div className="gb-impact">
-                                        <span>🧠 اثر در تسلطِ <b>{mi.subject}</b></span>
-                                        {mi.avg_delta != null && <span className={`gb-d ${mi.avg_delta > 0 ? 'up' : mi.avg_delta < 0 ? 'down' : ''}`}>میانگینِ سهم: {mi.avg_delta > 0 ? '+' : ''}{fa(mi.avg_delta)}٪</span>}
-                                        <span className="gb-impact-note">سهم = تسلطِ فعلی منهای تسلط بدونِ این نمره</span>
-                                    </div>
-                                )}
-                                <div style={{ overflowX: 'auto' }}>
-                                    <table className="tbl">
-                                        <thead><tr><th>دانش‌آموز</th><th>{etype === 'numeric' ? `نمره (از ${fa(editing ? emeta.max : a.max)})` : 'ارزیابی'}</th><th>بازخورد</th>{!editing && mi && <th className="gb-mcol">🧠 تسلطِ {mi.subject}</th>}</tr></thead>
-                                        <tbody>
-                                            {rowStudents.map((s) => {
-                                                const g = a.grades?.[s.id];
-                                                if (editing) {
-                                                    const er = erows[s.id] || {};
-                                                    return (
-                                                        <tr key={s.id}>
-                                                            <td style={{ fontWeight: 700 }}>{s.name}</td>
-                                                            <td>
-                                                                {etype === 'numeric' ? (
-                                                                    <input type="number" step="0.25" max={emeta.max} value={er.score ?? ''} onChange={(e) => setERow(s.id, { score: e.target.value })} className="grade-input" style={{ width: 80 }} placeholder="—" />
-                                                                ) : (
-                                                                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                                                                        {aopts.map((o) => { const on = er.text === o; const rc = RATING_COLOR[o] || ['#eee', '#333']; return <button type="button" key={o} onClick={() => setERow(s.id, { text: on ? '' : o })} style={{ cursor: 'pointer', fontFamily: 'inherit', fontSize: 11.5, fontWeight: 700, padding: '5px 8px', borderRadius: 8, border: on ? `2px solid ${rc[1]}` : '1px solid var(--line)', background: on ? rc[0] : '#fff', color: on ? rc[1] : 'var(--muted)' }}>{ICON[o] || ''} {o}</button>; })}
-                                                                    </div>
-                                                                )}
-                                                            </td>
-                                                            <td><input value={er.feedback ?? ''} onChange={(e) => setERow(s.id, { feedback: e.target.value })} className="grade-input" style={{ width: '100%' }} placeholder="بازخورد" /></td>
-                                                        </tr>
-                                                    );
-                                                }
-                                                const val = a.score_type === 'numeric' ? (g?.score != null ? fa(g.score) : '—') : (g?.text || '—');
-                                                const col = RATING_COLOR[g?.text];
-                                                return (
-                                                    <tr key={s.id}>
-                                                        <td style={{ fontWeight: 700 }}>{s.name}</td>
-                                                        <td>{col ? <span style={{ background: col[0], color: col[1], borderRadius: 8, padding: '3px 10px', fontWeight: 700, fontSize: 13 }}>{ICON[g.text] || ''} {val}</span> : val}</td>
-                                                        <td style={{ color: 'var(--muted)', fontSize: 13 }}>{g?.feedback || '—'}</td>
-                                                        {mi && <td className="gb-mcol"><Impact r={mi.students?.[s.id]} /></td>}
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
+                                    );
+                                })}
+                            </section>
                         );
                     })}
                 </div>
             )}
         </DashLayout>
+    );
+}
+
+/** آمارِ سریعِ یک فعالیت: تعدادِ ثبت‌شده، میانگینِ عددی یا توزیعِ ارزیابی‌ها. */
+function statsOf(a, students) {
+    const vals = students.map((s) => a.grades?.[s.id]).filter((g) => g && (g.score != null || g.text));
+    const nums = vals.map((g) => Number(g.score)).filter((x) => !Number.isNaN(x) && x !== null);
+    const dist = {};
+    vals.forEach((g) => { if (g.text) dist[g.text] = (dist[g.text] || 0) + 1; });
+    return { n: vals.length, avg: a.score_type === 'numeric' && nums.length ? Math.round((nums.reduce((t, x) => t + x, 0) / nums.length) * 10) / 10 : null, dist };
+}
+
+/** نوارِ رنگیِ توزیعِ ارزیابی‌ها (خیلی خوب، خوب، …). */
+function Dist({ dist, total }) {
+    if (!total) return <span className="gbh-empty">بدونِ نمره</span>;
+    return (
+        <span className="gbh-dist" title={Object.entries(dist).map(([k, v]) => `${k}: ${v}`).join(' · ')}>
+            {Object.entries(dist).map(([k, v]) => {
+                const c = RATING_COLOR[k] || ['#eee', '#777'];
+                return <i key={k} style={{ flexGrow: v, background: c[1] }} />;
+            })}
+        </span>
+    );
+}
+
+function GradeChip({ a, g }) {
+    if (a.score_type === 'numeric') {
+        if (g?.score == null) return <span className="gbh-empty">—</span>;
+        const r = Number(g.score) / (a.max || 20);
+        const c = r >= 0.85 ? RATING_COLOR['خیلی خوب'] : r >= 0.7 ? RATING_COLOR['خوب'] : r >= 0.5 ? RATING_COLOR['قابل قبول'] : RATING_COLOR['نیاز به تلاش'];
+        return <span className="gbh-chip" style={{ background: c[0], color: c[1] }}>{fa(g.score)}</span>;
+    }
+    const c = RATING_COLOR[g?.text];
+    if (!g?.text) return <span className="gbh-empty">—</span>;
+    return <span className="gbh-chip" style={c ? { background: c[0], color: c[1] } : undefined}>{ICON[g.text] || ''} {g.text}</span>;
+}
+
+/** خلاصه‌ی یک دانش‌آموز (وقتی فیلترِ دانش‌آموز انتخاب شده): تعداد، میانگینِ عددی و توزیعِ ارزیابی‌ها. */
+function StudentSummary({ student, acts }) {
+    if (!student) return null;
+    const mine = acts.map((a) => [a, a.grades?.[student.id]]).filter(([, g]) => g);
+    const nums = mine.filter(([a, g]) => a.score_type === 'numeric' && g.score != null).map(([a, g]) => (Number(g.score) / (a.max || 20)) * 20);
+    const dist = {};
+    mine.forEach(([, g]) => { if (g.text) dist[g.text] = (dist[g.text] || 0) + 1; });
+    return (
+        <div className="gbh-student">
+            <b>👤 {student.name}</b>
+            <span>{fa(mine.length)} فعالیتِ ثبت‌شده</span>
+            {nums.length > 0 && <span>میانگینِ نمره‌های عددی: <b>{fa(Math.round((nums.reduce((t, x) => t + x, 0) / nums.length) * 10) / 10)}</b> از ۲۰</span>}
+            {Object.keys(dist).length > 0 && (
+                <span className="gbh-sdist">{Object.entries(dist).map(([k, v]) => { const c = RATING_COLOR[k] || ['#eee', '#333']; return <i key={k} style={{ background: c[0], color: c[1] }}>{ICON[k] || ''} {k} ×{fa(v)}</i>; })}</span>
+            )}
+        </div>
+    );
+}
+
+/** ویرایشِ مشخصات و نمره‌های یک فعالیت (داخلِ کارتِ بازشده). */
+function EditBlock({ a, emeta, setEM, eerr, erows, setERow, ordered, optsFor, lessonOptions, classroom }) {
+    const etype = emeta.score_type;
+    const aopts = optsFor(etype);
+    return (
+        <>
+            <div className="gb-edit no-print">
+                <div className="gb-edit-h">✏️ مشخصاتِ فعالیت</div>
+                <div className="gb-edit-grid">
+                    <Field label="🏷️ عنوان" err={eerr.title}><input className="input" value={emeta.title} onChange={(e) => setEM({ title: e.target.value })} /></Field>
+                    <Field label="📖 درس" err={eerr.lesson}>
+                        <LessonPicker subjects={lessonOptions(emeta.lesson)} value={emeta.lesson} placeholder="— بدون درس —" onChange={(v) => setEM({ lesson: v, chapter_id: '' })} />
+                    </Field>
+                    <Field label="📘 فصل" err={eerr.chapter_id}>
+                        <ChapterPick grade={classroom?.grade} lesson={emeta.lesson} value={emeta.chapter_id} onChange={(v) => setEM({ chapter_id: v })} />
+                    </Field>
+                    <Field label="📋 موضوع" err={eerr.topic}><input className="input" value={emeta.topic} onChange={(e) => setEM({ topic: e.target.value })} placeholder="مثلاً: کسرها" /></Field>
+                    <Field label="🎯 نوع نمره" err={eerr.score_type}>
+                        <select className="input" value={emeta.score_type} onChange={(e) => setEM({ score_type: e.target.value })}>
+                            {TYPES.map((t) => <option key={t.v} value={t.v}>{t.t}</option>)}
+                        </select>
+                    </Field>
+                    {emeta.score_type === 'numeric' && <Field label="بارم" err={eerr.max}><input type="number" className="input" value={emeta.max} onChange={(e) => setEM({ max: e.target.value })} /></Field>}
+                    <Field label="📅 تاریخ" err={eerr.date}><JalaliDatePicker value={emeta.date} onChange={(v) => setEM({ date: v })} placeholder="تاریخ" /></Field>
+                </div>
+                {emeta.score_type !== a.score_type && (
+                    <div className="gb-warn">⚠️ نوعِ نمره عوض شد؛ ارزیابی‌های قبلی با نوعِ تازه سازگار نیستند. نمره‌ی هر دانش‌آموز را دوباره انتخاب کن (خانه‌های خالی حذف می‌شوند).</div>
+                )}
+                {emeta.score_type === 'numeric' && Object.values(erows).some((r) => r.score !== '' && r.score != null && Number(r.score) > Number(emeta.max)) && (
+                    <div className="gb-warn">⚠️ بعضی نمره‌ها از بارمِ {fa(emeta.max)} بیشترند؛ در تسلط، بیشتر از بارم «۱۰۰٪» حساب می‌شود. اگر بارم را کم کرده‌ای، نمره‌ها را هم اصلاح کن.</div>
+                )}
+                {(emeta.lesson !== (a.lesson || '') || emeta.topic !== (a.topic || '')) && (
+                    <div className="gb-mhint" style={{ marginTop: 8 }}>🧠 با ذخیره، این نمره‌ها از تسلطِ «{a.lesson || 'سایر'}» برداشته و در تسلطِ «{emeta.lesson || 'سایر'}»{emeta.topic ? ` (مبحثِ ${emeta.topic})` : ''} حساب می‌شوند.</div>
+                )}
+            </div>
+            <div className="gbh-list edit">
+                {ordered.map((s) => {
+                    const er = erows[s.id] || {};
+                    return (
+                        <div key={s.id} className="gbh-erow">
+                            <span className="nm">{s.name}</span>
+                            <span className="gr">
+                                {etype === 'numeric' ? (
+                                    <input type="number" inputMode="decimal" step="0.25" max={emeta.max} value={er.score ?? ''} onChange={(e) => setERow(s.id, { score: e.target.value })} className="grade-input" style={{ width: 84 }} placeholder="—" />
+                                ) : (
+                                    <span className="gbh-opts">
+                                        {aopts.map((o) => { const on = er.text === o; const rc = RATING_COLOR[o] || ['#eee', '#333']; return <button type="button" key={o} onClick={() => setERow(s.id, { text: on ? '' : o })} style={{ border: on ? `2px solid ${rc[1]}` : '1px solid var(--line)', background: on ? rc[0] : '#fff', color: on ? rc[1] : 'var(--muted)' }}>{ICON[o] || ''} {o}</button>; })}
+                                    </span>
+                                )}
+                            </span>
+                            <input value={er.feedback ?? ''} onChange={(e) => setERow(s.id, { feedback: e.target.value })} className="grade-input fb" placeholder="بازخورد (اختیاری)" />
+                        </div>
+                    );
+                })}
+            </div>
+        </>
     );
 }
 

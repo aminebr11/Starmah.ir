@@ -134,25 +134,39 @@ class MasteryService
         if (! $studentIds || ! $columns) return [];
         $ev = $this->evidence($studentIds);
 
+        // پیش‌پردازش (یک‌بار برای کلِ دفتر): شواهدِ هر دانش‌آموز به تفکیکِ درس، مجموع‌های برآورد،
+        // سهمِ هر ستون و هر مبحث. «پیش از این نمره» = مجموعِ کل منهای سهمِ همین ستون؛ پس دیگر
+        // برای هر ستون × دانش‌آموز کلِ سوابق از نو پیمایش نمی‌شود (۴–۵ ثانیه ← چند ده میلی‌ثانیه).
+        $agg = [];   // [sid][subject] => ['all'=>sums, 'ref'=>[colId=>sums], 'topic'=>[t=>sums]]
+        foreach ($studentIds as $sid) {
+            foreach ($ev[$sid] ?? [] as $o) {
+                $x = &$agg[$sid][$o['s']];
+                $x['all'] = self::addObs($x['all'] ?? null, $o);
+                if (($o['ref'] ?? null) !== null) {
+                    $x['ref'][(int) $o['ref']] = self::addObs($x['ref'][(int) $o['ref']] ?? null, $o);
+                }
+                if ($o['t']) {
+                    $x['topic'][$o['t']] = self::addObs($x['topic'][$o['t']] ?? null, $o);
+                }
+                unset($x);
+            }
+        }
+
         $out = [];
         foreach ($columns as $col) {
             $subject = self::subject($col['lesson'] ?: self::guessSubject($col['title'] ?? null));
             // فصلِ ستون (اگر انتخاب شده) همان واحدی است که شواهدِ این ستون زیرش ثبت شده‌اند
             $topic = self::clean((! empty($col['chapter_id']) ? \App\Support\Objectives::chapterName((int) $col['chapter_id']) : null) ?: ($col['topic'] ?? null));
+            $cid = (int) $col['id'];
             $rows = []; $deltas = [];
             foreach ($studentIds as $sid) {
-                $list = array_values(array_filter($ev[$sid] ?? [], fn ($o) => $o['s'] === $subject));
-                $mine = array_filter($list, fn ($o) => ($o['ref'] ?? null) === (int) $col['id']);
+                $x = $agg[$sid][$subject] ?? null;
+                $mine = $x['ref'][$cid] ?? null;
                 if (! $mine) continue; // این دانش‌آموز در این فعالیت نمره‌ای ندارد
-                $without = array_values(array_filter($list, fn ($o) => ($o['ref'] ?? null) !== (int) $col['id']));
-                $after = $this->estimate($list);
-                $before = $this->estimate($without);
+                $after = $this->fromSums($x['all']);
+                $before = $this->fromSums(self::subSums($x['all'], $mine));
                 $delta = ($after['mastery'] !== null && $before['mastery'] !== null) ? $after['mastery'] - $before['mastery'] : null;
-                $topicNow = null;
-                if ($topic) {
-                    $tl = array_values(array_filter($list, fn ($o) => $o['t'] === $topic));
-                    $topicNow = $this->estimate($tl)['mastery'];
-                }
+                $topicNow = $topic && isset($x['topic'][$topic]) ? $this->fromSums($x['topic'][$topic])['mastery'] : null;
                 $rows[$sid] = [
                     'after' => $after['mastery'], 'before' => $before['mastery'], 'delta' => $delta,
                     'n' => $after['n'], 'need' => $after['need'],
@@ -160,7 +174,7 @@ class MasteryService
                 ];
                 if ($delta !== null) $deltas[] = $delta;
             }
-            $out[(int) $col['id']] = [
+            $out[$cid] = [
                 'subject' => $subject,
                 'students' => $rows,
                 'avg_delta' => $deltas ? round(array_sum($deltas) / count($deltas), 1) : null,
@@ -179,8 +193,12 @@ class MasteryService
     /* ================= جمع‌آوریِ شواهد ================= */
 
     /** @return array<int, array<int, array{s:string,t:?string,c:float,w:float,at:Carbon,src:string}>> */
-    private function evidence(array $ids): array
+    /** زمانِ «اکنون» یک‌بار برای هر جمع‌آوریِ شواهد (برای کاهشِ وزن با زمان). */
+    private ?int $nowTs = null;
+
+    protected function evidence(array $ids): array
     {
+        $this->nowTs = now()->getTimestamp();
         $E = [];
         $push = function ($sid, $subject, $topic, float $c, float $w, $at, string $src, ?string $diff = null, ?int $ref = null) use (&$E) {
             $c = max(0.0, min(1.0, $c));
@@ -188,7 +206,9 @@ class MasteryService
             // دشواری: درستِ سخت سنگین‌تر، غلطِ آسان سنگین‌تر
             if ($diff === 'hard') $w *= $c >= 0.5 ? 1.25 : 0.8;
             elseif ($diff === 'easy') $w *= $c >= 0.5 ? 0.85 : 1.2;
-            $E[$sid][] = ['s' => self::subject($subject), 't' => self::clean($topic), 'c' => $c, 'w' => $w, 'at' => Carbon::parse($at ?: now()), 'src' => $src, 'ref' => $ref];
+            $when = Carbon::parse($at ?: now());
+            // کاهشِ وزن با گذشتِ زمان یک‌بار همین‌جا حساب می‌شود (نه در هر برآورد — کندترین بخشِ دفترِ نمره بود)
+            $E[$sid][] = ['s' => self::subject($subject), 't' => self::clean($topic), 'c' => $c, 'w' => $w, 'at' => $when, 'd' => $this->decay($when), 'src' => $src, 'ref' => $ref];
         };
 
         // واحدِ رصد «فصل» است: فصلِ سؤال ← فصلِ آزمون/بازی/ستون ← (اگر فصلی نبود) مبحث
@@ -324,9 +344,42 @@ class MasteryService
 
     private function decay(Carbon $at): float
     {
-        $age = max(0, $at->diffInDays(now(), true));
+        // حسابِ ساده با ثانیه (همان diffInDays اعشاری) — Carbon برای هزاران مشاهده کند بود
+        $age = abs((($this->nowTs ?? now()->getTimestamp()) - $at->getTimestamp()) / 86400);
 
         return max(0.15, 0.5 ** ($age / self::HALF_LIFE_DAYS));
+    }
+
+    /** مجموع‌های لازم برای برآورد (جمع‌پذیر: برای «بدونِ یک ستون» کافی است سهمش کم شود). */
+    private static function addObs(?array $s, array $o): array
+    {
+        $s ??= [0.0, 0.0, 0.0, 0.0, 0];
+        $w = $o['w'] * ($o['d'] ?? 1.0);
+
+        return [$s[0] + $w, $s[1] + $w * $o['c'], $s[2] + $o['c'], $s[3] + $o['w'], $s[4] + 1];
+    }
+
+    private static function subSums(array $a, array $b): array
+    {
+        return [$a[0] - $b[0], $a[1] - $b[1], $a[2] - $b[2], $a[3] - $b[3], $a[4] - $b[4]];
+    }
+
+    /** همان برآوردِ estimate() از روی مجموع‌ها. */
+    private function fromSums(array $s): array
+    {
+        [$sw, $swc, $raw, $base, $n] = $s;
+        $sw = max(0.0, $sw);
+        $m = $n ? ($swc + 1) / ($sw + 2) : null;
+        $rated = $n >= self::MIN_OBS || ($n > 0 && $base >= self::MIN_WEIGHT - 1e-9);
+
+        return [
+            'mastery' => $rated ? (int) round($m * 100) : null,
+            'raw' => $n ? (int) round($raw / $n * 100) : null,
+            'n' => $n,
+            'weight' => round($sw, 2),
+            'confidence' => $rated ? (int) round($sw / ($sw + 6) * 100) : 0,
+            'need' => $rated ? 0 : max(1, self::MIN_OBS - $n),
+        ];
     }
 
     /** برآوردِ بیزی + اطمینان برای یک دسته مشاهده. */
@@ -334,7 +387,7 @@ class MasteryService
     {
         $sw = 0.0; $swc = 0.0; $raw = 0.0; $base = 0.0;
         foreach ($obs as $o) {
-            $w = $o['w'] * $this->decay($o['at']);
+            $w = $o['w'] * ($o['d'] ?? $this->decay($o['at']));
             $sw += $w; $swc += $w * $o['c']; $raw += $o['c']; $base += $o['w'];
         }
         $n = count($obs);

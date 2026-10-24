@@ -34,31 +34,42 @@ class GradebookController extends Controller
         $columns = GradeColumn::where('classroom_id', $classroom?->id)
             ->with('grades')->orderByDesc('graded_at')->orderByDesc('id')->get();
 
-        // اثرِ هر فعالیت بر تسلطِ درسیِ دانش‌آموزان (یک‌بار جمع‌آوریِ شواهد برای کلِ کلاس)
-        $impact = [];
-        try {
-            $impact = $mastery->gradeImpact(
-                $students->pluck('id')->all(),
-                $columns->map(fn ($c) => $c->only('id', 'lesson', 'title', 'topic', 'chapter_id'))->all()
-            );
-        } catch (\Throwable $e) {
-            report($e); // نبودِ تحلیلِ تسلط نباید دفترِ نمره را از کار بیندازد
-        }
+        // اثرِ هر فعالیت بر تسلطِ درسیِ دانش‌آموزان — «با تأخیر»: صفحه بی‌درنگ باز می‌شود و این
+        // تحلیل در پس‌زمینه می‌رسد (پیش از این همه‌چیز منتظرِ همین محاسبه می‌ماند).
+        $impact = function () use ($mastery, $students, $columns) {
+            try {
+                return $mastery->gradeImpact(
+                    $students->pluck('id')->all(),
+                    $columns->map(fn ($c) => $c->only('id', 'lesson', 'title', 'topic', 'chapter_id'))->all()
+                ) ?: (object) [];
+            } catch (\Throwable $e) {
+                report($e); // نبودِ تحلیلِ تسلط نباید دفترِ نمره را از کار بیندازد
+
+                return (object) [];
+            }
+        };
 
         $activities = $columns
-            ->map(fn ($c) => [
-                'id' => $c->id, 'title' => $c->title,
-                'score_type' => $c->score_type ?: $c->type,
-                'lesson' => $c->lesson, 'topic' => $c->topic,
-                'chapter_id' => $c->chapter_id, 'chapter' => $c->chapter_id ? \App\Support\Objectives::chapterName((int) $c->chapter_id) : null,
-                'max' => (float) $c->max,
-                'date' => $c->graded_at?->toDateString(),
-                'jdate' => $c->graded_at ? Jalali::format($c->graded_at) : null,
-                'grades' => $c->grades->mapWithKeys(fn ($g) => [$g->student_id => [
-                    'score' => $g->score, 'text' => $g->text, 'feedback' => $g->feedback,
-                ]]),
-                'mastery' => $impact[$c->id] ?? null,
-            ]);
+            ->map(function ($c) {
+                [$jy, $jm] = $c->graded_at ? Jalali::fromGregorian((int) $c->graded_at->format('Y'), (int) $c->graded_at->format('n'), (int) $c->graded_at->format('j')) : [null, null];
+
+                return [
+                    'id' => $c->id, 'title' => $c->title,
+                    'score_type' => $c->score_type ?: $c->type,
+                    'lesson' => $c->lesson, 'topic' => $c->topic,
+                    'chapter_id' => $c->chapter_id, 'chapter' => $c->chapter_id ? \App\Support\Objectives::chapterName((int) $c->chapter_id) : null,
+                    'max' => (float) $c->max,
+                    'date' => $c->graded_at?->toDateString(),
+                    'jdate' => $c->graded_at ? Jalali::format($c->graded_at) : null,
+                    // برای گروه‌بندیِ ماهانه در سوابق
+                    'ym' => $jy ? sprintf('%04d-%02d', $jy, $jm) : null,
+                    'month' => $jy ? Jalali::monthName($jm) . ' ' . Jalali::fa((string) $jy) : null,
+                    'ts' => $c->graded_at?->timestamp ?? 0,
+                    'grades' => $c->grades->mapWithKeys(fn ($g) => [$g->student_id => [
+                        'score' => $g->score, 'text' => $g->text, 'feedback' => $g->feedback,
+                    ]]),
+                ];
+            });
 
         return Inertia::render('Teacher/Gradebook', [
             'classroom' => $classroom?->only('name', 'grade'),
@@ -68,6 +79,7 @@ class GradebookController extends Controller
             'descriptiveOptions' => array_keys(GamificationService::GRADE_XP['descriptive']),
             'homeworkOptions'    => array_keys(GamificationService::GRADE_XP['homework']),
             'highlight' => $request->session()->get('gradebook_highlight'),
+            'impact'    => Inertia::defer($impact),
         ]);
     }
 
