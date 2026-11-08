@@ -88,4 +88,14 @@ class SchoolApprovalTest extends TestCase
         $this->assertSame('rejected', $b->fresh()->status);
         Http::assertSent(fn ($r) => str_contains(urldecode($r->body() . $r->url()), 'اطلاعات ناقص'));
     }
+
+    public function test_plan_with_any_key_can_be_used(): void
+    {
+        $admin = $this->admin();
+        $plan = Plan::create(['key' => 'enterprise-yazd', 'name' => 'سازمانی', 'price' => 0, 'max_classes' => 10, 'max_students_per_class' => 30, 'duration_days' => 365, 'is_active' => true, 'sort' => 2]);
+        $r = $this->req(['manager_email' => null]);
+        $this->actingAs($admin)->post(route('admin.schools.approve', $r), ['plan_id' => $plan->id, 'password_mode' => 'auto'])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('enterprise-yazd', \App\Models\School::where('plan_id', $plan->id)->value('plan'));
+    }
 }
