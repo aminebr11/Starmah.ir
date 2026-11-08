@@ -13,7 +13,7 @@ const planSummary = (p) => {
 };
 
 export default function Schools() {
-    const { pending = [], schools = [], plans = [], flash } = usePage().props;
+    const { pending = [], schools = [], plans = [], flash, errors = {}, smsOn = false } = usePage().props;
     const [banner, setBanner] = useState(null);
     const [cfg, setCfg] = useState({});
     useEffect(() => { if (flash?.flash) setBanner(flash.flash); }, [flash]);
@@ -22,16 +22,21 @@ export default function Schools() {
     const ss = useSort(schools, { name: 'name', city: 'city', plan: 'plan', expires: 'expires', users: 'users', classrooms: 'classrooms' }, { id: 'admin-schools', firstDir: { users: 'desc', classrooms: 'desc' } });
 
     const defaultPlan = plans[0]?.id ?? '';
-    const get = (id) => cfg[id] ?? { plan_id: defaultPlan, mode: 'auto', password: '' };
+    const get = (id) => cfg[id] ?? { plan_id: defaultPlan, mode: 'auto', password: '', phone: '', sms: true };
     const set = (id, patch) => setCfg((c) => ({ ...c, [id]: { ...get(id), ...patch } }));
 
     const approve = (r) => {
         const c = get(r.id);
         if (!c.plan_id) { alert('یک طرح انتخاب کنید'); return; }
         if (c.mode === 'manual' && c.password.length < 6) { alert('رمز دستی حداقل ۶ کاراکتر باشد'); return; }
-        router.post(route('admin.schools.approve', r.id), { plan_id: c.plan_id, password_mode: c.mode, password: c.password }, { preserveScroll: true });
+        if (r.taken && !c.phone.trim()) { alert('این شماره قبلاً حساب دارد؛ شماره‌ی دیگری برای مدیر بنویسید یا درخواست را رد کنید.'); return; }
+        router.post(route('admin.schools.approve', r.id), { plan_id: c.plan_id, password_mode: c.mode, password: c.password, manager_phone: c.phone.trim() || null, send_sms: c.sms }, { preserveScroll: true });
     };
-    const reject = (id) => { if (confirm('این درخواست رد شود؟')) router.post(route('admin.schools.reject', id), {}, { preserveScroll: true }); };
+    const reject = (r) => {
+        const reason = window.prompt(`درخواستِ «${r.school_name}» رد شود؟\n\nدلیل (اختیاری؛ در پیامک برای درخواست‌کننده می‌رود):`, r.taken || r.dupes ? 'درخواستِ تکراری' : '');
+        if (reason === null) return;
+        router.post(route('admin.schools.reject', r.id), { reason, send_sms: get(r.id).sms }, { preserveScroll: true });
+    };
     const changePlan = (schoolId, planId) => {
         if (!planId) return;
         if (!confirm('طرح این مدرسه تغییر کند؟')) return;
@@ -44,7 +49,7 @@ export default function Schools() {
         school_name: '', city: '', level: 'دبستان', manager_name: '', manager_phone: '', manager_email: '',
         plan_id: defaultPlan, days_override: '', password_mode: 'auto', password: '',
     });
-    const createSchool = (e) => { e.preventDefault(); cForm.post(route('admin.schools.create'), { preserveScroll: true, onSuccess: () => { cForm.reset(); setCreateOpen(false); } }); };
+    const createSchool = (e) => { e.preventDefault(); cForm.transform((d) => ({ ...d, send_sms: true })); cForm.post(route('admin.schools.create'), { preserveScroll: true, onSuccess: () => { cForm.reset(); setCreateOpen(false); } }); };
 
     return (
         <DashLayout title="مدیریت مدارس" roleLabel="ادمین کل" menu={adminMenu} active="schools"
@@ -52,7 +57,14 @@ export default function Schools() {
             {banner && (
                 <div className="panel" style={{ borderColor: 'var(--gold)', background: '#fff8e8' }}>
                     <b>{banner.message}</b>
-                    {banner.type === 'credentials' && <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 6 }}>این اطلاعات را به مدیر مدرسه بدهید (یک‌بار نمایش داده می‌شود).</div>}
+                    {banner.type === 'credentials' && (
+                        <div style={{ fontSize: 13, marginTop: 6, lineHeight: 1.9 }}>
+                            {banner.sms === 'sent' && <span style={{ color: '#177a45', fontWeight: 700 }}>📩 نام کاربری و رمز با پیامک برای مدیرِ مدرسه فرستاده شد.</span>}
+                            {banner.sms === 'failed' && <span style={{ color: '#a04413', fontWeight: 700 }}>⚠️ پیامک ارسال نشد{banner.sms_note ? ` (${banner.sms_note})` : ''}؛ این اطلاعات را خودتان به مدیر بدهید.</span>}
+                            {banner.sms === 'off' && <span style={{ color: 'var(--muted)' }}>پیامک فرستاده نشد؛ این اطلاعات را خودتان به مدیر بدهید.</span>}
+                            {!banner.sms && <span style={{ color: 'var(--muted)' }}>این اطلاعات را به مدیر مدرسه بدهید (یک‌بار نمایش داده می‌شود).</span>}
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -103,7 +115,15 @@ export default function Schools() {
                     return (
                         <div key={r.id} style={{ padding: '16px 0', borderBottom: '1px solid var(--line)' }}>
                             <div style={{ fontWeight: 800 }}>{r.school_name} <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: 13 }}>· {r.city}</span></div>
-                            <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 12 }}>مدیر: {r.manager_name} · {r.manager_phone} · درخواست {fa(r.classes_count)} کلاس</div>
+                            <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>مدیر: {r.manager_name} · <span dir="ltr">{r.manager_phone}</span>{r.manager_email ? <> · <span dir="ltr">{r.manager_email}</span></> : null} · درخواست {fa(r.classes_count)} کلاس</div>
+                            {(r.taken || r.dupes > 0 || r.email_taken) && (
+                                <div className="sa-warn">
+                                    {r.taken && <div>⚠️ این شماره قبلاً حساب دارد: <b>{r.taken.name}</b> ({r.taken.role}{r.taken.school ? ` — ${r.taken.school}` : ''}). احتمالاً درخواستِ تکراری است؛ <b>رد کنید</b> یا شماره‌ی دیگری برای مدیر بنویسید.</div>}
+                                    {!r.taken && r.dupes > 0 && <div>🔁 {fa(r.dupes)} درخواستِ دیگر هم با همین شماره هست؛ فقط یکی را تأیید کنید و بقیه را رد کنید.</div>}
+                                    {r.email_taken && <div>✉️ ایمیلِ این درخواست قبلاً ثبت شده؛ حسابِ مدیر بدونِ ایمیل ساخته می‌شود (ورود با موبایل است).</div>}
+                                </div>
+                            )}
+                            {errors[`req_${r.id}`] && <div className="sa-err">❌ {errors[`req_${r.id}`]}</div>}
 
                             <div style={{ background: 'var(--cream)', borderRadius: 14, padding: 14, display: 'grid', gap: 12 }}>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }} className="grid-2-form">
@@ -125,9 +145,20 @@ export default function Schools() {
                                         )}
                                     </div>
                                 </div>
-                                <div style={{ display: 'flex', gap: 8 }}>
+                                {(r.taken || errors[`req_${r.id}`]) && (
+                                    <div className="field" style={{ margin: 0 }}>
+                                        <label>📱 شماره‌ی موبایلِ مدیر (نام کاربری)</label>
+                                        <input className="input" value={c.phone} onChange={(e) => set(r.id, { phone: e.target.value })} placeholder={r.manager_phone} dir="ltr" inputMode="tel" />
+                                    </div>
+                                )}
+                                <label className="sa-sms">
+                                    <input type="checkbox" checked={c.sms} onChange={(e) => set(r.id, { sms: e.target.checked })} />
+                                    📩 نتیجه (و در صورتِ تأیید، نام کاربری و رمز) با پیامک برای درخواست‌کننده فرستاده شود
+                                    {!smsOn && <small> — سامانه‌ی پیامک خاموش است؛ اطلاعات فقط همین‌جا نشان داده می‌شود</small>}
+                                </label>
+                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                                     <button onClick={() => approve(r)} className="btn btn-sm">✅ تأیید و ساخت حساب</button>
-                                    <button onClick={() => reject(r.id)} className="btn btn-ghost btn-sm">رد درخواست</button>
+                                    <button onClick={() => reject(r)} className="btn btn-ghost btn-sm">✖️ رد درخواست</button>
                                 </div>
                             </div>
                         </div>
