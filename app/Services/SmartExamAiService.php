@@ -69,7 +69,12 @@ class SmartExamAiService
                 'message' => 'این‌ها سؤال‌های نمونه‌ی آزمایشی‌اند (نه تولید واقعیِ هوش مصنوعی).'];
         }
 
-        $avoid = $this->avoidList($o);
+        $same = $o['sources'] && $o['source_mode'] === 'same';
+        if ($o['sources'] && ($why = self::visionBlocker())) {
+            return ['ok' => false, 'mode' => 'unavailable', 'questions' => [], 'stats' => [], 'message' => $why];
+        }
+        // «دقیقاً همین سؤال‌ها»: تکراری‌گیری و تکمیل معنا ندارد
+        $avoid = $same ? [] : $this->avoidList($o);
         $accepted = [];
         $dropped = [];
         $calls = 0;
@@ -78,7 +83,7 @@ class SmartExamAiService
 
         try {
             // حداکثر دو فراخوانی: اصلی + یک بارِ تکمیل اگر چیزی کنار گذاشته شد
-            while (count($accepted) < $o['count'] && $calls < 2) {
+            while (count($accepted) < $o['count'] && $calls < ($same ? 1 : 2)) {
                 // فراخوانیِ دوم فقط اگر دستِ‌کم نیمی از وقت مانده باشد
                 if ($calls > 0 && (microtime(true) - $this->started) > min(55, $this->budget / 2)) {
                     break;
@@ -109,7 +114,9 @@ class SmartExamAiService
             $error = $e->getMessage();
         }
 
-        $accepted = $this->balanceAnswers($accepted);
+        if (! $same) {
+            $accepted = $this->balanceAnswers($accepted);   // ترتیبِ گزینه‌های خودِ فایل دست نمی‌خورد
+        }
         $stats = [
             'requested' => $o['count'], 'produced' => count($accepted),
             'dropped' => array_sum($dropped), 'reasons' => $dropped, 'calls' => $calls,
@@ -122,12 +129,16 @@ class SmartExamAiService
                 'ok' => false, 'mode' => $error ? 'error' : 'invalid', 'questions' => [], 'stats' => $stats,
                 'message' => $error
                     ? 'خطا در ارتباط با سرویس هوش مصنوعی: ' . $this->friendlyError($error)
-                    : 'هوش مصنوعی سؤالِ قابلِ قبولی برنگرداند؛ مبحث یا فصل را دقیق‌تر کنید و دوباره تلاش کنید.',
+                    : ($o['sources']
+                        ? 'از روی فایل سؤالِ قابلِ قبولی درنیامد؛ عکسِ واضح‌تر و صاف‌تری بفرستید (نور کافی، بدونِ سایه) یا صفحه‌ها را کمتر کنید.'
+                        : 'هوش مصنوعی سؤالِ قابلِ قبولی برنگرداند؛ مبحث یا فصل را دقیق‌تر کنید و دوباره تلاش کنید.'),
             ];
         }
 
         $msg = null;
-        if (count($accepted) < $o['count']) {
+        if ($same) {
+            $msg = \App\Support\Jalali::fa((string) count($accepted)) . ' سؤال از روی فایل خوانده شد؛ پیش از افزودن، متن و پاسخِ درست را یک بار نگاه کنید.';
+        } elseif (count($accepted) < $o['count']) {
             $msg = \App\Support\Jalali::fa((string) count($accepted)) . ' سؤال از ' . \App\Support\Jalali::fa((string) $o['count'])
                 . ' آماده شد؛ بقیه به‌دلیلِ کیفیتِ پایین یا تکراری بودن کنار گذاشته شدند.';
         }
@@ -168,6 +179,9 @@ class SmartExamAiService
             'instructions' => mb_substr(trim((string) ($o['instructions'] ?? '')), 0, 500),
             'avoid' => array_values(array_filter(array_map(fn ($p) => is_string($p) ? trim($p) : '', (array) ($o['avoid'] ?? [])))),
             'sample' => (bool) ($o['sample'] ?? false),
+            // 📎 فایلِ نمونه‌سؤال / عکسِ صفحه‌ی کتاب: [['mime'=>…, 'data'=>base64], …]
+            'sources' => self::cleanSources((array) ($o['sources'] ?? [])),
+            'source_mode' => in_array($o['source_mode'] ?? null, ['same', 'similar', 'content'], true) ? $o['source_mode'] : 'similar',
             'school_id' => $o['school_id'] ?? null,
             'teacher_id' => $o['teacher_id'] ?? null,
         ];
@@ -270,6 +284,22 @@ class SmartExamAiService
             '- با سؤال‌های فهرستِ «تکراری نساز» یکسان یا هم‌معنی نباشد.',
         ];
 
+        if ($o['sources']) {
+            $rules[] = '';
+            $rules[] = '## فایلِ پیوست (عکس یا PDF)';
+            $rules[] = '- معلم یک یا چند تصویر/فایل فرستاده است: برگه‌ی نمونه‌سؤال، کاربرگ یا صفحه‌ی کتابِ درسی. اول متنِ فارسیِ آن را با دقت بخوان (دست‌خط و چاپ).';
+            $rules[] = match ($o['source_mode']) {
+                'same' => '- کارِ تو «بازنویسیِ دقیق» است: همه‌ی سؤال‌های فایل را با همان متن، همان عددها، همان گزینه‌ها و همان ترتیب بنویس. چیزی از خودت به صورتِ سؤال اضافه نکن و سؤالی را جا نینداز. اگر پاسخِ درست در فایل علامت نخورده، پاسخِ درست را خودت با دقت تعیین کن. شماره‌ی سؤال (۱- یا الف) را از ابتدای متن حذف کن.',
+                'content' => '- کارِ تو «سؤال‌سازی از متنِ صفحه» است: فقط از مطالب، واژه‌ها، مثال‌ها و تمرین‌های همین صفحه(ها) سؤال بساز؛ هیچ مطلبی بیرون از این صفحه‌ها نیاور. مفاهیمِ مهمِ همه‌ی صفحه‌ها را پوشش بده.',
+                default => '- کارِ تو «ساختِ سؤالِ مشابه» است: سبک، قالب، نوع، طول و سطحِ دشواریِ سؤال‌های فایل را دقیقاً تقلید کن و همان مهارت‌ها را بسنج؛ ولی عددها، نام‌ها، مثال‌ها و جمله‌ها تازه باشند تا پاسخِ برگه‌ی اصلی به کار نیاید.',
+            };
+            $rules[] = '- سؤالی که بدونِ دیدنِ شکل، نمودار یا تصویرِ برگه قابلِ حل نیست را طوری بازنویسی کن که با متن قابلِ حل باشد (شکل را با کلمات توصیف کن)؛ اگر نشد کنارش بگذار.';
+            $rules[] = '- اگر بخشی از عکس ناخواناست، حدس نزن؛ آن سؤال را نساز.';
+            if ($o['source_mode'] === 'same') {
+                $rules[] = '- در این حالت گزینه‌های «همه‌ی موارد/هیچ‌کدام» و تعدادِ گزینه‌ی غیرِ ۴ تا هم اگر در خودِ فایل آمده، مجاز است.';
+            }
+        }
+
         if ($isGame) {
             $rules[] = '';
             $rules[] = '## این سؤال‌ها داخلِ بازی نمایش داده می‌شوند';
@@ -326,8 +356,24 @@ class SmartExamAiService
             $L[] = '- نوعِ آزمون: ' . $kindFa[$o['kind']];
         }
 
+        if ($o['sources'] && ! $o['subject']) {
+            $L[] = '- درس و پایه را از روی خودِ فایل تشخیص بده.';
+        }
         $L[] = '';
         $L[] = '## چه بسازی';
+        if ($o['sources'] && $o['source_mode'] === 'same') {
+            $L[] = '- همه‌ی سؤال‌های فایلِ پیوست، دقیقاً همان‌طور که هست (حداکثر ' . $fa($plan['count']) . ' سؤالِ اول).';
+            $L[] = '- نوعِ هر سؤال را از روی شکلِ خودش تعیین کن. نوع‌های مجاز: ' . implode('، ', array_map(fn ($t) => $typeFa[$t] . " ({$t})", $o['types']))
+                . '. سؤالی که نوعش در این فهرست نیست را به نزدیک‌ترین نوعِ مجاز تبدیل کن (مثلاً پاسخ‌کوتاه → جای خالی، و اگر جای خالی مجاز نیست → چهارگزینه‌ای با گزینه‌های نادرستِ باورپذیر).';
+            $L[] = '- difficulty و bloom را خودت برچسب بزن؛ explanation و hint را کوتاه بنویس.';
+            if ($o['instructions']) {
+                $L[] = '- توضیحِ معلم: ' . $o['instructions'];
+            }
+            $L[] = '';
+            $L[] = 'فایل‌ها پیوستِ همین پیام‌اند (' . $fa(count($o['sources'])) . ' صفحه).';
+
+            return implode("\n", $L);
+        }
         $L[] = '- تعدادِ کل: ' . $fa($plan['count']) . ' سؤال';
         $L[] = '- ترکیبِ نوع: ' . implode('، ', array_map(fn ($t, $n) => $fa($n) . ' ' . $typeFa[$t] . " ({$t})", array_keys($plan['types']), $plan['types']));
         $L[] = '- دشواری: ' . implode('، ', array_map(fn ($d, $n) => $fa($n) . ' ' . $diffFa[$d], array_keys($plan['difficulty']), $plan['difficulty']));
@@ -341,6 +387,10 @@ class SmartExamAiService
             $L[] = '- توضیحِ معلم: ' . $o['instructions'];
         }
 
+        if ($o['sources']) {
+            $L[] = '- منبع: فایل‌های پیوستِ همین پیام (' . $fa(count($o['sources'])) . ' صفحه) — '
+                . ($o['source_mode'] === 'content' ? 'فقط از محتوای همین صفحه‌ها سؤال بساز.' : 'سؤال‌هایی مشابهِ همین برگه بساز (همان سبک و سطح، با عدد و مثالِ تازه).');
+        }
         if ($avoid) {
             $L[] = '';
             $L[] = '## تکراری نساز — این سؤال‌ها از قبل وجود دارند (نه یکسان، نه هم‌معنی):';
@@ -405,7 +455,7 @@ class SmartExamAiService
         $body = [
             'model' => \App\Support\AiConfig::model('anthropic'),
             'max_tokens' => $this->maxTokens($plan),
-            'temperature' => 0.7,
+            'temperature' => $this->temperature($o),
             'system' => $this->systemPrompt($o),
             'tools' => [[
                 'name' => 'submit_questions',
@@ -413,7 +463,7 @@ class SmartExamAiService
                 'input_schema' => $this->schema(),
             ]],
             'tool_choice' => ['type' => 'tool', 'name' => 'submit_questions'],
-            'messages' => [['role' => 'user', 'content' => $this->userPrompt($o, $plan, $avoid)]],
+            'messages' => [['role' => 'user', 'content' => $this->content($this->userPrompt($o, $plan, $avoid), $o['sources'], 'anthropic')]],
         ];
         $send = fn ($b) => Http::withHeaders([
             'x-api-key' => $key, 'anthropic-version' => '2023-06-01', 'content-type' => 'application/json',
@@ -440,15 +490,15 @@ class SmartExamAiService
     {
         $messages = [
             ['role' => 'system', 'content' => $this->systemPrompt($o)],
-            ['role' => 'user', 'content' => $this->userPrompt($o, $plan, $avoid)],
+            ['role' => 'user', 'content' => $this->content($this->userPrompt($o, $plan, $avoid), $o['sources'], 'openai')],
         ];
         $model = \App\Support\AiConfig::model();
         $schema = ['response_format' => ['type' => 'json_schema', 'json_schema' => ['name' => 'questions', 'strict' => true, 'schema' => $this->schema()]]];
         // اسکیمای سخت‌گیرانه را فقط خودِ OpenAI کامل پشتیبانی می‌کند؛ DeepSeek، Gemini و
         // سرویس‌های سازگار با آن خطای ۴۰۰ می‌دادند و دو درخواست هدر می‌رفت
         $attempts = \App\Support\AiConfig::provider() === 'openai'
-            ? [['temperature' => 0.7] + $schema, ['response_format' => ['type' => 'json_object']]]
-            : [['temperature' => 0.7, 'response_format' => ['type' => 'json_object']], []];
+            ? [['temperature' => $this->temperature($o)] + $schema, ['response_format' => ['type' => 'json_object']]]
+            : [['temperature' => $this->temperature($o), 'response_format' => ['type' => 'json_object']], []];
         $res = null;
         foreach ($attempts as $i => $extra) {
             $msgs = $messages;
@@ -486,6 +536,9 @@ class SmartExamAiService
 
     private function friendlyError(string $e): string
     {
+        if (str_contains($e, 'HTTP 400') && preg_match('/image|vision|multimodal|image_url|file_data|pdf|document|content type|unsupported/i', $e)) {
+            return 'مدلِ فعالِ هوش مصنوعی («' . \App\Support\AiConfig::model() . '») این نوع فایل یا تصویر را نمی‌خواند. عکسِ صفحه‌ها را بفرستید (به‌جای PDF)، یا ادمین در «مرکزِ هوش مصنوعی» مدلی مثلِ gpt-4o-mini، gemini-2.5-flash یا Claude را انتخاب کند.';
+        }
         if (str_contains($e, 'HTTP 401') || str_contains($e, 'HTTP 403')) {
             return 'کلیدِ API نامعتبر است یا دسترسی ندارد (ادمین کل → مرکزِ هوش مصنوعی).';
         }
@@ -513,6 +566,7 @@ class SmartExamAiService
     public function validate(array $raw, array $o, array $avoid = []): array
     {
         $isGame = $o['audience'] === 'game';
+        $same = ! empty($o['sources']) && ($o['source_mode'] ?? '') === 'same';
         $maxPrompt = $isGame ? 400 : 600;
         $maxChoice = $isGame ? 120 : 200;
         $allowed = $o['types'];
@@ -583,18 +637,18 @@ class SmartExamAiService
                     $bad[] = $correct === 0 ? 'بدونِ گزینه‌ی درست' : 'چند گزینه‌ی درست';
                     continue;
                 }
-                if (count($choices) > 4) {
+                if (count($choices) > ($same ? 6 : 4)) {
                     // نگه‌داشتنِ درست + سه گزینه‌ی نادرستِ اول
                     $right = array_values(array_filter($choices, fn ($c) => $c['correct']));
                     $wrong = array_slice(array_values(array_filter($choices, fn ($c) => ! $c['correct'])), 0, 3);
                     $choices = array_merge($right, $wrong);
                 }
-                if (count($choices) < 3) {
+                if (count($choices) < ($same ? 2 : 3)) {
                     $bad[] = 'گزینه‌ی کم';
                     continue;
                 }
                 if (collect($choices)->contains(fn ($c) => mb_strlen($c['value']) > $maxChoice
-                    || preg_match('/^(همه\s?ی?\s?موارد|هیچ\s?کدام|هر\s?دو|الف\s?و\s?ب|همه‌ی گزینه)/u', $c['value']))) {
+                    || (! $same && preg_match('/^(همه\s?ی?\s?موارد|هیچ\s?کدام|هر\s?دو|الف\s?و\s?ب|همه‌ی گزینه)/u', $c['value'])))) {
                     $bad[] = 'گزینه‌ی نامناسب';
                     continue;
                 }
@@ -701,6 +755,75 @@ class SmartExamAiService
         } catch (\Throwable $e) {
             // ثبت آمار نباید مسیر اصلی را بشکند
         }
+    }
+
+    /* ═══════════════════════ فایلِ پیوست ═══════════════════════ */
+
+    public const SOURCE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+
+    /** فقط تصویر/PDFِ معتبر، حداکثر ۸ صفحه و حدودِ ۱۸ مگابایت. */
+    public static function cleanSources(array $list): array
+    {
+        $out = [];
+        $total = 0;
+        foreach ($list as $s) {
+            if (is_string($s) && preg_match('#^data:([a-z]+/[a-z0-9.+-]+);base64,(.+)$#is', $s, $m)) {
+                $s = ['mime' => strtolower($m[1]), 'data' => $m[2]];
+            }
+            if (! is_array($s) || ! in_array($s['mime'] ?? '', self::SOURCE_MIMES, true)) {
+                continue;
+            }
+            $data = preg_replace('/\s+/', '', (string) ($s['data'] ?? ''));
+            if ($data === '' || ! preg_match('#^[A-Za-z0-9+/=]+$#', $data) || ($total += strlen($data)) > 24_000_000) {
+                continue;
+            }
+            $out[] = ['mime' => $s['mime'], 'data' => $data];
+            if (count($out) >= 8) {
+                break;
+            }
+        }
+
+        return $out;
+    }
+
+    /** آیا سرویسِ فعال اصلاً تصویر می‌خواند؟ (DeepSeek نمی‌خواند) */
+    public static function visionBlocker(): ?string
+    {
+        $p = \App\Support\AiConfig::provider();
+        $model = strtolower(\App\Support\AiConfig::model());
+        if ($p === 'deepseek' || str_contains($model, 'deepseek') || str_contains($model, 'reasoner')) {
+            return 'مدلِ فعالِ هوش مصنوعی (DeepSeek) عکس و PDF را نمی‌خواند. ادمین در «مرکزِ هوش مصنوعی» یک مدلِ تصویرخوان انتخاب کند: gpt-4o-mini، gemini-2.5-flash یا Claude.';
+        }
+
+        return null;
+    }
+
+    /** بازنویسیِ دقیقِ فایل خلاقیت نمی‌خواهد. */
+    private function temperature(array $o): float
+    {
+        return $o['sources'] && $o['source_mode'] === 'same' ? 0.1 : 0.7;
+    }
+
+    /** پیامِ کاربر با فایل‌های پیوست، به قالبِ هر خانواده. */
+    private function content(string $text, array $sources, string $family): string|array
+    {
+        if (! $sources) {
+            return $text;
+        }
+        $parts = [];
+        foreach ($sources as $i => $s) {
+            $pdf = $s['mime'] === 'application/pdf';
+            if ($family === 'anthropic') {
+                $parts[] = ['type' => $pdf ? 'document' : 'image', 'source' => ['type' => 'base64', 'media_type' => $s['mime'], 'data' => $s['data']]];
+            } elseif ($pdf) {
+                $parts[] = ['type' => 'file', 'file' => ['filename' => 'page-' . ($i + 1) . '.pdf', 'file_data' => 'data:application/pdf;base64,' . $s['data']]];
+            } else {
+                $parts[] = ['type' => 'image_url', 'image_url' => ['url' => 'data:' . $s['mime'] . ';base64,' . $s['data'], 'detail' => 'high']];
+            }
+        }
+        $parts[] = ['type' => 'text', 'text' => $text];
+
+        return $parts;
     }
 
     /* ═══════════════════════ حالتِ نمونه ═══════════════════════ */

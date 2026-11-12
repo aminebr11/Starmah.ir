@@ -16,7 +16,7 @@ use Illuminate\Support\Collection;
  */
 class BotAgent
 {
-    public const TOOLS = ['attendance', 'grades', 'award', 'discipline', 'announce', 'report', 'student', 'game', 'none'];
+    public const TOOLS = ['attendance', 'grades', 'award', 'discipline', 'announce', 'report', 'student', 'game', 'exam', 'none'];
 
     public static function available(User $user): bool
     {
@@ -52,7 +52,7 @@ class BotAgent
 
 فقط یک شیءِ JSON برگردان، بدونِ هیچ متنِ دیگری، با کلیدهای:
 "reply": پاسخِ کوتاه، گرم و فارسی به معلم (حداکثر ۳ جمله؛ اگر کاری پیشنهاد می‌دهی بگو که پیش‌نمایشش را می‌بیند و با دکمه تأیید می‌کند)
-"tool": یکی از attendance|grades|award|discipline|announce|report|student|game|none
+"tool": یکی از attendance|grades|award|discipline|announce|report|student|game|exam|none
 "args": بخش‌های همان کار:
 - attendance: {"date":"YYYY-MM-DD (میلادی، از جدولِ تاریخ‌ها)","class":"نامِ کلاس","absent":[نام‌ها],"late":[نام‌ها],"excused":[نام‌ها]} — هر کس نامش نیامده حاضر است.
 - grades: {"class","lesson","topic","type":"descriptive|numeric|homework","max":عدد,"grades":[{"name","value"}],"rest":"مقدار برای بقیه یا null"} — توصیفی فقط: خیلی خوب، خوب، قابل قبول، نیاز به تلاش. تکلیف: کامل، ناقص، انجام نداده.
@@ -61,8 +61,10 @@ class BotAgent
 - announce: {"to":"class یا نامِ یک دانش‌آموز","class","text":"متنِ پیام"}
 - report: {"kind":"today|attendance|grades|risk|pending"}
 - student: {"name":"نامِ دانش‌آموز","question":"سؤالِ معلم دربارهٔ او"}
-- game: {"class","lesson","topic","count":۵ تا ۱۵,"difficulty":"easy|medium|hard","publish":true/false}
+- game: بازیِ آموزشی {"class","lesson","topic","count":۵ تا ۱۵,"difficulty":"easy|medium|hard|mixed"}
+- exam: آزمون/امتحان/سؤال‌طراحی {"class","lesson","topic","count":۵ تا ۲۰,"difficulty":"easy|medium|hard|mixed"} — بات بعد از این، تنظیمات (نوعِ سؤال، تم، قوانین) و بازبینیِ سؤال‌ها را با دکمه نشان می‌دهد؛ در reply بگو سؤال‌ها پیش از انتشار قابلِ ویرایش‌اند.
 - none: گفتگوی معمولی، سلام، راهنما، یا وقتی چیزی مبهم است (در reply کوتاه بپرس؛ مثلاً کدام کلاس یا کدام دانش‌آموز).
+معلم می‌تواند عکس یا PDFِ برگه‌ی نمونه‌سؤال یا صفحه‌ی کتاب را هم بفرستد تا از رویش سؤال ساخته شود؛ اگر درباره‌اش پرسید، همین را بگو.
 قواعد: اگر نامی دو دانش‌آموز را می‌رساند و از متن معلوم نیست، tool=none و بپرس. برای حضور و غیاب اگر تاریخ گفته نشد امروز است. اگر معلم «همه حاضرن» گفت، absent خالی است.
 TXT;
 

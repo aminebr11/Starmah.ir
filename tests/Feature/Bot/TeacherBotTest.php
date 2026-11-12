@@ -359,9 +359,11 @@ class TeacherBotTest extends TestCase
         ])->all()]);
         $this->app->instance(\App\Services\SmartExamAiService::class, $mock);
         $this->text('یه بازی سه سؤالی از کسرها بساز و منتشر کن');
-        $pub = $this->lastButton('ok:');
-        $this->assertStringEndsWith(':pub', $pub);
-        $this->press($pub);
+        // پیش از ساخت: تنظیمات (تعداد، نوع، تم…) → بازبینیِ سؤال‌ها → انتشار
+        $this->assertSame('q:go', $this->lastButton('q:go'));
+        $this->press('q:go');
+        $this->assertSame('q:v:2', $this->lastButton('q:v:2'));
+        $this->press('q:pub:1');
         $g = \App\Models\EduGame::where('teacher_id', $teacher->id)->firstOrFail();
         $this->assertSame('published', $g->status);
         $this->assertSame(3, $g->questions()->count());

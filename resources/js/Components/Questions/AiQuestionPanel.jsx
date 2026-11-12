@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { aiFailText, salvageAiPayload } from '@/lib/aiErrors';
+import { filesToPages, MAX_PAGES } from '@/lib/aiSource';
 import CurriculumFields from './CurriculumFields';
 import { fa, TYPE_FA, DIFF_FA, BLOOM_FA, DIFF_COLOR, contextLine, contextPayload } from './shared';
 
@@ -47,6 +48,29 @@ export default function AiQuestionPanel({
     const [results, setResults] = useState([]);
     const [shown, setShown] = useState([]); // همه‌ی نتیجه‌های این جلسه — برای «تولیدِ دوباره بدونِ تکرار»
     const timer = useRef(null);
+    // 📎 نمونه‌سؤال / کاربرگ / صفحه‌ی کتاب
+    const [pages, setPages] = useState([]);
+    const [mode, setMode] = useState('similar');
+    const [reading, setReading] = useState(null);
+    const fileRef = useRef(null);
+    const camRef = useRef(null);
+    const same = pages.length > 0 && mode === 'same';
+
+    const addFiles = async (files) => {
+        if (!files?.length) return;
+        setMsg(null);
+        setReading('در حالِ آماده‌سازی…');
+        try {
+            const { pages: got, skipped } = await filesToPages(files, MAX_PAGES - pages.length, (t) => setReading(`در حالِ آماده‌سازی: ${t}`));
+            setPages((p) => [...p, ...got]);
+            if (skipped) setMsg({ ok: false, text: `حداکثر ${fa(MAX_PAGES)} صفحه را می‌شود فرستاد؛ ${fa(skipped)} صفحه/فایل کنار گذاشته شد.` });
+        } catch {
+            setMsg({ ok: false, text: 'این فایل خوانده نشد؛ عکس (JPG/PNG) یا PDFِ سالم انتخاب کنید.' });
+        }
+        setReading(null);
+        if (fileRef.current) fileRef.current.value = '';
+        if (camRef.current) camRef.current.value = '';
+    };
 
     useEffect(() => () => clearInterval(timer.current), []);
 
@@ -57,7 +81,7 @@ export default function AiQuestionPanel({
         return { ...c, types: next.length ? next : [t] };
     });
 
-    const ready = !!context.subject;
+    const ready = !!context.subject || pages.length > 0;
     const summary = contextLine(context, classes);
 
     const run = async () => {
@@ -74,8 +98,9 @@ export default function AiQuestionPanel({
             const { data: raw } = await axios.post(endpoint, {
                 ...contextPayload(context),
                 kind,
-                count: Math.max(1, Math.min(maxCount, +cfg.count || 1)),
-                types: cfg.types,
+                count: same ? maxCount : Math.max(1, Math.min(maxCount, +cfg.count || 1)),
+                types: same ? types : cfg.types,
+                ...(pages.length ? { sources: pages.map((p) => p.url), source_mode: mode } : {}),
                 difficulty: cfg.difficulty,
                 bloom: cfg.bloom,
                 flavor: cfg.flavor || flavorDefault || '',
@@ -106,7 +131,9 @@ export default function AiQuestionPanel({
         } catch (e) {
             const err = e.response?.data;
             const first = err && typeof err === 'object' && err.errors ? Object.values(err.errors)[0]?.[0] : null;
-            setMsg({ ok: false, text: first || (typeof err === 'object' && err?.message) || aiFailText(e.response?.status, err) });
+            setMsg({ ok: false, text: e.response?.status === 413
+                ? 'حجمِ فایل‌ها برای سرور زیاد است؛ تعدادِ صفحه‌ها را کمتر کنید (مثلاً ۲ صفحه) و دوباره بزنید.'
+                : first || (typeof err === 'object' && err?.message) || aiFailText(e.response?.status, err) });
         }
         clearInterval(timer.current);
         setBusy(false);
@@ -135,7 +162,46 @@ export default function AiQuestionPanel({
                 </div>
             )}
 
-            <div className="qk-grid">
+            <div className="qk-src">
+                <div className="qk-src-head">
+                    <b>📎 از روی فایل</b>
+                    <span className="qk-muted">نمونه‌سؤال، کاربرگ یا عکسِ صفحه‌ی کتاب (عکس یا PDF، حداکثر {fa(MAX_PAGES)} صفحه) — اختیاری</span>
+                </div>
+                <div className="qk-src-btns">
+                    <button type="button" className="qk-btn ghost sm" onClick={() => fileRef.current?.click()} disabled={!!reading || pages.length >= MAX_PAGES}>🖼️ انتخابِ عکس یا PDF</button>
+                    <button type="button" className="qk-btn ghost sm" onClick={() => camRef.current?.click()} disabled={!!reading || pages.length >= MAX_PAGES}>📷 عکس گرفتن</button>
+                    <input ref={fileRef} type="file" hidden multiple accept="image/*,application/pdf,.pdf" onChange={(e) => addFiles(e.target.files)} />
+                    <input ref={camRef} type="file" hidden accept="image/*" capture="environment" onChange={(e) => addFiles(e.target.files)} />
+                    {reading && <span className="qk-muted">⏳ {reading}</span>}
+                </div>
+                {pages.length > 0 && (
+                    <>
+                        <div className="qk-src-pages">
+                            {pages.map((p, i) => (
+                                <div key={i} className="qk-src-page" title={p.name}>
+                                    <img src={p.url} alt={p.name} />
+                                    <button type="button" onClick={() => setPages((x) => x.filter((_, j) => j !== i))} aria-label="حذف">✕</button>
+                                    <small>{fa(i + 1)}</small>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="qk-src-modes">
+                            {[
+                                ['same', '📋 دقیقاً همین سؤال‌ها', 'سؤال‌های برگه بی‌کم‌وکاست تایپ و واردِ سامانه می‌شوند'],
+                                ['similar', '🔁 سؤال‌های مشابه', 'همان سبک و سطح، با عدد و مثالِ تازه'],
+                                ['content', '📖 از روی متنِ کتاب', 'از مطالبِ همین صفحه‌ها سؤال ساخته می‌شود'],
+                            ].map(([k, t, d]) => (
+                                <button type="button" key={k} onClick={() => setMode(k)} className={`qk-src-mode ${mode === k ? 'on' : ''}`}>
+                                    <b>{t}</b><small>{d}</small>
+                                </button>
+                            ))}
+                        </div>
+                        {same && <div className="qk-muted" style={{ fontSize: 12.5 }}>تعداد و نوعِ سؤال‌ها از روی خودِ برگه تشخیص داده می‌شود (حداکثر {fa(maxCount)} سؤال).</div>}
+                    </>
+                )}
+            </div>
+
+            {!same && <div className="qk-grid">
                 <label className="qk-field">
                     <span>تعداد</span>
                     <input type="number" min={1} max={maxCount} className="qk-input" dir="ltr" value={cfg.count}
@@ -157,7 +223,7 @@ export default function AiQuestionPanel({
                         ))}
                     </div>
                 </div>
-            </div>
+            </div>}
 
             <button type="button" className="qk-link" onClick={() => setMore(!more)}>{more ? '▴ تنظیماتِ کمتر' : '▾ تنظیماتِ بیشتر (سطحِ شناختی، فضای داستانی، توضیح برای هوش مصنوعی)'}</button>
             {more && (
@@ -187,7 +253,8 @@ export default function AiQuestionPanel({
 
             <div className="qk-actions">
                 <button type="button" className={`qk-btn ${ready ? '' : 'wait'}`} onClick={run} disabled={busy}>
-                    {busy ? `⏳ در حالِ طراحی… ${fa(elapsed)} ثانیه` : '✨ طراحیِ سؤال'}
+                    {busy ? `⏳ ${pages.length ? 'در حالِ خواندنِ فایل و طراحی' : 'در حالِ طراحی'}… ${fa(elapsed)} ثانیه`
+                        : same ? '📋 خواندنِ سؤال‌های فایل' : pages.length ? '✨ طراحی از روی فایل' : '✨ طراحیِ سؤال'}
                 </button>
                 <label className="qk-check"><input type="checkbox" checked={cfg.sample} onChange={(e) => set('sample', e.target.checked)} /> حالتِ نمونه (بدونِ کلیدِ هوش مصنوعی)</label>
             </div>

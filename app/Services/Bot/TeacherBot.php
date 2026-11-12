@@ -98,6 +98,8 @@ class TeacherBot
                 $this->onButton($chat, $user, (string) ($cb['data'] ?? ''), (int) ($msg['message_id'] ?? 0));
             } elseif ($text !== '') {
                 $this->onText($chat, $user, $text);
+            } elseif (isset($msg['photo']) || isset($msg['document'])) {
+                $this->quiz($chat)->onFile($user, $msg);
             } elseif (isset($msg['voice']) || isset($msg['audio'])) {
                 $this->onVoice($chat, $user, $msg['voice'] ?? $msg['audio']);
             } else {
@@ -146,15 +148,18 @@ class TeacherBot
         . "⭐ «به علی و سارا ۱۰ امتیاز بده به‌خاطرِ همکاری»\n"
         . "🎮 «یک بازیِ ۸ سؤالی از کسرها بساز»\n"
         . "👤 «سارا توی ریاضی چطوره؟»\n"
-        . "📋 «دیروز رضا غایب بود»\n\n🎙️ می‌توانی پیامِ صوتی هم بفرستی. یا از دکمه‌های منو استفاده کن.";
+        . "📋 «دیروز رضا غایب بود»\n"
+        . "📝 «یک آزمونِ ۱۰ سؤالی از کسرها بساز»\n"
+        . "📎 عکسِ برگه‌ی نمونه‌سؤال یا صفحه‌ی کتاب (یا PDF) را بفرست تا همان سؤال‌ها، سؤالِ مشابه یا سؤال از روی متن بسازم\n\n🎙️ می‌توانی پیامِ صوتی هم بفرستی. یا از دکمه‌های منو استفاده کن.";
 
     /* ═════════════════════════ منو ═════════════════════════ */
 
-    private function mainRows(): array
+    public function mainRows(): array
     {
         return [
             [['text' => '📋 حضور و غیاب', 'data' => 'm:att'], ['text' => '🌅 گزارشِ امروز', 'data' => 'r:today']],
             [['text' => '📔 ثبتِ نمره', 'data' => 'm:grade'], ['text' => '📢 اطلاعیه', 'data' => 'm:ann']],
+            [['text' => '🧪 سؤال، آزمون و بازی', 'data' => 'q:home']],
             [['text' => '📊 گزارش‌ها', 'data' => 'm:rep'], ['text' => '⚙️ تنظیمات', 'data' => 'm:set']],
         ];
     }
@@ -170,6 +175,10 @@ class TeacherBot
     private function onText(string $chat, User $user, string $text): void
     {
         $n = P::norm($text);
+        // در انتظارِ ویرایشِ سؤال / عنوان / موضوعِ استودیوی سؤال؟
+        if ($this->quiz($chat)->onText($user, $text)) {
+            return;
+        }
         // در انتظارِ نامِ دانش‌آموز برای گزارش؟
         if (($w = Cache::get($this->key('wait'))) && ($w['for'] ?? '') === 'student') {
             Cache::forget($this->key('wait'));
@@ -293,8 +302,9 @@ class TeacherBot
                 $this->studentReport($chat, $user, (string) ($a['name'] ?? ''), (string) ($a['question'] ?? $text));
                 break;
             case 'game':
-                $this->prepare($chat, $user, 'game', ['lesson' => (string) ($a['lesson'] ?? ''), 'topic' => (string) ($a['topic'] ?? ''),
-                    'count' => (int) ($a['count'] ?? 8), 'difficulty' => (string) ($a['difficulty'] ?? 'medium'), 'publish' => (bool) ($a['publish'] ?? false)] + $extra);
+            case 'exam':
+                $this->quiz($chat)->start($user, ['kind' => $d['tool'], 'lesson' => (string) ($a['lesson'] ?? ''), 'topic' => (string) ($a['topic'] ?? ''),
+                    'count' => (int) ($a['count'] ?? 8), 'difficulty' => (string) ($a['difficulty'] ?? 'medium')] + $extra);
                 break;
             default:
                 if ($reply === '') {
@@ -334,12 +344,15 @@ class TeacherBot
                 $this->submenu($chat, $user, (string) $a, $msgId);
 
                 return;
+            case 'q':    // استودیوی سؤال، آزمون و بازی
+                $this->quiz($chat)->onButton($user, $data, $msgId);
+
+                return;
             case 'r':
                 $this->report($chat, $user, (string) $a);
 
                 return;
-            case 'ok':   // تأییدِ کارِ آماده (ok:توکن[:pub])
-                $this->confirmFlag = (string) $b;
+            case 'ok':   // تأییدِ کارِ آماده
                 $this->confirm($chat, $user, (string) $a, $msgId);
 
                 return;
@@ -562,7 +575,6 @@ class TeacherBot
             'announce' => $this->previewAnnounce($user, $class, $params),
             'award' => $this->previewAward($user, $class, $params),
             'discipline' => $this->previewDiscipline($user, $params),
-            'game' => $this->previewGame($chat, $user, $class, $params),
         };
         if ($payload === null) {
             $edit ? $this->api->edit($chat, $edit, $text, $this->mainRows()) : $this->api->send($chat, $text, $this->mainRows());
@@ -573,9 +585,6 @@ class TeacherBot
         $rows = [[['text' => '✅ تأیید و ثبت', 'data' => 'ok:' . $tok], ['text' => '❌ لغو', 'data' => 'no:' . $tok]]];
         if ($action === 'attendance' && ($payload['date'] ?? now()->toDateString()) === now()->toDateString()) {
             $rows[] = [['text' => '✏️ ویرایش با دکمه‌ها', 'data' => 'bd:' . $class->id]];
-        }
-        if ($action === 'game') {
-            $rows = [[['text' => '🚀 ساخت و انتشار برای کلاس', 'data' => 'ok:' . $tok . ':pub']], [['text' => '💾 ساخت به‌صورتِ پیش‌نویس', 'data' => 'ok:' . $tok], ['text' => '❌ لغو', 'data' => 'no:' . $tok]]];
         }
         $msg = $text . ($warn ? "\n\n" . $warn : '');
         $edit ? $this->api->edit($chat, $edit, $msg, $rows) : $this->api->send($chat, $msg, $rows);
@@ -794,64 +803,6 @@ class TeacherBot
             'انضباط: ' . count($p['ids']) . ' نفر'];
     }
 
-    private function previewGame(string $chat, User $user, Classroom $class, array $p): array
-    {
-        $topic = trim((string) ($p['topic'] ?? ''));
-        $lesson = trim((string) ($p['lesson'] ?? ''));
-        if ($topic === '' && $lesson === '') {
-            return ['🎮 موضوعِ بازی را بگو؛ مثلاً «یک بازیِ ۸ سؤالی از کسرها (ریاضی) بساز».', null, null];
-        }
-        if (! BotAgent::available($user)) {
-            return ['🎮 ساختِ بازی با هوش مصنوعی برای مدرسه‌ی شما روشن نیست؛ از سایت ← «استودیوی بازی» بسازید.', null, null];
-        }
-        $count = max(3, min(15, (int) ($p['count'] ?? 8)));
-        $diff = in_array($p['difficulty'] ?? '', ['easy', 'medium', 'hard'], true) ? $p['difficulty'] : 'medium';
-        $this->api->send($chat, '⏳ دارم ' . Jalali::fa((string) $count) . ' سؤال دربارهٔ «' . ($topic ?: $lesson) . '» برای پایه‌ی ' . ($class->grade ?: '') . ' می‌سازم… (حدودِ نیم دقیقه)');
-        @set_time_limit(150);
-        $r = app(\App\Services\SmartExamAiService::class)->generate(['count' => $count, 'types' => ['mc', 'tf'], 'difficulty' => $diff,
-            'grade' => $class->grade, 'subject' => $lesson, 'topic' => $topic ?: $lesson]);
-        $qs = collect($r['questions'] ?? [])->filter(fn ($q) => in_array($q['type'] ?? 'mc', ['mc', 'tf'], true) && trim((string) ($q['prompt'] ?? '')) !== '' && count($q['choices'] ?? []) >= 2)
-            ->map(fn ($q) => ['type' => $q['type'], 'prompt' => mb_substr((string) $q['prompt'], 0, 400), 'choices' => \App\Support\BankAccess::cleanChoices($q['choices']),
-                'explanation' => $q['explanation'] ?? null, 'hint1' => $q['hint'] ?? null, 'difficulty' => $q['difficulty'] ?? $diff, 'topic' => $q['topic'] ?? $topic, 'source' => 'ai'])
-            ->values()->all();
-        if (! $qs) {
-            return ['⚠️ ساختِ سؤال انجام نشد' . (! empty($r['message']) ? ': ' . $r['message'] : '.') . ' دوباره امتحان کن.', null, null];
-        }
-        $title = '🎮 ' . ($topic ?: $lesson);
-        $L = [$title . ' — ' . Jalali::fa((string) count($qs)) . ' سؤال · ' . (['easy' => 'آسان', 'medium' => 'متوسط', 'hard' => 'سخت'][$diff]) . ' · ' . $class->name, ''];
-        foreach (array_slice($qs, 0, 3) as $i => $q) {
-            $ok = collect($q['choices'])->firstWhere('correct', true)['value'] ?? '';
-            $L[] = Jalali::fa((string) ($i + 1)) . ') ' . $q['prompt'] . "\n   ✔ " . $ok;
-        }
-        if (count($qs) > 3) {
-            $L[] = '… و ' . Jalali::fa((string) (count($qs) - 3)) . ' سؤالِ دیگر';
-        }
-        $L[] = '';
-        $L[] = 'پیش‌نویس را بعداً در «استودیوی بازی» می‌توانی ویرایش کنی.';
-
-        return [implode("\n", $L), ['title' => mb_substr($title, 0, 120), 'lesson' => $lesson, 'topic' => $topic, 'difficulty' => $diff, 'questions' => $qs], null];
-    }
-
-    private function doGame(User $user, ?Classroom $class, array $p, bool $publish): array
-    {
-        $tpl = \App\Models\GameTemplate::where('key', 'board-space')->value('key') ?? \App\Models\GameTemplate::value('key');
-        $before = \App\Models\EduGame::withoutGlobalScopes()->where('teacher_id', $user->id)->max('id') ?? 0;
-        $this->callSite($user, \App\Http\Controllers\Teacher\EduGameController::class, 'store', [
-            'title' => $p['title'], 'template_key' => $tpl, 'subject' => $p['lesson'] ?: null, 'grade' => $class?->grade, 'classroom_id' => $class?->id,
-            'topic' => $p['topic'] ?: null, 'difficulty' => $p['difficulty'], 'status' => $publish ? 'published' : 'draft', 'questions' => $p['questions'],
-        ]);
-        $game = \App\Models\EduGame::withoutGlobalScopes()->where('teacher_id', $user->id)->where('id', '>', $before)->latest('id')->first();
-        if (! $game) {
-            throw ValidationException::withMessages(['game' => 'بازی ساخته نشد.']);
-        }
-
-        return [
-            '✅ بازیِ «' . $game->title . '» ' . ($publish ? 'ساخته و برای کلاس منتشر شد 🚀' : 'به‌صورتِ پیش‌نویس ساخته شد') . "\n✏️ ویرایش: " . BotConfig::siteUrl() . '/teacher/studio',
-            ['game' => $game->id],
-            'بازی: ' . $game->title . ($publish ? ' (منتشر شد)' : ' (پیش‌نویس)'),
-        ];
-    }
-
     /* ═════════════════════════ اجرا ═════════════════════════ */
 
     private function confirm(string $chat, User $user, string $tok, int $msgId): void
@@ -870,7 +821,6 @@ class TeacherBot
                 'announce' => $this->doAnnounce($user, $p['payload']),
                 'award' => $this->doAward($user, $p['payload']),
                 'discipline' => $this->doDiscipline($user, $p['payload']),
-                'game' => $this->doGame($user, $class, $p['payload'], $this->confirmFlag === 'pub'),
             };
         } catch (ValidationException $e) {
             $this->api->edit($chat, $msgId, '⚠️ ثبت نشد: ' . collect($e->errors())->flatten()->first(), $this->mainRows());
@@ -886,7 +836,7 @@ class TeacherBot
     }
 
     /** اجرای یک کنترلرِ سایت به نامِ همین معلم (همان اعتبارسنجی، دسترسی و اثرهای جانبیِ سایت). */
-    private function callSite(User $user, string $controller, string $method, array $input, array $args = [])
+    public function callSite(User $user, string $controller, string $method, array $input, array $args = [])
     {
         $req = Request::create('/bot', 'POST', $input);
         $req->setUserResolver(fn () => $user);
@@ -996,6 +946,15 @@ class TeacherBot
                 return;
             }
             $g->delete();
+        } elseif ($log->action === 'exam' && ($x = \App\Models\SmartExam::withoutGlobalScopes()->where('teacher_id', $user->id)->find($u['exam'] ?? 0))) {
+            if ($x->attempts()->exists()) {
+                $this->api->send($chat, '⛔ بچه‌ها این آزمون را شروع کرده‌اند؛ از سایت ببندیدش.');
+
+                return;
+            }
+            $x->questions()->delete();
+            $x->targets()->delete();
+            $x->delete();
         } elseif ($log->action === 'announce') {
             Announcement::withoutGlobalScopes()->where('id', $u['announcement'] ?? 0)->where('sender_id', $user->id)->delete();
         }
@@ -1101,14 +1060,17 @@ class TeacherBot
         return collect($all);
     }
 
+    private function quiz(string $chat): BotQuiz
+    {
+        return new BotQuiz($this, $this->api, $this->platform, $chat);
+    }
+
     private function reports(User $user): BotReports
     {
         return new BotReports($user, $this->classes($user));
     }
 
     private string $chatKey = '';
-
-    private string $confirmFlag = '';
 
     /** «2026-11-11» / خالی → تاریخ (فقط امروز و ۳۰ روزِ گذشته). */
     private static function date(string $d): ?\Illuminate\Support\Carbon

@@ -94,6 +94,13 @@ trait BuildsAiQuestions
             'avoid' => ['nullable', 'array', 'max:80'],
             'avoid.*' => ['nullable', 'string', 'max:600'],
             'sample' => ['nullable', 'boolean'],
+            // 📎 نمونه‌سؤال / کاربرگ / صفحه‌ی کتاب (تصویر یا PDF به صورتِ data URL)
+            'sources' => ['nullable', 'array', 'max:8'],
+            'sources.*' => ['string', 'max:9000000'],
+            'source_mode' => ['nullable', 'in:same,similar,content'],
+        ], [
+            'sources.max' => 'حداکثر ۸ صفحه/عکس را می‌شود فرستاد.',
+            'sources.*.max' => 'حجمِ یکی از فایل‌ها زیاد است؛ عکسِ کوچک‌تری بفرستید.',
         ]);
         $user = $request->user();
         $ctx = Curriculum::resolve($data, $user);
@@ -116,6 +123,8 @@ trait BuildsAiQuestions
             'instructions' => $data['instructions'] ?? '',
             'avoid' => $data['avoid'] ?? [],
             'sample' => (bool) ($data['sample'] ?? false),
+            'sources' => $data['sources'] ?? [],
+            'source_mode' => $data['source_mode'] ?? 'similar',
             'school_id' => $user->school_id, 'teacher_id' => $user->id,
         ], $extra));
 
