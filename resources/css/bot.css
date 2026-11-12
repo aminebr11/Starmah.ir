@@ -43,3 +43,10 @@
 .bt-link small { display: block; color: var(--muted); font-size: 12px; }
 .bt-link-a { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 13px; }
 .bt-ex { margin: 0; padding-inline-start: 18px; line-height: 2.2; font-size: 13.5px; }
+.bt-diag { margin-top: 10px; display: grid; gap: 6px; }
+.bt-step { display: grid; gap: 3px; border-radius: 12px; padding: 8px 10px; font-size: 13px; line-height: 1.8; background: #f6f8fc; border: 1px solid var(--line); }
+.bt-step.ok { background: #effaf4; border-color: #bfe9d0; }
+.bt-step.bad { background: #fff3f2; border-color: #f3c2c2; }
+.bt-step.bad.first { box-shadow: 0 0 0 3px rgba(232, 80, 91, .18); }
+.bt-step code { font-size: 11.5px; overflow-wrap: anywhere; color: #4a5578; }
+.bt-step span { color: #7a2d2d; font-weight: 700; }

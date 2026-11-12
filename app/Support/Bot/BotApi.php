@@ -43,7 +43,8 @@ class BotApi
 
             return is_array($json) ? $json : ['ok' => false, 'description' => 'پاسخِ نامعتبر (' . $res->status() . ')'];
         } catch (\Throwable $e) {
-            return ['ok' => false, 'description' => 'اتصال برقرار نشد: ' . mb_substr($e->getMessage(), 0, 160)];
+            // توکن هرگز در پیامِ خطا نمایش داده نشود
+            return ['ok' => false, 'description' => 'اتصال برقرار نشد: ' . mb_substr(str_replace($token, '***', $e->getMessage()), 0, 160)];
         }
     }
 

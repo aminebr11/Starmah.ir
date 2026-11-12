@@ -60,7 +60,7 @@ class BotPush
                 if ($fresh->isEmpty()) {
                     return;
                 }
-                $site = rtrim((string) (BotConfig::get('site_url', '') ?: config('app.url')), '/');
+                $site = BotConfig::siteUrl();
                 $text = "🔔 اعلانِ تازه\n\n" . $fresh->map(fn ($n) => ($n['icon'] ?? '•') . ' ' . $n['title']
                     . (! empty($n['body']) ? "\n" . Str::limit(strip_tags((string) $n['body']), 140) : '')
                     . (! empty($n['href']) ? "\n" . (str_starts_with($n['href'], 'http') ? $n['href'] : $site . $n['href']) : ''))->implode("\n\n");

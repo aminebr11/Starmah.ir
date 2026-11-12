@@ -37,7 +37,7 @@ class BotSettingsController extends Controller
         return Inertia::render('Admin/Bot', [
             'enabled' => BotConfig::enabled(),
             'settings' => $set,
-            'defaults' => BotConfig::DEFAULT_API + ['site_url' => config('app.url')],
+            'defaults' => BotConfig::DEFAULT_API + ['site_url' => BotConfig::siteUrl()],
             'webhooks' => ['bale' => BotConfig::webhookUrl('bale'), 'telegram' => BotConfig::webhookUrl('telegram')],
             'ready' => BotLink::ready(),
             'stats' => BotLink::ready() ? [
@@ -78,9 +78,77 @@ class BotSettingsController extends Controller
     }
 
     /** ثبتِ نشانیِ وب‌هوک نزدِ پیام‌رسان (setWebhook) + آزمایشِ توکن (getMe). */
-    public function adminWebhook(string $platform): RedirectResponse
+    /**
+     * 🩺 عیب‌یابیِ قدم‌به‌قدم روی همین سرور: توکن، دسترسی به پیام‌رسان، نشانیِ دریافت، گزارشِ خودِ
+     * پیام‌رسان از آخرین خطای تحویل، و ارسالِ آزمایشی به نشانیِ دریافتِ خودِ سایت.
+     */
+    public function adminDiagnose(string $platform): JsonResponse
     {
         abort_unless(in_array($platform, ['bale', 'telegram'], true), 404);
+        $name = BotLink::PLATFORMS[$platform];
+        $steps = [];
+        $add = function (bool $ok, string $title, string $detail = '', string $fix = '') use (&$steps) {
+            $steps[] = compact('ok', 'title', 'detail', 'fix');
+
+            return $ok;
+        };
+
+        $add(BotConfig::enabled(), 'بات روشن است', '', 'تیکِ «بات روشن باشد» را بزنید و ذخیره کنید.');
+        if (! $add(BotConfig::token($platform) !== '', 'توکن ثبت شده', '', 'توکنِ بات را از BotFather بگیرید، در کادرِ «توکن» بگذارید و ذخیره کنید.')) {
+            return response()->json(['steps' => $steps]);
+        }
+        $api = BotApi::for($platform);
+        $me = $api->call('getMe', [], 15);
+        $conn = str_starts_with((string) ($me['description'] ?? ''), 'اتصال برقرار نشد');
+        if (! $add(! empty($me['ok']), "سرور به {$name} وصل می‌شود و توکن درست است",
+            ! empty($me['ok']) ? '@' . ($me['result']['username'] ?? '') : (string) ($me['description'] ?? ''),
+            $conn ? ($platform === 'bale' ? 'سرورِ سایت به tapi.bale.ai وصل نمی‌شود؛ از پشتیبانیِ هاست بخواهید دسترسیِ خروجی به tapi.bale.ai (پورتِ ۴۴۳) را باز کنند.' : 'نشانیِ API باید نشانیِ واسطه باشد و واسطه درست کار کند.')
+                : 'توکن را دوباره از BotFather کپی کنید (بدونِ فاصله) و ذخیره کنید.')) {
+            return response()->json(['steps' => $steps]);
+        }
+        if (! empty($me['result']['username'])) {
+            BotConfig::put($platform . '_username', $me['result']['username']);
+        }
+
+        $url = BotConfig::webhookUrl($platform);
+        $add(str_starts_with($url, 'https://') && ! BotConfig::isLocal($url), 'نشانیِ دریافتِ پیام معتبر است', $url,
+            'نشانیِ سایت باید https و دامنه‌ی واقعی باشد (نه localhost)؛ در کادرِ «نشانیِ سایت» مثلاً https://starmah.ir بنویسید و ذخیره کنید.');
+
+        $info = $api->call('getWebhookInfo', [], 15);
+        $r = $info['result'] ?? [];
+        $registered = (string) ($r['url'] ?? '');
+        $add($registered !== '' && rtrim($registered, '/') === rtrim($url, '/'), "نشانی نزدِ {$name} ثبت شده", $registered ?: '(هیچ نشانی‌ای ثبت نشده)',
+            '«🔗 اتصال و ثبتِ نشانی» را بزنید.');
+        if (! empty($r['last_error_message'])) {
+            $add(false, "{$name} آخرین بار نتوانست پیام را به سایت برساند",
+                $r['last_error_message'] . (! empty($r['last_error_date']) ? ' — ' . Jalali::format(\Illuminate\Support\Carbon::createFromTimestamp($r['last_error_date'])) . ' ' . date('H:i', $r['last_error_date']) : ''),
+                'اگر خطای SSL/گواهی است: گواهیِ https سایت را در cPanel (AutoSSL) بررسی کنید. اگر 403/406 است: ModSecurity هاست درخواست را می‌بندد؛ از پشتیبانیِ هاست بخواهید مسیرِ /bot/ را مستثنا کنند.');
+        }
+        if (isset($r['pending_update_count']) && $r['pending_update_count'] > 0) {
+            $add(false, 'پیام‌های تحویل‌نشده در صف', (string) $r['pending_update_count'] . ' پیام', 'معمولاً بعد از رفعِ خطای بالا خودشان می‌رسند.');
+        }
+
+        // ارسالِ آزمایشی از خودِ سرور به نشانیِ دریافت (مسیر، SSL، فایروال، ModSecurity)
+        try {
+            $res = \Illuminate\Support\Facades\Http::timeout(15)->withoutVerifying()->acceptJson()->post($url, ['update_id' => random_int(1, 1000000000)]);
+            $add($res->ok() && ($res->json('ok') === true), 'سایت پیام‌های آزمایشی را می‌پذیرد', 'پاسخِ ' . $res->status(),
+                $res->status() === 404 ? 'نسخه‌ی تازه کامل نصب نشده یا نشانیِ سایت اشتباه است.' : ($res->status() === 419 ? 'فایلِ bootstrap/app.php نسخه‌ی ۸۸ نصب نشده است.' : 'لاگِ خطای سایت (storage/logs) را بررسی کنید.'));
+        } catch (\Throwable $e) {
+            $add(false, 'سایت پیام‌های آزمایشی را می‌پذیرد', mb_substr($e->getMessage(), 0, 160), 'سرور نمی‌تواند به نشانیِ خودش وصل شود؛ نشانیِ سایت را بررسی کنید.');
+        }
+        $add(BotLink::where('platform', $platform)->exists(), 'دستِ‌کم یک معلم وصل شده', (string) BotLink::where('platform', $platform)->count() . ' اتصال',
+            'معلم: منوی «🤖 باتِ بله و تلگرام» ← «اتصال به ' . $name . '» ← کدِ ۶ رقمی را در بات بفرستد.');
+
+        return response()->json(['steps' => $steps]);
+    }
+
+    public function adminWebhook(Request $request, string $platform): RedirectResponse
+    {
+        abort_unless(in_array($platform, ['bale', 'telegram'], true), 404);
+        // نشانیِ سایت تنظیم نشده و APP_URL محلی است → نشانیِ همین صفحه
+        if (trim((string) BotConfig::get('site_url', '')) === '' && BotConfig::isLocal((string) config('app.url')) && ! BotConfig::isLocal($request->getSchemeAndHttpHost())) {
+            BotConfig::put('site_url', $request->getSchemeAndHttpHost());
+        }
         $api = BotApi::for($platform);
         $me = $api->call('getMe');
         if (empty($me['ok'])) {

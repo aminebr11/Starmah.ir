@@ -33,7 +33,7 @@ class BotReports
 
     private function site(string $path): string
     {
-        return rtrim((string) (\App\Support\Bot\BotConfig::get('site_url', '') ?: config('app.url')), '/') . $path;
+        return \App\Support\Bot\BotConfig::siteUrl() . $path;
     }
 
     /** 🌅 گزارشِ امروز (همان گزارشِ صبحگاهی). */

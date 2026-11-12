@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { usePage, useForm, router } from '@inertiajs/react';
+import axios from 'axios';
 import DashLayout, { adminMenu } from '@/Layouts/DashLayout';
 import relaySrc from '../../../../docs/bot-relay/worker.js?raw';
 import '@/../css/bot.css';
@@ -13,6 +14,34 @@ export default function AdminBot() {
     const form = useForm({ enabled, ...settings });
     const d = form.data;
     const [copied, setCopied] = useState(false);
+    const [diag, setDiag] = useState({});   // {bale: {busy, steps}, telegram: …}
+    const diagnose = async (p) => {
+        setDiag((x) => ({ ...x, [p]: { busy: true } }));
+        try {
+            const { data } = await axios.post(route('admin.bot.diagnose', p));
+            setDiag((x) => ({ ...x, [p]: { steps: data.steps } }));
+        } catch (e) {
+            setDiag((x) => ({ ...x, [p]: { steps: [{ ok: false, title: 'عیب‌یابی انجام نشد', detail: e?.response?.status ? `خطای ${e.response.status}` : 'اتصال قطع شد', fix: 'صفحه را تازه کنید و دوباره بزنید.' }] } }));
+        }
+    };
+    const Diag = ({ p }) => {
+        const v = diag[p];
+        if (!v) return null;
+        if (v.busy) return <div className="bt-diag">⏳ در حالِ بررسی روی سرور…</div>;
+        const firstBad = v.steps.findIndex((x) => !x.ok);
+        return (
+            <div className="bt-diag">
+                {v.steps.map((x, i) => (
+                    <div key={i} className={`bt-step ${x.ok ? 'ok' : 'bad'} ${i === firstBad ? 'first' : ''}`}>
+                        <b>{x.ok ? '✅' : '❌'} {x.title}</b>
+                        {x.detail && <code dir="ltr">{x.detail}</code>}
+                        {!x.ok && x.fix && <span>👉 {x.fix}</span>}
+                    </div>
+                ))}
+                {firstBad === -1 && <div className="bt-step ok first"><b>🎉 همه‌چیز درست است. در بات «/start» را بزنید و کدِ ۶ رقمی را بفرستید.</b></div>}
+            </div>
+        );
+    };
     const save = (e) => { e.preventDefault(); form.post(route('admin.bot.save'), { preserveScroll: true }); };
     const hook = (p) => router.post(route('admin.bot.webhook', p), {}, { preserveScroll: true });
     const copy = async () => { try { await navigator.clipboard.writeText(relaySrc); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* */ } };
@@ -60,8 +89,10 @@ export default function AdminBot() {
                     </div>
                     <div className="bt-row">
                         <button type="button" className="btn btn-sm" onClick={() => hook('bale')} disabled={!settings.bale_token}>🔗 اتصال و ثبتِ نشانی</button>
+                        <button type="button" className="btn btn-sm btn-ghost" onClick={() => diagnose('bale')}>🩺 عیب‌یابی</button>
                         <code dir="ltr">{webhooks.bale}</code>
                     </div>
+                    <Diag p="bale" />
                 </div>
 
                 <div className="panel bt-card">
@@ -87,8 +118,10 @@ export default function AdminBot() {
                     </div>
                     <div className="bt-row">
                         <button type="button" className="btn btn-sm" onClick={() => hook('telegram')} disabled={!settings.telegram_token}>🔗 اتصال و ثبتِ نشانی</button>
+                        <button type="button" className="btn btn-sm btn-ghost" onClick={() => diagnose('telegram')}>🩺 عیب‌یابی</button>
                         <code dir="ltr">{webhooks.telegram}</code>
                     </div>
+                    <Diag p="telegram" />
                     <details className="bt-code">
                         <summary>📄 کدِ واسطه (Cloudflare Worker)</summary>
                         <button type="button" className="btn btn-sm btn-ghost" onClick={copy}>{copied ? '✅ کپی شد' : '📋 کپی'}</button>

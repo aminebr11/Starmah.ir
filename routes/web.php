@@ -73,6 +73,7 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')
     Route::get('/bot', [\App\Http\Controllers\Bot\BotSettingsController::class, 'admin'])->name('bot');
     Route::post('/bot', [\App\Http\Controllers\Bot\BotSettingsController::class, 'adminSave'])->name('bot.save');
     Route::post('/bot/{platform}/webhook', [\App\Http\Controllers\Bot\BotSettingsController::class, 'adminWebhook'])->whereIn('platform', ['bale', 'telegram'])->name('bot.webhook');
+    Route::post('/bot/{platform}/diagnose', [\App\Http\Controllers\Bot\BotSettingsController::class, 'adminDiagnose'])->whereIn('platform', ['bale', 'telegram'])->name('bot.diagnose');
     Route::get('/', [PlatformController::class, 'overview'])->name('overview');
     Route::get('/schools', [SchoolApprovalController::class, 'index'])->name('schools');
     Route::get('/schools/{school}/manage', [\App\Http\Controllers\Admin\SchoolManageController::class, 'show'])->name('schools.manage');

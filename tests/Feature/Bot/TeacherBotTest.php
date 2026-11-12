@@ -282,4 +282,18 @@ class TeacherBotTest extends TestCase
         $this->assertSame('absent', AttendanceRecord::where('student_id', $sara->id)->value('status'));
         $this->assertSame(3, AttendanceRecord::count());          // نامِ ساختگی ثبت نشد
     }
+
+    public function test_admin_diagnose_reports_each_step(): void
+    {
+        $this->setupClass();
+        $admin = $this->makeUser(null, \App\Support\Roles::SUPER_ADMIN);
+        BotConfig::put('site_url', 'http://localhost');
+        \Illuminate\Support\Facades\Http::fake(['*' => \Illuminate\Support\Facades\Http::response(['ok' => true])]);
+        $steps = $this->actingAs($admin)->postJson(route('admin.bot.diagnose', 'bale'))->assertOk()->json('steps');
+        $byTitle = collect($steps)->keyBy('title');
+        $this->assertTrue($byTitle['بات روشن است']['ok']);
+        $this->assertTrue($byTitle['سرور به بله وصل می‌شود و توکن درست است']['ok']);
+        $this->assertFalse($byTitle['نشانیِ دریافتِ پیام معتبر است']['ok']);            // localhost پذیرفته نیست
+        $this->assertStringContainsString('https', $byTitle['نشانیِ دریافتِ پیام معتبر است']['fix']);
+    }
 }

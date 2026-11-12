@@ -73,9 +73,32 @@ class BotConfig
         if ($override !== '') {
             return rtrim($override, '/') . '/' . self::secret();
         }
-        $base = rtrim((string) (self::get('site_url', '') ?: config('app.url')), '/');
+        return self::siteUrl() . '/bot/' . $platform . '/' . self::secret();
+    }
 
-        return $base . '/bot/' . $platform . '/' . self::secret();
+    /**
+     * نشانیِ عمومیِ سایت: تنظیمِ ادمین ← نشانیِ همین درخواست ← APP_URL.
+     * (APP_URL روی هاست معمولاً «http://localhost» مانده بود و پیام‌رسان نمی‌توانست به آن پیام بدهد.)
+     */
+    public static function siteUrl(): string
+    {
+        $set = trim((string) self::get('site_url', ''));
+        if ($set !== '') {
+            return rtrim($set, '/');
+        }
+        $req = app()->bound('request') && ! app()->runningInConsole() ? request()->getSchemeAndHttpHost() : '';
+        if ($req !== '' && ! self::isLocal($req)) {
+            return rtrim($req, '/');
+        }
+
+        return rtrim((string) config('app.url'), '/');
+    }
+
+    public static function isLocal(string $url): bool
+    {
+        $host = (string) parse_url($url, PHP_URL_HOST);
+
+        return $host === '' || $host === 'localhost' || str_ends_with($host, '.test') || filter_var($host, FILTER_VALIDATE_IP) !== false;
     }
 
     /** آیا این کاربر (با نقش و مدرسه‌اش) اجازه‌ی استفاده از بات را دارد؟ */
