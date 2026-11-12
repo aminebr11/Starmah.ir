@@ -25,7 +25,12 @@ class BotVoice
     /** @return array{ok:bool,text?:string,error?:string} */
     public static function fromMessage(string $platform, array $voice): array
     {
-        if (($voice['duration'] ?? 0) > 180) {
+        // تلگرام مدت را به ثانیه می‌دهد و «بله» به میلی‌ثانیه (پیامِ ۵ ثانیه‌ای = 5000)
+        $secs = (float) ($voice['duration'] ?? 0);
+        if ($secs > 1000) {
+            $secs /= 1000;
+        }
+        if ($secs > 180 || ($voice['file_size'] ?? 0) > 6 * 1024 * 1024) {
             return ['ok' => false, 'error' => 'پیامِ صوتی حداکثر ۳ دقیقه باشد.'];
         }
         if (self::$fake !== null) {

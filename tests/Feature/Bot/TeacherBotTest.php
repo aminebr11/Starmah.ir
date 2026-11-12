@@ -384,7 +384,7 @@ class TeacherBotTest extends TestCase
         \App\Models\Setting::put('ai_provider', 'off');
         \App\Services\Bot\BotVoice::$fake = 'همه حاضرن جز سارا';
         try {
-            $this->hook(['message' => ['message_id' => 9, 'chat' => ['id' => '555', 'type' => 'private'], 'from' => ['id' => '555'], 'voice' => ['file_id' => 'v1', 'duration' => 4]]]);
+            $this->hook(['message' => ['message_id' => 9, 'chat' => ['id' => '555', 'type' => 'private'], 'from' => ['id' => '555'], 'voice' => ['file_id' => 'v1', 'duration' => 5000]]]);   // «بله»: میلی‌ثانیه
         } finally {
             \App\Services\Bot\BotVoice::$fake = null;
         }
