@@ -613,7 +613,7 @@ Route::post('/bot/{platform}/{secret}', \App\Http\Controllers\Bot\BotWebhookCont
     ->whereIn('platform', ['bale', 'telegram'])->middleware('throttle:240,1')->name('bot.webhook');
 
 // 🤖 اتصالِ حسابِ معلم/مدیر به بات
-Route::middleware(['auth', 'role:teacher|school_admin'])->prefix('bot')->name('bot.')->group(function () {
+Route::middleware(['auth', 'role:teacher|school_admin|super_admin'])->prefix('bot')->name('bot.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Bot\BotSettingsController::class, 'connect'])->name('connect');
     Route::post('/code', [\App\Http\Controllers\Bot\BotSettingsController::class, 'code'])->middleware('throttle:20,1')->name('code');
     Route::post('/links/{link}', [\App\Http\Controllers\Bot\BotSettingsController::class, 'update'])->name('links.update');

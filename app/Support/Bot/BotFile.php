@@ -10,8 +10,12 @@ class BotFile
     /** برای آزمایش: file_id → محتوا */
     public static ?array $fake = null;
 
-    /** @return array{ok:bool, bytes?:string, error?:string} */
-    public static function download(string $platform, string $fileId, int $maxBytes = 15 * 1024 * 1024): array
+    /**
+     * $maxBytes = 0 یعنی بدونِ سقف (فقط محدودیتِ خودِ پیام‌رسان).
+     *
+     * @return array{ok:bool, bytes?:string, error?:string}
+     */
+    public static function download(string $platform, string $fileId, int $maxBytes = 0): array
     {
         if (self::$fake !== null) {
             return isset(self::$fake[$fileId]) ? ['ok' => true, 'bytes' => self::$fake[$fileId]] : ['ok' => false, 'error' => 'فایل پیدا نشد.'];
@@ -21,11 +25,11 @@ class BotFile
         if (! $path) {
             return ['ok' => false, 'error' => 'فایل از پیام‌رسان گرفته نشد' . (! empty($f['description']) ? ' (' . mb_substr((string) $f['description'], 0, 80) . ')' : '') . '.'];
         }
-        if (($f['result']['file_size'] ?? 0) > $maxBytes) {
+        if ($maxBytes > 0 && ($f['result']['file_size'] ?? 0) > $maxBytes) {
             return ['ok' => false, 'error' => 'حجمِ فایل زیاد است.'];
         }
         try {
-            $req = Http::timeout(45);
+            $req = Http::timeout(120);
             if ($platform === 'telegram' && ($k = (string) BotConfig::get('telegram_relay_key', '')) !== '') {
                 $req = $req->withHeaders(['X-Relay-Key' => $k]);
             }
@@ -33,7 +37,7 @@ class BotFile
             if (! $res->ok() || strlen($res->body()) < 100) {
                 return ['ok' => false, 'error' => 'دانلودِ فایل ناموفق بود (' . $res->status() . ').'];
             }
-            if (strlen($res->body()) > $maxBytes) {
+            if ($maxBytes > 0 && strlen($res->body()) > $maxBytes) {
                 return ['ok' => false, 'error' => 'حجمِ فایل زیاد است.'];
             }
 

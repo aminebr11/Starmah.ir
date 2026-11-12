@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { usePage, router } from '@inertiajs/react';
 import axios from 'axios';
-import DashLayout, { teacherMenu, schoolMenu } from '@/Layouts/DashLayout';
+import DashLayout, { teacherMenu, schoolMenu, adminMenu } from '@/Layouts/DashLayout';
 import '@/../css/bot.css';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
@@ -27,13 +27,13 @@ export default function BotConnect() {
     const unlink = (l) => confirm(`اتصالِ ${l.label} قطع شود؟`) && router.delete(route('bot.links.destroy', l.id), { preserveScroll: true });
 
     return (
-        <DashLayout title="باتِ بله و تلگرام" roleLabel={menu === 'school' ? 'مدیر مدرسه' : 'معلم'} menu={menu === 'school' ? schoolMenu : teacherMenu} active="bot">
+        <DashLayout title="باتِ بله و تلگرام" roleLabel={menu === 'admin' ? 'ادمین کل' : menu === 'school' ? 'مدیر مدرسه' : 'معلم'} menu={menu === 'admin' ? adminMenu : menu === 'school' ? schoolMenu : teacherMenu} active="bot">
             {msg && <div className="panel bt-flash">{msg}</div>}
             <div className="bt-hero">
                 <div className="bt-hero-ic">🤖</div>
                 <div>
                     <h2>کارهای کلاس را از «بله» یا «تلگرام» انجام بده</h2>
-                    <p>حضور و غیاب، ثبتِ نمره، اطلاعیه و گزارش‌ها — فقط بنویس چه می‌خواهی؛ بات پیش‌نمایش می‌دهد و با «✅ تأیید» روی سایت ثبت می‌کند. هر کار تا ۱۰ دقیقه «↩️ برگردان» دارد.</p>
+                    <p>🔔 هر اعلانِ تازه‌ی سایت همان لحظه در بات هم می‌آید. حضور و غیاب، ثبتِ نمره، اطلاعیه و گزارش‌ها — فقط بنویس چه می‌خواهی؛ بات پیش‌نمایش می‌دهد و با «✅ تأیید» روی سایت ثبت می‌کند. هر کار تا ۱۰ دقیقه «↩️ برگردان» دارد.</p>
                 </div>
             </div>
 
@@ -88,7 +88,9 @@ export default function BotConnect() {
                     <li>📔 «ریاضی کسرها: علی خیلی خوب، سارا خوب، بقیه خوب» · «نمره علوم از ۱۰: سارا ۹»</li>
                     <li>⭐ «به سارا و علی ۱۰ امتیاز بده به‌خاطرِ همکاری»</li>
                     <li>📒 «برای رضا تذکرِ بی‌نظمی ثبت کن» (طبقِ موضوع‌های انضباطیِ مدرسه)</li>
-                    <li>🎮 «یک بازیِ ۸ سؤالی از کسرها بساز و برای کلاس منتشر کن»</li>
+                    <li>🎮 «یک بازیِ ۸ سؤالی از کسرها بساز» · 📝 «یک آزمونِ ۱۰ سؤالی از گیاهان»</li>
+                    <li>📎 عکس یا PDFِ برگه‌ی نمونه‌سؤال یا صفحه‌ی کتاب بفرست → آزمون یا بازی</li>
+                    <li>🗄 «بانکِ سؤال» و 👥 «دانش‌آموزان» از منوی بات</li>
                     <li>📢 «به بچه‌ها بگو فردا کتابِ علوم بیارن» · «به سارا بگو دفترش رو بیاره»</li>
                     <li>👤 «سارا توی ریاضی چطوره؟» · «گزارشِ امروز» · «چه کارهایی منتظرِ تصحیحه؟»</li>
                 </ul>

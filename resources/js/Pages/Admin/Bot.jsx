@@ -63,6 +63,7 @@ export default function AdminBot() {
                 <div>
                     <h2>باتِ معلم</h2>
                     <p>معلم در «بله» یا «تلگرام» می‌نویسد: «همه حاضرن جز سارا»، «ریاضی: علی خیلی خوب…»، «اطلاعیه: …» یا «گزارشِ امروز». بات پیش‌نمایش می‌دهد و پس از تأیید، روی سایت ثبت می‌کند.</p>
+                    <a className="btn btn-sm" href="/bot" style={{ margin: '6px 0' }}>🔗 اتصالِ حسابِ خودم به بات (اعلان‌ها همان لحظه)</a>
                     {stats && <div className="bt-stats"><span>🔗 بله: {fa(stats.links?.bale || 0)}</span><span>🔗 تلگرام: {fa(stats.links?.telegram || 0)}</span><span>⚡ کارهای امروز: {fa(stats.today)}</span></div>}
                 </div>
             </div>

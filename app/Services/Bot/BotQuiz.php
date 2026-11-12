@@ -73,11 +73,6 @@ class BotQuiz
 
                 return;
             }
-            if (($msg['document']['file_size'] ?? 0) > 15 * 1024 * 1024) {
-                $this->api->send($this->chat, '📎 حجمِ فایل بیش از ۱۵ مگابایت است؛ چند صفحه‌ی لازم را عکس بگیر و بفرست.');
-
-                return;
-            }
             $f = ['fid' => $msg['document']['file_id'], 'mime' => $mime];
         }
         if (! $f) {
@@ -154,7 +149,9 @@ class BotQuiz
         if ($s['topic'] === '' && $s['lesson'] === '') {
             $s['wait'] = ['what' => 'topic'];
             $this->save($s);
-            $this->api->send($this->chat, "✍️ موضوع را بنویس؛ مثلاً «ریاضی — کسرها» یا «علوم درسِ ۳: آب و هوا».\n📎 یا عکسِ برگه / صفحه‌ی کتاب را بفرست.", [[['text' => '❌ لغو', 'data' => 'q:x']]]);
+            $this->api->send($this->chat, ($s['kind'] === 'game' ? '🎮 ساختِ بازی' : ($s['kind'] === 'exam' ? '📝 ساختِ آزمون' : '🧪 ساختِ سؤال')) . "\n\n"
+                . "✍️ موضوع را بنویس؛ مثلاً «ریاضی — کسرها» یا «علوم درسِ ۳: آب و هوا».\n📎 یا عکس / PDFِ برگه یا صفحه‌ی کتاب را بفرست.\n🗄 یا از بانکِ سؤال انتخاب کن.",
+                [[['text' => '🗄 انتخاب از بانکِ سؤال', 'data' => 'q:bank']], [['text' => '❌ لغو', 'data' => 'q:x']]]);
 
             return;
         }
@@ -211,6 +208,15 @@ class BotQuiz
                 $this->setup($user, $s);
 
                 return true;
+            case 'bq':
+                $b = $this->bankState($s);
+                $b['q'] = in_array(P::norm($text), ['همه', 'all'], true) ? '' : Str::limit(trim($text), 60, '');
+                $b['page'] = 0;
+                $s['bank'] = $b;
+                $this->save($s);
+                $this->bankPicker($user, $s);
+
+                return true;
             case 'topic':
                 $s['topic'] = Str::limit(trim($text), 150, '');
                 $this->save($s);
@@ -237,6 +243,14 @@ class BotQuiz
         }
         if ($act === 'new') {
             $this->start($user, ['kind' => $x]);
+
+            return;
+        }
+        if ($act === 'bank' && ! $this->get()) {
+            $f = $this->fresh();
+            $f['mode'] = 'bank';
+            $this->save($f);
+            $this->next($user, $msgId);
 
             return;
         }
@@ -337,6 +351,69 @@ class BotQuiz
                 $this->review($user, $s, $msgId);
 
                 return;
+            case 'bank':
+                if (! $s['qs'] && ! $s['src']) {
+                    $s['mode'] = 'bank';
+                }
+                $s['bank'] = $this->bankState($s, reset: true);
+                $this->save($s);
+                if (empty($s['kind']) || empty($s['class'])) {
+                    $this->next($user, $msgId);
+                } else {
+                    $this->bankPicker($user, $s, $msgId);
+                }
+
+                return;
+            case 'bp':   // انتخاب/لغوِ یک سؤالِ بانک
+                $b = $this->bankState($s);
+                $id = (int) $x;
+                $b['pick'] = in_array($id, $b['pick'], true) ? array_values(array_diff($b['pick'], [$id])) : [...$b['pick'], $id];
+                $s['bank'] = $b;
+                $this->save($s);
+                $this->bankPicker($user, $s, $msgId);
+
+                return;
+            case 'bg':   // صفحه‌ی بعد/قبل (0 = همین صفحه)
+                $b = $this->bankState($s);
+                $b['page'] = max(0, $b['page'] + ($x === '-' ? -1 : ($x === '+' ? 1 : 0)));
+                $s['bank'] = $b;
+                $this->save($s);
+                $this->bankPicker($user, $s, $msgId);
+
+                return;
+            case 'bgr':  // فقط همین پایه / همه‌ی پایه‌ها
+                $b = $this->bankState($s);
+                $b['all'] = ! $b['all'];
+                $b['page'] = 0;
+                $s['bank'] = $b;
+                $this->save($s);
+                $this->bankPicker($user, $s, $msgId);
+
+                return;
+            case 'bs':   // فهرستِ درس‌ها
+                $this->bankSubjects($user, $s, $msgId);
+
+                return;
+            case 'bsub':
+                $b = $this->bankState($s);
+                $subs = $this->bankSubjectList($user, $s);
+                $b['subj'] = $x === 'all' ? '' : (string) ($subs[(int) $x] ?? '');
+                $b['page'] = 0;
+                $s['bank'] = $b;
+                $this->save($s);
+                $this->bankPicker($user, $s, $msgId);
+
+                return;
+            case 'bq':
+                $s['wait'] = ['what' => 'bq'];
+                $this->save($s);
+                $this->api->send($this->chat, '🔎 کلمه‌ای از متنِ سؤال را بنویس (مثلاً «کسر» یا «گیاه»). برای پاک کردنِ جست‌وجو بنویس «همه».');
+
+                return;
+            case 'badd':
+                $this->bankAdd($user, $s, $msgId);
+
+                return;
             case 'go':
                 $s['ready'] = true;
                 $s['qs'] = [];
@@ -373,7 +450,7 @@ class BotQuiz
                 if (! $s['qs']) {
                     $s['ready'] = false;
                     $this->save($s);
-                    $this->setup($user, $s, $msgId);
+                    $this->next($user, $msgId);
                 } else {
                     $this->review($user, $s, $msgId, '🗑 سؤالِ ' . Jalali::fa((string) ($i + 1)) . ' حذف شد.');
                 }
@@ -481,8 +558,20 @@ class BotQuiz
 
             return;
         }
+        if (empty($s['kind'])) {
+            $exam = \App\Support\SmartLab::enabledFor($user);
+            $rows = [array_values(array_filter([
+                $exam ? ['text' => '📝 آزمون', 'data' => 'q:kind:exam'] : null,
+                ['text' => '🎮 بازی', 'data' => 'q:kind:game'],
+            ]))];
+            $rows[] = [['text' => '❌ لغو', 'data' => 'q:x']];
+            $got = $s['src'] ? '📎 ' . ($s['src'][0]['mime'] === 'application/pdf' ? 'فایل' : 'برگه') . ' رسید (' . Jalali::fa((string) count($s['src'])) . " صفحه).\n\n" : '';
+            $this->say($msgId, $got . ($exam ? 'از آن «آزمون» بسازم یا «بازی»؟' : '«بازی» ساخته می‌شود (آزمایشگاهِ آزمون برای مدرسه روشن نیست).'), $rows);
+
+            return;
+        }
         if ($s['src'] && empty($s['mode'])) {
-            $this->say($msgId, '📎 ' . ($s['src'][0]['mime'] === 'application/pdf' ? 'فایل' : 'برگه') . " رسید (" . Jalali::fa((string) count($s['src'])) . " صفحه).\nبا آن چه کنم؟\n\n"
+            $this->say($msgId, ($s['kind'] === 'game' ? '🎮 بازی' : '📝 آزمون') . ' از روی ' . Jalali::fa((string) count($s['src'])) . " صفحه — با برگه چه کنم؟\n\n"
                 . "📋 «دقیقاً همین سؤال‌ها»: سؤال‌های برگه بی‌کم‌وکاست تایپ و واردِ سامانه می‌شوند.\n"
                 . "🔁 «مشابه»: همان سبک و سطح، با عدد و مثالِ تازه.\n"
                 . "📖 «از روی متن»: از مطالبِ همین صفحه‌ی کتاب سؤال می‌سازم.\n\n"
@@ -507,14 +596,8 @@ class BotQuiz
                 return;
             }
         }
-        if (empty($s['kind'])) {
-            $exam = \App\Support\SmartLab::enabledFor($user);
-            $rows = [array_values(array_filter([
-                $exam ? ['text' => '📝 آزمون', 'data' => 'q:kind:exam'] : null,
-                ['text' => '🎮 بازی', 'data' => 'q:kind:game'],
-            ]))];
-            $rows[] = [['text' => '❌ لغو', 'data' => 'q:x']];
-            $this->say($msgId, 'سؤال‌ها برای ' . ($exam ? '«آزمون» باشند یا «بازی»؟' : '«بازی» ساخته می‌شوند (آزمایشگاهِ آزمون برای مدرسه روشن نیست).'), $rows);
+        if (empty($s['qs']) && ($s['mode'] ?? '') === 'bank') {
+            $this->bankPicker($user, $s, $msgId);
 
             return;
         }
@@ -558,6 +641,7 @@ class BotQuiz
             array_map(fn ($d) => ['text' => $mark($s['diff'] === $d, self::DIFF_FA[$d]), 'data' => 'q:dif:' . $d], array_keys(self::DIFF_FA)),
             ...array_chunk($types, 2),
             [['text' => '🎨 فضای داستانی', 'data' => 'q:thm'], ['text' => '✏️ توضیح برای هوش مصنوعی', 'data' => 'q:ins']],
+            [['text' => '🗄 به‌جایش از بانکِ سؤال انتخاب کن', 'data' => 'q:bank']],
             [['text' => '✨ بساز', 'data' => 'q:go'], ['text' => '❌ لغو', 'data' => 'q:x']],
         ];
         $this->say($msgId, implode("\n", $L), $rows);
@@ -578,7 +662,7 @@ class BotQuiz
 
         $sources = [];
         foreach ($s['src'] as $f) {
-            $d = BotFile::download($this->platform, $f['fid']);
+            $d = BotFile::download($this->platform, $f['fid'], 0);   // بدونِ سقفِ حجم
             if (! $d['ok']) {
                 $this->fail($panel, '📎 ' . $d['error']);
 
@@ -640,7 +724,7 @@ class BotQuiz
         }
         $nums = array_map(fn ($i) => ['text' => Jalali::fa((string) ($i + 1)), 'data' => 'q:v:' . $i], array_keys($s['qs']));
         $rows = array_chunk($nums, 6);
-        $rows[] = [['text' => '➕ ۵ سؤالِ دیگر', 'data' => 'q:more'], ['text' => '🏷️ عنوان', 'data' => 'q:ttl']];
+        $rows[] = [['text' => '➕ ۵ سؤالِ دیگر', 'data' => 'q:more'], ['text' => '🗄 از بانک', 'data' => 'q:bank'], ['text' => '🏷️ عنوان', 'data' => 'q:ttl']];
         $rows[] = $s['kind'] === 'game'
             ? [['text' => '🎨 قالبِ بازی', 'data' => 'q:tpls'], ['text' => '🌈 تم', 'data' => 'q:thm:r'], ['text' => '⚙️ قوانین', 'data' => 'q:rul']]
             : [['text' => '🎨 فضای داستانی', 'data' => 'q:thm:r'], ['text' => '⚙️ قوانینِ آزمون', 'data' => 'q:rul']];
@@ -689,6 +773,119 @@ class BotQuiz
             $i < $n - 1 ? ['text' => 'بعدی ←', 'data' => 'q:v:' . ($i + 1)] : null,
         ]));
         $this->say($msgId, Str::limit(implode("\n", $L), 4000), $rows);
+    }
+
+    /* ─────────────── 🗄 بانکِ سؤال ─────────────── */
+
+    private const BANK_PAGE = 8;
+
+    private function bankState(array $s, bool $reset = false): array
+    {
+        $b = ! $reset && is_array($s['bank'] ?? null) ? $s['bank'] : [];
+
+        return $b + ['subj' => (string) ($s['lesson'] ?? ''), 'q' => '', 'page' => 0, 'pick' => [], 'all' => false];
+    }
+
+    private function bankQuery(User $user, array $s, bool $withSubject = true)
+    {
+        $class = $this->bot->classes($user)->firstWhere('id', (int) $s['class']);
+        $b = $this->bankState($s);
+
+        return \App\Support\BankAccess::search($user, array_filter([
+            'grade' => $b['all'] ? null : $class?->grade,
+            'subject' => $withSubject && $b['subj'] !== '' ? $b['subj'] : null,
+            'search' => $b['q'] !== '' ? $b['q'] : null,
+            'types' => $this->allowedTypes($s),
+            'exclude' => array_values(array_filter(array_column($s['qs'], 'bank_id'))),
+        ]));
+    }
+
+    /** درس‌هایی که در بانک (برای همین پایه) سؤال دارند. */
+    private function bankSubjectList(User $user, array $s): array
+    {
+        return $this->bankQuery($user, $s, false)->reorder()->selectRaw('COALESCE(subject, book) as subj')->distinct()
+            ->pluck('subj')->filter()->take(14)->values()->all();
+    }
+
+    private function bankSubjects(User $user, array $s, int $msgId): void
+    {
+        $subs = $this->bankSubjectList($user, $s);
+        $rows = collect($subs)->map(fn ($n, $i) => ['text' => '📚 ' . $n, 'data' => 'q:bsub:' . $i])->chunk(2)->map(fn ($c) => $c->values()->all())->values()->all();
+        $rows[] = [['text' => '📚 همه‌ی درس‌ها', 'data' => 'q:bsub:all'], ['text' => '↩️ بازگشت', 'data' => 'q:bg:0']];
+        $this->say($msgId, $subs ? '📚 کدام درس؟' : '📚 هنوز سؤالی با درسِ مشخص در بانک نیست.', $rows);
+    }
+
+    private function bankPicker(User $user, array $s, int $msgId = 0): void
+    {
+        $b = $this->bankState($s);
+        $class = $this->bot->classes($user)->firstWhere('id', (int) $s['class']);
+        $q = $this->bankQuery($user, $s);
+        $total = (clone $q)->count();
+        $pages = max(1, (int) ceil($total / self::BANK_PAGE));
+        $b['page'] = min($b['page'], $pages - 1);
+        $rows = (clone $q)->orderByDesc('used_count')->latest('id')->skip($b['page'] * self::BANK_PAGE)->take(self::BANK_PAGE)->get();
+        $head = '🗄 بانکِ سؤال — ' . ($s['kind'] === 'game' ? 'برای بازی' : 'برای آزمون')
+            . "\n🎓 " . ($b['all'] ? 'همه‌ی پایه‌ها' : 'پایه‌ی ' . ($class?->grade ?: '—'))
+            . ' · 📚 ' . ($b['subj'] !== '' ? $b['subj'] : 'همه‌ی درس‌ها') . ($b['q'] !== '' ? ' · 🔎 «' . $b['q'] . '»' : '')
+            . "\n" . Jalali::fa((string) $total) . ' سؤال' . ($total ? ' · صفحه‌ی ' . Jalali::fa((string) ($b['page'] + 1)) . ' از ' . Jalali::fa((string) $pages) : '')
+            . ' · ✅ انتخاب‌شده: ' . Jalali::fa((string) count($b['pick']));
+        $L = [$head, ''];
+        $btn = [];
+        foreach ($rows as $k => $r) {
+            $n = $b['page'] * self::BANK_PAGE + $k + 1;
+            $on = in_array($r->id, $b['pick'], true);
+            $L[] = ($on ? '✅ ' : '') . Jalali::fa((string) $n) . ') ' . ($r->media_path ? '🖼️ ' : '') . Str::limit($r->prompt, 110)
+                . ' · ' . (self::TYPE_FA[$r->type] ?? $r->type);
+            $btn[] = ['text' => ($on ? '✅ ' : '') . Jalali::fa((string) $n), 'data' => 'q:bp:' . $r->id];
+        }
+        if (! $total) {
+            $L[] = 'سؤالی پیدا نشد. درس یا جست‌وجو را عوض کن، یا «همه‌ی پایه‌ها» را بزن.';
+        } else {
+            $L[] = '';
+            $L[] = 'روی شماره‌ها بزن تا انتخاب شوند، بعد «➕ افزودن».';
+        }
+        $kb = array_chunk($btn, 4);
+        $nav = array_values(array_filter([
+            $b['page'] > 0 ? ['text' => '→ قبلی', 'data' => 'q:bg:-'] : null,
+            $b['page'] < $pages - 1 ? ['text' => 'بعدی ←', 'data' => 'q:bg:+'] : null,
+        ]));
+        if ($nav) {
+            $kb[] = $nav;
+        }
+        $kb[] = [['text' => '📚 درس', 'data' => 'q:bs'], ['text' => '🔎 جست‌وجو', 'data' => 'q:bq'], ['text' => $b['all'] ? '🎓 فقط همین پایه' : '🎓 همه‌ی پایه‌ها', 'data' => 'q:bgr']];
+        if ($b['pick']) {
+            $kb[] = [['text' => '➕ افزودنِ ' . Jalali::fa((string) count($b['pick'])) . ' سؤال', 'data' => 'q:badd']];
+        }
+        $kb[] = [$s['qs'] ? ['text' => '↩️ بازگشت به سؤال‌ها', 'data' => 'q:l'] : ['text' => '❌ لغو', 'data' => 'q:x']];
+        $s['bank'] = $b;
+        $this->save($s);
+        $this->say($msgId, Str::limit(implode("\n", $L), 4000), $kb);
+    }
+
+    private function bankAdd(User $user, array $s, int $msgId): void
+    {
+        $b = $this->bankState($s);
+        $rows = \App\Support\BankAccess::visibleQuery($user)->whereIn('id', $b['pick'])->get()->keyBy('id');
+        $added = 0;
+        foreach ($b['pick'] as $id) {
+            if (! ($r = $rows->get($id))) {
+                continue;
+            }
+            $q = self::fromAi(\App\Support\BankAccess::row($r, $user));
+            if ($q && in_array($q['type'], $this->allowedTypes($s), true)) {
+                $q['bank_id'] = $r->id;
+                $s['qs'][] = $q;
+                $added++;
+            }
+        }
+        $s['qs'] = array_slice($s['qs'], 0, 50);
+        $s['bank'] = $this->bankState($s, reset: true);
+        $s['ready'] = true;
+        if (! $s['title'] && $s['qs']) {
+            $s['title'] = Str::limit(($s['qs'][0]['topic'] ?? '') ?: ($b['subj'] ?: 'سؤال‌های بانک'), 100, '');
+        }
+        $this->save($s);
+        $s['qs'] ? $this->review($user, $s, $msgId, '🗄 ' . Jalali::fa((string) $added) . ' سؤال از بانک اضافه شد.') : $this->bankPicker($user, $s, $msgId);
     }
 
     /* ─────────────── شکلِ سؤال ─────────────── */
@@ -871,8 +1068,8 @@ class BotQuiz
             'questions' => array_map(fn ($q) => [
                 'type' => $q['type'], 'prompt' => $q['prompt'], 'choices' => $q['choices'], 'answer' => $q['answer'],
                 'explanation' => $q['explanation'], 'difficulty' => $q['difficulty'], 'bloom' => $q['bloom'], 'topic' => $q['topic'],
-                'media_url' => $q['media_url'] ?? null,
-                'points' => 1, 'source' => 'ai',
+                'media_url' => $q['media_url'] ?? null, 'bank_id' => $q['bank_id'] ?? null,
+                'points' => 1, 'source' => empty($q['bank_id']) ? 'ai' : 'bank',
             ], $s['qs']),
         ]);
         $exam = \App\Models\SmartExam::withoutGlobalScopes()->where('teacher_id', $user->id)->where('id', '>', $before)->latest('id')->first();
@@ -900,8 +1097,8 @@ class BotQuiz
                 'type' => $q['type'] === 'blank' ? 'short' : $q['type'], 'prompt' => Str::limit($q['prompt'], 400, ''),
                 'choices' => $q['type'] === 'blank' ? [['value' => (string) $q['answer'], 'correct' => true]] : $q['choices'],
                 'answer' => $q['answer'], 'explanation' => $q['explanation'], 'hint1' => $q['hint'] ? Str::limit($q['hint'], 250, '') : null,
-                'difficulty' => $q['difficulty'], 'bloom' => $q['bloom'], 'topic' => $q['topic'], 'source' => 'ai',
-                'media_url' => $q['media_url'] ?? null,
+                'difficulty' => $q['difficulty'], 'bloom' => $q['bloom'], 'topic' => $q['topic'], 'source' => empty($q['bank_id']) ? 'ai' : 'bank',
+                'media_url' => $q['media_url'] ?? null, 'bank_id' => $q['bank_id'] ?? null,
             ];
         }
         $this->bot->callSite($user, \App\Http\Controllers\Teacher\EduGameController::class, 'store', [

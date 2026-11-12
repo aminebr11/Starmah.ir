@@ -138,12 +138,13 @@ class BotQuizTest extends TestCase
         $this->hook(['photo' => [['file_id' => 'small', 'width' => 90, 'height' => 90], ['file_id' => 'ph1', 'width' => 1280, 'height' => 1600]], 'media_group_id' => 'g1']);
         $this->hook(['photo' => [['file_id' => 'ph2', 'width' => 1280, 'height' => 1600]], 'media_group_id' => 'g1']);
         $this->assertSame(['ph1', 'ph2'], array_column($this->quizState()['src'], 'fid'));
-        $this->assertTrue($this->has('q:mode:same'));
-        $this->assertSame(1, collect(BotApi::$fake)->filter(fn ($c) => str_contains((string) ($c['params']['text'] ?? ''), 'با آن چه کنم'))->count());
+        // اول می‌پرسد: آزمون یا بازی؟ (فقط یک بار برای کلِ آلبوم)
+        $this->assertTrue($this->has('q:kind:exam') && $this->has('q:kind:game'));
+        $this->assertSame(1, collect(BotApi::$fake)->filter(fn ($c) => str_contains((string) ($c['params']['text'] ?? ''), 'آزمون» بسازم یا «بازی'))->count());
 
-        $this->press('q:mode:same');               // یک کلاس دارد → مستقیم «آزمون یا بازی؟»
-        $this->assertTrue($this->has('q:kind:exam'));
-        $this->press('q:kind:exam');               // «همین سؤال‌ها» → بی‌درنگ ساخته می‌شود
+        $this->press('q:kind:exam');               // بعد: با برگه چه کنم؟
+        $this->assertTrue($this->has('q:mode:same'));
+        $this->press('q:mode:same');               // یک کلاس دارد + «همین سؤال‌ها» → بی‌درنگ ساخته می‌شود
 
         $o = $this->aiCalls[0];
         $this->assertSame('same', $o['source_mode']);
@@ -275,6 +276,110 @@ class BotQuizTest extends TestCase
 
         $this->press('q:pub:1');
         $this->assertSame($svg, SmartExam::where('teacher_id', $teacher->id)->firstOrFail()->questions()->orderBy('sort')->value('media_path'));
+    }
+
+    public function test_bank_picker_builds_an_exam_from_bank_questions(): void
+    {
+        [$teacher, $classroom] = $this->setupTeacher();
+        $this->fakeAi();
+        $mk = fn ($p, $subject = 'ریاضی') => \App\Models\SmartQuestionBank::create(['school_id' => $teacher->school_id, 'teacher_id' => $teacher->id, 'scope' => 'school',
+            'grade' => $classroom->grade, 'subject' => $subject, 'type' => 'mc', 'prompt' => $p, 'difficulty' => 'easy', 'source' => 'manual', 'fingerprint' => md5($p),
+            'choices' => [['value' => 'یک', 'correct' => true], ['value' => 'دو', 'correct' => false]]]);
+        $a = $mk('حاصلِ یک بعلاوه‌ی صفر چیست؟');
+        $b = $mk('کدام عدد زوج است؟');
+        $c = $mk('آب در چند درجه می‌جوشد؟', 'علوم');
+
+        $this->press('q:bank');
+        $this->assertTrue($this->has('q:kind:exam'));
+        $this->press('q:kind:exam');
+        $this->assertStringContainsString('بانکِ سؤال', $this->lastText());
+        $this->assertTrue($this->has('q:bp:' . $a->id) && $this->has('q:bp:' . $c->id));
+        // فیلترِ درس
+        $this->press('q:bs');
+        $subs = array_values(array_filter(array_column($this->buttons(), 1), fn ($d) => str_starts_with($d, 'q:bsub:') && $d !== 'q:bsub:all'));
+        $this->assertCount(2, $subs);
+        $riazi = collect($this->buttons())->first(fn ($x) => str_contains($x[0], 'ریاضی'))[1];
+        $this->press($riazi);
+        $this->assertFalse($this->has('q:bp:' . $c->id));
+        // جست‌وجو
+        $this->press('q:bq');
+        $this->text('زوج');
+        $this->assertTrue($this->has('q:bp:' . $b->id));
+        $this->assertFalse($this->has('q:bp:' . $a->id));
+        $this->press('q:bp:' . $b->id);
+        $this->press('q:bq');
+        $this->text('همه');
+        $this->press('q:bp:' . $a->id);
+        $this->press('q:badd');
+        $qs = $this->quizState()['qs'];
+        $this->assertSame([$b->id, $a->id], array_column($qs, 'bank_id'));
+        // هوش مصنوعی هم می‌تواند کنارش سؤال بسازد؛ این‌جا مستقیم منتشر می‌کنیم
+        $this->press('q:pub:1');
+        $exam = SmartExam::where('teacher_id', $teacher->id)->firstOrFail();
+        $this->assertEqualsCanonicalizing([$a->id, $b->id], $exam->questions()->pluck('bank_id')->all());
+        $this->assertSame([], $this->aiCalls);
+    }
+
+    public function test_large_pdf_is_accepted_and_audio_file_is_not_treated_as_a_sheet(): void
+    {
+        $this->setupTeacher();
+        $this->fakeAi();
+        $this->hook(['document' => ['file_id' => 'pdf1', 'mime_type' => 'application/pdf', 'file_name' => 'book.pdf', 'file_size' => 60 * 1024 * 1024]]);
+        $this->assertSame(['pdf1'], array_column($this->quizState()['src'], 'fid'));
+        $this->assertTrue($this->has('q:kind:game'));
+
+        // فایلِ صوتی (mp3) و پیامِ صوتی که «document» هم دارد → صدا، نه برگه
+        \App\Services\Bot\BotVoice::$fake = 'گزارشِ امروز';
+        try {
+            $this->hook(['document' => ['file_id' => 'a1', 'mime_type' => 'audio/mpeg', 'file_name' => 'note.mp3', 'file_size' => 30000]]);
+            $this->assertStringContainsString('شنیدم', collect(BotApi::$fake)->pluck('params.text')->filter()->implode('|'));
+            BotApi::$fake = [];
+            $this->hook(['voice' => ['file_id' => 'v1', 'duration' => 3000, 'mime_type' => 'audio/ogg'], 'document' => ['file_id' => 'v1', 'mime_type' => 'audio/ogg']]);
+            $this->assertStringContainsString('شنیدم', collect(BotApi::$fake)->pluck('params.text')->filter()->implode('|'));
+        } finally {
+            \App\Services\Bot\BotVoice::$fake = null;
+        }
+        $this->assertSame(['pdf1'], array_column($this->quizState()['src'], 'fid'));
+    }
+
+    public function test_student_list_and_menu(): void
+    {
+        [$teacher, $classroom] = $this->setupTeacher();
+        $s = $this->addStudent(\App\Models\School::find($teacher->school_id), $classroom);
+        $s->update(['name' => 'نیلوفر رضایی']);
+        $this->press('m:main');
+        foreach (['q:new:exam', 'q:new:game', 'q:bank', 'm:stl'] as $d) {
+            $this->assertTrue($this->has($d), $d);
+        }
+        $this->press('m:stl');
+        $this->assertStringContainsString('نیلوفر رضایی', $this->lastText());
+        $this->assertTrue($this->has('stu:' . $s->id));
+    }
+
+    public function test_notifications_reach_the_bot_right_after_they_happen(): void
+    {
+        [$teacher, $classroom] = $this->setupTeacher();
+        BotApi::$fake = [];
+        $admin = $this->makeUser(\App\Models\School::find($teacher->school_id), \App\Support\Roles::SCHOOL_ADMIN);
+        BotLink::create(['user_id' => $admin->id, 'school_id' => $admin->school_id, 'platform' => 'bale', 'chat_id' => '777', 'brief' => false, 'notify' => true, 'notified_at' => now()->subMinute()]);
+        BotLink::where('chat_id', '555')->update(['notified_at' => now()->subMinute()]);
+
+        // مدیرِ مدرسه اطلاعیه می‌فرستد → همان لحظه در باتِ معلم
+        $this->actingAs($admin)->post(route('school.announcements.store'), ['title' => 'جلسه‌ی معلمان', 'body' => 'فردا ساعت ۱۰', 'audience' => 'teachers'])->assertRedirect();
+        $sent = collect(BotApi::$fake)->where('method', 'sendMessage');
+        $toTeacher = $sent->firstWhere('params.chat_id', '555');
+        $this->assertNotNull($toTeacher);
+        $this->assertStringContainsString('جلسه‌ی معلمان', $toTeacher['params']['text']);
+
+        // تکراری فرستاده نمی‌شود
+        BotApi::$fake = [];
+        \App\Services\Bot\BotPush::afterWrite($teacher->school_id);
+        $this->assertNull(collect(BotApi::$fake)->where('method', 'sendMessage')->firstWhere('params.chat_id', '555'));
+
+        // ادمینِ کل هم می‌تواند وصل شود
+        $super = $this->makeUser(null, \App\Support\Roles::SUPER_ADMIN);
+        $this->assertTrue(BotConfig::allowed($super));
+        $this->actingAs($super)->get(route('bot.connect'))->assertOk();
     }
 
     public function test_topic_from_the_menu_and_cancel(): void

@@ -98,10 +98,11 @@ class TeacherBot
                 $this->onButton($chat, $user, (string) ($cb['data'] ?? ''), (int) ($msg['message_id'] ?? 0));
             } elseif ($text !== '') {
                 $this->onText($chat, $user, $text);
+            } elseif ($audio = self::audioOf($msg)) {
+                // صدا پیش از عکس/فایل: «بله» گاهی پیامِ صوتی یا فایلِ صوتی را همراهِ document می‌فرستد
+                $this->onVoice($chat, $user, $audio);
             } elseif (isset($msg['photo']) || isset($msg['document'])) {
                 $this->quiz($chat)->onFile($user, $msg);
-            } elseif (isset($msg['voice']) || isset($msg['audio'])) {
-                $this->onVoice($chat, $user, $msg['voice'] ?? $msg['audio']);
             } else {
                 $this->menu($chat, $user);
             }
@@ -150,7 +151,8 @@ class TeacherBot
         . "👤 «سارا توی ریاضی چطوره؟»\n"
         . "📋 «دیروز رضا غایب بود»\n"
         . "📝 «یک آزمونِ ۱۰ سؤالی از کسرها بساز»\n"
-        . "📎 عکسِ برگه‌ی نمونه‌سؤال یا صفحه‌ی کتاب (یا PDF) را بفرست تا همان سؤال‌ها، سؤالِ مشابه یا سؤال از روی متن بسازم\n\n🎙️ می‌توانی پیامِ صوتی هم بفرستی. یا از دکمه‌های منو استفاده کن.";
+        . "📎 عکسِ برگه‌ی نمونه‌سؤال یا صفحه‌ی کتاب (یا PDF) را بفرست تا همان سؤال‌ها، سؤالِ مشابه یا سؤال از روی متن بسازم\n"
+        . "🗄 بانکِ سؤال و 👥 فهرستِ دانش‌آموزان هم در منو هست؛ 🔔 اعلان‌های سایت همان لحظه این‌جا می‌آید\n\n🎙️ می‌توانی پیامِ صوتی هم بفرستی. یا از دکمه‌های منو استفاده کن.";
 
     /* ═════════════════════════ منو ═════════════════════════ */
 
@@ -159,7 +161,8 @@ class TeacherBot
         return [
             [['text' => '📋 حضور و غیاب', 'data' => 'm:att'], ['text' => '🌅 گزارشِ امروز', 'data' => 'r:today']],
             [['text' => '📔 ثبتِ نمره', 'data' => 'm:grade'], ['text' => '📢 اطلاعیه', 'data' => 'm:ann']],
-            [['text' => '🧪 سؤال، آزمون و بازی', 'data' => 'q:home']],
+            [['text' => '📝 ساختِ آزمون', 'data' => 'q:new:exam'], ['text' => '🎮 ساختِ بازی', 'data' => 'q:new:game']],
+            [['text' => '🗄 بانکِ سؤال', 'data' => 'q:bank'], ['text' => '👥 دانش‌آموزان', 'data' => 'm:stl']],
             [['text' => '📊 گزارش‌ها', 'data' => 'm:rep'], ['text' => '⚙️ تنظیمات', 'data' => 'm:set']],
         ];
     }
@@ -321,6 +324,26 @@ class TeacherBot
         Cache::put($this->key('conv'), array_slice($h, -10), now()->addHours(2));
     }
 
+    /** پیامِ صوتی، فایلِ صوتی یا ویدیوی دایره‌ای (هر شکلی که پیام‌رسان بفرستد). */
+    public static function audioOf(array $msg): ?array
+    {
+        foreach (['voice', 'audio', 'video_note'] as $k) {
+            if (! empty($msg[$k]['file_id'])) {
+                return $msg[$k];
+            }
+        }
+        $d = $msg['document'] ?? null;
+        if (! empty($d['file_id'])) {
+            $mime = strtolower((string) ($d['mime_type'] ?? ''));
+            $name = strtolower((string) ($d['file_name'] ?? ''));
+            if (str_starts_with($mime, 'audio/') || preg_match('/\.(ogg|oga|opus|mp3|m4a|aac|wav|amr|webm|flac|3gp)$/', $name)) {
+                return $d;
+            }
+        }
+
+        return null;
+    }
+
     private function onVoice(string $chat, User $user, array $voice): void
     {
         $this->api->call('sendChatAction', ['chat_id' => $chat, 'action' => 'typing'], 4);
@@ -395,6 +418,10 @@ class TeacherBot
                 $this->toggleSetting($chat, $user, (string) $a, $msgId);
 
                 return;
+            case 'sl':   // فهرستِ دانش‌آموزانِ یک کلاس
+                $this->studentList($chat, $user, (int) $a, $msgId);
+
+                return;
             case 'stu':  // گزارشِ یک دانش‌آموز (پس از انتخاب از فهرست)
                 $s = User::find((int) $a);
                 if ($s && $this->rosterAll($user)->has($s->id)) {
@@ -439,6 +466,19 @@ class TeacherBot
             case 'rep':
                 $this->api->edit($chat, $msgId, '📊 کدام گزارش؟', $this->reportRows());
                 break;
+            case 'stl':   // 👥 فهرستِ دانش‌آموزان
+                $classes = $this->classes($user);
+                if ($classes->count() === 1) {
+                    $this->studentList($chat, $user, $classes->first()->id, $msgId);
+                } elseif ($classes->isEmpty()) {
+                    $this->api->edit($chat, $msgId, '🏫 هنوز کلاسی به نامِ تو ثبت نشده.', [[['text' => '↩️ منو', 'data' => 'm:main']]]);
+                } else {
+                    $this->api->edit($chat, $msgId, '👥 فهرستِ دانش‌آموزان — کدام کلاس؟', array_merge(
+                        $classes->map(fn ($c) => [['text' => '🏫 ' . $c->name, 'data' => 'sl:' . $c->id]])->values()->all(),
+                        [[['text' => '↩️ منو', 'data' => 'm:main']]]
+                    ));
+                }
+                break;
             case 'stu':
                 Cache::put($this->key('wait'), ['for' => 'student'], now()->addMinutes(10));
                 $this->api->send($chat, '👤 نامِ دانش‌آموز را بنویس (نام یا نامِ خانوادگی):');
@@ -447,6 +487,26 @@ class TeacherBot
                 $this->settings($chat, $user, $msgId);
                 break;
         }
+    }
+
+    /** 👥 فهرستِ دانش‌آموزانِ کلاس؛ هر نام دکمه‌ی گزارشِ همان دانش‌آموز است. */
+    private function studentList(string $chat, User $user, int $classId, int $msgId): void
+    {
+        $class = $this->classes($user)->firstWhere('id', $classId);
+        if (! $class) {
+            return;
+        }
+        $roster = $this->roster($class);
+        $L = ['👥 ' . $class->name . ' — ' . Jalali::fa((string) count($roster)) . ' دانش‌آموز', ''];
+        $i = 0;
+        foreach ($roster as $name) {
+            $L[] = Jalali::fa((string) ++$i) . '. ' . $name;
+        }
+        $L[] = '';
+        $L[] = $roster ? 'روی نامِ هر دانش‌آموز بزن تا کارنامه‌ی کوتاهش را ببینی.' : 'این کلاس هنوز دانش‌آموزی ندارد.';
+        $rows = collect($roster)->map(fn ($n, $id) => ['text' => Str::limit($n, 22), 'data' => 'stu:' . $id])->chunk(2)->map(fn ($c) => $c->values()->all())->values()->take(45)->all();
+        $rows[] = [['text' => '📋 حضور و غیاب', 'data' => 'bd:' . $class->id], ['text' => '↩️ منو', 'data' => 'm:main']];
+        $this->api->edit($chat, $msgId, Str::limit(implode("\n", $L), 4000), $rows);
     }
 
     private function reportRows(): array

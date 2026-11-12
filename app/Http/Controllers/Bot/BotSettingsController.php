@@ -217,7 +217,7 @@ class BotSettingsController extends Controller
             'globalOn' => BotConfig::enabled(),
             'schoolOn' => $u->school_id ? BotConfig::schoolEnabled((int) $u->school_id) : true,
             'isSchoolAdmin' => $isAdmin,
-            'menu' => $u->hasRole(Roles::TEACHER) ? 'teacher' : 'school',
+            'menu' => $u->hasRole(Roles::TEACHER) ? 'teacher' : ($u->hasRole(Roles::SUPER_ADMIN) ? 'admin' : 'school'),
             'platforms' => collect(BotLink::PLATFORMS)->map(fn ($label, $p) => [
                 'key' => $p, 'label' => $label, 'ready' => BotConfig::ready($p) && BotConfig::username($p) !== '', 'username' => BotConfig::username($p),
             ])->values(),

@@ -27,6 +27,8 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\EnforceScreenTime::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
             \App\Http\Middleware\TrackVisit::class,
+            // 🔔 اعلانِ فوری در بات پس از هر کارِ ثبت‌شده
+            \App\Http\Middleware\PushBotNotices::class,
         ], fn ($class) => class_exists($class))));
 
         // انتخابِ طرحِ ظاهری را خودِ مرورگر هم می‌نویسد، پس رمزنگاری نمی‌شود

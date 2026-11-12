@@ -27,41 +27,50 @@ class BotVoice
     {
         // تلگرام مدت را به ثانیه می‌دهد و «بله» به میلی‌ثانیه (پیامِ ۵ ثانیه‌ای = 5000)
         $secs = (float) ($voice['duration'] ?? 0);
-        if ($secs > 1000) {
+        if ($platform === 'bale' || $secs > 3600) {
             $secs /= 1000;
         }
-        if ($secs > 180 || ($voice['file_size'] ?? 0) > 6 * 1024 * 1024) {
-            return ['ok' => false, 'error' => 'پیامِ صوتی حداکثر ۳ دقیقه باشد.'];
+        // سقفِ سرویس‌های «صدا به متن» حدودِ ۲۵ مگابایت است
+        if ($secs > 20 * 60 || ($voice['file_size'] ?? 0) > 24 * 1024 * 1024) {
+            return ['ok' => false, 'error' => 'پیامِ صوتی خیلی طولانی است؛ حداکثر ۲۰ دقیقه.'];
         }
         if (self::$fake !== null) {
             return ['ok' => true, 'text' => self::$fake];
         }
-        $api = BotApi::for($platform);
-        $f = $api->call('getFile', ['file_id' => $voice['file_id'] ?? '']);
-        $path = $f['result']['file_path'] ?? null;
-        if (! $path) {
-            return ['ok' => false, 'error' => 'فایلِ صوتی از پیام‌رسان گرفته نشد.'];
-        }
-        try {
-            $req = Http::timeout(40);
-            if ($platform === 'telegram' && ($k = (string) BotConfig::get('telegram_relay_key', '')) !== '') {
-                $req = $req->withHeaders(['X-Relay-Key' => $k]);
-            }
-            $res = $req->get(BotConfig::apiBase($platform) . '/file/bot' . BotConfig::token($platform) . '/' . ltrim($path, '/'));
-            if (! $res->ok() || strlen($res->body()) < 100) {
-                return ['ok' => false, 'error' => 'دانلودِ صدا ناموفق بود (' . $res->status() . ').'];
-            }
-            $bytes = $res->body();
-        } catch (\Throwable $e) {
-            return ['ok' => false, 'error' => 'دانلودِ صدا ناموفق بود.'];
+        $d = \App\Support\Bot\BotFile::download($platform, (string) ($voice['file_id'] ?? ''), 24 * 1024 * 1024);
+        if (! $d['ok']) {
+            return ['ok' => false, 'error' => 'فایلِ صوتی گرفته نشد: ' . $d['error']];
         }
 
-        return self::transcribe($bytes, $voice['mime_type'] ?? 'audio/ogg');
+        return self::transcribe($d['bytes'], self::sniff($d['bytes'], (string) ($voice['mime_type'] ?? 'audio/ogg')));
+    }
+
+    /** قالبِ واقعیِ صدا از روی بایت‌های اول (نامِ فایل و mime پیام‌رسان‌ها همیشه درست نیست). */
+    public static function sniff(string $b, string $fallback = 'audio/ogg'): string
+    {
+        return match (true) {
+            str_starts_with($b, 'OggS') => 'audio/ogg',
+            str_starts_with($b, 'ID3') || (strlen($b) > 1 && ord($b[0]) === 0xFF && (ord($b[1]) & 0xE0) === 0xE0) => 'audio/mpeg',
+            substr($b, 4, 4) === 'ftyp' => 'audio/mp4',
+            str_starts_with($b, 'RIFF') && substr($b, 8, 4) === 'WAVE' => 'audio/wav',
+            str_starts_with($b, '#!AMR') => 'audio/amr',
+            str_starts_with($b, "\x1A\x45\xDF\xA3") => 'audio/webm',
+            str_starts_with($b, 'fLaC') => 'audio/flac',
+            default => $fallback ?: 'audio/ogg',
+        };
     }
 
     public static function transcribe(string $bytes, string $mime = 'audio/ogg'): array
     {
-        $ext = str_contains($mime, 'mpeg') ? 'mp3' : (str_contains($mime, 'mp4') || str_contains($mime, 'm4a') ? 'm4a' : (str_contains($mime, 'wav') ? 'wav' : 'ogg'));
+        $ext = match (true) {
+            str_contains($mime, 'mpeg') || str_contains($mime, 'mp3') => 'mp3',
+            str_contains($mime, 'mp4') || str_contains($mime, 'm4a') || str_contains($mime, 'aac') => 'm4a',
+            str_contains($mime, 'wav') => 'wav',
+            str_contains($mime, 'webm') => 'webm',
+            str_contains($mime, 'flac') => 'flac',
+            str_contains($mime, 'amr') => 'amr',
+            default => 'ogg',
+        };
         $tried = [];
 
         // ۱) و ۲) و ۳): سرویس‌های سازگار با OpenAI

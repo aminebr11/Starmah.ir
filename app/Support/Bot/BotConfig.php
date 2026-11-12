@@ -104,8 +104,11 @@ class BotConfig
     /** آیا این کاربر (با نقش و مدرسه‌اش) اجازه‌ی استفاده از بات را دارد؟ */
     public static function allowed(User $user): bool
     {
-        if (! self::enabled() || ! $user->hasAnyRole([Roles::TEACHER, Roles::SCHOOL_ADMIN])) {
+        if (! self::enabled() || ! $user->hasAnyRole([Roles::TEACHER, Roles::SCHOOL_ADMIN, Roles::SUPER_ADMIN])) {
             return false;
+        }
+        if ($user->hasRole(Roles::SUPER_ADMIN)) {
+            return true;   // ادمینِ کل: اعلان‌ها و گزارش‌ها
         }
 
         return $user->school_id ? self::schoolEnabled((int) $user->school_id) : $user->hasRole(Roles::SCHOOL_ADMIN);

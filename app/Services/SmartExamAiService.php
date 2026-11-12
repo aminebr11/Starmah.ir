@@ -802,7 +802,7 @@ class SmartExamAiService
                 continue;
             }
             $data = preg_replace('/\s+/', '', (string) ($s['data'] ?? ''));
-            if ($data === '' || ! preg_match('#^[A-Za-z0-9+/=]+$#', $data) || ($total += strlen($data)) > 24_000_000) {
+            if ($data === '' || ! preg_match('#^[A-Za-z0-9+/=]+$#', $data) || ($total += strlen($data)) > 90_000_000) {
                 continue;
             }
             $out[] = ['mime' => $s['mime'], 'data' => $data];
