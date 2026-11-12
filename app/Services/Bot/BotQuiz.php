@@ -176,6 +176,12 @@ class BotQuiz
         }
         $w = $s['wait'];
         $s['wait'] = null;
+        // انتظارِ کهنه (بیش از ۱۰ دقیقه): این متن دستورِ تازه است، نه جوابِ آن سؤال
+        if (($w['at'] ?? now()->timestamp) < now()->timestamp - 600) {
+            $this->save($s);
+
+            return false;
+        }
         if (preg_match('/^\/?(لغو|cancel|منو|menu)$/u', P::norm($text))) {
             $this->save($s);
             $this->api->send($this->chat, '👌 باشد، تغییری ندادم.');
@@ -1532,6 +1538,10 @@ class BotQuiz
 
     private function save(array $s): void
     {
+        // زمانِ شروعِ انتظار (برای منقضی‌شدن)
+        if (! empty($s['wait']) && empty($s['wait']['at'])) {
+            $s['wait']['at'] = now()->timestamp;
+        }
         Cache::put($this->key('quiz'), $s, now()->addHours(3));
     }
 

@@ -134,17 +134,20 @@ export default function AdminBot() {
                     <h3>🧠 هوشِ دستیار و 🎙️ پیامِ صوتی</h3>
                     <div className="bt-brain">
                         <span className={brain.ai ? 'on' : ''}>{brain.ai ? `🧠 گفتگوی آزاد با هوش مصنوعیِ سایت (${brain.ai}) روشن است` : '🧠 هوش مصنوعیِ سایت تنظیم نشده؛ بات فقط دستورهای ساده را می‌فهمد'}</span>
-                        <span className={brain.voice ? 'on' : ''}>{brain.voice ? '🎙️ پیامِ صوتی فعال است' : '🎙️ پیامِ صوتی هنوز سرویسِ «صدا به متن» ندارد'}</span>
+                        <span className={brain.voice ? 'on' : ''}>{brain.voice ? `🎙️ پیامِ صوتی فعال است — ${brain.voice}` : '🎙️ پیامِ صوتی هنوز سرویسِ «صدا به متن» ندارد'}</span>
                     </div>
                     <p className="bt-muted" style={{ fontSize: 12.5, lineHeight: 1.9 }}>
                         بات برای فهمِ گفتگو از همان هوش مصنوعیِ «مرکزِ هوش مصنوعی» استفاده می‌کند (و اجازه‌ی هوش مصنوعیِ هر مدرسه رعایت می‌شود).
                         برای پیامِ صوتی، اگر هوش مصنوعیِ سایت OpenAI یا سازگار با آن است یا کلیدِ Gemini دارید، کاری لازم نیست؛
                         وگرنه یک سرویسِ «صدا به متن» سازگار با OpenAI (مثلاً واسطه‌های ایرانی) را این‌جا بدهید.
+                        برای بهترین دقتِ فارسی مدلِ <code dir="ltr">gpt-4o-transcribe</code> پیشنهاد می‌شود (اگر خالی بماند، همین اول امتحان می‌شود).
+                        نامِ بچه‌های هر کلاس خودکار به سرویس داده می‌شود تا نام‌ها درست نوشته شوند.
+                        برای فهمِ دستورها هم مدل‌های قوی‌تر (مثلاً <code dir="ltr">gpt-4.1-mini</code>، <code dir="ltr">gpt-4o</code>، Claude یا <code dir="ltr">gemini-2.5-flash</code>) دقیق‌ترند؛ مدل‌های خیلی کوچک گاهی ابزارها را درست به کار نمی‌برند.
                     </p>
                     <div className="bt-grid">
                         {F('stt_base', '🎙️ نشانیِ سرویسِ صدا به متن (اختیاری)', 'https://api.example.ir/v1')}
                         {F('stt_key', '🔑 کلیدِ سرویس', 'sk-…')}
-                        {F('stt_model', 'مدل', 'whisper-1')}
+                        {F('stt_model', 'مدل', 'gpt-4o-transcribe')}
                     </div>
                 </div>
 

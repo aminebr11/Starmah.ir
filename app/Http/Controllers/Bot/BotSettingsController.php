@@ -44,7 +44,7 @@ class BotSettingsController extends Controller
             'ready' => BotLink::ready(),
             'brain' => [
                 'ai' => \App\Support\AiConfig::provider() !== 'off' && \App\Support\AiConfig::configured() ? \App\Support\AiConfig::provider() : null,
-                'voice' => \App\Services\Bot\BotVoice::available(),
+                'voice' => \App\Services\Bot\BotVoice::describe(),
             ],
             'stats' => BotLink::ready() ? [
                 'links' => BotLink::selectRaw('platform, count(*) as n')->groupBy('platform')->pluck('n', 'platform'),

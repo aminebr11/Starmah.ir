@@ -179,7 +179,7 @@ class TeacherBot
 
     /* ═════════════════════════ متن ═════════════════════════ */
 
-    private function onText(string $chat, User $user, string $text): void
+    private function onText(string $chat, User $user, string $text, bool $voice = false): void
     {
         $n = P::norm($text);
         // در انتظارِ ویرایشِ سؤال / عنوان / موضوعِ استودیوی سؤال؟
@@ -217,30 +217,40 @@ class TeacherBot
 
             return;
         }
-        if (preg_match('/^(?:گزارش|وضعیت|کارنامه)\s*(?:ی|ِ)?\s+(.{2,40})$/u', trim($text), $m) && ! preg_match('/(حضور|غیاب|نمره|کلاس|امروز|هفته)/u', $m[1])) {
+        // میان‌بُرها فقط برای دستورهای کوتاه؛ جمله‌ی کامل («… که تصحیح نشده خیلی خوب بزن») با دستیار فهمیده می‌شود
+        $short = mb_strlen($n) <= 28 && substr_count($n, ' ') <= 3;
+        $ai = BotAgent::available($user);
+        if ((! $ai || $short) && preg_match('/^(?:گزارش|وضعیت|کارنامه)\s*(?:ی|ِ)?\s+(.{2,40})$/u', trim($text), $m) && ! preg_match('/(حضور|غیاب|نمره|کلاس|امروز|هفته)/u', $m[1])) {
             $this->studentReport($chat, $user, $m[1]);
 
             return;
         }
-        if (preg_match('/(منتظر\s*تصحیح|تصحیح\s*نشده|کارهای\s*مانده|^تصحیح$)/u', $n)) {
+        if (($short || ! $ai) && preg_match('/(منتظر\s*تصحیح|تصحیح\s*نشده|کارهای\s*مانده|^تصحیح$|^صف\s*تصحیح$)/u', $n) && ! preg_match('/(بزن|بده|بذار|بگذار)/u', $n)) {
             $this->grading($chat)->home($user);
 
             return;
         }
-        if (preg_match('/^(گزارش\s*)?(حضور|غیبت)(ها)?\s*(این\s*)?هفته/u', $n)) {
+        if (($short || ! $ai) && preg_match('/^(گزارش\s*)?(حضور|غیبت)(ها)?\s*(این\s*)?هفته$/u', $n)) {
             $this->api->send($chat, $this->reports($user)->attendanceWeek(), $this->reportRows());
 
             return;
         }
 
-        if ($a = P::announce($text)) {
+        // «اطلاعیه: …» همیشه مستقیم؛ بقیه‌ی شکل‌ها («به سارا بگو…») اگر هوش مصنوعی هست، با او (نامِ دقیق‌تر)
+        if (($a = P::announce($text)) && ($a['to'] === 'class' || ! BotAgent::available($user))) {
             $this->prepare($chat, $user, 'announce', ['to' => $a['to'], 'text' => $a['text']]);
+
+            return;
+        }
+        if (preg_match('/^(گفتگوی\s*تازه|از\s*اول|فراموش\s*کن|reset)$/u', $n)) {
+            Cache::forget($this->key('conv'));
+            $this->api->send($chat, '🆕 گفتگوی تازه؛ بفرما.', $this->mainRows());
 
             return;
         }
         // 🧠 گفتگوی آزاد با هوش مصنوعیِ سایت (اگر برای مدرسه روشن است)
         if (BotAgent::available($user)) {
-            $this->agent($chat, $user, $text);
+            $this->agent($chat, $user, $text, $voice);
 
             return;
         }
@@ -265,17 +275,17 @@ class TeacherBot
 
     /* ═════════════════════════ دستیارِ گفتگویی ═════════════════════════ */
 
-    private function agent(string $chat, User $user, string $text): void
+    /**
+     * 🧠 گفتگو با دستیار: هوش مصنوعی اول داده‌ی واقعی را با ابزار می‌خواند و بعد جواب می‌دهد
+     * یا یک «کار» پیشنهاد می‌کند (که پیش‌نمایش و تأیید می‌گیرد).
+     */
+    private function agent(string $chat, User $user, string $text, bool $voice = false): void
     {
         $this->api->call('sendChatAction', ['chat_id' => $chat, 'action' => 'typing'], 4);
-        $classes = $this->classes($user);
-        $ctx = $classes->map(fn ($c) => ['name' => $c->name, 'students' => array_values($this->roster($c)),
-            'subjects' => collect(rescue(fn () => $c->subjectNames(), [], false))->pluck('name')->all()])->values()->all();
-        $topics = rescue(fn () => \App\Models\DisciplineTopic::where('school_id', $user->school_id)->where('is_active', true)->get(['id', 'name', 'kind', 'points'])->toArray(), [], false);
-        $history = Cache::get($this->key('conv'), []);
-        $d = BotAgent::decide($user, $ctx, $topics, $history, $text);
+        $brain = new BotBrain($user, $this);
+        $d = $brain->think($text, Cache::get($this->key('conv'), []), $voice);
         $this->remember('u', $text);
-        if (! $d['ok']) {
+        if ($d['type'] === 'error') {
             // هوش مصنوعی در دسترس نیست → فهمِ قاعده‌محور (بدونِ هوش مصنوعی)
             if ($b = BotGrading::looksBulk($text)) {
                 $this->grading($chat)->bulk($user, $b);
@@ -284,77 +294,137 @@ class TeacherBot
             } elseif (P::looksAttendance($text)) {
                 $this->prepare($chat, $user, 'attendance', ['text' => $text]);
             } else {
-                $this->api->send($chat, '⚠️ ' . $d['reply'] . "\n\n" . self::HELP, $this->mainRows());
+                $this->api->send($chat, '⚠️ ' . $d['text'], $this->mainRows());
             }
 
             return;
         }
-        $a = $d['args'];
-        $reply = $d['reply'];
+        if ($d['type'] === 'answer') {
+            $this->api->send($chat, Str::limit($d['text'], 3900), [[['text' => '🏠 منو', 'data' => 'm:main']]]);
+            $this->remember('a', $d['text']);
+
+            return;
+        }
+        $this->remember('a', '(پیش‌نمایشِ «' . $d['tool'] . '» نشان داده شد)');
+        $this->act($chat, $user, $d['tool'], (array) $d['args'], $text, (string) ($d['text'] ?? ''));
+    }
+
+    /** «کار»ِ پیشنهادیِ دستیار → همان مسیرهای پیش‌نمایش و تأیید. */
+    private function act(string $chat, User $user, string $tool, array $a, string $said, string $note = ''): void
+    {
+        $classes = $this->classes($user);
         $cls = ! empty($a['class']) ? $classes->first(fn ($c) => P::has((string) $a['class'], $c->name) || P::has($c->name, (string) $a['class'])) : null;
         $extra = $cls ? ['class' => $cls->id] : [];
-        if ($reply !== '' && $d['tool'] !== 'student') {
-            $this->api->send($chat, $reply, $d['tool'] === 'none' ? $this->mainRows() : []);
-            $this->remember('a', $reply);
-        }
-        switch ($d['tool']) {
-            case 'attendance':
-                $parts = [];
-                foreach (['absent' => 'غایب', 'late' => 'تأخیر', 'excused' => 'موجه'] as $k => $w) {
-                    if (! empty($a[$k])) {
-                        $parts[] = $w . ': ' . implode('، ', (array) $a[$k]);
+        switch ($tool) {
+            case 'record_attendance':
+                $status = [];
+                $warn = [];
+                $all = [];
+                foreach (['absent', 'late', 'excused'] as $k) {
+                    $r = $this->resolveNames($user, (array) ($a[$k] ?? []), $cls);
+                    foreach ($r['ids'] as $id) {
+                        $status[$id] = $k;
+                    }
+                    $all = array_merge($all, $r['ids']);
+                    if ($w = $this->namesWarn($r)) {
+                        $warn[] = $w;
                     }
                 }
-                $this->prepare($chat, $user, 'attendance', ['text' => $parts ? implode("\n", $parts) : 'همه حاضر', 'date' => (string) ($a['date'] ?? '')] + $extra);
+                // کلاس از خودِ نام‌ها معلوم است (اگر همه در یک کلاس باشند)
+                if (! $cls && $all && $classes->count() > 1) {
+                    $hit = $classes->filter(fn ($c) => ! array_diff($all, array_keys($this->roster($c))));
+                    if ($hit->count() === 1) {
+                        $extra = ['class' => $hit->first()->id];
+                    }
+                }
+                $this->prepare($chat, $user, 'attendance', ['status' => $status, 'date' => (string) ($a['date'] ?? ''), 'warn' => $warn ? implode("\n", array_unique($warn)) : null] + $extra);
                 break;
-            case 'grades':
+            case 'record_grades':
                 $head = trim(implode(' ', array_filter([$a['lesson'] ?? '', $a['topic'] ?? '', ['numeric' => 'عددی', 'descriptive' => 'توصیفی', 'homework' => 'تکلیف'][$a['type'] ?? ''] ?? '', ! empty($a['max']) ? 'از ' . $a['max'] : ''])));
-                $items = array_map(fn ($g) => ($g['name'] ?? '') . ' ' . ($g['value'] ?? ''), array_filter((array) ($a['grades'] ?? []), 'is_array'));
+                $items = [];
+                $warn = [];
+                foreach (array_filter((array) ($a['grades'] ?? []), 'is_array') as $g) {
+                    // نامِ شنیده‌شده → املای دقیقِ فهرست (تا پارسرِ نمره پیدایش کند)
+                    $r = $this->resolveNames($user, [(string) ($g['name'] ?? '')], $cls);
+                    if (count($r['ids']) === 1) {
+                        $items[] = $r['roster'][$r['ids'][0]] . ' ' . ($g['value'] ?? '');
+                    }
+                    if ($w = $this->namesWarn($r)) {
+                        $warn[] = $w;
+                    }
+                }
                 if (! empty($a['rest'])) {
                     $items[] = 'بقیه ' . $a['rest'];
                 }
-                $this->prepare($chat, $user, 'grades', ['text' => ($head ?: 'نمره') . ': ' . implode('، ', $items)] + $extra);
+                if (! $items) {
+                    $this->api->send($chat, '🤔 نمره‌ای برای ثبت پیدا نکردم.' . ($warn ? "\n" . implode("\n", $warn) : ''), $this->mainRows());
+                    break;
+                }
+                $this->prepare($chat, $user, 'grades', ['text' => ($head ?: 'نمره') . ': ' . implode('، ', $items), 'warn' => $warn ? implode("\n", array_unique($warn)) : null] + $extra);
                 break;
-            case 'award':
+            case 'give_points':
                 $this->prepare($chat, $user, 'award', ['names' => (array) ($a['names'] ?? []), 'amount' => (int) ($a['amount'] ?? 0), 'reason' => (string) ($a['reason'] ?? '')] + $extra);
                 break;
-            case 'discipline':
+            case 'record_discipline':
                 $this->prepare($chat, $user, 'discipline', ['names' => (array) ($a['names'] ?? []), 'topic' => (string) ($a['topic'] ?? ''), 'note' => (string) ($a['note'] ?? ''), 'class' => 0]);
                 break;
-            case 'announce':
-                $this->prepare($chat, $user, 'announce', ['to' => (string) ($a['to'] ?? 'class'), 'text' => (string) ($a['text'] ?? '')] + $extra);
+            case 'send_announcement':
+                $to = trim((string) ($a['to'] ?? 'class'));
+                if ($to !== 'class' && $to !== '' && ! in_array(P::norm($to), ['کلاس', 'همه', 'بچه ها', 'class'], true)) {
+                    $r = $this->resolveNames($user, [$to], $cls);
+                    $to = count($r['ids']) === 1 ? $r['roster'][$r['ids'][0]] : $to;
+                } else {
+                    $to = 'class';
+                }
+                $this->prepare($chat, $user, 'announce', ['to' => $to, 'text' => (string) ($a['text'] ?? '')] + $extra);
                 break;
-            case 'report':
-                $this->report($chat, $user, (string) ($a['kind'] ?? 'today'));
-                break;
-            case 'student':
-                $this->studentReport($chat, $user, (string) ($a['name'] ?? ''), (string) ($a['question'] ?? $text));
-                break;
-            case 'grade_work':
+            case 'grade_submissions':
+                foreach (['names', 'except'] as $k) {
+                    if (! empty($a[$k])) {
+                        $r = $this->resolveNames($user, (array) $a[$k]);
+                        $a[$k] = array_merge(array_map(fn ($id) => $r['roster'][$id], $r['ids']), $r['missing'], array_keys($r['amb']));
+                    }
+                }
                 $this->grading($chat)->bulk($user, $a);
                 break;
-            case 'messages':
-                $this->inbox($chat, $user, 0);
-                break;
-            case 'game':
-            case 'exam':
-            case 'live':
-                $this->quiz($chat)->start($user, ['kind' => $d['tool'], 'lesson' => (string) ($a['lesson'] ?? ''), 'topic' => (string) ($a['topic'] ?? ''),
+            case 'create_quiz':
+                $this->quiz($chat)->start($user, ['kind' => (string) ($a['kind'] ?? 'exam'), 'lesson' => (string) ($a['lesson'] ?? ''), 'topic' => (string) ($a['topic'] ?? ''),
                     'count' => (int) ($a['count'] ?? 8), 'difficulty' => (string) ($a['difficulty'] ?? 'medium')] + $extra);
                 break;
+            case 'open_screen':
+                match ((string) ($a['screen'] ?? 'menu')) {
+                    'grading_queue' => isset(BotGrading::TYPES[['reading' => 'r', 'dictation' => 'd', 'worksheet' => 'w'][$a['kind'] ?? ''] ?? ''])
+                        ? $this->grading($chat)->next($user, ['reading' => 'r', 'dictation' => 'd', 'worksheet' => 'w'][$a['kind']]) : $this->grading($chat)->home($user),
+                    'messages' => $this->inbox($chat, $user, 0),
+                    'students' => $this->api->send($chat, '👥 کدام کلاس؟', $classes->map(fn ($c) => [['text' => '🏫 ' . $c->name, 'data' => 'sl:' . $c->id]])->values()->all()),
+                    'question_bank' => $this->quiz($chat)->onButton($user, 'q:bank', 0),
+                    'attendance_board' => $cls || $classes->count() === 1 ? $this->board($chat, $user, ($cls ?? $classes->first())->id, 0)
+                        : $this->api->send($chat, '📋 کدام کلاس؟', $classes->map(fn ($c) => [['text' => '🏫 ' . $c->name, 'data' => 'bd:' . $c->id]])->values()->all()),
+                    'reports' => $this->api->send($chat, '📊 کدام گزارش؟', $this->reportRows()),
+                    'settings' => $this->settings($chat, $user, 0),
+                    default => $this->menu($chat, $user),
+                };
+                break;
+            case 'legacy_report':
+                $this->report($chat, $user, (string) ($a['kind'] ?? 'today'));
+                break;
+            case 'legacy_student':
+                $this->studentReport($chat, $user, (string) ($a['name'] ?? ''), (string) ($a['question'] ?? $said));
+                break;
             default:
-                if ($reply === '') {
-                    $this->api->send($chat, self::HELP, $this->mainRows());
-                }
+                $this->api->send($chat, $note !== '' ? $note : self::HELP, $this->mainRows());
         }
     }
 
-    /** حافظه‌ی کوتاهِ گفتگو (۱۰ پیامِ آخر، ۲ ساعت). */
+    /**
+     * حافظه‌ی کوتاهِ گفتگو (۸ پیامِ آخر، ۳۰ دقیقه) — برای «بله، همین کار را بکن» یا «سارا چی؟».
+     * کوتاه نگه داشته می‌شود تا موضوعِ قبلی روی دستورِ تازه اثرِ نابه‌جا نگذارد.
+     */
     private function remember(string $who, string $text): void
     {
         $h = Cache::get($this->key('conv'), []);
-        $h[] = [$who, Str::limit($text, 400)];
-        Cache::put($this->key('conv'), array_slice($h, -10), now()->addHours(2));
+        $h[] = [$who, Str::limit($text, 500)];
+        Cache::put($this->key('conv'), array_slice($h, -8), now()->addMinutes(30));
     }
 
     /** پیامِ صوتی، فایلِ صوتی یا ویدیوی دایره‌ای (هر شکلی که پیام‌رسان بفرستد). */
@@ -380,14 +450,42 @@ class TeacherBot
     private function onVoice(string $chat, User $user, array $voice): void
     {
         $this->api->call('sendChatAction', ['chat_id' => $chat, 'action' => 'typing'], 4);
-        $r = BotVoice::fromMessage($this->platform, $voice);
+        $r = BotVoice::fromMessage($this->platform, $voice, $this->voiceHint($user));
         if (! $r['ok']) {
             $this->api->send($chat, '🎙️ ' . $r['error'], $this->mainRows());
 
             return;
         }
-        $this->api->send($chat, '🎙️ شنیدم: «' . Str::limit($r['text'], 600) . '»');
-        $this->onText($chat, $user, $r['text']);
+        $this->api->send($chat, '🎙️ شنیدم: «' . Str::limit($r['text'], 600) . "»\n(اگر درست نشنیدم، دوباره بگو یا بنویس.)");
+        $this->onText($chat, $user, $r['text'], true);
+    }
+
+    /** نامِ بچه‌ها و درس‌ها برای مدلِ صدا به متن (املای درستِ نام‌ها). */
+    private function voiceHint(User $user): string
+    {
+        $names = [];
+        $subjects = [];
+        foreach ($this->classes($user) as $c) {
+            foreach ($this->roster($c) as $n) {
+                $names[] = $n;
+            }
+            foreach (collect(rescue(fn () => $c->subjectNames(), [], false))->pluck('name') as $sub) {
+                $subjects[] = $sub;
+            }
+        }
+        $txt = implode('، ', array_unique($names));
+        if (mb_strlen($txt) > 520) {
+            // کلاسِ بزرگ: نام‌های کوچک و خانوادگیِ یکتا (کوتاه‌تر)
+            $parts = [];
+            foreach ($names as $n) {
+                foreach (preg_split('/\s+/u', $n) as $w) {
+                    $parts[$w] = true;
+                }
+            }
+            $txt = implode('، ', array_keys($parts));
+        }
+
+        return mb_substr($txt, 0, 520) . ($subjects ? ' — درس‌ها: ' . implode('، ', array_unique($subjects)) : '');
     }
 
     /* ═════════════════════════ دکمه‌ها ═════════════════════════ */
@@ -406,7 +504,7 @@ class TeacherBot
                 return;
             case 'msg':  // 📨 پیام‌ها: msg:r:فرستنده (پاسخ) · msg:k:فرستنده (خواندم)
                 if ($a === 'r') {
-                    Cache::put($this->key('mwait'), (int) $b, now()->addMinutes(30));
+                    Cache::put($this->key('mwait'), (int) $b, now()->addMinutes(10));
                     $this->api->send($chat, '✍️ پاسخت را بنویس (برای انصراف «لغو»):');
                 } else {
                     \App\Models\Message::where('recipient_id', $user->id)->where('sender_id', (int) $b)->whereNull('read_at')->update(['read_at' => now()]);
@@ -714,7 +812,8 @@ class TeacherBot
             return ['🏫 این کلاس هنوز دانش‌آموزی ندارد.', null, null];
         }
         if (isset($params['status'])) {
-            $status = array_intersect_key(array_map('strval', $params['status']), $roster);
+            // هر کس در فهرست نیامده «حاضر»
+            $status = array_replace(array_fill_keys(array_keys($roster), 'present'), array_intersect_key(array_map('strval', (array) $params['status']), $roster));
             $amb = [];
         } else {
             $p = P::attendance($params['text'] ?? '', $roster);
@@ -738,6 +837,9 @@ class TeacherBot
         $L[] = 'ℹ️ هر کس نامش نیامده «حاضر» ثبت می‌شود. برای غایب‌ها اعلان (و اگر روشن باشد پیامکِ والدین) می‌رود.';
         $warn = $amb ? '⚠️ این نام‌ها مبهم‌اند و ثبت نشدند (نامِ کامل بنویس یا «ویرایش با دکمه‌ها»): '
             . collect($amb)->map(fn ($list, $w) => '«' . $w . '» = ' . implode(' / ', $list))->implode('؛ ') : null;
+        if (! empty($params['warn'])) {
+            $warn = trim(($warn ? $warn . "\n" : '') . $params['warn']);
+        }
         $existing = AttendanceRecord::withoutGlobalScopes()->where('classroom_id', $class->id)->whereDate('date', $date->toDateString())->count();
         if ($existing) {
             $warn = trim(($warn ? $warn . "\n" : '') . '✏️ حضور و غیابِ این روزِ این کلاس قبلاً ثبت شده؛ با تأیید، به‌روز می‌شود.');
@@ -774,7 +876,11 @@ class TeacherBot
             return ['⚠️ بعضی نمره‌ها از بارمِ ' . Jalali::fa((string) $g['max']) . ' بیشترند؛ دوباره بنویس (مثلاً «از ۲۰»).', null, null];
         }
 
-        return [implode("\n", $L), $g, $warn ? implode("\n", $warn) : null];
+        if (! empty($params['warn'])) {
+            $warn[] = $params['warn'];
+        }
+
+        return [implode("\n", $L), $g, $warn ? implode("\n", array_unique($warn)) : null];
     }
 
     private function previewAnnounce(User $user, ?Classroom $class, array $params): array
@@ -790,6 +896,9 @@ class TeacherBot
         }
         $roster = $this->rosterAll($user)->all();
         $r = P::namesIn((string) $params['to'], $roster);
+        if (! $r['ids'] && ! $r['ambiguous'] && ($f = \App\Support\Bot\NameMatch::best((string) $params['to'], $roster)) && $f['id']) {
+            $r['ids'] = [$f['id']];
+        }
         if (count($r['ids']) !== 1) {
             return [$r['ambiguous'] ? '⚠️ «' . $params['to'] . '» چند نفرند: ' . collect($r['ambiguous'])->flatten()->implode('، ') . ' — نامِ کامل بنویس.'
                 : '🔍 دانش‌آموزی با نامِ «' . $params['to'] . '» پیدا نشد.', null, null];
@@ -809,6 +918,7 @@ class TeacherBot
         $ids = [];
         $amb = [];
         $missing = [];
+        $guessed = [];
         foreach ($names as $n) {
             $n = trim((string) $n);
             if ($n === '') {
@@ -820,11 +930,22 @@ class TeacherBot
             } elseif ($r['ambiguous']) {
                 $amb += $r['ambiguous'];
             } else {
-                $missing[] = $n;
+                // خطای صدا/تایپ: «ظهرا» ← «زهرا رضایی» (فقط اگر شباهت بالا و بی‌رقیب باشد)
+                $f = \App\Support\Bot\NameMatch::best($n, $roster);
+                if ($f['id']) {
+                    $ids[] = $f['id'];
+                    if (P::norm($n) !== P::norm($roster[$f['id']])) {
+                        $guessed[$n] = $roster[$f['id']];
+                    }
+                } elseif ($f['ambiguous']) {
+                    $amb[$n] = $f['ambiguous'];
+                } else {
+                    $missing[] = $n;
+                }
             }
         }
 
-        return ['ids' => array_values(array_unique($ids)), 'amb' => $amb, 'missing' => $missing, 'roster' => $roster];
+        return ['ids' => array_values(array_unique($ids)), 'amb' => $amb, 'missing' => $missing, 'guessed' => $guessed, 'roster' => $roster];
     }
 
     private function namesWarn(array $r): ?string
@@ -835,6 +956,9 @@ class TeacherBot
         }
         if ($r['missing']) {
             $w[] = '🔍 پیدا نشد: ' . implode('، ', $r['missing']);
+        }
+        if (! empty($r['guessed'])) {
+            $w[] = '🔤 نزدیک‌ترین نام را گذاشتم: ' . collect($r['guessed'])->map(fn ($to, $from) => '«' . $from . '» ← ' . $to)->implode('، ') . ' (اگر اشتباه است «لغو» بزن)';
         }
 
         return $w ? implode("\n", $w) : null;

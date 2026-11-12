@@ -175,7 +175,7 @@ class BotGrading
 
                 return;
             case 't':   // نوشتنِ نمره با توضیح
-                Cache::put($this->key('gwait'), ['type' => $x, 'id' => (int) $y, 'msg' => $msgId], now()->addMinutes(20));
+                Cache::put($this->key('gwait'), ['type' => $x, 'id' => (int) $y, 'msg' => $msgId], now()->addMinutes(10));
                 $this->api->send($this->chat, "✍️ بنویس؛ مثلاً:\n«خوب، ۳ غلط، در نوشتنِ «ض» دقت کن»\n«۱۸ آفرین، فقط کمی تندتر بخوان»\nبرای انصراف «لغو».");
 
                 return;
