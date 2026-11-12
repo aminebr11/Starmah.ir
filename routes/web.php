@@ -69,6 +69,10 @@ Route::middleware('guest')->group(function () {
 
 /* ---------------- ادمین کل (سوپرادمین) ---------------- */
 Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->name('admin.')->group(function () {
+    // 🤖 باتِ معلم (بله / تلگرام)
+    Route::get('/bot', [\App\Http\Controllers\Bot\BotSettingsController::class, 'admin'])->name('bot');
+    Route::post('/bot', [\App\Http\Controllers\Bot\BotSettingsController::class, 'adminSave'])->name('bot.save');
+    Route::post('/bot/{platform}/webhook', [\App\Http\Controllers\Bot\BotSettingsController::class, 'adminWebhook'])->whereIn('platform', ['bale', 'telegram'])->name('bot.webhook');
     Route::get('/', [PlatformController::class, 'overview'])->name('overview');
     Route::get('/schools', [SchoolApprovalController::class, 'index'])->name('schools');
     Route::get('/schools/{school}/manage', [\App\Http\Controllers\Admin\SchoolManageController::class, 'show'])->name('schools.manage');
@@ -597,3 +601,16 @@ Route::get('/storage/{path}', [\App\Http\Controllers\PublicFileController::class
     ->where('path', '.*')->name('storage.file');
 
 require __DIR__.'/auth.php';
+
+// 🤖 باتِ معلم: دریافتِ پیام از بله/تلگرام (بدونِ ورود؛ نشانی رازِ تصادفی دارد)
+Route::post('/bot/{platform}/{secret}', \App\Http\Controllers\Bot\BotWebhookController::class)
+    ->whereIn('platform', ['bale', 'telegram'])->middleware('throttle:240,1')->name('bot.webhook');
+
+// 🤖 اتصالِ حسابِ معلم/مدیر به بات
+Route::middleware(['auth', 'role:teacher|school_admin'])->prefix('bot')->name('bot.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Bot\BotSettingsController::class, 'connect'])->name('connect');
+    Route::post('/code', [\App\Http\Controllers\Bot\BotSettingsController::class, 'code'])->middleware('throttle:20,1')->name('code');
+    Route::post('/links/{link}', [\App\Http\Controllers\Bot\BotSettingsController::class, 'update'])->name('links.update');
+    Route::delete('/links/{link}', [\App\Http\Controllers\Bot\BotSettingsController::class, 'unlink'])->name('links.destroy');
+    Route::post('/school', [\App\Http\Controllers\Bot\BotSettingsController::class, 'school'])->name('school');
+});

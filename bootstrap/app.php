@@ -32,6 +32,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // انتخابِ طرحِ ظاهری را خودِ مرورگر هم می‌نویسد، پس رمزنگاری نمی‌شود
         $middleware->encryptCookies(except: ['sm_ui']);
 
+        // وب‌هوکِ بات (بله/تلگرام): درخواست از سرورِ پیام‌رسان می‌آید، نه از فرمِ سایت؛ نشانی رازِ تصادفی دارد
+        $middleware->validateCsrfTokens(except: ['bot/bale/*', 'bot/telegram/*']);
+
         // نقش‌ها (Spatie Permission)
         $middleware->alias([
             'role'       => \Spatie\Permission\Middleware\RoleMiddleware::class,

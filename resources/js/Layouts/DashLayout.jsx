@@ -267,6 +267,7 @@ export const adminMenu = [
     { key: 'visits', label: 'گزارشِ بازدیدها', icon: '👁️', href: '/admin/visits' },
     { key: 'ai', label: 'مرکزِ هوش مصنوعی', icon: '🤖', href: '/admin/ai' },
     { key: 'mahoo', label: 'ماهو (دستیار)', icon: '🌙', href: '/admin/mahoo' },
+    { key: 'bot', label: 'باتِ بله و تلگرام', icon: '🤖', href: '/admin/bot' },
     { key: 'users', label: 'کاربران و شماره‌ها', icon: '👥', href: '/admin/users' },
     { key: 'sms', label: 'سامانه‌ی پیامک', icon: '📩', href: '/admin/sms' },
     { key: 'integrations', label: 'درگاه‌ها (پیامک/پرداخت)', icon: '🔌', href: '/admin/integrations' },
@@ -289,6 +290,7 @@ export const schoolMenu = [
     { key: 'examreports', label: 'گزارش آزمون‌ها', icon: '📊', href: '/school/exam-reports' },
     { key: 'xprules', label: 'مدیریتِ امتیازها (XP)', icon: '⚡', href: '/school/xp-rules' },
     { key: 'mahoo', label: 'ماهو (دستیار)', icon: '🌙', href: '/school/mahoo' },
+    { key: 'bot', label: 'باتِ بله و تلگرام', icon: '🤖', href: '/bot' },
 
     { divider: 'ارتباط و گزارش' },
     { key: 'familynotes', label: 'پیامِ محرمانه به والدین', icon: '🔐', href: '/family-notes' },
@@ -343,6 +345,7 @@ export const teacherMenu = [
     { key: 'birthdays', label: 'تولدِ دانش‌آموزان', icon: '🎂', href: '/teacher/birthdays' },
     { key: 'familynotes', label: 'پیامِ محرمانه به والدین', icon: '🔐', href: '/family-notes' },
     { key: 'messages', label: 'ارتباط با والدین/مدیر', icon: '💬', href: '/messages' },
+    { key: 'bot', label: 'باتِ بله و تلگرام', icon: '🤖', href: '/bot' },
     { key: 'sms', label: 'پیامک به اولیا', icon: '📩', href: '/teacher/sms' },
     { key: 'notices', label: 'اعلان‌ها', icon: '📢', href: '/notices' },
 ];

@@ -188,6 +188,8 @@ class Notifications
         ContentRelease::releaseDue();
         \App\Models\AudioTask::releaseDue();
         ActivityNotifier::releaseDue();
+        // 🤖 گزارشِ صبحگاهی و اعلان‌های تازه در بات (بله/تلگرام)
+        rescue(fn () => \App\Services\Bot\BotPush::due(), null, true);
     }
 
     /** @return array<int,array<string,mixed>> */

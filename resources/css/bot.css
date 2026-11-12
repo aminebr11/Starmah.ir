@@ -1,0 +1,45 @@
+/* ══ 🤖 باتِ بله و تلگرام ══ */
+.bt-hero { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; border-radius: 20px; padding: 18px; margin-bottom: 16px; color: #fff;
+    background: linear-gradient(135deg, #2a7de1, #22b07d); box-shadow: 0 14px 30px -18px rgba(20, 60, 120, .6); }
+.bt-hero-ic { font-size: 42px; width: 70px; height: 70px; flex: 0 0 70px; border-radius: 20px; background: rgba(255, 255, 255, .18); display: grid; place-items: center; }
+.bt-hero > div:nth-child(2) { flex: 1; min-width: 200px; }
+.bt-hero h2 { margin: 0 0 4px; font-size: 19px; }
+.bt-hero p { margin: 0; font-size: 13px; line-height: 1.9; opacity: .95; }
+.bt-stats { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.bt-stats span { background: rgba(255, 255, 255, .2); border-radius: 99px; padding: 2px 10px; font-size: 12px; font-weight: 800; }
+.bt-flash { background: #eef9f2; border-color: #a7e8c3; font-weight: 700; }
+.bt-warn { background: #fff6e5; border-color: #f5d38a; color: #7a4d00; font-weight: 700; }
+.bt-err { margin-top: 8px; color: #b3261e; font-weight: 700; font-size: 13px; }
+.bt-muted { color: var(--muted); }
+.bt-card h3 { margin-top: 0; }
+.bt-card h3 small { font-size: 12px; color: var(--muted); font-weight: 500; }
+.bt-steps { margin: 0 0 12px; padding-inline-start: 20px; font-size: 13px; line-height: 2; color: #3a4566; }
+.bt-steps code, .bt-row code { background: #f2f4fa; border-radius: 6px; padding: 1px 6px; font-size: 12px; }
+.bt-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.bt-f { display: grid; gap: 4px; font-size: 12.5px; font-weight: 700; }
+.bt-f em { color: #b3261e; font-style: normal; font-size: 12px; }
+.bt-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.bt-row code { overflow-wrap: anywhere; color: #4a5578; }
+.bt-switch { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; cursor: pointer; }
+.bt-switch small { color: var(--muted); }
+.bt-code { margin-top: 12px; }
+.bt-code summary { cursor: pointer; font-weight: 800; }
+.bt-code pre { background: #0f1424; color: #d7e0ff; border-radius: 12px; padding: 12px; font-size: 11.5px; line-height: 1.6; overflow: auto; max-height: 360px; text-align: left; }
+.bt-save { display: flex; justify-content: flex-end; margin: -4px 0 16px; }
+.bt-logs { display: grid; gap: 6px; }
+.bt-log { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; font-size: 13px; }
+.bt-log small { color: var(--muted); width: 100%; }
+.bt-log.undone { opacity: .6; }
+.bt-plats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.bt-plat { display: grid; justify-items: center; gap: 2px; padding: 16px; border-radius: 18px; border: 2px solid var(--line); background: #fff; font: inherit; cursor: pointer; }
+.bt-plat span { font-size: 30px; }
+.bt-plat small { color: var(--muted); direction: ltr; }
+.bt-plat.bale:hover { border-color: #22b07d; } .bt-plat.telegram:hover { border-color: #2a7de1; }
+.bt-plat:disabled { opacity: .5; cursor: not-allowed; }
+.bt-code-box { margin-top: 12px; display: grid; gap: 8px; justify-items: center; text-align: center; background: #f3f8ff; border: 1.5px dashed #b9d0f5; border-radius: 16px; padding: 14px; }
+.bt-big { font-size: 34px; font-weight: 900; letter-spacing: 6px; color: #1b4b8a; }
+.bt-code-box small { color: #4a5578; line-height: 1.9; }
+.bt-link { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; margin-bottom: 8px; }
+.bt-link small { display: block; color: var(--muted); font-size: 12px; }
+.bt-link-a { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 13px; }
+.bt-ex { margin: 0; padding-inline-start: 18px; line-height: 2.2; font-size: 13.5px; }

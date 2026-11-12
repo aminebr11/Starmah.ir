@@ -120,11 +120,17 @@ class BotParser
         $status = array_fill_keys(array_map('intval', array_keys($roster)), 'present');
         $amb = [];
         $found = 0;
-        foreach (self::clauses($text) as $c) {
+        $carry = null; // «غایب: علی، سارا، رضا» یا «همه حاضر جز علی، سارا» → نام‌های بعدی هم همان وضعیت
+        foreach (self::clauses(preg_replace('/([:：])/u', '$1،', $text) ?? $text) as $c) {
             $n = self::norm($c);
             $st = preg_match('/(تاخیر|تأخیر|دیر)/u', $n . $c) ? 'late'
                 : (preg_match('/موجه/u', $n) ? 'excused'
                     : (preg_match('/(غایب|غیبت|نیامد|نیومد|نبود|جز|بجز|غیر\s*از)/u', $n) ? 'absent' : null));
+            if ($st) {
+                $carry = preg_match('/([:：]|جز|غیر\s*از)\s*$/u', $c) || preg_match('/(جز|غیر\s*از)/u', $n) ? $st : null;
+            } else {
+                $st = $carry;
+            }
             if (! $st) {
                 continue;
             }
