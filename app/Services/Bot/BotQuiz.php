@@ -43,12 +43,19 @@ class BotQuiz
 
     public const GAME_RULES = ['lives' => 3, 'retry' => true, 'show_answer' => true, 'shuffle' => false, 'pass' => 50, 'group_race' => false];
 
-    private const CYCLES = ['duration' => [10, 15, 20, 30, 45, 60], 'attempts' => [1, 2, 3], 'pass' => [40, 50, 60, 70, 80], 'lives' => [1, 2, 3, 4, 5]];
+    /** مسابقه‌ی زنده: ثانیه‌ی هر سؤال، شروع («board» = روی تخته‌ی کلاس، عدد = چند دقیقه‌ی دیگر خودکار، «HH:MM»)، پایان (دقیقه پس از شروع؛ ۰ = بعد از آخرین سؤال) */
+    public const LIVE_RULES = ['seconds' => 20, 'start' => 'board', 'end' => 0];
+
+    private const CYCLES = ['duration' => [10, 15, 20, 30, 45, 60], 'attempts' => [1, 2, 3], 'pass' => [40, 50, 60, 70, 80], 'lives' => [1, 2, 3, 4, 5],
+        'seconds' => [10, 15, 20, 30, 45, 60], 'start' => ['board', 0, 5, 15, 30, 60, 120], 'end' => [0, 10, 20, 30, 60]];
+
+    public const KIND_FA = ['exam' => '📝 آزمون', 'game' => '🎮 بازی', 'live' => '🏆 مسابقه‌ی زنده'];
 
     private const RULE_FA = [
         'duration' => '⏱ مدت', 'attempts' => '🔁 دفعاتِ مجاز', 'pass' => '🎯 حدِ قبولی', 'lives' => '❤️ جان',
         'show_answer' => 'نمایشِ پاسخِ درست', 'show_result' => 'نمایشِ نتیجه به دانش‌آموز', 'shuffle' => 'ترتیبِ تصادفیِ سؤال‌ها',
         'shuffle_choices' => 'جابه‌جاییِ گزینه‌ها', 'one_per_page' => 'یک سؤال در هر صفحه', 'retry' => 'امکانِ تلاشِ دوباره', 'group_race' => '🏆 رقابتِ گروهی',
+        'seconds' => '⏱ زمانِ هر سؤال', 'start' => '🚀 شروع', 'end' => '⏳ پایان',
     ];
 
     public function __construct(private TeacherBot $bot, private BotApi $api, private string $platform, private string $chat) {}
@@ -130,11 +137,11 @@ class BotQuiz
     {
         $s = $this->fresh();
         $s['mode'] = 'topic';
-        $s['kind'] = in_array($p['kind'] ?? null, ['exam', 'game'], true) ? $p['kind'] : null;
+        $s['kind'] = in_array($p['kind'] ?? null, ['exam', 'game', 'live'], true) ? $p['kind'] : null;
         if ($s['kind'] === 'exam' && ! \App\Support\SmartLab::enabledFor($user)) {
             $s['kind'] = null;   // آزمایشگاهِ آزمون خاموش است → فقط بازی پیشنهاد می‌شود
         }
-        $s['rules'] = $s['kind'] === 'game' ? self::GAME_RULES : self::EXAM_RULES;
+        $s['rules'] = self::rulesFor($s['kind']);
         $s['topic'] = trim((string) ($p['topic'] ?? ''));
         $s['lesson'] = trim((string) ($p['lesson'] ?? ''));
         if (! empty($p['count'])) {
@@ -149,7 +156,7 @@ class BotQuiz
         if ($s['topic'] === '' && $s['lesson'] === '') {
             $s['wait'] = ['what' => 'topic'];
             $this->save($s);
-            $this->api->send($this->chat, ($s['kind'] === 'game' ? '🎮 ساختِ بازی' : ($s['kind'] === 'exam' ? '📝 ساختِ آزمون' : '🧪 ساختِ سؤال')) . "\n\n"
+            $this->api->send($this->chat, (self::KIND_FA[$s['kind']] ?? '🧪 ساختِ سؤال') . "\n\n"
                 . "✍️ موضوع را بنویس؛ مثلاً «ریاضی — کسرها» یا «علوم درسِ ۳: آب و هوا».\n📎 یا عکس / PDFِ برگه یا صفحه‌ی کتاب را بفرست.\n🗄 یا از بانکِ سؤال انتخاب کن.",
                 [[['text' => '🗄 انتخاب از بانکِ سؤال', 'data' => 'q:bank']], [['text' => '❌ لغو', 'data' => 'q:x']]]);
 
@@ -208,6 +215,21 @@ class BotQuiz
                 $this->setup($user, $s);
 
                 return true;
+            case 'ltime':
+                $t = self::parseTime($text);
+                if (! $t) {
+                    $s['wait'] = $w;
+                    $this->save($s);
+                    $this->api->send($this->chat, '⚠️ ساعت را نفهمیدم؛ مثلاً «۲۰:۳۰» یا «۸ شب» بنویس، یا «لغو».');
+
+                    return true;
+                }
+                $s['rules']['start'] = $t;
+                $this->save($s);
+                $this->api->send($this->chat, '🕗 مسابقه ' . self::ruleValue('start', $t) . ' خودش شروع می‌شود.');
+                $this->rules($s, 0);
+
+                return true;
             case 'bq':
                 $b = $this->bankState($s);
                 $b['q'] = in_array(P::norm($text), ['همه', 'all'], true) ? '' : Str::limit(trim($text), 60, '');
@@ -254,6 +276,11 @@ class BotQuiz
 
             return;
         }
+        if (in_array($act, ['lvr', 'lvs', 'lve', 'lvx'], true)) {
+            $this->liveControl($user, $act, (int) $x, $msgId);
+
+            return;
+        }
         if ($act === 'prev') {
             if ($old = Cache::pull($this->key('quiz_prev'))) {
                 $this->save($old);
@@ -287,10 +314,10 @@ class BotQuiz
                 }
                 break;
             case 'kind':
-                if (in_array($x, ['exam', 'game'], true)) {
+                if (in_array($x, ['exam', 'game', 'live'], true)) {
                     $s['kind'] = $x;
                     $s['types'] = array_values(array_intersect($s['types'], $this->allowedTypes($s))) ?: ['mc'];
-                    $s['rules'] = $x === 'game' ? self::GAME_RULES : self::EXAM_RULES;
+                    $s['rules'] = self::rulesFor($x);
                 }
                 break;
             case 'cnt':
@@ -507,6 +534,12 @@ class BotQuiz
                 $this->generate($user, $s, $msgId, 5);
 
                 return;
+            case 'ltime':
+                $s['wait'] = ['what' => 'ltime'];
+                $this->save($s);
+                $this->api->send($this->chat, '🕗 ساعتِ شروع را بنویس؛ مثلاً «۲۰:۳۰» یا «۸ شب» (اگر گذشته باشد، فردا).');
+
+                return;
             case 'ttl':
                 $s['wait'] = ['what' => 'title'];
                 $this->save($s);
@@ -563,15 +596,15 @@ class BotQuiz
             $rows = [array_values(array_filter([
                 $exam ? ['text' => '📝 آزمون', 'data' => 'q:kind:exam'] : null,
                 ['text' => '🎮 بازی', 'data' => 'q:kind:game'],
-            ]))];
+            ])), [['text' => '🏆 مسابقه‌ی زنده', 'data' => 'q:kind:live']]];
             $rows[] = [['text' => '❌ لغو', 'data' => 'q:x']];
             $got = $s['src'] ? '📎 ' . ($s['src'][0]['mime'] === 'application/pdf' ? 'فایل' : 'برگه') . ' رسید (' . Jalali::fa((string) count($s['src'])) . " صفحه).\n\n" : '';
-            $this->say($msgId, $got . ($exam ? 'از آن «آزمون» بسازم یا «بازی»؟' : '«بازی» ساخته می‌شود (آزمایشگاهِ آزمون برای مدرسه روشن نیست).'), $rows);
+            $this->say($msgId, $got . ($exam ? 'از آن «آزمون» بسازم، «بازی» یا «مسابقه‌ی زنده»؟' : 'از آن «بازی» بسازم یا «مسابقه‌ی زنده»؟ (آزمایشگاهِ آزمون برای مدرسه روشن نیست.)'), $rows);
 
             return;
         }
         if ($s['src'] && empty($s['mode'])) {
-            $this->say($msgId, ($s['kind'] === 'game' ? '🎮 بازی' : '📝 آزمون') . ' از روی ' . Jalali::fa((string) count($s['src'])) . " صفحه — با برگه چه کنم؟\n\n"
+            $this->say($msgId, self::KIND_FA[$s['kind']] . ' از روی ' . Jalali::fa((string) count($s['src'])) . " صفحه — با برگه چه کنم؟\n\n"
                 . "📋 «دقیقاً همین سؤال‌ها»: سؤال‌های برگه بی‌کم‌وکاست تایپ و واردِ سامانه می‌شوند.\n"
                 . "🔁 «مشابه»: همان سبک و سطح، با عدد و مثالِ تازه.\n"
                 . "📖 «از روی متن»: از مطالبِ همین صفحه‌ی کتاب سؤال می‌سازم.\n\n"
@@ -623,7 +656,7 @@ class BotQuiz
     {
         $class = $this->bot->classes($user)->firstWhere('id', (int) $s['class']);
         $L = [
-            ($s['kind'] === 'game' ? '🎮 ساختِ بازی' : '📝 ساختِ آزمون') . ($class ? ' — ' . $class->name : ''),
+            'ساختِ ' . self::KIND_FA[$s['kind']] . ($class ? ' — ' . $class->name : ''),
             '📚 منبع: ' . ($s['src'] ? self::MODE_FA[$s['mode']] . ' (' . Jalali::fa((string) count($s['src'])) . ' صفحه)' : '«' . trim($s['lesson'] . ' ' . $s['topic']) . '»'),
             '🔢 تعداد: ' . Jalali::fa((string) $s['count']) . ' سؤال · 📊 دشواری: ' . self::DIFF_FA[$s['diff']],
             '🧩 نوع: ' . implode('، ', array_map(fn ($t) => self::TYPE_FA[$t], $s['types'])),
@@ -672,7 +705,7 @@ class BotQuiz
         }
         $types = $same ? $this->allowedTypes($s) : $s['types'];
         $r = app(SmartExamAiService::class)->generate([
-            'audience' => $s['kind'] === 'game' ? 'game' : 'exam',
+            'audience' => $s['kind'] === 'exam' ? 'exam' : 'game',
             'count' => $same ? $this->maxCount($s) : ($more ?: $s['count']),
             'types' => $types, 'difficulty' => $s['diff'], 'kind' => 'practice',
             'grade' => $class?->grade, 'subject' => $s['lesson'], 'topic' => $s['topic'],
@@ -708,10 +741,10 @@ class BotQuiz
     {
         $class = $this->bot->classes($user)->firstWhere('id', (int) $s['class']);
         $n = count($s['qs']);
-        $head = ($s['kind'] === 'game' ? '🎮 بازیِ' : '📝 آزمونِ') . ' «' . $s['title'] . '» — ' . Jalali::fa((string) $n) . ' سؤال' . ($class ? ' · ' . $class->name : '');
-        $look = $s['kind'] === 'game'
+        $head = self::KIND_FA[$s['kind']] . ' «' . $s['title'] . '» — ' . Jalali::fa((string) $n) . ' سؤال' . ($class ? ' · ' . $class->name : '');
+        $look = $s['kind'] === 'live' ? self::liveLine($s['rules']) : ($s['kind'] === 'game'
             ? '🎨 قالب: ' . (\App\Models\GameTemplate::where('key', $s['tpl'])->value('name') ?? 'پیش‌فرض') . ($s['flavor'] ? ' · تم: ' . $s['flavor'] : '')
-            : '⏱ ' . Jalali::fa((string) $s['rules']['duration']) . ' دقیقه · 🔁 ' . Jalali::fa((string) $s['rules']['attempts']) . ' بار · 🎯 قبولی ' . Jalali::fa((string) $s['rules']['pass']) . '٪';
+            : '⏱ ' . Jalali::fa((string) $s['rules']['duration']) . ' دقیقه · 🔁 ' . Jalali::fa((string) $s['rules']['attempts']) . ' بار · 🎯 قبولی ' . Jalali::fa((string) $s['rules']['pass']) . '٪');
         // متنِ پیام حداکثر ۴۰۹۶ نویسه است؛ اگر سؤال‌ها زیادند، کوتاه‌تر نشان می‌دهیم
         $lim = $n > 12 ? 70 : ($n > 7 ? 110 : 170);
         $body = [];
@@ -725,10 +758,14 @@ class BotQuiz
         $nums = array_map(fn ($i) => ['text' => Jalali::fa((string) ($i + 1)), 'data' => 'q:v:' . $i], array_keys($s['qs']));
         $rows = array_chunk($nums, 6);
         $rows[] = [['text' => '➕ ۵ سؤالِ دیگر', 'data' => 'q:more'], ['text' => '🗄 از بانک', 'data' => 'q:bank'], ['text' => '🏷️ عنوان', 'data' => 'q:ttl']];
-        $rows[] = $s['kind'] === 'game'
-            ? [['text' => '🎨 قالبِ بازی', 'data' => 'q:tpls'], ['text' => '🌈 تم', 'data' => 'q:thm:r'], ['text' => '⚙️ قوانین', 'data' => 'q:rul']]
-            : [['text' => '🎨 فضای داستانی', 'data' => 'q:thm:r'], ['text' => '⚙️ قوانینِ آزمون', 'data' => 'q:rul']];
-        $rows[] = [['text' => '🚀 ساخت و انتشار', 'data' => 'q:pub:1'], ['text' => '💾 پیش‌نویس', 'data' => 'q:pub:0']];
+        $rows[] = match ($s['kind']) {
+            'game' => [['text' => '🎨 قالبِ بازی', 'data' => 'q:tpls'], ['text' => '🌈 تم', 'data' => 'q:thm:r'], ['text' => '⚙️ قوانین', 'data' => 'q:rul']],
+            'live' => [['text' => '⚙️ زمان‌بندی و قوانینِ مسابقه', 'data' => 'q:rul']],
+            default => [['text' => '🎨 فضای داستانی', 'data' => 'q:thm:r'], ['text' => '⚙️ قوانینِ آزمون', 'data' => 'q:rul']],
+        };
+        $rows[] = $s['kind'] === 'live'
+            ? [['text' => '🏆 ساختِ مسابقه و خبر به بچه‌ها', 'data' => 'q:pub:1']]
+            : [['text' => '🚀 ساخت و انتشار', 'data' => 'q:pub:1'], ['text' => '💾 پیش‌نویس', 'data' => 'q:pub:0']];
         $rows[] = [['text' => '❌ لغو', 'data' => 'q:x']];
         $this->say($msgId, $text, $rows);
     }
@@ -824,7 +861,7 @@ class BotQuiz
         $pages = max(1, (int) ceil($total / self::BANK_PAGE));
         $b['page'] = min($b['page'], $pages - 1);
         $rows = (clone $q)->orderByDesc('used_count')->latest('id')->skip($b['page'] * self::BANK_PAGE)->take(self::BANK_PAGE)->get();
-        $head = '🗄 بانکِ سؤال — ' . ($s['kind'] === 'game' ? 'برای بازی' : 'برای آزمون')
+        $head = '🗄 بانکِ سؤال — برای ' . self::KIND_FA[$s['kind']]
             . "\n🎓 " . ($b['all'] ? 'همه‌ی پایه‌ها' : 'پایه‌ی ' . ($class?->grade ?: '—'))
             . ' · 📚 ' . ($b['subj'] !== '' ? $b['subj'] : 'همه‌ی درس‌ها') . ($b['q'] !== '' ? ' · 🔎 «' . $b['q'] . '»' : '')
             . "\n" . Jalali::fa((string) $total) . ' سؤال' . ($total ? ' · صفحه‌ی ' . Jalali::fa((string) ($b['page'] + 1)) . ' از ' . Jalali::fa((string) $pages) : '')
@@ -950,7 +987,7 @@ class BotQuiz
         $this->api->edit($this->chat, $msgId, '⏳ دارم یک سؤالِ جایگزین برای سؤالِ ' . Jalali::fa((string) ($i + 1)) . ' می‌سازم…');
         @set_time_limit(120);
         $r = app(SmartExamAiService::class)->generate([
-            'audience' => $s['kind'] === 'game' ? 'game' : 'exam', 'count' => 1, 'types' => [$q['type']], 'difficulty' => $q['difficulty'] ?? 'medium',
+            'audience' => $s['kind'] === 'exam' ? 'exam' : 'game', 'count' => 1, 'types' => [$q['type']], 'difficulty' => $q['difficulty'] ?? 'medium',
             'grade' => $class?->grade, 'subject' => $s['lesson'], 'topic' => $q['topic'] ?: $s['topic'], 'flavor' => $s['flavor'],
             'instructions' => Str::limit('یک سؤالِ تازه به‌جای این سؤال، با همان مبحث و سطح ولی متفاوت: «' . $q['prompt'] . '». ' . $s['ins'], 480, ''),
             'avoid' => array_column($s['qs'], 'prompt'), 'school_id' => $user->school_id, 'teacher_id' => $user->id,
@@ -990,15 +1027,22 @@ class BotQuiz
     private function rules(array $s, int $msgId): void
     {
         $rows = [];
-        $L = [$s['kind'] === 'game' ? '⚙️ قوانینِ بازی' : '⚙️ قوانینِ آزمون', 'روی هر مورد بزن تا عوض شود.'];
+        $L = ['⚙️ قوانینِ ' . self::KIND_FA[$s['kind']], 'روی هر مورد بزن تا عوض شود.'];
+        if ($s['kind'] === 'live') {
+            $L[] = '';
+            $L[] = '🚀 «روی تخته» یعنی سرِ کلاس از صفحه‌ی مسابقه اجرا می‌کنی؛ «… دقیقه‌ی دیگر» یا «ساعتِ …» یعنی خودش سرِ وقت شروع می‌شود و بچه‌ها از خانه با گوشی شرکت می‌کنند.';
+        }
         foreach ($s['rules'] as $k => $v) {
             if (! isset(self::RULE_FA[$k])) {
                 continue;
             }
             $label = is_bool($v)
                 ? ($v ? '✅ ' : '⬜ ') . self::RULE_FA[$k]
-                : self::RULE_FA[$k] . ': ' . Jalali::fa((string) $v) . ($k === 'duration' ? ' دقیقه' : ($k === 'pass' ? '٪' : ''));
+                : self::RULE_FA[$k] . ': ' . self::ruleValue($k, $v);
             $rows[] = [['text' => $label, 'data' => 'q:ru:' . $k]];
+        }
+        if ($s['kind'] === 'live') {
+            $rows[] = [['text' => '🕗 شروع در ساعتِ مشخص', 'data' => 'q:ltime']];
         }
         $rows[] = [['text' => '↩️ بازگشت به سؤال‌ها', 'data' => 'q:l']];
         $this->say($msgId, implode("\n", $L), $rows);
@@ -1016,7 +1060,8 @@ class BotQuiz
         }
         $c = self::CYCLES[$k] ?? null;
         if ($c) {
-            $at = array_search((int) $s['rules'][$k], $c, true);
+            $cur = $s['rules'][$k];
+            $at = array_search(is_numeric($cur) ? (int) $cur : $cur, $c, true);
             $s['rules'][$k] = $c[$at === false ? 0 : ($at + 1) % count($c)];
         }
     }
@@ -1032,9 +1077,11 @@ class BotQuiz
             return;
         }
         try {
-            [$done, $undo, $summary, $action] = $s['kind'] === 'game'
-                ? $this->saveGame($user, $class, $s, $publish)
-                : $this->saveExam($user, $class, $s, $publish);
+            [$done, $undo, $summary, $action] = match ($s['kind']) {
+                'game' => $this->saveGame($user, $class, $s, $publish),
+                'live' => $this->saveLive($user, $class, $s),
+                default => $this->saveExam($user, $class, $s, $publish),
+            };
         } catch (ValidationException $e) {
             $this->api->edit($this->chat, $msgId, '⚠️ ساخته نشد: ' . collect($e->errors())->flatten()->first() . "\nسؤالِ مشکل‌دار را ویرایش یا حذف کن و دوباره بزن.", [[['text' => '📋 همه‌ی سؤال‌ها', 'data' => 'q:l']]]);
 
@@ -1047,10 +1094,12 @@ class BotQuiz
         $log = BotLog::create(['user_id' => $user->id, 'school_id' => $user->school_id, 'platform' => $this->platform,
             'action' => $action, 'summary' => Str::limit($summary, 250), 'undo' => $undo]);
         $this->forget();
-        $this->api->edit($this->chat, $msgId, $done, [
-            [['text' => '↩️ برگردان (تا ۱۰ دقیقه)', 'data' => 'un:' . $log->id]],
-            [['text' => '🧪 طراحیِ تازه', 'data' => 'q:home'], ['text' => '🏠 منو', 'data' => 'm:main']],
-        ]);
+        $rows = [[['text' => '↩️ برگردان (تا ۱۰ دقیقه)', 'data' => 'un:' . $log->id]]];
+        if ($action === 'live') {
+            array_unshift($rows, self::liveRows((int) $undo['live']));
+        }
+        $rows[] = [['text' => '🧪 طراحیِ تازه', 'data' => 'q:home'], ['text' => '🏠 منو', 'data' => 'm:main']];
+        $this->api->edit($this->chat, $msgId, $done, $rows);
     }
 
     private function saveExam(User $user, ?Classroom $class, array $s, bool $publish): array
@@ -1262,16 +1311,177 @@ class BotQuiz
         return $new;
     }
 
+    /* ═════════════════════════ 🏆 مسابقه‌ی زنده ═════════════════════════ */
+
+    public static function rulesFor(?string $kind): array
+    {
+        return match ($kind) {
+            'game' => self::GAME_RULES,
+            'live' => self::LIVE_RULES,
+            default => self::EXAM_RULES,
+        };
+    }
+
+    private static function ruleValue(string $k, mixed $v): string
+    {
+        return match ($k) {
+            'duration' => Jalali::fa((string) $v) . ' دقیقه',
+            'pass' => Jalali::fa((string) $v) . '٪',
+            'seconds' => Jalali::fa((string) $v) . ' ثانیه',
+            'start' => $v === 'board' ? 'روی تخته‌ی کلاس (خودت اجرا می‌کنی)'
+                : (is_string($v) && str_contains($v, ':') ? 'ساعتِ ' . Jalali::fa($v) . (self::startAt($v)?->isTomorrow() ? ' فردا' : ' امروز')
+                    : ((int) $v === 0 ? 'همین حالا (خودکار)' : Jalali::fa((string) $v) . ' دقیقه‌ی دیگر (خودکار)')),
+            'end' => (int) $v === 0 ? 'بعد از آخرین سؤال' : Jalali::fa((string) $v) . ' دقیقه بعد از شروع',
+            default => Jalali::fa((string) $v),
+        };
+    }
+
+    private static function liveLine(array $r): string
+    {
+        return '⏱ ' . self::ruleValue('seconds', $r['seconds']) . ' برای هر سؤال · 🚀 ' . self::ruleValue('start', $r['start']) . ' · ⏳ ' . self::ruleValue('end', $r['end']);
+    }
+
+    /** زمانِ شروع از قاعده‌ی «start» (null = روی تخته). */
+    private static function startAt(mixed $v): ?\Illuminate\Support\Carbon
+    {
+        if ($v === 'board' || $v === null) {
+            return null;
+        }
+        if (is_string($v) && preg_match('/^(\d{1,2}):(\d{2})$/', $v, $m)) {
+            $t = now()->setTime((int) $m[1], (int) $m[2]);
+
+            return $t->lt(now()->subMinute()) ? $t->addDay() : $t;
+        }
+
+        return now()->addMinutes((int) $v);
+    }
+
+    /** «۲۰:۳۰»، «۸ شب»، «ساعت ۹ صبح» → «HH:MM». */
+    public static function parseTime(string $text): ?string
+    {
+        $t = P::digits(P::norm($text));
+        if (! preg_match('/(\d{1,2})(?:\s*[:٫.]\s*(\d{1,2}))?/u', $t, $m)) {
+            return null;
+        }
+        $h = (int) $m[1];
+        $min = isset($m[2]) ? (int) $m[2] : 0;
+        if (preg_match('/(شب|عصر|بعدازظهر|بعد از ظهر|غروب)/u', $t) && $h < 12) {
+            $h += 12;
+        }
+        if ($h > 23 || $min > 59) {
+            return null;
+        }
+
+        return sprintf('%02d:%02d', $h, $min);
+    }
+
+    public static function liveRows(int $id): array
+    {
+        return [['text' => '▶️ همین حالا شروع', 'data' => 'q:lvs:' . $id], ['text' => '📊 نتیجه', 'data' => 'q:lvr:' . $id], ['text' => '⏹ پایان', 'data' => 'q:lve:' . $id]];
+    }
+
+    private function saveLive(User $user, ?Classroom $class, array $s): array
+    {
+        $before = \App\Models\LiveContest::withoutGlobalScopes()->where('teacher_id', $user->id)->max('id') ?? 0;
+        $start = self::startAt($s['rules']['start'] ?? 'board');
+        $qs = [];
+        foreach ($s['qs'] as $q) {
+            if (! in_array($q['type'], ['mc', 'tf'], true) || count($q['choices']) < 2) {
+                continue;   // مسابقه فقط سؤالِ گزینه‌ای دارد
+            }
+            $choices = $q['choices'];
+            if (count($choices) > 4) {   // درست + سه گزینه‌ی نادرستِ اول
+                $choices = array_merge(array_values(array_filter($choices, fn ($c) => $c['correct'])), array_slice(array_values(array_filter($choices, fn ($c) => ! $c['correct'])), 0, 3));
+            }
+            $qs[] = ['prompt' => Str::limit($q['prompt'], 480, ''), 'choices' => array_map(fn ($c) => Str::limit($c['value'], 118, ''), array_column($choices, null)),
+                'answer' => (int) array_search(true, array_column($choices, 'correct'), true)];
+        }
+        if (! $qs) {
+            throw ValidationException::withMessages(['live' => 'مسابقه‌ی زنده فقط سؤالِ گزینه‌ای (چهارگزینه‌ای یا درست/نادرست) می‌پذیرد.']);
+        }
+        $qs = array_map(fn ($q) => ['prompt' => $q['prompt'], 'choices' => array_map(fn ($c) => is_array($c) ? $c['value'] : $c, $q['choices']), 'answer' => $q['answer']], $qs);
+        $end = (int) ($s['rules']['end'] ?? 0);
+        $this->bot->callSite($user, \App\Http\Controllers\Teacher\LiveContestController::class, 'store', array_filter([
+            'title' => Str::limit($s['title'], 140, ''),
+            'classroom_id' => $class && (int) $class->teacher_id === (int) $user->id ? $class->id : null,
+            'mode' => $start ? 'auto' : 'manual',
+            'starts_at' => $start?->format('Y-m-d H:i:s'),
+            'seconds' => (int) ($s['rules']['seconds'] ?? 20),
+            'questions' => array_slice($qs, 0, 40),
+            'end_type' => $end > 0 ? 'duration' : 'none',
+            'duration_min' => $end > 0 ? $end : null,
+        ], fn ($v) => $v !== null));
+        $c = \App\Models\LiveContest::withoutGlobalScopes()->where('teacher_id', $user->id)->where('id', '>', $before)->latest('id')->first();
+        if (! $c) {
+            throw ValidationException::withMessages(['live' => 'مسابقه ساخته نشد؛ دوباره امتحان کن.']);
+        }
+        $site = BotConfig::siteUrl();
+
+        return [
+            '🏆 مسابقه‌ی زنده‌ی «' . $c->title . '» با ' . Jalali::fa((string) count($qs)) . ' سؤال ساخته شد و به بچه‌ها خبر داده شد.'
+                . "\n🔢 کدِ ورود: " . Jalali::fa($c->code)
+                . "\n🚀 " . ($start ? 'شروع: ' . Jalali::format($start, true) . ' ساعتِ ' . Jalali::fa($start->format('H:i')) . ' — خودش اجرا می‌شود؛ بچه‌ها با گوشی شرکت می‌کنند.'
+                    : 'سرِ کلاس روی تخته اجرا کن: ' . $site . '/teacher/live/' . $c->id . '/host'),
+            ['live' => $c->id], 'مسابقه‌ی زنده: ' . $c->title, 'live',
+        ];
+    }
+
+    /** ▶️ شروع، 📊 نتیجه، ⏹ پایان — از داخلِ بات. */
+    private function liveControl(User $user, string $act, int $id, int $msgId): void
+    {
+        $c = \App\Models\LiveContest::withoutGlobalScopes()->where('teacher_id', $user->id)->find($id);
+        if (! $c) {
+            $this->api->send($this->chat, 'این مسابقه پیدا نشد.');
+
+            return;
+        }
+        $c->tick();
+        if ($act === 'lvs') {
+            if (in_array($c->phase, ['lobby', 'draft'], true)) {
+                // «خودکار» از همین لحظه: سؤال‌ها خودشان جلو می‌روند (بدونِ تخته)
+                $c->update(['mode' => 'auto', 'starts_at' => now()]);
+                $c->refresh()->tick();
+                $this->api->send($this->chat, '▶️ «' . $c->title . '» شروع شد؛ بچه‌ها با گوشی جواب می‌دهند و سؤال‌ها خودشان جلو می‌روند.', [self::liveRows($c->id)]);
+            } else {
+                $this->api->send($this->chat, $c->phase === 'end' ? '⏹ این مسابقه تمام شده.' : '▶️ مسابقه در حالِ اجراست.', [self::liveRows($c->id)]);
+            }
+
+            return;
+        }
+        if ($act === 'lve') {
+            if ($c->phase !== 'end') {
+                $c->moveTo('end');
+            }
+            $act = 'lvr';
+        }
+        $c->refresh();
+        $rank = $c->ranking();
+        $phase = ['lobby' => '⏳ هنوز شروع نشده', 'draft' => '⏳ هنوز شروع نشده', 'question' => '▶️ در حالِ اجرا — سؤالِ ' . Jalali::fa((string) ($c->current + 1)) . ' از ' . Jalali::fa((string) $c->total()),
+            'reveal' => '▶️ در حالِ اجرا — نمایشِ جوابِ سؤالِ ' . Jalali::fa((string) ($c->current + 1)), 'end' => '🏁 تمام شد'][$c->phase] ?? $c->phase;
+        $L = ['🏆 ' . $c->title, $phase . ' · ' . Jalali::fa((string) $rank->count()) . ' شرکت‌کننده', ''];
+        foreach ($rank->take(15) as $r) {
+            $L[] = (['🥇', '🥈', '🥉'][$r['rank'] - 1] ?? Jalali::fa((string) $r['rank']) . '.') . ' ' . $r['name'] . ' — ' . Jalali::fa((string) $r['score']) . ' امتیاز · ' . Jalali::fa((string) $r['correct']) . ' درست';
+        }
+        if ($rank->isEmpty()) {
+            $L[] = 'هنوز کسی وارد نشده.';
+        }
+        $this->api->send($this->chat, implode("\n", $L), [self::liveRows($c->id)]);
+    }
+
     /* ═════════════════════════ کمکی ═════════════════════════ */
 
     private function allowedTypes(array $s): array
     {
-        return ($s['kind'] ?? '') === 'game' ? ['mc', 'tf', 'blank'] : ['mc', 'tf', 'blank', 'desc'];
+        return match ($s['kind'] ?? '') {
+            'game' => ['mc', 'tf', 'blank'],
+            'live' => ['mc', 'tf'],   // مسابقه‌ی زنده فقط گزینه‌ای
+            default => ['mc', 'tf', 'blank', 'desc'],
+        };
     }
 
     private function maxCount(array $s): int
     {
-        return ($s['kind'] ?? '') === 'game' ? 15 : 20;
+        return ['game' => 15, 'live' => 40][$s['kind'] ?? ''] ?? 20;
     }
 
     /** متنِ همراهِ عکس: «۱۰ سؤال»، «آزمون/بازی»، «همین سؤال‌ها / مشابه / از متن». */
@@ -1288,7 +1498,10 @@ class BotQuiz
         } elseif (preg_match('/(از\s*(رو|روی)\s*(این|متن|صفحه|کتاب)|از\s*متن|از\s*این\s*صفحه|سوال\s*در\s*بیار|سوال\s*دربیار)/u', $c)) {
             $s['mode'] = 'content';
         }
-        if (preg_match('/(آزمون|امتحان)/u', $c)) {
+        if (preg_match('/(مسابقه|کوییز|کوئیز)/u', $c)) {
+            $s['kind'] = 'live';
+            $s['rules'] = self::LIVE_RULES;
+        } elseif (preg_match('/(آزمون|امتحان)/u', $c)) {
             $s['kind'] = 'exam';
             $s['rules'] = self::EXAM_RULES;
         } elseif (str_contains($c, 'بازی')) {

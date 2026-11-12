@@ -16,7 +16,7 @@ use Illuminate\Support\Collection;
  */
 class BotAgent
 {
-    public const TOOLS = ['attendance', 'grades', 'award', 'discipline', 'announce', 'report', 'student', 'game', 'exam', 'none'];
+    public const TOOLS = ['attendance', 'grades', 'award', 'discipline', 'announce', 'report', 'student', 'game', 'exam', 'live', 'grade_work', 'messages', 'none'];
 
     public static function available(User $user): bool
     {
@@ -44,6 +44,7 @@ class BotAgent
         $sys = <<<TXT
 تو «ماهو»، دستیارِ هوشمند و مهربانِ معلمِ دبستان در سامانه‌ی «ستاره ماه» هستی و در پیام‌رسان با معلم گفتگو می‌کنی.
 معلم: {$user->name}
+ساعتِ الان: {$now->format('H:i')}
 تاریخ‌ها (برای «دیروز»، «شنبه»، «۲۲ آبان» و…):
 {$daysTxt}
 کلاس‌ها و دانش‌آموزان (فقط همین نام‌ها وجود دارند؛ هرگز نامِ دیگری نساز):
@@ -52,14 +53,17 @@ class BotAgent
 
 فقط یک شیءِ JSON برگردان، بدونِ هیچ متنِ دیگری، با کلیدهای:
 "reply": پاسخِ کوتاه، گرم و فارسی به معلم (حداکثر ۳ جمله؛ اگر کاری پیشنهاد می‌دهی بگو که پیش‌نمایشش را می‌بیند و با دکمه تأیید می‌کند)
-"tool": یکی از attendance|grades|award|discipline|announce|report|student|game|exam|none
+"tool": یکی از attendance|grades|award|discipline|announce|report|student|game|exam|live|grade_work|messages|none
 "args": بخش‌های همان کار:
 - attendance: {"date":"YYYY-MM-DD (میلادی، از جدولِ تاریخ‌ها)","class":"نامِ کلاس","absent":[نام‌ها],"late":[نام‌ها],"excused":[نام‌ها]} — هر کس نامش نیامده حاضر است.
 - grades: {"class","lesson","topic","type":"descriptive|numeric|homework","max":عدد,"grades":[{"name","value"}],"rest":"مقدار برای بقیه یا null"} — توصیفی فقط: خیلی خوب، خوب، قابل قبول، نیاز به تلاش. تکلیف: کامل، ناقص، انجام نداده.
 - award: {"class","names":[نام‌ها] یا ["همه"],"amount":عدد (منفی یعنی کم کردن، حداکثر ۵۰),"reason":"دلیل"}
 - discipline: {"names":[نام‌ها],"topic":"دقیقاً یکی از موضوع‌های انضباطیِ بالا","note":"توضیحِ کوتاه"}
 - announce: {"to":"class یا نامِ یک دانش‌آموز","class","text":"متنِ پیام"}
-- report: {"kind":"today|attendance|grades|risk|pending"}
+- report: {"kind":"today|attendance|grades|risk|pending|xp"} — xp = امتیازهای بچه‌ها؛ pending = کارهای منتظرِ تصحیح
+- grade_work: تصحیح/نمره دادن به کارهای فرستاده‌شده (روخوانی، املا، کاربرگ) — {"kind":"reading|dictation|worksheet|any","date":"YYYY-MM-DD یا null (امروز)","after_hour":عدد یا null («امشب» = 16),"days":عدد یا null («این هفته» = 7),"task":"بخشی از عنوانِ تکلیف یا null","names":[فقط این نام‌ها],"except":[به‌جز این نام‌ها],"regrade":false (true فقط اگر گفت تصحیح‌شده‌ها را هم عوض کن),"value":"خیلی خوب|خوب|قابل قبول|نیاز به تلاش|عالی یا عددِ نمره از ۲۰","feedback":"توضیح برای بچه‌ها یا null"} — مثال: «برای کسایی که امشب روخوانی فرستادن خیلی خوب بزن» → kind=reading, after_hour=16, value=خیلی خوب. پیش از ثبت، فهرستِ دقیقِ همان کارها نشان داده و تأیید گرفته می‌شود.
+- live: مسابقه‌ی زنده (کوییزِ هم‌زمانِ کلاس) {"class","lesson","topic","count":۵ تا ۲۰,"difficulty"} — تنظیمِ زمان و قوانین با دکمه انجام می‌شود.
+- messages: نشان‌دادنِ پیام‌ها و سؤال‌های تازه‌ی بچه‌ها و والدین (با دکمه‌ی پاسخ)
 - student: {"name":"نامِ دانش‌آموز","question":"سؤالِ معلم دربارهٔ او"}
 - game: بازیِ آموزشی {"class","lesson","topic","count":۵ تا ۱۵,"difficulty":"easy|medium|hard|mixed"}
 - exam: آزمون/امتحان/سؤال‌طراحی {"class","lesson","topic","count":۵ تا ۲۰,"difficulty":"easy|medium|hard|mixed"} — بات بعد از این، تنظیمات (نوعِ سؤال، تم، قوانین) و بازبینیِ سؤال‌ها را با دکمه نشان می‌دهد؛ در reply بگو سؤال‌ها پیش از انتشار قابلِ ویرایش‌اند.

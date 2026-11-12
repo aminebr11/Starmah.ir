@@ -49,6 +49,38 @@ class BotApi
     }
 
     /** دکمه‌ها: [[['text'=>..,'data'=>..] | ['text'=>..,'url'=>..], ...], ...] */
+    /**
+     * فرستادنِ فایل (صدا، عکس، PDF) به‌صورتِ بارگذاری — فایل‌های سایت پشتِ ورود هستند و
+     * سرورِ پیام‌رسان نمی‌تواند خودش آن‌ها را از نشانی بردارد.
+     */
+    public function upload(string $method, string|int $chat, string $field, string $bytes, string $filename, array $params = []): array
+    {
+        if (self::$fake !== null) {
+            self::$fake[] = ['platform' => $this->platform, 'method' => $method, 'params' => $params + ['chat_id' => $chat, $field => $filename, '_bytes' => strlen($bytes)]];
+
+            return ['ok' => true, 'result' => ['message_id' => count(self::$fake)]];
+        }
+        $token = BotConfig::token($this->platform);
+        if ($token === '') {
+            return ['ok' => false, 'description' => 'توکنِ بات تنظیم نشده است.'];
+        }
+        try {
+            $req = Http::timeout(120)->connectTimeout(8)->acceptJson()->attach($field, $bytes, $filename);
+            if ($this->platform === 'telegram' && ($k = (string) BotConfig::get('telegram_relay_key', '')) !== '') {
+                $req = $req->withHeaders(['X-Relay-Key' => $k]);
+            }
+            $fields = ['chat_id' => (string) $chat];
+            foreach ($params as $k => $v) {
+                $fields[$k] = is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : (string) $v;
+            }
+            $json = $req->post(BotConfig::apiBase($this->platform) . '/bot' . $token . '/' . $method, $fields)->json();
+
+            return is_array($json) ? $json : ['ok' => false, 'description' => 'پاسخِ نامعتبر'];
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'description' => 'ارسالِ فایل نشد: ' . mb_substr(str_replace($token, '***', $e->getMessage()), 0, 160)];
+        }
+    }
+
     public static function keyboard(array $rows): array
     {
         return ['inline_keyboard' => array_values(array_map(fn ($row) => array_values(array_map(

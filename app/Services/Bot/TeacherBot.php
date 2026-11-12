@@ -152,7 +152,9 @@ class TeacherBot
         . "📋 «دیروز رضا غایب بود»\n"
         . "📝 «یک آزمونِ ۱۰ سؤالی از کسرها بساز»\n"
         . "📎 عکسِ برگه‌ی نمونه‌سؤال یا صفحه‌ی کتاب (یا PDF) را بفرست تا همان سؤال‌ها، سؤالِ مشابه یا سؤال از روی متن بسازم\n"
-        . "🗄 بانکِ سؤال و 👥 فهرستِ دانش‌آموزان هم در منو هست؛ 🔔 اعلان‌های سایت همان لحظه این‌جا می‌آید\n\n🎙️ می‌توانی پیامِ صوتی هم بفرستی. یا از دکمه‌های منو استفاده کن.";
+        . "✍️ «برای کسایی که امشب روخوانی فرستادن خیلی خوب بزن» · «املای دیروز همه قابل قبول جز رضا»\n"
+        . "🏆 «یک مسابقه‌ی زنده‌ی ۱۰ سؤالی از کسرها برای ساعت ۸ شب بساز»\n"
+        . "🗄 بانکِ سؤال، 👥 دانش‌آموزان، ✍️ صفِ تصحیح، 📨 پیام‌ها و ⭐ امتیازها هم در منو هست؛ 🔔 اعلان‌های سایت همان لحظه این‌جا می‌آید\n\n🎙️ می‌توانی پیامِ صوتی هم بفرستی. یا از دکمه‌های منو استفاده کن.";
 
     /* ═════════════════════════ منو ═════════════════════════ */
 
@@ -162,7 +164,9 @@ class TeacherBot
             [['text' => '📋 حضور و غیاب', 'data' => 'm:att'], ['text' => '🌅 گزارشِ امروز', 'data' => 'r:today']],
             [['text' => '📔 ثبتِ نمره', 'data' => 'm:grade'], ['text' => '📢 اطلاعیه', 'data' => 'm:ann']],
             [['text' => '📝 ساختِ آزمون', 'data' => 'q:new:exam'], ['text' => '🎮 ساختِ بازی', 'data' => 'q:new:game']],
+            [['text' => '🏆 مسابقه‌ی زنده', 'data' => 'q:new:live'], ['text' => '✍️ تصحیح', 'data' => 'g:home']],
             [['text' => '🗄 بانکِ سؤال', 'data' => 'q:bank'], ['text' => '👥 دانش‌آموزان', 'data' => 'm:stl']],
+            [['text' => '📨 پیام‌ها', 'data' => 'm:msg'], ['text' => '⭐ امتیازها', 'data' => 'r:xp']],
             [['text' => '📊 گزارش‌ها', 'data' => 'm:rep'], ['text' => '⚙️ تنظیمات', 'data' => 'm:set']],
         ];
     }
@@ -180,6 +184,20 @@ class TeacherBot
         $n = P::norm($text);
         // در انتظارِ ویرایشِ سؤال / عنوان / موضوعِ استودیوی سؤال؟
         if ($this->quiz($chat)->onText($user, $text)) {
+            return;
+        }
+        // نمره با توضیح (صفِ تصحیح)؟
+        if ($this->grading($chat)->onText($user, $text)) {
+            return;
+        }
+        // پاسخ به پیامِ دانش‌آموز/والدین؟
+        if ($mw = Cache::pull($this->key('mwait'))) {
+            if (! preg_match('/^\/?(لغو|cancel)$/u', $n)) {
+                $this->replyMessage($chat, $user, (int) $mw, $text);
+            } else {
+                $this->api->send($chat, '👌 باشد.');
+            }
+
             return;
         }
         // در انتظارِ نامِ دانش‌آموز برای گزارش؟
@@ -204,8 +222,8 @@ class TeacherBot
 
             return;
         }
-        if (preg_match('/(منتظر\s*تصحیح|تصحیح\s*نشده|کارهای\s*مانده)/u', $n)) {
-            $this->api->send($chat, $this->reports($user)->pending(), $this->reportRows());
+        if (preg_match('/(منتظر\s*تصحیح|تصحیح\s*نشده|کارهای\s*مانده|^تصحیح$)/u', $n)) {
+            $this->grading($chat)->home($user);
 
             return;
         }
@@ -223,6 +241,12 @@ class TeacherBot
         // 🧠 گفتگوی آزاد با هوش مصنوعیِ سایت (اگر برای مدرسه روشن است)
         if (BotAgent::available($user)) {
             $this->agent($chat, $user, $text);
+
+            return;
+        }
+        // بدونِ هوش مصنوعی: «برای کسایی که امشب روخوانی فرستادن خیلی خوب بزن»
+        if ($b = BotGrading::looksBulk($text)) {
+            $this->grading($chat)->bulk($user, $b);
 
             return;
         }
@@ -253,7 +277,9 @@ class TeacherBot
         $this->remember('u', $text);
         if (! $d['ok']) {
             // هوش مصنوعی در دسترس نیست → فهمِ قاعده‌محور (بدونِ هوش مصنوعی)
-            if (P::looksGrades($text)) {
+            if ($b = BotGrading::looksBulk($text)) {
+                $this->grading($chat)->bulk($user, $b);
+            } elseif (P::looksGrades($text)) {
                 $this->prepare($chat, $user, 'grades', ['text' => $text]);
             } elseif (P::looksAttendance($text)) {
                 $this->prepare($chat, $user, 'attendance', ['text' => $text]);
@@ -304,8 +330,15 @@ class TeacherBot
             case 'student':
                 $this->studentReport($chat, $user, (string) ($a['name'] ?? ''), (string) ($a['question'] ?? $text));
                 break;
+            case 'grade_work':
+                $this->grading($chat)->bulk($user, $a);
+                break;
+            case 'messages':
+                $this->inbox($chat, $user, 0);
+                break;
             case 'game':
             case 'exam':
+            case 'live':
                 $this->quiz($chat)->start($user, ['kind' => $d['tool'], 'lesson' => (string) ($a['lesson'] ?? ''), 'topic' => (string) ($a['topic'] ?? ''),
                     'count' => (int) ($a['count'] ?? 8), 'difficulty' => (string) ($a['difficulty'] ?? 'medium')] + $extra);
                 break;
@@ -365,6 +398,20 @@ class TeacherBot
         switch ($kind) {
             case 'm':
                 $this->submenu($chat, $user, (string) $a, $msgId);
+
+                return;
+            case 'g':    // ✍️ تصحیح
+                $this->grading($chat)->onButton($user, $data, $msgId);
+
+                return;
+            case 'msg':  // 📨 پیام‌ها: msg:r:فرستنده (پاسخ) · msg:k:فرستنده (خواندم)
+                if ($a === 'r') {
+                    Cache::put($this->key('mwait'), (int) $b, now()->addMinutes(30));
+                    $this->api->send($chat, '✍️ پاسخت را بنویس (برای انصراف «لغو»):');
+                } else {
+                    \App\Models\Message::where('recipient_id', $user->id)->where('sender_id', (int) $b)->whereNull('read_at')->update(['read_at' => now()]);
+                    $this->inbox($chat, $user, $msgId);
+                }
 
                 return;
             case 'q':    // استودیوی سؤال، آزمون و بازی
@@ -466,6 +513,9 @@ class TeacherBot
             case 'rep':
                 $this->api->edit($chat, $msgId, '📊 کدام گزارش؟', $this->reportRows());
                 break;
+            case 'msg':
+                $this->inbox($chat, $user, $msgId);
+                break;
             case 'stl':   // 👥 فهرستِ دانش‌آموزان
                 $classes = $this->classes($user);
                 if ($classes->count() === 1) {
@@ -514,7 +564,8 @@ class TeacherBot
         return [
             [['text' => '🌅 امروز', 'data' => 'r:today'], ['text' => '📋 حضورِ این هفته', 'data' => 'r:attendance']],
             [['text' => '📔 نمره‌های اخیر', 'data' => 'r:grades'], ['text' => '⚠️ نیازمندِ توجه', 'data' => 'r:risk']],
-            [['text' => '⏳ منتظرِ تصحیح', 'data' => 'r:pending'], ['text' => '👤 یک دانش‌آموز', 'data' => 'm:stu']],
+            [['text' => '✍️ منتظرِ تصحیح', 'data' => 'g:home'], ['text' => '👤 یک دانش‌آموز', 'data' => 'm:stu']],
+            [['text' => '⭐ امتیازها', 'data' => 'r:xp'], ['text' => '📨 پیام‌ها', 'data' => 'm:msg']],
             [['text' => '↩️ منو', 'data' => 'm:main']],
         ];
     }
@@ -526,9 +577,15 @@ class TeacherBot
             'attendance' => $r->attendanceWeek(),
             'grades' => $r->recentGrades(),
             'risk' => $r->risk(),
-            'pending' => $r->pending(),
+            'pending' => null,
+            'xp' => $r->xp(),
             default => $r->today(),
         };
+        if ($text === null) {
+            $this->grading($chat)->home($user);
+
+            return;
+        }
         $this->api->send($chat, $text, $this->reportRows());
     }
 
@@ -1015,6 +1072,16 @@ class TeacherBot
             $x->questions()->delete();
             $x->targets()->delete();
             $x->delete();
+        } elseif ($log->action === 'grading') {
+            $this->grading($chat)->undo($user, (array) ($u['items'] ?? []));
+        } elseif ($log->action === 'live' && ($lc = \App\Models\LiveContest::withoutGlobalScopes()->where('teacher_id', $user->id)->find($u['live'] ?? 0))) {
+            if ($lc->players()->exists()) {
+                $this->api->send($chat, '⛔ بچه‌ها واردِ این مسابقه شده‌اند؛ از «⏹ پایان» استفاده کن.');
+
+                return;
+            }
+            \App\Models\Announcement::withoutGlobalScopes()->where('link', route('live.play', $lc->id, false))->delete();
+            $lc->delete();
         } elseif ($log->action === 'announce') {
             Announcement::withoutGlobalScopes()->where('id', $u['announcement'] ?? 0)->where('sender_id', $user->id)->delete();
         }
@@ -1118,6 +1185,49 @@ class TeacherBot
         }
 
         return collect($all);
+    }
+
+    private function grading(string $chat): BotGrading
+    {
+        return new BotGrading($this, $this->api, $this->platform, $chat);
+    }
+
+    /** 📨 پیام‌های خوانده‌نشده (سؤال‌های بچه‌ها و والدین) با دکمه‌ی پاسخ. */
+    private function inbox(string $chat, User $user, int $msgId): void
+    {
+        $msgs = \App\Models\Message::where('recipient_id', $user->id)->whereNull('read_at')->with('sender:id,name')->latest()->limit(40)->get();
+        if ($msgs->isEmpty()) {
+            $t = '📨 پیامِ خوانده‌نشده‌ای نداری.';
+            $rows = [[['text' => '🏠 منو', 'data' => 'm:main']]];
+            $msgId ? $this->api->edit($chat, $msgId, $t, $rows) : $this->api->send($chat, $t, $rows);
+
+            return;
+        }
+        $L = ['📨 پیام‌های تازه', ''];
+        $rows = [];
+        foreach ($msgs->groupBy('sender_id')->take(8) as $sid => $g) {
+            $name = $g->first()->sender?->name ?? 'کاربر';
+            $L[] = '👤 ' . $name . ($g->count() > 1 ? ' (' . Jalali::fa((string) $g->count()) . ' پیام)' : '');
+            foreach ($g->sortBy('id')->take(3) as $m) {
+                $L[] = '   💬 ' . Str::limit((string) $m->body, 220) . ' · ' . Jalali::fa($m->created_at?->format('H:i') ?? '');
+            }
+            $rows[] = [['text' => '↩️ پاسخ به ' . Str::limit($name, 18), 'data' => 'msg:r:' . $sid], ['text' => '✔️ خواندم', 'data' => 'msg:k:' . $sid]];
+        }
+        $rows[] = [['text' => '🏠 منو', 'data' => 'm:main']];
+        $msgId ? $this->api->edit($chat, $msgId, Str::limit(implode("\n", $L), 4000), $rows) : $this->api->send($chat, Str::limit(implode("\n", $L), 4000), $rows);
+    }
+
+    private function replyMessage(string $chat, User $user, int $to, string $text): void
+    {
+        try {
+            $this->callSite($user, \App\Http\Controllers\MessageController::class, 'store', ['recipient_id' => $to, 'body' => Str::limit($text, 1990, '')]);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException|ValidationException $e) {
+            $this->api->send($chat, '⛔ به این کاربر نمی‌شود پیام داد.');
+
+            return;
+        }
+        \App\Models\Message::where('recipient_id', $user->id)->where('sender_id', $to)->whereNull('read_at')->update(['read_at' => now()]);
+        $this->api->send($chat, '✅ پاسخ فرستاده شد.', [[['text' => '📨 پیام‌های دیگر', 'data' => 'm:msg'], ['text' => '🏠 منو', 'data' => 'm:main']]]);
     }
 
     private function quiz(string $chat): BotQuiz

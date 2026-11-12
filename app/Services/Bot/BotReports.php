@@ -112,7 +112,35 @@ class BotReports
             }
         }
         $L[] = '';
-        $L[] = '(تصحیح از داخلِ بات در فازِ بعد اضافه می‌شود؛ فعلاً پیوند را باز کن.)';
+        $L[] = '✍️ از «صفِ تصحیح» همین‌جا تصحیح کن.';
+
+        return implode("\n", $L);
+    }
+
+    /** ⭐ امتیازهای این هفته و کل، برای هر کلاس (بیشترین‌ها و کمترین‌ها). */
+    public function xp(): string
+    {
+        $from = now()->startOfWeek(\Carbon\CarbonInterface::SATURDAY);
+        $L = ['⭐ امتیازها (این هفته از شنبه · کل)'];
+        foreach ($this->classes as $c) {
+            $ids = $c->students()->pluck('users.id');
+            if ($ids->isEmpty()) {
+                continue;
+            }
+            $week = \App\Models\XpEntry::whereIn('student_id', $ids)->where('created_at', '>=', $from)->groupBy('student_id')->selectRaw('student_id, SUM(amount) as s')->pluck('s', 'student_id');
+            $all = \App\Models\XpEntry::whereIn('student_id', $ids)->groupBy('student_id')->selectRaw('student_id, SUM(amount) as s')->pluck('s', 'student_id');
+            $names = $c->students()->pluck('name', 'users.id');
+            $rows = $ids->map(fn ($id) => [$names[$id] ?? '—', (int) ($week[$id] ?? 0), (int) ($all[$id] ?? 0)])->sortByDesc(fn ($r) => $r[1] * 100000 + $r[2])->values();
+            $L[] = '';
+            $L[] = '🏫 ' . $c->name;
+            foreach ($rows->take(10) as $k => $r) {
+                $L[] = (['🥇', '🥈', '🥉'][$k] ?? self::fa($k + 1) . '.') . ' ' . $r[0] . ' — ' . self::fa($r[1]) . ' · ' . self::fa($r[2]);
+            }
+            $low = $rows->slice(10)->filter(fn ($r) => $r[1] === 0);
+            if ($low->isNotEmpty()) {
+                $L[] = '😶 این هفته بی‌امتیاز: ' . $low->take(8)->pluck(0)->implode('، ');
+            }
+        }
 
         return implode("\n", $L);
     }

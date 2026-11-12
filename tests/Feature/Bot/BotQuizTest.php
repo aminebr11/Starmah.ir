@@ -140,7 +140,7 @@ class BotQuizTest extends TestCase
         $this->assertSame(['ph1', 'ph2'], array_column($this->quizState()['src'], 'fid'));
         // اول می‌پرسد: آزمون یا بازی؟ (فقط یک بار برای کلِ آلبوم)
         $this->assertTrue($this->has('q:kind:exam') && $this->has('q:kind:game'));
-        $this->assertSame(1, collect(BotApi::$fake)->filter(fn ($c) => str_contains((string) ($c['params']['text'] ?? ''), 'آزمون» بسازم یا «بازی'))->count());
+        $this->assertSame(1, collect(BotApi::$fake)->filter(fn ($c) => str_contains((string) ($c['params']['text'] ?? ''), 'از آن «آزمون» بسازم'))->count());
 
         $this->press('q:kind:exam');               // بعد: با برگه چه کنم؟
         $this->assertTrue($this->has('q:mode:same'));
