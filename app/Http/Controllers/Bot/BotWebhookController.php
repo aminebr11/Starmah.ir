@@ -27,8 +27,13 @@ class BotWebhookController extends Controller
         if ($id !== '' && ! \Illuminate\Support\Facades\Cache::add('bot-upd:' . $platform . ':' . $id, 1, 600)) {
             return response()->json(['ok' => true]);
         }
-        @set_time_limit(60);
-        (new TeacherBot($platform))->handle($request->all());
+        // پاسخِ ۲۰۰ بی‌درنگ به پیام‌رسان؛ کارِ اصلی (هوش مصنوعی، ساختِ بازی…) بعد از ارسالِ پاسخ
+        // انجام می‌شود تا پیام‌رسان از دیر شدن، همان پیام را دوباره نفرستد.
+        $update = $request->all();
+        \Illuminate\Support\defer(function () use ($platform, $update) {
+            @set_time_limit(180);
+            (new TeacherBot($platform))->handle($update);
+        });
 
         return response()->json(['ok' => true]);
     }

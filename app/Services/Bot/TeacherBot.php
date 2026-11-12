@@ -99,7 +99,7 @@ class TeacherBot
             } elseif ($text !== '') {
                 $this->onText($chat, $user, $text);
             } elseif (isset($msg['voice']) || isset($msg['audio'])) {
-                $this->api->send($chat, '🎙️ پیامِ صوتی در فازِ بعد اضافه می‌شود؛ فعلاً بنویس. «منو» را بزن تا کارها را ببینی.', $this->mainRows());
+                $this->onVoice($chat, $user, $msg['voice'] ?? $msg['audio']);
             } else {
                 $this->menu($chat, $user);
             }
@@ -143,7 +143,10 @@ class TeacherBot
         . "📔 «نمره علوم از ۱۰: سارا ۹، مریم ۷.۵»\n"
         . "📢 «اطلاعیه: فردا کتابِ علوم بیاورید»\n"
         . "📢 «به سارا بگو دفترش را بیاورد»\n"
-        . "👤 «گزارشِ سارا»\n\nیا از دکمه‌های منو استفاده کن.";
+        . "⭐ «به علی و سارا ۱۰ امتیاز بده به‌خاطرِ همکاری»\n"
+        . "🎮 «یک بازیِ ۸ سؤالی از کسرها بساز»\n"
+        . "👤 «سارا توی ریاضی چطوره؟»\n"
+        . "📋 «دیروز رضا غایب بود»\n\n🎙️ می‌توانی پیامِ صوتی هم بفرستی. یا از دکمه‌های منو استفاده کن.";
 
     /* ═════════════════════════ منو ═════════════════════════ */
 
@@ -205,6 +208,12 @@ class TeacherBot
 
             return;
         }
+        // 🧠 گفتگوی آزاد با هوش مصنوعیِ سایت (اگر برای مدرسه روشن است)
+        if (BotAgent::available($user)) {
+            $this->agent($chat, $user, $text);
+
+            return;
+        }
         if (P::looksGrades($text)) {
             $this->prepare($chat, $user, 'grades', ['text' => $text]);
 
@@ -215,60 +224,104 @@ class TeacherBot
 
             return;
         }
-        $this->viaAi($chat, $user, $text);
+        $this->api->send($chat, "🤔 منظورت را دقیق نفهمیدم.\n\n" . self::HELP, $this->mainRows());
     }
 
-    /**
-     * دستورِ آزاد → هوش مصنوعی فقط «نوعِ کار» و بخش‌هایش را برمی‌گرداند؛ نام‌ها باز با فهرستِ کلاس تطبیق داده
-     * می‌شوند و همان پیش‌نمایش/تأیید می‌آید. هوش مصنوعی هیچ‌وقت مستقیم چیزی ثبت نمی‌کند.
-     */
-    private function viaAi(string $chat, User $user, string $text): void
+    /* ═════════════════════════ دستیارِ گفتگویی ═════════════════════════ */
+
+    private function agent(string $chat, User $user, string $text): void
     {
+        $this->api->call('sendChatAction', ['chat_id' => $chat, 'action' => 'typing'], 4);
         $classes = $this->classes($user);
-        $sys = 'تو تجزیه‌گرِ دستورِ معلمِ دبستان هستی. فقط یک شیءِ JSON برگردان، بدونِ توضیح. کلیدها: '
-            . '"action": یکی از attendance|grades|announce|report|student|help ؛ '
-            . '"class": نامِ کلاس اگر گفته شد ؛ "absent","late","excused": آرایه‌ی نام‌ها ؛ '
-            . '"lesson","topic","type"(numeric|descriptive|homework),"max", "grades": [{"name","value"}], "rest": مقدار برای بقیه ؛ '
-            . '"to": "class" یا نامِ دانش‌آموز ، "text": متنِ اطلاعیه ؛ "report": today|attendance|grades|risk|pending ؛ "student": نام. '
-            . 'ارزیابی‌های توصیفی فقط: خیلی خوب، خوب، قابل قبول، نیاز به تلاش. تکلیف: کامل، ناقص، انجام نداده. '
-            . 'کلاس‌ها: ' . $classes->pluck('name')->implode('، ');
-        \App\Support\AiUsage::$feature = 'bot';
-        $r = \App\Support\AiConfig::provider() !== 'off' ? \App\Support\AiChat::send($sys, $text, 600, null, 25) : ['ok' => false];
-        $j = $r['ok'] && preg_match('/\{.*\}/su', $r['text'], $m) ? json_decode($m[0], true) : null;
-        if (! is_array($j) || empty($j['action']) || $j['action'] === 'help') {
-            $this->api->send($chat, "🤔 منظورت را دقیق نفهمیدم.\n\n" . self::HELP, $this->mainRows());
+        $ctx = $classes->map(fn ($c) => ['name' => $c->name, 'students' => array_values($this->roster($c)),
+            'subjects' => collect(rescue(fn () => $c->subjectNames(), [], false))->pluck('name')->all()])->values()->all();
+        $topics = rescue(fn () => \App\Models\DisciplineTopic::where('school_id', $user->school_id)->where('is_active', true)->get(['id', 'name', 'kind', 'points'])->toArray(), [], false);
+        $history = Cache::get($this->key('conv'), []);
+        $d = BotAgent::decide($user, $ctx, $topics, $history, $text);
+        $this->remember('u', $text);
+        if (! $d['ok']) {
+            // هوش مصنوعی در دسترس نیست → فهمِ قاعده‌محور (بدونِ هوش مصنوعی)
+            if (P::looksGrades($text)) {
+                $this->prepare($chat, $user, 'grades', ['text' => $text]);
+            } elseif (P::looksAttendance($text)) {
+                $this->prepare($chat, $user, 'attendance', ['text' => $text]);
+            } else {
+                $this->api->send($chat, '⚠️ ' . $d['reply'] . "\n\n" . self::HELP, $this->mainRows());
+            }
 
             return;
         }
-        $cls = ! empty($j['class']) ? $classes->first(fn ($c) => P::has($j['class'], $c->name) || P::has($c->name, $j['class'])) : null;
+        $a = $d['args'];
+        $reply = $d['reply'];
+        $cls = ! empty($a['class']) ? $classes->first(fn ($c) => P::has((string) $a['class'], $c->name) || P::has($c->name, (string) $a['class'])) : null;
         $extra = $cls ? ['class' => $cls->id] : [];
-        switch ($j['action']) {
+        if ($reply !== '' && $d['tool'] !== 'student') {
+            $this->api->send($chat, $reply, $d['tool'] === 'none' ? $this->mainRows() : []);
+            $this->remember('a', $reply);
+        }
+        switch ($d['tool']) {
             case 'attendance':
                 $parts = [];
                 foreach (['absent' => 'غایب', 'late' => 'تأخیر', 'excused' => 'موجه'] as $k => $w) {
-                    if (! empty($j[$k])) {
-                        $parts[] = $w . ': ' . implode('، ', (array) $j[$k]);
+                    if (! empty($a[$k])) {
+                        $parts[] = $w . ': ' . implode('، ', (array) $a[$k]);
                     }
                 }
-                $this->prepare($chat, $user, 'attendance', ['text' => $parts ? implode("\n", $parts) : 'همه حاضر'] + $extra);
+                $this->prepare($chat, $user, 'attendance', ['text' => $parts ? implode("\n", $parts) : 'همه حاضر', 'date' => (string) ($a['date'] ?? '')] + $extra);
                 break;
             case 'grades':
-                $head = trim(implode(' ', array_filter([$j['lesson'] ?? '', $j['topic'] ?? '', ['numeric' => 'عددی', 'descriptive' => 'توصیفی', 'homework' => 'تکلیف'][$j['type'] ?? ''] ?? '', ! empty($j['max']) ? 'از ' . $j['max'] : ''])));
-                $items = array_map(fn ($g) => ($g['name'] ?? '') . ' ' . ($g['value'] ?? ''), (array) ($j['grades'] ?? []));
-                if (! empty($j['rest'])) {
-                    $items[] = 'بقیه ' . $j['rest'];
+                $head = trim(implode(' ', array_filter([$a['lesson'] ?? '', $a['topic'] ?? '', ['numeric' => 'عددی', 'descriptive' => 'توصیفی', 'homework' => 'تکلیف'][$a['type'] ?? ''] ?? '', ! empty($a['max']) ? 'از ' . $a['max'] : ''])));
+                $items = array_map(fn ($g) => ($g['name'] ?? '') . ' ' . ($g['value'] ?? ''), array_filter((array) ($a['grades'] ?? []), 'is_array'));
+                if (! empty($a['rest'])) {
+                    $items[] = 'بقیه ' . $a['rest'];
                 }
                 $this->prepare($chat, $user, 'grades', ['text' => ($head ?: 'نمره') . ': ' . implode('، ', $items)] + $extra);
                 break;
+            case 'award':
+                $this->prepare($chat, $user, 'award', ['names' => (array) ($a['names'] ?? []), 'amount' => (int) ($a['amount'] ?? 0), 'reason' => (string) ($a['reason'] ?? '')] + $extra);
+                break;
+            case 'discipline':
+                $this->prepare($chat, $user, 'discipline', ['names' => (array) ($a['names'] ?? []), 'topic' => (string) ($a['topic'] ?? ''), 'note' => (string) ($a['note'] ?? ''), 'class' => 0]);
+                break;
             case 'announce':
-                $this->prepare($chat, $user, 'announce', ['to' => $j['to'] ?? 'class', 'text' => (string) ($j['text'] ?? '')] + $extra);
+                $this->prepare($chat, $user, 'announce', ['to' => (string) ($a['to'] ?? 'class'), 'text' => (string) ($a['text'] ?? '')] + $extra);
+                break;
+            case 'report':
+                $this->report($chat, $user, (string) ($a['kind'] ?? 'today'));
                 break;
             case 'student':
-                $this->studentReport($chat, $user, (string) ($j['student'] ?? ''));
+                $this->studentReport($chat, $user, (string) ($a['name'] ?? ''), (string) ($a['question'] ?? $text));
+                break;
+            case 'game':
+                $this->prepare($chat, $user, 'game', ['lesson' => (string) ($a['lesson'] ?? ''), 'topic' => (string) ($a['topic'] ?? ''),
+                    'count' => (int) ($a['count'] ?? 8), 'difficulty' => (string) ($a['difficulty'] ?? 'medium'), 'publish' => (bool) ($a['publish'] ?? false)] + $extra);
                 break;
             default:
-                $this->report($chat, $user, (string) ($j['report'] ?? 'today'));
+                if ($reply === '') {
+                    $this->api->send($chat, self::HELP, $this->mainRows());
+                }
         }
+    }
+
+    /** حافظه‌ی کوتاهِ گفتگو (۱۰ پیامِ آخر، ۲ ساعت). */
+    private function remember(string $who, string $text): void
+    {
+        $h = Cache::get($this->key('conv'), []);
+        $h[] = [$who, Str::limit($text, 400)];
+        Cache::put($this->key('conv'), array_slice($h, -10), now()->addHours(2));
+    }
+
+    private function onVoice(string $chat, User $user, array $voice): void
+    {
+        $this->api->call('sendChatAction', ['chat_id' => $chat, 'action' => 'typing'], 4);
+        $r = BotVoice::fromMessage($this->platform, $voice);
+        if (! $r['ok']) {
+            $this->api->send($chat, '🎙️ ' . $r['error'], $this->mainRows());
+
+            return;
+        }
+        $this->api->send($chat, '🎙️ شنیدم: «' . Str::limit($r['text'], 600) . '»');
+        $this->onText($chat, $user, $r['text']);
     }
 
     /* ═════════════════════════ دکمه‌ها ═════════════════════════ */
@@ -285,7 +338,8 @@ class TeacherBot
                 $this->report($chat, $user, (string) $a);
 
                 return;
-            case 'ok':   // تأییدِ کارِ آماده
+            case 'ok':   // تأییدِ کارِ آماده (ok:توکن[:pub])
+                $this->confirmFlag = (string) $b;
                 $this->confirm($chat, $user, (string) $a, $msgId);
 
                 return;
@@ -405,13 +459,31 @@ class TeacherBot
         $this->api->send($chat, $text, $this->reportRows());
     }
 
-    private function studentReport(string $chat, User $user, string $name): void
+    private function studentReport(string $chat, User $user, string $name, string $question = ''): void
     {
         $roster = $this->rosterAll($user)->all();
         $r = P::namesIn($name, $roster);
         $cands = $r['ids'] ?: collect($r['ambiguous'])->flatten()->map(fn ($n) => array_search($n, $roster, true))->filter()->values()->all();
         if (count($cands) === 1) {
-            $this->api->send($chat, $this->reports($user)->student(User::find($cands[0])), $this->reportRows());
+            $s = User::find($cands[0]);
+            $facts = $this->reports($user)->student($s);
+            // سؤالِ مشخص («توی ریاضی چطوره؟») → پاسخِ طبیعی از روی داده‌های واقعی
+            if ($question !== '' && BotAgent::available($user)) {
+                $more = rescue(function () use ($s) {
+                    $ins = app(\App\Support\StudentInsight::class);
+                    $p = $ins->profile($s);
+
+                    return $ins->asText($p, $ins->analysis($p));
+                }, '', false);
+                $ans = BotAgent::answerAboutStudent($question, $facts . "\n\n" . Str::limit((string) $more, 3000));
+                if ($ans) {
+                    $this->remember('a', $ans);
+                    $this->api->send($chat, '👤 ' . $s->name . "\n\n" . $ans, [[['text' => '📄 گزارشِ کامل', 'data' => 'stu:' . $s->id], ['text' => '🏠 منو', 'data' => 'm:main']]]);
+
+                    return;
+                }
+            }
+            $this->api->send($chat, $facts, $this->reportRows());
         } elseif ($cands) {
             $this->api->send($chat, 'کدام یک؟', array_map(fn ($id) => [['text' => '👤 ' . $roster[$id], 'data' => 'stu:' . $id]], array_slice($cands, 0, 8)));
         } else {
@@ -461,8 +533,9 @@ class TeacherBot
                 $params['class'] = $hit->first()->id;
             }
         }
-        // اطلاعیه برای یک دانش‌آموز: کلاس از خودِ دانش‌آموز معلوم می‌شود
-        if ($action === 'announce' && ($params['to'] ?? 'class') !== 'class') {
+        // اطلاعیه برای یک دانش‌آموز / انضباط / امتیاز به نام‌های مشخص: کلاس از خودِ دانش‌آموزان معلوم می‌شود
+        if (($action === 'announce' && ($params['to'] ?? 'class') !== 'class') || $action === 'discipline'
+            || ($action === 'award' && ! in_array('همه', (array) ($params['names'] ?? []), true) && ! empty($params['names']))) {
             $params['class'] = $params['class'] ?? 0;
         } elseif (empty($params['class'])) {
             if ($classes->count() === 1) {
@@ -487,6 +560,9 @@ class TeacherBot
             'attendance' => $this->previewAttendance($class, $params),
             'grades' => $this->previewGrades($class, $params),
             'announce' => $this->previewAnnounce($user, $class, $params),
+            'award' => $this->previewAward($user, $class, $params),
+            'discipline' => $this->previewDiscipline($user, $params),
+            'game' => $this->previewGame($chat, $user, $class, $params),
         };
         if ($payload === null) {
             $edit ? $this->api->edit($chat, $edit, $text, $this->mainRows()) : $this->api->send($chat, $text, $this->mainRows());
@@ -495,8 +571,11 @@ class TeacherBot
         }
         $tok = $this->put(['action' => $action, 'payload' => $payload, 'class' => $class?->id]);
         $rows = [[['text' => '✅ تأیید و ثبت', 'data' => 'ok:' . $tok], ['text' => '❌ لغو', 'data' => 'no:' . $tok]]];
-        if ($action === 'attendance') {
+        if ($action === 'attendance' && ($payload['date'] ?? now()->toDateString()) === now()->toDateString()) {
             $rows[] = [['text' => '✏️ ویرایش با دکمه‌ها', 'data' => 'bd:' . $class->id]];
+        }
+        if ($action === 'game') {
+            $rows = [[['text' => '🚀 ساخت و انتشار برای کلاس', 'data' => 'ok:' . $tok . ':pub']], [['text' => '💾 ساخت به‌صورتِ پیش‌نویس', 'data' => 'ok:' . $tok], ['text' => '❌ لغو', 'data' => 'no:' . $tok]]];
         }
         $msg = $text . ($warn ? "\n\n" . $warn : '');
         $edit ? $this->api->edit($chat, $edit, $msg, $rows) : $this->api->send($chat, $msg, $rows);
@@ -516,8 +595,13 @@ class TeacherBot
             $status = $p['status'];
             $amb = $p['ambiguous'];
         }
+        $date = self::date((string) ($params['date'] ?? ''));
+        if ($date === null) {
+            return ['⚠️ تاریخ معتبر نیست؛ فقط امروز و ۳۰ روزِ گذشته را می‌شود ثبت کرد.', null, null];
+        }
+        $isToday = $date->isToday();
         $by = fn ($s) => collect($status)->filter(fn ($v) => $v === $s)->keys()->map(fn ($id) => $roster[$id]);
-        $L = ['📋 حضور و غیابِ امروز — ' . $class->name . ' (' . Jalali::format(now(), true) . ')', ''];
+        $L = ['📋 حضور و غیابِ ' . ($isToday ? 'امروز' : '⚠️ ' . Jalali::format($date, true)) . ' — ' . $class->name . ($isToday ? ' (' . Jalali::format(now(), true) . ')' : ''), ''];
         $L[] = '✅ حاضر: ' . Jalali::fa((string) $by('present')->count());
         foreach (['absent' => '❌ غایب', 'late' => '⏰ تأخیر', 'excused' => '📝 غیبتِ موجه'] as $k => $label) {
             if ($by($k)->isNotEmpty()) {
@@ -528,12 +612,12 @@ class TeacherBot
         $L[] = 'ℹ️ هر کس نامش نیامده «حاضر» ثبت می‌شود. برای غایب‌ها اعلان (و اگر روشن باشد پیامکِ والدین) می‌رود.';
         $warn = $amb ? '⚠️ این نام‌ها مبهم‌اند و ثبت نشدند (نامِ کامل بنویس یا «ویرایش با دکمه‌ها»): '
             . collect($amb)->map(fn ($list, $w) => '«' . $w . '» = ' . implode(' / ', $list))->implode('؛ ') : null;
-        $existing = AttendanceRecord::withoutGlobalScopes()->where('classroom_id', $class->id)->whereDate('date', now()->toDateString())->count();
+        $existing = AttendanceRecord::withoutGlobalScopes()->where('classroom_id', $class->id)->whereDate('date', $date->toDateString())->count();
         if ($existing) {
-            $warn = trim(($warn ? $warn . "\n" : '') . '✏️ حضور و غیابِ امروزِ این کلاس قبلاً ثبت شده؛ با تأیید، به‌روز می‌شود.');
+            $warn = trim(($warn ? $warn . "\n" : '') . '✏️ حضور و غیابِ این روزِ این کلاس قبلاً ثبت شده؛ با تأیید، به‌روز می‌شود.');
         }
 
-        return [implode("\n", $L), ['status' => $status], $warn];
+        return [implode("\n", $L), ['status' => $status, 'date' => $date->toDateString()], $warn];
     }
 
     private function previewGrades(Classroom $class, array $params): array
@@ -589,6 +673,185 @@ class TeacherBot
         return ['📢 پیام برای ' . $roster[$sid] . "\n\n«" . $text . '»', ['to' => 'student', 'ids' => [$sid], 'text' => $text], null];
     }
 
+    /** نام‌ها → شناسه‌ها (از همه‌ی کلاس‌های معلم) + نام‌های مبهم/پیدانشده. */
+    private function resolveNames(User $user, array $names, ?Classroom $class = null): array
+    {
+        $roster = $class ? $this->roster($class) : $this->rosterAll($user)->all();
+        if (in_array('همه', array_map(fn ($n) => P::norm((string) $n), $names), true)) {
+            return ['ids' => array_keys($roster), 'amb' => [], 'missing' => [], 'roster' => $roster];
+        }
+        $ids = [];
+        $amb = [];
+        $missing = [];
+        foreach ($names as $n) {
+            $n = trim((string) $n);
+            if ($n === '') {
+                continue;
+            }
+            $r = P::namesIn($n, $roster);
+            if ($r['ids']) {
+                $ids = array_merge($ids, $r['ids']);
+            } elseif ($r['ambiguous']) {
+                $amb += $r['ambiguous'];
+            } else {
+                $missing[] = $n;
+            }
+        }
+
+        return ['ids' => array_values(array_unique($ids)), 'amb' => $amb, 'missing' => $missing, 'roster' => $roster];
+    }
+
+    private function namesWarn(array $r): ?string
+    {
+        $w = [];
+        if ($r['amb']) {
+            $w[] = '⚠️ مبهم (نامِ کامل بنویس): ' . collect($r['amb'])->map(fn ($l, $k) => '«' . $k . '» = ' . implode(' / ', $l))->implode('؛ ');
+        }
+        if ($r['missing']) {
+            $w[] = '🔍 پیدا نشد: ' . implode('، ', $r['missing']);
+        }
+
+        return $w ? implode("\n", $w) : null;
+    }
+
+    private function previewAward(User $user, ?Classroom $class, array $p): array
+    {
+        $amount = (int) ($p['amount'] ?? 0);
+        if ($amount === 0 || abs($amount) > 50) {
+            return ['⚠️ مقدارِ امتیاز باید بینِ ۱ تا ۵۰ باشد (برای کم کردن: منفی). مثلاً «به سارا ۱۰ امتیاز بده».', null, null];
+        }
+        $r = $this->resolveNames($user, (array) ($p['names'] ?? []), $class);
+        if (! $r['ids']) {
+            return ['🤔 دانش‌آموزی برای امتیاز پیدا نشد.' . (($w = $this->namesWarn($r)) ? "\n" . $w : ''), null, null];
+        }
+        $reason = trim((string) ($p['reason'] ?? '')) ?: ($amount > 0 ? 'تشویقِ معلم' : 'کسرِ امتیاز');
+        $names = collect($r['ids'])->map(fn ($id) => $r['roster'][$id])->implode('، ');
+        $text = ($amount > 0 ? '⭐ +' : '➖ ') . Jalali::fa((string) abs($amount)) . ' امتیاز برای ' . Jalali::fa((string) count($r['ids'])) . " نفر\n" . Str::limit($names, 900)
+            . "\n📝 دلیل: " . $reason . "\n\nبچه‌ها اعلانِ امتیاز را هم می‌بینند.";
+
+        return [$text, ['ids' => $r['ids'], 'amount' => $amount, 'reason' => $reason], $this->namesWarn($r)];
+    }
+
+    private function doAward(User $user, array $p): array
+    {
+        $game = app(\App\Services\GamificationService::class);
+        $xp = [];
+        $given = 0;
+        foreach (User::whereIn('id', $p['ids'])->get() as $st) {
+            $amt = \App\Support\XpRules::apply($st, 'teacher_manual', (int) $p['amount']);
+            if ($amt === 0) {
+                continue;
+            }
+            $e = $game->award($st, $amt, ($p['amount'] > 0 ? '⭐ ' : '➖ ') . $p['reason'], $user, null, null, true);
+            $xp[] = $e->id;
+            $given = $amt;
+        }
+        if (! $xp) {
+            throw ValidationException::withMessages(['xp' => 'امتیازدهیِ دستی در مدرسه‌ی شما توسطِ مدیر خاموش است.']);
+        }
+        $cap = $given !== (int) $p['amount'] ? ' (سقفِ مدرسه ' . Jalali::fa((string) abs($given)) . ' است)' : '';
+
+        return [
+            '✅ ' . ($given > 0 ? '+' : '') . Jalali::fa((string) $given) . ' امتیاز برای ' . Jalali::fa((string) count($xp)) . ' نفر ثبت شد' . $cap . '.',
+            ['xp' => $xp],
+            'امتیاز ' . $given . ' برای ' . count($xp) . ' نفر — ' . $p['reason'],
+        ];
+    }
+
+    private function previewDiscipline(User $user, array $p): array
+    {
+        $topics = \App\Models\DisciplineTopic::where('school_id', $user->school_id)->where('is_active', true)->get();
+        if ($topics->isEmpty()) {
+            return ['📒 هنوز موضوعِ انضباطی برای مدرسه تعریف نشده؛ از سایت ← «دفترِ انضباط» بسازید. فعلاً می‌توانی «امتیاز» بدهی.', null, null];
+        }
+        $want = P::norm((string) ($p['topic'] ?? ''));
+        $topic = $topics->first(fn ($t) => P::norm($t->name) === $want) ?? $topics->first(fn ($t) => $want !== '' && (str_contains(P::norm($t->name), $want) || str_contains($want, P::norm($t->name))));
+        if (! $topic) {
+            return ["🤔 موضوعِ انضباطی را پیدا نکردم. موضوع‌های مدرسه:\n" . $topics->map(fn ($t) => '• ' . $t->name . ' (' . ($t->points > 0 ? '+' : '') . Jalali::fa((string) $t->points) . ')')->implode("\n")
+                . "\n\nمثلاً: «برای سارا همکاری در کلاس ثبت کن».", null, null];
+        }
+        $r = $this->resolveNames($user, (array) ($p['names'] ?? []));
+        if (! $r['ids']) {
+            return ['🤔 دانش‌آموزی پیدا نشد.' . (($w = $this->namesWarn($r)) ? "\n" . $w : ''), null, null];
+        }
+        $text = ($topic->kind === 'positive' ? '🌟 تشویق' : '⚠️ تذکر') . ' — ' . $topic->name . ' (' . ($topic->points > 0 ? '+' : '') . Jalali::fa((string) $topic->points) . " امتیاز)\n"
+            . collect($r['ids'])->map(fn ($id) => '• ' . $r['roster'][$id])->implode("\n")
+            . (! empty($p['note']) ? "\n📝 " . $p['note'] : '') . "\n\nدر دفترِ انضباط ثبت می‌شود" . ($topic->kind === 'positive' ? '.' : ' و طبقِ تنظیمِ مدرسه برای والدین پیامک می‌رود.');
+
+        return [$text, ['topic' => $topic->id, 'ids' => $r['ids'], 'note' => Str::limit((string) ($p['note'] ?? ''), 250)], $this->namesWarn($r)];
+    }
+
+    private function doDiscipline(User $user, array $p): array
+    {
+        $start = now()->subSecond();
+        $this->callSite($user, \App\Http\Controllers\Teacher\DisciplineController::class, 'record',
+            ['topic_ids' => [$p['topic']], 'student_ids' => $p['ids'], 'note' => $p['note'] ?: null]);
+        $records = \App\Models\DisciplineRecord::withoutGlobalScopes()->where('recorded_by', $user->id)->whereIn('student_id', $p['ids'])
+            ->where('topic_id', $p['topic'])->where('created_at', '>=', $start)->pluck('id')->all();
+        $xp = XpEntry::where('awarded_by', $user->id)->whereIn('student_id', $p['ids'])->where('created_at', '>=', $start)->pluck('id')->all();
+
+        return ['✅ در دفترِ انضباط برای ' . Jalali::fa((string) count($p['ids'])) . ' نفر ثبت شد.', ['records' => $records, 'xp' => $xp],
+            'انضباط: ' . count($p['ids']) . ' نفر'];
+    }
+
+    private function previewGame(string $chat, User $user, Classroom $class, array $p): array
+    {
+        $topic = trim((string) ($p['topic'] ?? ''));
+        $lesson = trim((string) ($p['lesson'] ?? ''));
+        if ($topic === '' && $lesson === '') {
+            return ['🎮 موضوعِ بازی را بگو؛ مثلاً «یک بازیِ ۸ سؤالی از کسرها (ریاضی) بساز».', null, null];
+        }
+        if (! BotAgent::available($user)) {
+            return ['🎮 ساختِ بازی با هوش مصنوعی برای مدرسه‌ی شما روشن نیست؛ از سایت ← «استودیوی بازی» بسازید.', null, null];
+        }
+        $count = max(3, min(15, (int) ($p['count'] ?? 8)));
+        $diff = in_array($p['difficulty'] ?? '', ['easy', 'medium', 'hard'], true) ? $p['difficulty'] : 'medium';
+        $this->api->send($chat, '⏳ دارم ' . Jalali::fa((string) $count) . ' سؤال دربارهٔ «' . ($topic ?: $lesson) . '» برای پایه‌ی ' . ($class->grade ?: '') . ' می‌سازم… (حدودِ نیم دقیقه)');
+        @set_time_limit(150);
+        $r = app(\App\Services\SmartExamAiService::class)->generate(['count' => $count, 'types' => ['mc', 'tf'], 'difficulty' => $diff,
+            'grade' => $class->grade, 'subject' => $lesson, 'topic' => $topic ?: $lesson]);
+        $qs = collect($r['questions'] ?? [])->filter(fn ($q) => in_array($q['type'] ?? 'mc', ['mc', 'tf'], true) && trim((string) ($q['prompt'] ?? '')) !== '' && count($q['choices'] ?? []) >= 2)
+            ->map(fn ($q) => ['type' => $q['type'], 'prompt' => mb_substr((string) $q['prompt'], 0, 400), 'choices' => \App\Support\BankAccess::cleanChoices($q['choices']),
+                'explanation' => $q['explanation'] ?? null, 'hint1' => $q['hint'] ?? null, 'difficulty' => $q['difficulty'] ?? $diff, 'topic' => $q['topic'] ?? $topic, 'source' => 'ai'])
+            ->values()->all();
+        if (! $qs) {
+            return ['⚠️ ساختِ سؤال انجام نشد' . (! empty($r['message']) ? ': ' . $r['message'] : '.') . ' دوباره امتحان کن.', null, null];
+        }
+        $title = '🎮 ' . ($topic ?: $lesson);
+        $L = [$title . ' — ' . Jalali::fa((string) count($qs)) . ' سؤال · ' . (['easy' => 'آسان', 'medium' => 'متوسط', 'hard' => 'سخت'][$diff]) . ' · ' . $class->name, ''];
+        foreach (array_slice($qs, 0, 3) as $i => $q) {
+            $ok = collect($q['choices'])->firstWhere('correct', true)['value'] ?? '';
+            $L[] = Jalali::fa((string) ($i + 1)) . ') ' . $q['prompt'] . "\n   ✔ " . $ok;
+        }
+        if (count($qs) > 3) {
+            $L[] = '… و ' . Jalali::fa((string) (count($qs) - 3)) . ' سؤالِ دیگر';
+        }
+        $L[] = '';
+        $L[] = 'پیش‌نویس را بعداً در «استودیوی بازی» می‌توانی ویرایش کنی.';
+
+        return [implode("\n", $L), ['title' => mb_substr($title, 0, 120), 'lesson' => $lesson, 'topic' => $topic, 'difficulty' => $diff, 'questions' => $qs], null];
+    }
+
+    private function doGame(User $user, ?Classroom $class, array $p, bool $publish): array
+    {
+        $tpl = \App\Models\GameTemplate::where('key', 'board-space')->value('key') ?? \App\Models\GameTemplate::value('key');
+        $before = \App\Models\EduGame::withoutGlobalScopes()->where('teacher_id', $user->id)->max('id') ?? 0;
+        $this->callSite($user, \App\Http\Controllers\Teacher\EduGameController::class, 'store', [
+            'title' => $p['title'], 'template_key' => $tpl, 'subject' => $p['lesson'] ?: null, 'grade' => $class?->grade, 'classroom_id' => $class?->id,
+            'topic' => $p['topic'] ?: null, 'difficulty' => $p['difficulty'], 'status' => $publish ? 'published' : 'draft', 'questions' => $p['questions'],
+        ]);
+        $game = \App\Models\EduGame::withoutGlobalScopes()->where('teacher_id', $user->id)->where('id', '>', $before)->latest('id')->first();
+        if (! $game) {
+            throw ValidationException::withMessages(['game' => 'بازی ساخته نشد.']);
+        }
+
+        return [
+            '✅ بازیِ «' . $game->title . '» ' . ($publish ? 'ساخته و برای کلاس منتشر شد 🚀' : 'به‌صورتِ پیش‌نویس ساخته شد') . "\n✏️ ویرایش: " . BotConfig::siteUrl() . '/teacher/studio',
+            ['game' => $game->id],
+            'بازی: ' . $game->title . ($publish ? ' (منتشر شد)' : ' (پیش‌نویس)'),
+        ];
+    }
+
     /* ═════════════════════════ اجرا ═════════════════════════ */
 
     private function confirm(string $chat, User $user, string $tok, int $msgId): void
@@ -605,6 +868,9 @@ class TeacherBot
                 'attendance' => $this->doAttendance($user, $class, $p['payload']),
                 'grades' => $this->doGrades($user, $class, $p['payload']),
                 'announce' => $this->doAnnounce($user, $p['payload']),
+                'award' => $this->doAward($user, $p['payload']),
+                'discipline' => $this->doDiscipline($user, $p['payload']),
+                'game' => $this->doGame($user, $class, $p['payload'], $this->confirmFlag === 'pub'),
             };
         } catch (ValidationException $e) {
             $this->api->edit($chat, $msgId, '⚠️ ثبت نشد: ' . collect($e->errors())->flatten()->first(), $this->mainRows());
@@ -636,14 +902,14 @@ class TeacherBot
 
     private function doAttendance(User $user, Classroom $class, array $payload): array
     {
-        $date = now()->toDateString();
+        $date = $payload['date'] ?? now()->toDateString();
         $before = AttendanceRecord::withoutGlobalScopes()->where('classroom_id', $class->id)->whereDate('date', $date)->pluck('status', 'student_id')->all();
         $records = collect($payload['status'])->map(fn ($s, $id) => ['student_id' => (int) $id, 'status' => $s])->values()->all();
         $this->callSite($user, \App\Http\Controllers\AttendanceController::class, 'store', ['classroom_id' => $class->id, 'date' => $date, 'records' => $records]);
         $c = collect($payload['status'])->countBy();
 
         return [
-            '✅ حضور و غیابِ امروزِ ' . $class->name . " ثبت شد.\n" . Jalali::fa((string) ($c['present'] ?? 0)) . ' حاضر · ' . Jalali::fa((string) ($c['absent'] ?? 0)) . ' غایب · ' . Jalali::fa((string) ($c['late'] ?? 0)) . ' تأخیر',
+            '✅ حضور و غیابِ ' . ($date === now()->toDateString() ? 'امروزِ ' : Jalali::format(\Illuminate\Support\Carbon::parse($date), true) . ' — ') . $class->name . " ثبت شد.\n" . Jalali::fa((string) ($c['present'] ?? 0)) . ' حاضر · ' . Jalali::fa((string) ($c['absent'] ?? 0)) . ' غایب · ' . Jalali::fa((string) ($c['late'] ?? 0)) . ' تأخیر',
             ['class' => $class->id, 'date' => $date, 'before' => $before, 'after' => $payload['status']],
             'حضور و غیابِ ' . $class->name . ': ' . ($c['absent'] ?? 0) . ' غایب، ' . ($c['late'] ?? 0) . ' تأخیر',
         ];
@@ -718,6 +984,18 @@ class TeacherBot
             }
         } elseif ($log->action === 'grades' && ($col = GradeColumn::withoutGlobalScopes()->find($u['column'] ?? 0))) {
             $this->callSite($user, \App\Http\Controllers\Teacher\GradebookController::class, 'destroyColumn', [], ['gradeColumn' => $col]);
+        } elseif (in_array($log->action, ['award', 'discipline'], true)) {
+            XpEntry::whereIn('id', (array) ($u['xp'] ?? []))->delete();
+            if (! empty($u['records'])) {
+                \App\Models\DisciplineRecord::withoutGlobalScopes()->whereIn('id', (array) $u['records'])->delete();
+            }
+        } elseif ($log->action === 'game' && ($g = \App\Models\EduGame::withoutGlobalScopes()->where('teacher_id', $user->id)->find($u['game'] ?? 0))) {
+            if ($g->attempts()->exists()) {
+                $this->api->send($chat, '⛔ بچه‌ها این بازی را شروع کرده‌اند؛ از سایت مخفی‌اش کن.');
+
+                return;
+            }
+            $g->delete();
         } elseif ($log->action === 'announce') {
             Announcement::withoutGlobalScopes()->where('id', $u['announcement'] ?? 0)->where('sender_id', $user->id)->delete();
         }
@@ -829,6 +1107,23 @@ class TeacherBot
     }
 
     private string $chatKey = '';
+
+    private string $confirmFlag = '';
+
+    /** «2026-11-11» / خالی → تاریخ (فقط امروز و ۳۰ روزِ گذشته). */
+    private static function date(string $d): ?\Illuminate\Support\Carbon
+    {
+        if (trim($d) === '') {
+            return now()->startOfDay();
+        }
+        try {
+            $c = \Illuminate\Support\Carbon::parse(P::digits($d))->startOfDay();
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        return $c->gt(now()) || $c->lt(now()->subDays(30)->startOfDay()) ? null : $c;
+    }
 
     private function key(string $k): string
     {

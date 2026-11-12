@@ -21,7 +21,9 @@ use Inertia\Response;
  */
 class BotSettingsController extends Controller
 {
-    private const FIELDS = ['bale_token', 'bale_username', 'bale_api', 'telegram_token', 'telegram_username', 'telegram_api', 'telegram_webhook', 'telegram_relay_key', 'site_url'];
+    private const FIELDS = ['bale_token', 'bale_username', 'bale_api', 'telegram_token', 'telegram_username', 'telegram_api', 'telegram_webhook', 'telegram_relay_key', 'site_url', 'stt_base', 'stt_key', 'stt_model'];
+
+    private const SECRET = ['bale_token', 'telegram_token', 'telegram_relay_key', 'stt_key'];
 
     /* ───────────── ادمینِ کل ───────────── */
 
@@ -31,7 +33,7 @@ class BotSettingsController extends Controller
         foreach (self::FIELDS as $f) {
             $v = (string) BotConfig::get($f, '');
             // توکن و کلید کامل نشان داده نمی‌شوند
-            $set[$f] = str_ends_with($f, 'token') || $f === 'telegram_relay_key' ? ($v !== '' ? '••••' . substr($v, -4) : '') : $v;
+            $set[$f] = in_array($f, self::SECRET, true) ? ($v !== '' ? '••••' . substr($v, -4) : '') : $v;
         }
 
         return Inertia::render('Admin/Bot', [
@@ -40,6 +42,10 @@ class BotSettingsController extends Controller
             'defaults' => BotConfig::DEFAULT_API + ['site_url' => BotConfig::siteUrl()],
             'webhooks' => ['bale' => BotConfig::webhookUrl('bale'), 'telegram' => BotConfig::webhookUrl('telegram')],
             'ready' => BotLink::ready(),
+            'brain' => [
+                'ai' => \App\Support\AiConfig::provider() !== 'off' && \App\Support\AiConfig::configured() ? \App\Support\AiConfig::provider() : null,
+                'voice' => \App\Services\Bot\BotVoice::available(),
+            ],
             'stats' => BotLink::ready() ? [
                 'links' => BotLink::selectRaw('platform, count(*) as n')->groupBy('platform')->pluck('n', 'platform'),
                 'today' => BotLog::whereDate('created_at', now()->toDateString())->count(),
@@ -60,6 +66,7 @@ class BotSettingsController extends Controller
             'telegram_token' => ['nullable', 'string', 'max:200'], 'telegram_username' => ['nullable', 'string', 'max:80'], 'telegram_api' => ['nullable', 'url', 'max:200'],
             'telegram_webhook' => ['nullable', 'url', 'max:200'], 'telegram_relay_key' => ['nullable', 'string', 'max:120'],
             'site_url' => ['nullable', 'url', 'max:200'],
+            'stt_base' => ['nullable', 'url', 'max:200'], 'stt_key' => ['nullable', 'string', 'max:200'], 'stt_model' => ['nullable', 'string', 'max:80'],
         ]);
         BotConfig::put('enabled', $request->boolean('enabled') ? '1' : '0');
         foreach (self::FIELDS as $f) {
@@ -68,7 +75,7 @@ class BotSettingsController extends Controller
             }
             $v = trim((string) $data[$f]);
             // «••••1234» یعنی دست نخورده
-            if ((str_ends_with($f, 'token') || $f === 'telegram_relay_key') && str_starts_with($v, '••••')) {
+            if (in_array($f, self::SECRET, true) && str_starts_with($v, '••••')) {
                 continue;
             }
             BotConfig::put($f, $v);

@@ -6,11 +6,11 @@ import relaySrc from '../../../../docs/bot-relay/worker.js?raw';
 import '@/../css/bot.css';
 
 const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
-const ACTIONS = { attendance: '📋 حضور و غیاب', grades: '📔 نمره', announce: '📢 اطلاعیه' };
+const ACTIONS = { attendance: '📋 حضور و غیاب', grades: '📔 نمره', announce: '📢 اطلاعیه', award: '⭐ امتیاز', discipline: '📒 انضباط', game: '🎮 بازی' };
 
 /** ادمینِ کل: باتِ معلم (بله و تلگرام) — توکن‌ها، ثبتِ نشانی، واسطه‌ی تلگرام، دفترِ کارها. */
 export default function AdminBot() {
-    const { enabled, settings = {}, defaults = {}, webhooks = {}, stats, logs = [], ready, flash } = usePage().props;
+    const { enabled, settings = {}, defaults = {}, webhooks = {}, stats, logs = [], ready, flash, brain = {} } = usePage().props;
     const form = useForm({ enabled, ...settings });
     const d = form.data;
     const [copied, setCopied] = useState(false);
@@ -127,6 +127,24 @@ export default function AdminBot() {
                         <button type="button" className="btn btn-sm btn-ghost" onClick={copy}>{copied ? '✅ کپی شد' : '📋 کپی'}</button>
                         <pre dir="ltr">{relaySrc}</pre>
                     </details>
+                </div>
+
+                <div className="panel bt-card">
+                    <h3>🧠 هوشِ دستیار و 🎙️ پیامِ صوتی</h3>
+                    <div className="bt-brain">
+                        <span className={brain.ai ? 'on' : ''}>{brain.ai ? `🧠 گفتگوی آزاد با هوش مصنوعیِ سایت (${brain.ai}) روشن است` : '🧠 هوش مصنوعیِ سایت تنظیم نشده؛ بات فقط دستورهای ساده را می‌فهمد'}</span>
+                        <span className={brain.voice ? 'on' : ''}>{brain.voice ? '🎙️ پیامِ صوتی فعال است' : '🎙️ پیامِ صوتی هنوز سرویسِ «صدا به متن» ندارد'}</span>
+                    </div>
+                    <p className="bt-muted" style={{ fontSize: 12.5, lineHeight: 1.9 }}>
+                        بات برای فهمِ گفتگو از همان هوش مصنوعیِ «مرکزِ هوش مصنوعی» استفاده می‌کند (و اجازه‌ی هوش مصنوعیِ هر مدرسه رعایت می‌شود).
+                        برای پیامِ صوتی، اگر هوش مصنوعیِ سایت OpenAI یا سازگار با آن است یا کلیدِ Gemini دارید، کاری لازم نیست؛
+                        وگرنه یک سرویسِ «صدا به متن» سازگار با OpenAI (مثلاً واسطه‌های ایرانی) را این‌جا بدهید.
+                    </p>
+                    <div className="bt-grid">
+                        {F('stt_base', '🎙️ نشانیِ سرویسِ صدا به متن (اختیاری)', 'https://api.example.ir/v1')}
+                        {F('stt_key', '🔑 کلیدِ سرویس', 'sk-…')}
+                        {F('stt_model', 'مدل', 'whisper-1')}
+                    </div>
                 </div>
 
                 <div className="bt-save"><button type="submit" className="btn" disabled={form.processing}>💾 ذخیره‌ی تنظیمات</button></div>

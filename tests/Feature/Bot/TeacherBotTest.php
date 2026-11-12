@@ -274,7 +274,7 @@ class TeacherBotTest extends TestCase
         \App\Models\Setting::put('ai_provider', 'openai');
         \App\Models\Setting::put('openai_key', 'sk-test');
         \Illuminate\Support\Facades\Http::fake(['*' => \Illuminate\Support\Facades\Http::response(['choices' => [['message' => ['content' =>
-            '{"action":"attendance","absent":["سارا","یک نامِ ساختگی"]}']]], 'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1]])]);
+            '{"reply":"باشه، سارا غایب ثبت می‌شود.","tool":"attendance","args":{"absent":["سارا","یک نامِ ساختگی"]}}']]], 'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1]])]);
         $this->link($teacher);
         $this->text('امروز سارا خانم تشریف نیاوردن');
         $this->assertSame(0, AttendanceRecord::count());
@@ -295,5 +295,101 @@ class TeacherBotTest extends TestCase
         $this->assertTrue($byTitle['سرور به بله وصل می‌شود و توکن درست است']['ok']);
         $this->assertFalse($byTitle['نشانیِ دریافتِ پیام معتبر است']['ok']);            // localhost پذیرفته نیست
         $this->assertStringContainsString('https', $byTitle['نشانیِ دریافتِ پیام معتبر است']['fix']);
+    }
+
+    /** پاسخ‌های پشتِ‌سرِ‌همِ هوش مصنوعی (سازگار با OpenAI). */
+    private function ai(string ...$contents): void
+    {
+        \App\Models\Setting::put('ai_provider', 'openai');
+        \App\Models\Setting::put('openai_key', 'sk-test');
+        $seq = \Illuminate\Support\Facades\Http::sequence();
+        foreach ($contents as $c) {
+            $seq->push(['choices' => [['message' => ['content' => $c]]], 'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1]]);
+        }
+        \Illuminate\Support\Facades\Http::fake(['*' => $seq]);
+    }
+
+    public function test_agent_awards_points_with_confirm_and_undo(): void
+    {
+        [$teacher, , $ali, $sara] = $this->setupClass();
+        $this->link($teacher);
+        $this->ai('{"reply":"آفرین به سارا!","tool":"award","args":{"names":["سارا"],"amount":10,"reason":"همکاری در کلاس"}}');
+        $this->text('به سارا ده امتیاز بده چون امروز خیلی کمک کرد');
+        $this->assertStringContainsString('سارا محمدی', $this->lastText());
+        $this->press($this->lastButton('ok:'));
+        $this->assertSame(10, (int) \App\Models\XpEntry::where('student_id', $sara->id)->sum('amount'));
+        $this->press($this->lastButton('un:'));
+        $this->assertSame(0, \App\Models\XpEntry::where('student_id', $sara->id)->count());
+    }
+
+    public function test_agent_attendance_for_yesterday(): void
+    {
+        [$teacher, , $ali, $sara, $reza] = $this->setupClass();
+        $this->link($teacher);
+        $y = now()->subDay()->toDateString();
+        $this->ai('{"reply":"حضور و غیابِ دیروز آماده است.","tool":"attendance","args":{"date":"' . $y . '","absent":["رضا"]}}');
+        $this->text('دیروز رضا نیومده بود بقیه بودن');
+        $this->press($this->lastButton('ok:'));
+        $this->assertSame('absent', AttendanceRecord::where('student_id', $reza->id)->whereDate('date', $y)->value('status'));
+        $this->assertSame(0, AttendanceRecord::whereDate('date', now()->toDateString())->count());
+    }
+
+    public function test_agent_discipline_through_school_topic(): void
+    {
+        [$teacher, , $ali] = $this->setupClass();
+        \App\Models\DisciplineTopic::create(['school_id' => $teacher->school_id, 'name' => 'همکاری در کلاس', 'kind' => 'positive', 'points' => 5, 'created_by' => $teacher->id]);
+        $this->link($teacher);
+        $this->ai('{"reply":"ثبت می‌کنم.","tool":"discipline","args":{"names":["علی"],"topic":"همکاری در کلاس"}}');
+        $this->text('برای علی تشویقِ همکاری ثبت کن');
+        $this->press($this->lastButton('ok:'));
+        $this->assertSame(1, \App\Models\DisciplineRecord::where('student_id', $ali->id)->count());
+        $this->press($this->lastButton('un:'));
+        $this->assertSame(0, \App\Models\DisciplineRecord::where('student_id', $ali->id)->count());
+    }
+
+    public function test_agent_builds_and_publishes_a_game(): void
+    {
+        [$teacher] = $this->setupClass();
+        \App\Models\GameTemplate::query()->exists() || $this->seed(\Database\Seeders\GameTemplateSeeder::class);
+        $this->link($teacher);
+        $this->ai('{"reply":"الان می‌سازم.","tool":"game","args":{"lesson":"ریاضی","topic":"کسرها","count":3,"publish":true}}');
+        $mock = \Mockery::mock(\App\Services\SmartExamAiService::class);
+        $mock->shouldReceive('generate')->andReturn(['ok' => true, 'questions' => collect(range(1, 3))->map(fn ($n) => [
+            'type' => 'mc', 'prompt' => "سؤالِ {$n} دربارهٔ کسرها", 'choices' => [['value' => 'درست', 'correct' => true], ['value' => 'غلط', 'correct' => false]],
+        ])->all()]);
+        $this->app->instance(\App\Services\SmartExamAiService::class, $mock);
+        $this->text('یه بازی سه سؤالی از کسرها بساز و منتشر کن');
+        $pub = $this->lastButton('ok:');
+        $this->assertStringEndsWith(':pub', $pub);
+        $this->press($pub);
+        $g = \App\Models\EduGame::where('teacher_id', $teacher->id)->firstOrFail();
+        $this->assertSame('published', $g->status);
+        $this->assertSame(3, $g->questions()->count());
+    }
+
+    public function test_agent_answers_a_question_about_a_student(): void
+    {
+        [$teacher, , , $sara] = $this->setupClass();
+        $this->link($teacher);
+        $this->ai('{"reply":"","tool":"student","args":{"name":"سارا","question":"توی ریاضی چطوره؟"}}', 'سارا در ریاضی رو به پیشرفت است.');
+        $this->text('سارا توی ریاضی چطوره؟');
+        $this->assertStringContainsString('رو به پیشرفت', $this->lastText());
+        $this->assertStringContainsString('سارا محمدی', $this->lastText());
+    }
+
+    public function test_voice_message_is_transcribed_and_handled(): void
+    {
+        [$teacher, , $ali, $sara] = $this->setupClass();
+        $this->link($teacher);
+        \App\Models\Setting::put('ai_provider', 'off');
+        \App\Services\Bot\BotVoice::$fake = 'همه حاضرن جز سارا';
+        try {
+            $this->hook(['message' => ['message_id' => 9, 'chat' => ['id' => '555', 'type' => 'private'], 'from' => ['id' => '555'], 'voice' => ['file_id' => 'v1', 'duration' => 4]]]);
+        } finally {
+            \App\Services\Bot\BotVoice::$fake = null;
+        }
+        $this->assertTrue(collect(BotApi::$fake)->contains(fn ($c) => str_contains((string) ($c['params']['text'] ?? ''), 'شنیدم')));
+        $this->press($this->lastButton('ok:'));
+        $this->assertSame('absent', AttendanceRecord::where('student_id', $sara->id)->value('status'));
     }
 }

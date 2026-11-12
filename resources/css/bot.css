@@ -50,3 +50,6 @@
 .bt-step.bad.first { box-shadow: 0 0 0 3px rgba(232, 80, 91, .18); }
 .bt-step code { font-size: 11.5px; overflow-wrap: anywhere; color: #4a5578; }
 .bt-step span { color: #7a2d2d; font-weight: 700; }
+.bt-brain { display: grid; gap: 6px; margin-bottom: 8px; }
+.bt-brain span { border-radius: 12px; padding: 7px 10px; font-size: 13px; font-weight: 700; background: #fff6e5; color: #7a4d00; }
+.bt-brain span.on { background: #effaf4; color: #136b3e; }
