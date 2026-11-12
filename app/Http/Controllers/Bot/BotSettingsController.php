@@ -117,8 +117,24 @@ class BotSettingsController extends Controller
         $info = $api->call('getWebhookInfo', [], 15);
         $r = $info['result'] ?? [];
         $registered = (string) ($r['url'] ?? '');
-        $add($registered !== '' && rtrim($registered, '/') === rtrim($url, '/'), "نشانی نزدِ {$name} ثبت شده", $registered ?: '(هیچ نشانی‌ای ثبت نشده)',
-            '«🔗 اتصال و ثبتِ نشانی» را بزنید.');
+        $same = $registered !== '' && rtrim($registered, '/') === rtrim($url, '/');
+        if (! $same) {
+            // ثبت نشده (یا نشانیِ دیگری ثبت است) → همین‌جا ثبت می‌کنیم و پاسخِ دقیقِ پیام‌رسان را نشان می‌دهیم
+            $set = $this->setHook($platform);
+            $add(! empty($set['ok']), "ثبتِ نشانی نزدِ {$name}",
+                ! empty($set['ok']) ? 'انجام شد ✔' : ('پاسخِ ' . $name . ': ' . ($set['description'] ?? json_encode($set, JSON_UNESCAPED_UNICODE))),
+                'متنِ پاسخ را برای پشتیبانی بفرستید.');
+            $info = $api->call('getWebhookInfo', [], 15);
+            $r = $info['result'] ?? [];
+            $registered = (string) ($r['url'] ?? '');
+            $same = $registered !== '' && rtrim($registered, '/') === rtrim($url, '/');
+        }
+        if (empty($info['ok'])) {
+            // بعضی پیام‌رسان‌ها getWebhookInfo ندارند؛ این بررسی را رد نمی‌کنیم
+            $steps[] = ['ok' => true, 'title' => "{$name} گزارشِ وضعیتِ نشانی را نمی‌دهد (مهم نیست)", 'detail' => (string) ($info['description'] ?? ''), 'fix' => ''];
+        } else {
+            $add($same, "نشانی نزدِ {$name} ثبت شده", $registered ?: '(هیچ نشانی‌ای ثبت نشده)', '«🔗 اتصال و ثبتِ نشانی» را بزنید.');
+        }
         if (! empty($r['last_error_message'])) {
             $add(false, "{$name} آخرین بار نتوانست پیام را به سایت برساند",
                 $r['last_error_message'] . (! empty($r['last_error_date']) ? ' — ' . Jalali::format(\Illuminate\Support\Carbon::createFromTimestamp($r['last_error_date'])) . ' ' . date('H:i', $r['last_error_date']) : ''),
@@ -157,11 +173,29 @@ class BotSettingsController extends Controller
         if (! empty($me['result']['username'])) {
             BotConfig::put($platform . '_username', $me['result']['username']);
         }
-        $r = $api->call('setWebhook', ['url' => BotConfig::webhookUrl($platform), 'allowed_updates' => ['message', 'callback_query'], 'max_connections' => 20]);
+        $r = $this->setHook($platform);
 
         return back()->with('flash', ! empty($r['ok'])
             ? '✅ ' . BotLink::PLATFORMS[$platform] . ': بات «@' . ($me['result']['username'] ?? '') . '» وصل شد و نشانیِ دریافت ثبت شد.'
             : '⚠️ ' . BotLink::PLATFORMS[$platform] . ': توکن درست است ولی ثبتِ نشانی نشد — ' . ($r['description'] ?? ''));
+    }
+
+    /**
+     * ثبتِ نشانی نزدِ پیام‌رسان. «بله» فقط url را می‌پذیرد (پارامترهای اضافه‌ی تلگرام مثلِ
+     * allowed_updates را رد می‌کند)؛ پس برای بله فقط url فرستاده می‌شود.
+     */
+    private function setHook(string $platform): array
+    {
+        $params = ['url' => BotConfig::webhookUrl($platform)];
+        if ($platform === 'telegram') {
+            $params += ['allowed_updates' => ['message', 'callback_query'], 'max_connections' => 20];
+        }
+        $r = BotApi::for($platform)->call('setWebhook', $params);
+        if (empty($r['ok']) && count($params) > 1) {
+            $r = BotApi::for($platform)->call('setWebhook', ['url' => $params['url']]);
+        }
+
+        return $r;
     }
 
     /* ───────────── معلم / مدیرِ مدرسه ───────────── */
