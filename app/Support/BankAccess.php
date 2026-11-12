@@ -278,6 +278,9 @@ class BankAccess
                         $fill[$k] = $q[$k];
                     }
                 }
+                if (empty($dup->media_path) && ($m = QuestionMedia::safeUrl($q['media_url'] ?? null))) {
+                    $fill['media_path'] = $m;
+                }
                 $fill['fingerprint'] = $fp;
                 $dup->update($fill);
                 $moveChapter($dup);
@@ -296,6 +299,7 @@ class BankAccess
             'hint' => isset($q['hint']) ? mb_substr((string) $q['hint'], 0, 300) : (isset($q['hint1']) ? mb_substr((string) $q['hint1'], 0, 300) : null),
             'difficulty' => in_array($q['difficulty'] ?? null, ['easy', 'medium', 'hard'], true) ? $q['difficulty'] : 'medium',
             'bloom' => $q['bloom'] ?? null,
+            'media_path' => QuestionMedia::safeUrl($q['media_url'] ?? null),
             'source' => $q['source'] ?? ($meta['source'] ?? 'manual'),
             'fingerprint' => $fp,
             'used_count' => 1,
@@ -401,6 +405,7 @@ class BankAccess
             'level' => $b->level, 'grade' => $b->grade, 'subject' => $b->subject ?: $b->book,
             'chapter_id' => $b->chapter_id, 'chapter' => $b->chapter, 'lesson_no' => $b->lesson_no,
             'topic' => $b->topic, 'source' => $b->source, 'used' => (int) $b->used_count,
+            'media_url' => QuestionMedia::url($b->media_path),
             'author' => $b->relationLoaded('teacher') ? $b->teacher?->name : null,
             'mine' => $viewer ? $b->teacher_id === $viewer->id : false,
         ];

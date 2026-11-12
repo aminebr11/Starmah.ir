@@ -1,3 +1,4 @@
+import QuestionFigure from '@/Components/Questions/QuestionFigure';
 import { usePage, useForm, router, Link } from '@inertiajs/react';
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
@@ -60,7 +61,7 @@ export default function GameStudio() {
             return {
                 type, prompt: q.prompt, points: 10, choices, hint1: q.hint || '', explanation: q.explanation || '',
                 difficulty: q.difficulty || form.data.difficulty || 'medium', bloom: q.bloom || null, topic: q.topic || '',
-                source: from === 'bank' ? 'bank' : (q.source || 'ai'), bank_id: from === 'bank' ? q.id : null,
+                source: from === 'bank' ? 'bank' : (q.source || 'ai'), bank_id: from === 'bank' ? q.id : null, media_url: q.media_url || null,
                 chapter_id: from === 'bank' && q.chapter_id && String(q.chapter_id) !== String(form.data.chapter_id) ? q.chapter_id : null,
             };
         });
@@ -259,6 +260,7 @@ export default function GameStudio() {
                                     </span>
                                 </div>
                                 <input className="input" value={q.prompt} onChange={(e) => setQ(qi, 'prompt', e.target.value)} placeholder="متن سؤال" style={{ marginBottom: 8 }} />
+                                <QuestionFigure value={q.media_url} onChange={(u) => setQ(qi, 'media_url', u)} question={{ ...q, answer: q.type === 'short' ? q.choices?.[0]?.value : '' }} context={form.data} />
                                 {q.type === 'short' ? (
                                     <input className="input" value={q.choices[0]?.value || ''} onChange={(e) => setChoice(qi, 0, e.target.value)} placeholder="پاسخ صحیح" />
                                 ) : (

@@ -302,6 +302,7 @@ export function QuestionCard({ q, labels = TYPE_FA, picked, onToggle, meta, disa
                 {disabled && <span className="qk-tag done">افزوده‌شده</span>}
             </div>
             <div className="qk-q-prompt">{q.prompt}</div>
+            {q.media_url && <img className="qk-q-fig" src={q.media_url} alt="شکلِ سؤال" loading="lazy" />}
             {isChoice && (
                 <ol className="qk-choices">
                     {(q.choices || []).map((c, j) => <li key={j} className={c.correct ? 'right' : ''}>{c.value}{c.correct ? ' ✓' : ''}</li>)}

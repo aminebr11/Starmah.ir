@@ -117,6 +117,7 @@ class SmartExamAiService
         if (! $same) {
             $accepted = $this->balanceAnswers($accepted);   // ترتیبِ گزینه‌های خودِ فایل دست نمی‌خورد
         }
+        $accepted = $this->attachFigures($accepted, $o);
         $stats = [
             'requested' => $o['count'], 'produced' => count($accepted),
             'dropped' => array_sum($dropped), 'reasons' => $dropped, 'calls' => $calls,
@@ -300,6 +301,22 @@ class SmartExamAiService
             }
         }
 
+        $rules[] = '';
+        $rules[] = '## شکل (figure)';
+        $rules[] = '- وقتی فهمِ سؤال با شکل آسان‌تر یا ممکن می‌شود — مخصوصاً ریاضی: کسر با پیتزا یا نوار، محورِ اعداد، نمودار، ساعت، شکلِ هندسی با اندازه، گروه‌های اشیا برای ضرب و تقسیم، ارزشِ مکانی — در figure یک توصیفِ JSON (به صورتِ رشته) بده تا سامانه شکل را دقیق بکشد. درس‌های دیگر هم اگر نمودار یا جدول لازم است.';
+        $rules[] = '- عددهای شکل باید دقیقاً با متن و پاسخِ سؤال جور باشند؛ پاسخ را روی شکل ننویس (به‌جایش «؟» بگذار).';
+        $rules[] = '- اگر شکل لازم نیست، figure و figure_box را null بگذار. هرگز «با توجه به شکل» ننویس مگر این‌که figure یا figure_box داده باشی.';
+        $rules[] = '- قالب‌های مجازِ figure (فقط همین‌ها):';
+        foreach (explode("\n", \App\Support\Figure::guide()) as $g) {
+            $rules[] = '  ' . $g;
+        }
+        if ($o['sources']) {
+            $rules[] = '- اگر سؤالی در فایلِ پیوست شکل، نمودار یا تصویر دارد، کادرِ دورِ همان شکل را در figure_box بده: [شماره‌ی صفحه، ymin، xmin، ymax، xmax] در مقیاسِ ۰ تا ۱۰۰۰ نسبت به همان صفحه (فقط خودِ شکل، بدونِ متنِ سؤال). اگر شکل با یکی از قالب‌های بالا قابلِ بازسازی است، figure را هم بده.';
+            if ($o['source_mode'] === 'similar') {
+                $rules[] = '- در سؤالِ مشابه عددها عوض می‌شوند؛ پس شکل را فقط با figure (با عددهای تازه) بساز و figure_box نده.';
+            }
+        }
+
         if ($isGame) {
             $rules[] = '';
             $rules[] = '## این سؤال‌ها داخلِ بازی نمایش داده می‌شوند';
@@ -415,7 +432,7 @@ class SmartExamAiService
                     'items' => [
                         'type' => 'object',
                         'additionalProperties' => false,
-                        'required' => ['type', 'prompt', 'choices', 'is_true', 'answer', 'explanation', 'hint', 'difficulty', 'bloom', 'topic'],
+                        'required' => ['type', 'prompt', 'choices', 'is_true', 'answer', 'explanation', 'hint', 'difficulty', 'bloom', 'topic', 'figure', 'figure_box'],
                         'properties' => [
                             'type' => ['type' => 'string', 'enum' => self::TYPES],
                             'prompt' => ['type' => 'string', 'description' => 'متنِ سؤال'],
@@ -435,6 +452,9 @@ class SmartExamAiService
                             'difficulty' => ['type' => 'string', 'enum' => ['easy', 'medium', 'hard']],
                             'bloom' => ['type' => 'string', 'enum' => self::BLOOM],
                             'topic' => $str,
+                            'figure' => $str + ['description' => 'اگر سؤال شکل لازم دارد: توصیفِ شکل به صورتِ یک رشته‌ی JSON طبقِ قالب‌های «شکل»؛ وگرنه null'],
+                            'figure_box' => ['type' => ['array', 'null'], 'items' => ['type' => 'integer'],
+                                'description' => 'فقط برای شکلی که در فایلِ پیوست هست: [شماره‌ی صفحه از ۱، ymin، xmin، ymax، xmax] در مقیاسِ ۰ تا ۱۰۰۰؛ وگرنه null'],
                         ],
                     ],
                 ],
@@ -446,7 +466,7 @@ class SmartExamAiService
 
     private function maxTokens(array $plan): int
     {
-        $per = isset($plan['types']['desc']) ? 750 : 520;
+        $per = isset($plan['types']['desc']) ? 850 : 640;   // جا برای توصیفِ شکل
         return min(16000, 900 + $plan['count'] * $per);
     }
 
@@ -615,7 +635,15 @@ class SmartExamAiService
                 'bloom' => in_array($q['bloom'] ?? null, self::BLOOM, true) ? $q['bloom'] : null,
                 'topic' => $this->clean($q['topic'] ?? '') ?: ($o['topic'] ?: null),
                 'goal' => $o['goal'] ?: null,
+                'figure' => \App\Support\Figure::normalize($q['figure'] ?? null),
+                'figure_box' => is_array($q['figure_box'] ?? null) && count($q['figure_box']) === 5 ? array_map('intval', array_values($q['figure_box'])) : null,
             ];
+            // «با توجه به شکل» بدونِ هیچ شکلی = سؤالِ حل‌نشدنی (در بازنویسیِ دقیق، معلم خودش شکل می‌گذارد)
+            if (! $same && ! $item['figure'] && ! ($item['figure_box'] && ! empty($o['sources']))
+                && preg_match('/((با\s*توجه\s*به|در|مطابق|طبق)\s*(این\s*)?(شکل|تصویر|نمودار|جدول)|(شکل|تصویر|نمودار)\s*(روبه‌رو|روبرو|زیر|مقابل|بالا))/u', $prompt)) {
+                $bad[] = 'شکلِ ناقص';
+                continue;
+            }
 
             if ($type === 'mc') {
                 $choices = [];
@@ -796,6 +824,46 @@ class SmartExamAiService
         }
 
         return null;
+    }
+
+    /**
+     * شکلِ هر سؤال → media_url.
+     * «همین سؤال‌ها»: اول برشِ همان شکل از برگه، اگر نشد بازسازی. «از روی متن»: اول بازسازی، بعد برش.
+     * «مشابه» و «موضوع»: فقط بازسازی (عددها عوض شده‌اند و شکلِ برگه دیگر درست نیست).
+     */
+    public function attachFigures(array $questions, array $o): array
+    {
+        foreach ($questions as &$q) {
+            $spec = $q['figure'] ?? null;
+            $box = $q['figure_box'] ?? null;
+            unset($q['figure_box']);
+            $crop = function () use ($box, $o) {
+                if (! $box || ! $o['sources']) {
+                    return null;
+                }
+                $src = $o['sources'][max(0, $box[0] - 1)] ?? ($o['sources'][$box[0]] ?? null);
+                if (! $src || $src['mime'] === 'application/pdf') {
+                    return null;
+                }
+
+                return rescue(fn () => \App\Support\QuestionMedia::crop(base64_decode($src['data']), array_slice($box, 1)), null, false);
+            };
+            $draw = fn () => $spec ? rescue(fn () => \App\Support\QuestionMedia::storeFigure($spec), null, false) : null;
+            $url = match ($o['sources'] ? $o['source_mode'] : 'topic') {
+                'same' => $crop() ?? $draw(),
+                'content' => $draw() ?? $crop(),
+                default => $draw(),
+            };
+            if ($url) {
+                $q['media_url'] = $url;
+            }
+            if (! $spec) {
+                unset($q['figure']);
+            }
+        }
+        unset($q);
+
+        return $questions;
     }
 
     /** بازنویسیِ دقیقِ فایل خلاقیت نمی‌خواهد. */

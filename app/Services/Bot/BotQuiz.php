@@ -83,6 +83,13 @@ class BotQuiz
         if (! $f) {
             return;
         }
+        // در انتظارِ «عکسِ شکل» برای یک سؤال؟
+        $cur = $this->get();
+        if ($cur && ($cur['wait']['what'] ?? '') === 'fig' && isset($cur['qs'][$cur['wait']['i']])) {
+            $this->figurePhoto($user, $cur, (int) $cur['wait']['i'], $f);
+
+            return;
+        }
         if (! BotAgent::available($user)) {
             $this->api->send($this->chat, '🤖 ساختِ سؤال از روی فایل به هوش مصنوعیِ سایت نیاز دارد که برای مدرسه‌ی شما روشن نیست.', $this->bot->mainRows());
 
@@ -372,6 +379,34 @@ class BotQuiz
                 }
 
                 return;
+            case 'fs':   // دیدنِ شکل
+                if (! empty($s['qs'][(int) $x]['media_url'])) {
+                    $this->sendFigure($s['qs'][(int) $x]['media_url'], 'شکلِ سؤالِ ' . Jalali::fa((string) ((int) $x + 1)));
+                }
+
+                return;
+            case 'fd':   // حذفِ شکل
+                if (isset($s['qs'][(int) $x])) {
+                    unset($s['qs'][(int) $x]['media_url'], $s['qs'][(int) $x]['figure']);
+                    $this->save($s);
+                }
+                $this->view($user, $s, (int) $x, $msgId);
+
+                return;
+            case 'fp':   // منتظرِ عکسِ شکل
+                if (isset($s['qs'][(int) $x])) {
+                    $s['wait'] = ['what' => 'fig', 'i' => (int) $x];
+                    $this->save($s);
+                    $this->api->send($this->chat, '📷 عکسِ شکلِ سؤالِ ' . Jalali::fa((string) ((int) $x + 1)) . ' را بفرست (فقط همان بخشِ شکل). برای انصراف بنویس «لغو».');
+                }
+
+                return;
+            case 'fa':   // ساختِ شکل با هوش مصنوعی
+                if (isset($s['qs'][(int) $x])) {
+                    $this->figureAi($user, $s, (int) $x, $msgId);
+                }
+
+                return;
             case 'e':
                 $i = (int) $x;
                 if (! isset($s['qs'][$i])) {
@@ -597,7 +632,7 @@ class BotQuiz
         $lim = $n > 12 ? 70 : ($n > 7 ? 110 : 170);
         $body = [];
         foreach ($s['qs'] as $i => $q) {
-            $body[] = Jalali::fa((string) ($i + 1)) . ') ' . Str::limit($q['prompt'], $lim) . "\n   ✔ " . Str::limit(self::answerOf($q), 60);
+            $body[] = Jalali::fa((string) ($i + 1)) . ') ' . (! empty($q['media_url']) ? '🖼️ ' : '') . Str::limit($q['prompt'], $lim) . "\n   ✔ " . Str::limit(self::answerOf($q), 60);
         }
         $text = implode("\n", array_filter([$note, $head, $look, '', implode("\n", $body), '', 'روی شماره‌ی هر سؤال بزن تا ببینی، ✏️ ویرایش، 🔄 جایگزین یا 🗑 حذفش کنی.']));
         if (mb_strlen($text) > 4000) {
@@ -636,7 +671,15 @@ class BotQuiz
             $L[] = '';
             $L[] = '💡 ' . Str::limit($q['explanation'], 400);
         }
+        $L[] = '';
+        $L[] = ! empty($q['media_url']) ? '🖼️ این سؤال شکل دارد.' : '▫️ بدونِ شکل';
         $rows = [[['text' => '✏️ ویرایش', 'data' => 'q:e:' . $i], ['text' => '🔄 جایگزین', 'data' => 'q:r:' . $i], ['text' => '🗑 حذف', 'data' => 'q:d:' . $i]]];
+        $rows[] = ! empty($q['media_url'])
+            ? [['text' => '🖼️ دیدنِ شکل', 'data' => 'q:fs:' . $i], ['text' => '🤖 شکلِ تازه', 'data' => 'q:fa:' . $i], ['text' => '🚫 بدونِ شکل', 'data' => 'q:fd:' . $i]]
+            : [['text' => '🤖 ساختِ شکل', 'data' => 'q:fa:' . $i], ['text' => '📷 عکسِ شکل را می‌فرستم', 'data' => 'q:fp:' . $i]];
+        if (! empty($q['media_url'])) {
+            $rows[1][] = ['text' => '📷 عکس', 'data' => 'q:fp:' . $i];
+        }
         if (in_array($q['type'], ['mc', 'tf'], true)) {
             $rows[] = array_map(fn ($ci) => ['text' => ($q['choices'][$ci]['correct'] ? '✅ ' : '') . ($q['type'] === 'tf' ? $q['choices'][$ci]['value'] : self::LETTERS[$ci] ?? (string) ($ci + 1)), 'data' => 'q:k:' . $i . ':' . $ci], array_keys($q['choices']));
         }
@@ -646,6 +689,60 @@ class BotQuiz
             $i < $n - 1 ? ['text' => 'بعدی ←', 'data' => 'q:v:' . ($i + 1)] : null,
         ]));
         $this->say($msgId, Str::limit(implode("\n", $L), 4000), $rows);
+    }
+
+    /* ─────────────── شکلِ سؤال ─────────────── */
+
+    /** نشانیِ کامل برای پیام‌رسان. */
+    private static function absolute(string $url): string
+    {
+        return preg_match('#^https?://#i', $url) ? $url : rtrim(BotConfig::siteUrl(), '/') . '/' . ltrim($url, '/');
+    }
+
+    /** عکس مستقیم فرستاده می‌شود؛ SVG (شکلِ رسم‌شده) را پیام‌رسان‌ها نشان نمی‌دهند → پیوند. */
+    private function sendFigure(string $url, string $caption): void
+    {
+        $abs = self::absolute($url);
+        if (! str_ends_with(strtolower(parse_url($url, PHP_URL_PATH) ?? ''), '.svg')) {
+            $r = $this->api->call('sendPhoto', ['chat_id' => $this->chat, 'photo' => $abs, 'caption' => '🖼️ ' . $caption], 30);
+            if ($r['ok'] ?? false) {
+                return;
+            }
+        }
+        $this->api->send($this->chat, '🖼️ ' . $caption . ":\n" . $abs);
+    }
+
+    private function figureAi(User $user, array $s, int $i, int $msgId): void
+    {
+        $q = $s['qs'][$i];
+        $class = $this->bot->classes($user)->firstWhere('id', (int) $s['class']);
+        $this->api->edit($this->chat, $msgId, '⏳ دارم برای سؤالِ ' . Jalali::fa((string) ($i + 1)) . ' شکل می‌سازم…');
+        $r = \App\Support\FigureAi::suggest($q['prompt'], array_column($q['choices'] ?? [], 'value'), self::answerOf($q), $class?->grade, $s['lesson'] ?: null);
+        $url = $r['ok'] ? \App\Support\QuestionMedia::storeFigure($r['spec']) : null;
+        $s = $this->get() ?? $s;
+        if ($url && isset($s['qs'][$i])) {
+            $s['qs'][$i]['media_url'] = $url;
+            $s['qs'][$i]['figure'] = $r['spec'];
+            $this->save($s);
+            $this->sendFigure($url, 'شکلِ سؤالِ ' . Jalali::fa((string) ($i + 1)));
+        } else {
+            $this->api->send($this->chat, '⚠️ ' . ($r['message'] ?? 'شکل ساخته نشد.'));
+        }
+        $this->view($user, $s, $i, $msgId);
+    }
+
+    private function figurePhoto(User $user, array $s, int $i, array $f): void
+    {
+        $s['wait'] = null;
+        $d = $f['mime'] === 'application/pdf' ? ['ok' => false, 'error' => 'برای شکل، عکس بفرست (نه PDF).'] : BotFile::download($this->platform, $f['fid'], 6 * 1024 * 1024);
+        $url = $d['ok'] ? \App\Support\QuestionMedia::storeImage($d['bytes']) : null;
+        if ($url) {
+            $s['qs'][$i]['media_url'] = $url;
+            unset($s['qs'][$i]['figure']);
+        }
+        $this->save($s);
+        $this->api->send($this->chat, $url ? '✅ شکلِ سؤالِ ' . Jalali::fa((string) ($i + 1)) . ' ثبت شد.' : '⚠️ ' . ($d['error'] ?? 'این عکس خوانده نشد.'));
+        $this->view($user, $s, $i);
     }
 
     /** جایگزینیِ یک سؤال با سؤالِ تازه‌ی هم‌نوع. */
@@ -774,6 +871,7 @@ class BotQuiz
             'questions' => array_map(fn ($q) => [
                 'type' => $q['type'], 'prompt' => $q['prompt'], 'choices' => $q['choices'], 'answer' => $q['answer'],
                 'explanation' => $q['explanation'], 'difficulty' => $q['difficulty'], 'bloom' => $q['bloom'], 'topic' => $q['topic'],
+                'media_url' => $q['media_url'] ?? null,
                 'points' => 1, 'source' => 'ai',
             ], $s['qs']),
         ]);
@@ -803,6 +901,7 @@ class BotQuiz
                 'choices' => $q['type'] === 'blank' ? [['value' => (string) $q['answer'], 'correct' => true]] : $q['choices'],
                 'answer' => $q['answer'], 'explanation' => $q['explanation'], 'hint1' => $q['hint'] ? Str::limit($q['hint'], 250, '') : null,
                 'difficulty' => $q['difficulty'], 'bloom' => $q['bloom'], 'topic' => $q['topic'], 'source' => 'ai',
+                'media_url' => $q['media_url'] ?? null,
             ];
         }
         $this->bot->callSite($user, \App\Http\Controllers\Teacher\EduGameController::class, 'store', [
@@ -844,6 +943,7 @@ class BotQuiz
             'explanation' => $q['explanation'] ?? null, 'hint' => $q['hint'] ?? ($q['hint1'] ?? null),
             'difficulty' => in_array($q['difficulty'] ?? null, ['easy', 'medium', 'hard'], true) ? $q['difficulty'] : 'medium',
             'bloom' => $q['bloom'] ?? null, 'topic' => $q['topic'] ?? null,
+            'media_url' => \App\Support\QuestionMedia::safeUrl($q['media_url'] ?? null),
         ];
     }
 

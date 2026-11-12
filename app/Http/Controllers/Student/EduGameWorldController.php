@@ -128,7 +128,7 @@ class EduGameWorldController extends Controller
                 ] : null,
                 'questions' => $eduGame->questions->map(fn ($q, $i) => [
                     'i' => $i, 'type' => $q->type, 'prompt' => $q->prompt,
-                    'media' => $q->media_path,
+                    'media' => \App\Support\QuestionMedia::url($q->media_path),
                     'choices' => collect($q->choices ?? [])->map(fn ($c) => [
                         'value' => $c['value'] ?? '', 'correct' => (bool) ($c['correct'] ?? false),
                     ])->values(),

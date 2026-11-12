@@ -232,6 +232,7 @@ function AddTab({ isSuper, cur, aiOn, onDone }) {
                             <label style={{ fontSize: 12.5, color: 'var(--muted)' }}>🖼️ عکس سؤال (اختیاری):</label>
                             <input type="file" accept="image/*" className="input" style={{ padding: 6, flex: 1, minWidth: 180 }} onChange={(e) => setQ(qi, 'image', e.target.files[0] || null)} />
                             {q.image && <span style={{ fontSize: 12, color: '#166534' }}>✓ {q.image.name}</span>}
+                            {!q.image && q.media_url && <img src={q.media_url} alt="" style={{ maxHeight: 70, borderRadius: 8, border: '1px solid var(--line)' }} />}
                         </div>
                     </div>
                 ))}

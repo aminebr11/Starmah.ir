@@ -149,7 +149,7 @@ class EduGameController extends Controller
                 'questions' => $eduGame->questions->map(fn ($q) => [
                     'type' => $q->type, 'prompt' => $q->prompt, 'choices' => $q->choices ?? [],
                     'hint1' => $q->hint1, 'hint2' => $q->hint2, 'explanation' => $q->explanation,
-                    'points' => $q->points, 'media_url' => $q->media_path,
+                    'points' => $q->points, 'media_url' => \App\Support\QuestionMedia::url($q->media_path),
                     'difficulty' => $q->difficulty, 'bloom' => $q->bloom, 'topic' => $q->topic,
                     'source' => $q->source, 'bank_id' => $q->bank_id, 'chapter_id' => $q->chapter_id,
                 ])->values(),
@@ -189,7 +189,7 @@ class EduGameController extends Controller
                 ] : null,
                 'questions' => $eduGame->questions->map(fn ($q, $i) => [
                     'i' => $i, 'type' => $q->type, 'prompt' => $q->prompt,
-                    'media' => $q->media_path,
+                    'media' => \App\Support\QuestionMedia::url($q->media_path),
                     'choices' => collect($q->choices ?? [])->map(fn ($c) => [
                         'value' => $c['value'] ?? '', 'correct' => (bool) ($c['correct'] ?? false),
                     ])->values(),
@@ -591,7 +591,7 @@ class EduGameController extends Controller
                 'explanation' => $cut($q['explanation'] ?? null, 1500),
                 'topic' => $cut($q['topic'] ?? null, 160),
                 'source' => $cut($q['source'] ?? null, 20),
-                'media_url' => $cut($q['media_url'] ?? null, 500),
+                'media_url' => \App\Support\QuestionMedia::safeUrl($q['media_url'] ?? null),
                 'difficulty' => in_array($diff, ['easy', 'medium', 'hard'], true) ? $diff : null,
                 // سطوحِ بالاترِ بلوم (ارزشیابی/آفرینش) در این فهرست نیستند؛ نزدیک‌ترین سطح
                 'bloom' => in_array($bloom, ['remember', 'understand', 'apply', 'analyze'], true) ? $bloom

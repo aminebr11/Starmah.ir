@@ -241,6 +241,42 @@ class BotQuizTest extends TestCase
         $this->assertSame(12, $g->questions()->count());
     }
 
+    public function test_question_figures_in_the_bot(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        [$teacher] = $this->setupTeacher();
+        $this->fakeAi();
+        $this->press('q:new:exam');
+        $this->text('ریاضی — کسرها');
+        $this->press('q:go');
+
+        // بدونِ شکل → «ساختِ شکل» و «عکسِ شکل»
+        $this->press('q:v:0');
+        $this->assertTrue($this->has('q:fa:0') && $this->has('q:fp:0'));
+
+        // عکسِ شکل از گوشی
+        $this->press('q:fp:0');
+        $this->hook(['photo' => [['file_id' => 'ph1', 'width' => 800, 'height' => 600]]]);
+        $m0 = $this->quizState()['qs'][0]['media_url'] ?? null;
+        $this->assertNotNull($m0);
+        $this->assertSame([], $this->quizState()['src']);   // عکس به همان سؤال رفت، نه برگه‌ی تازه
+        $this->assertTrue($this->has('q:fs:0') && $this->has('q:fd:0'));
+        $this->press('q:fs:0');
+        $this->assertTrue(collect(BotApi::$fake)->contains(fn ($c) => $c['method'] === 'sendPhoto' && str_ends_with($c['params']['photo'], parse_url($m0, PHP_URL_PATH))));
+        $this->press('q:fd:0');
+        $this->assertArrayNotHasKey('media_url', $this->quizState()['qs'][0]);
+
+        // شکل با هوش مصنوعی (پیتزا) → پیوند به SVG
+        \Illuminate\Support\Facades\Http::fake(['*' => \Illuminate\Support\Facades\Http::response(['choices' => [['message' => ['content' => '{"type":"pizza","parts":8,"shaded":3}']]]])]);
+        $this->press('q:fa:0');
+        $svg = $this->quizState()['qs'][0]['media_url'];
+        $this->assertStringEndsWith('.svg', $svg);
+        $this->assertTrue(collect(BotApi::$fake)->contains(fn ($c) => str_contains((string) ($c['params']['text'] ?? ''), parse_url($svg, PHP_URL_PATH))));
+
+        $this->press('q:pub:1');
+        $this->assertSame($svg, SmartExam::where('teacher_id', $teacher->id)->firstOrFail()->questions()->orderBy('sort')->value('media_path'));
+    }
+
     public function test_topic_from_the_menu_and_cancel(): void
     {
         $this->setupTeacher();

@@ -1,3 +1,4 @@
+import QuestionFigure from '@/Components/Questions/QuestionFigure';
 import { usePage, useForm, router, Link } from '@inertiajs/react';
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
@@ -57,6 +58,7 @@ export default function SmartExamLab() {
             answer: q.answer || '', explanation: q.explanation || '', difficulty: q.difficulty || 'medium',
             bloom: q.bloom || null, topic: q.topic || '', source: from === 'bank' ? 'bank' : (q.source || 'ai'),
             bank_id: from === 'bank' ? q.id : null,
+            media_url: q.media_url || null,
             // سؤالِ بانک فصلِ خودش را می‌آورد؛ سؤالِ هوش مصنوعی همان فصلِ آزمون را می‌گیرد
             chapter_id: from === 'bank' && q.chapter_id && String(q.chapter_id) !== String(form.data.chapter_id) ? q.chapter_id : null,
         }));
@@ -217,6 +219,7 @@ export default function SmartExamLab() {
                                         <button onClick={() => rmQ(qi)} className="smart-btn ghost sm" style={{ marginInlineStart: 'auto', color: '#e8505b' }}>🗑️</button>
                                     </div>
                                     <input className="smart-input" value={q.prompt} onChange={(e) => setQ(qi, 'prompt', e.target.value)} placeholder="متن سؤال" style={{ marginBottom: 8 }} />
+                                    <QuestionFigure value={q.media_url} onChange={(u) => setQ(qi, 'media_url', u)} question={q} context={form.data} />
                                     {(q.type === 'mc' || q.type === 'tf') ? (
                                         <div style={{ display: 'grid', gap: 6 }}>
                                             {(q.choices || []).map((c, ci) => (

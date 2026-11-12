@@ -1668,3 +1668,34 @@ a, button, [role="button"], summary { -webkit-tap-highlight-color: transparent; 
 .qk-src-mode b{font-size:13px}
 .qk-src-mode small{font-size:11.5px;color:#6b7794;line-height:1.7}
 .qk-src-mode.on{border-color:var(--qk-acc,#6d28d9);background:#f3edff;box-shadow:0 0 0 3px rgba(109,40,217,.12)}
+
+/* 🖼️ شکلِ سؤال */
+.qk-q-fig{display:block;max-width:100%;max-height:220px;margin:8px 0;border-radius:10px;border:1px solid #e3e8f2;background:#fff}
+.qf{margin:6px 0 8px}
+.qf-add{border:1.5px dashed #c4b5fd;background:#faf7ff;color:#5b21b6;border-radius:12px;padding:8px 12px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;width:100%;text-align:right}
+.qf-has{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.qf-has img{max-width:min(100%,320px);max-height:220px;border-radius:10px;border:1px solid #e3e8f2;background:#fff}
+.qf-acts{display:flex;flex-direction:column;gap:6px}
+.qf-btn{border:1px solid #d9ccfb;background:#fff;color:#5b21b6;border-radius:10px;padding:6px 12px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.qf-btn.primary{background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;border:0;margin-top:8px}
+.qf-btn.danger{color:#c0392b;border-color:#f5c2c7}
+.qf-btn:disabled{opacity:.55;cursor:default}
+.qf-panel{border:1.5px solid #e5ddff;border-radius:14px;background:#fff;overflow:hidden}
+.qf-tabs{display:flex;gap:2px;background:#f5f2ff;padding:4px;align-items:center;overflow-x:auto}
+.qf-tabs button{border:0;background:transparent;font-family:inherit;font-size:12.5px;font-weight:700;color:#5b21b6;padding:7px 10px;border-radius:9px;cursor:pointer;white-space:nowrap}
+.qf-tabs button.on{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.qf-tabs .qf-x{margin-inline-start:auto;color:#6b7794}
+.qf-body{padding:10px 12px}
+.qf-muted{color:#6b7794;font-size:12px;line-height:1.8;margin:0 0 6px}
+.qf-in{width:100%;border:1px solid #e3e8f2;border-radius:9px;padding:6px 9px;font-family:inherit;font-size:13px;box-sizing:border-box}
+.qf-types{display:flex;gap:5px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch}
+.qf-types button{flex:none;border:1px solid #e3e8f2;background:#fff;border-radius:999px;padding:5px 10px;font-family:inherit;font-size:12px;font-weight:700;color:#4b5670;cursor:pointer}
+.qf-types button.on{background:#7c3aed;border-color:#7c3aed;color:#fff}
+.qf-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+.qf-fields{display:grid;gap:7px;align-content:start}
+.qf-fields label{display:grid;gap:3px;font-size:12px;font-weight:700;color:#4b5670}
+.qf-fields small{font-weight:500;color:#8a94ab;font-size:11px}
+.qf-prev{border:1px dashed #e3e8f2;border-radius:12px;display:flex;align-items:center;justify-content:center;min-height:160px;padding:6px;background:#fcfcff}
+.qf-prev img{max-width:100%;max-height:300px}
+.qf-msg{margin:0 12px 10px;padding:7px 10px;border-radius:9px;background:#fff8e6;color:#8a5a00;font-size:12.5px;line-height:1.8}
+@media (max-width:640px){.qf-grid{grid-template-columns:1fr}.qf-prev{order:-1}}

@@ -478,6 +478,11 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     // استودیوی ساخت بازی (دنیای بازی‌های آموزشی)
     Route::get('/studio', [\App\Http\Controllers\Teacher\EduGameController::class, 'index'])->name('studio');
     Route::get('/studio/new', [\App\Http\Controllers\Teacher\EduGameController::class, 'create'])->name('studio.create');
+    // 🖼️ شکلِ سؤال (رسم، عکس، هوش مصنوعی) — آزمون‌ساز و استودیوی بازی
+    Route::post('/figures/preview', [\App\Http\Controllers\Teacher\FigureController::class, 'preview'])->name('figures.preview');
+    Route::post('/figures', [\App\Http\Controllers\Teacher\FigureController::class, 'store'])->name('figures.store');
+    Route::post('/figures/upload', [\App\Http\Controllers\Teacher\FigureController::class, 'upload'])->name('figures.upload');
+    Route::post('/figures/ai', [\App\Http\Controllers\Teacher\FigureController::class, 'ai'])->middleware('throttle:30,1')->name('figures.ai');
     Route::get('/studio/{eduGame}/report/print', [\App\Http\Controllers\Teacher\EduGameController::class, 'reportPrint'])->name('studio.report.print');
     Route::post('/studio/ai', [\App\Http\Controllers\Teacher\EduGameController::class, 'aiGenerate'])->name('studio.ai');
     Route::get('/studio/bank', [\App\Http\Controllers\Teacher\EduGameController::class, 'bankQuestions'])->name('studio.bank');

@@ -135,6 +135,7 @@ class SmartExamController extends Controller
                         'answer' => $q->answer, 'explanation' => $q->explanation, 'difficulty' => $q->difficulty,
                         'points' => $q->points, 'topic' => $q->topic, 'goal' => $q->goal, 'source' => $q->source,
                         'bloom' => $q->bloom, 'bank_id' => $q->bank_id, 'chapter_id' => $q->chapter_id,
+                        'media_url' => \App\Support\QuestionMedia::url($q->media_path),
                     ])->values(),
                 ],
             ]
@@ -165,7 +166,7 @@ class SmartExamController extends Controller
             ])->values();
 
             return [
-                'i' => $i, 'type' => $q->type, 'prompt' => $q->prompt, 'media' => $q->media_path,
+                'i' => $i, 'type' => $q->type, 'prompt' => $q->prompt, 'media' => \App\Support\QuestionMedia::url($q->media_path),
                 'choices' => $choices, 'points' => $q->points,
                 'answer' => $q->answer, 'explanation' => $q->explanation,
                 'difficulty' => $q->difficulty,
@@ -511,6 +512,7 @@ class SmartExamController extends Controller
                 'bloom' => $q['bloom'] ?? null,
                 'points' => $q['points'] ?? 1, 'topic' => ($q['topic'] ?? null) ?: $exam->topic,
                 'goal' => $q['goal'] ?? null, 'source' => $q['source'] ?? 'manual', 'sort' => $i,
+                'media_path' => $q['media_url'] ?? null,
             ]);
         }
     }
@@ -580,6 +582,7 @@ class SmartExamController extends Controller
                 'topic' => $cut($q['topic'] ?? null, 160),
                 'goal' => $cut($q['goal'] ?? null, 300),
                 'source' => $cut($q['source'] ?? null, 20),
+                'media_url' => \App\Support\QuestionMedia::safeUrl($q['media_url'] ?? null),
                 'difficulty' => in_array($diff, ['easy', 'medium', 'hard'], true) ? $diff : 'medium',
                 'bloom' => in_array($bloom, ['remember', 'understand', 'apply', 'analyze'], true) ? $bloom
                     : (in_array($bloom, ['evaluate', 'create'], true) ? 'analyze' : null),
@@ -641,6 +644,7 @@ class SmartExamController extends Controller
             'questions.*.bank_id' => ['nullable', 'integer'],
             'questions.*.chapter_id' => ['nullable', 'integer'],
             'questions.*.source' => ['nullable', 'string', 'max:20'],
+            'questions.*.media_url' => ['nullable', 'string', 'max:500'],
         ], [
             'title.required' => 'عنوانِ آزمون را بنویسید (گامِ ۱).',
             'questions.required' => 'دستِ‌کم یک سؤال بنویسید (گامِ ۳).',

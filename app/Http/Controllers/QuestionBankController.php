@@ -48,7 +48,7 @@ class QuestionBankController extends Controller
             'subject' => $b->subject ?: $b->book, 'lesson_no' => $b->lesson_no, 'grade' => $b->grade, 'topic' => $b->topic,
             'difficulty' => $b->difficulty, 'source' => $b->source, 'used' => $b->used_count,
             'author' => $b->teacher?->name, 'school_id' => $b->school_id, 'scope' => $b->scope,
-            'media' => $b->media_path ? Storage::disk('public')->url($b->media_path) : null,
+            'media' => \App\Support\QuestionMedia::url($b->media_path),
             'can_edit' => BankAccess::canEdit($user, $b),
         ]);
 
@@ -115,6 +115,7 @@ class QuestionBankController extends Controller
             'questions.*.hint' => ['nullable', 'string', 'max:300'],
             'questions.*.bloom' => ['nullable', 'in:remember,understand,apply,analyze'],
             'questions.*.image' => ['nullable', 'file', 'max:4096'],
+            'questions.*.media_url' => ['nullable', 'string', 'max:500'],
         ]);
 
         $scope = $user->hasRole(Roles::SUPER_ADMIN) ? ($data['scope'] ?? 'global') : 'school';
@@ -126,6 +127,8 @@ class QuestionBankController extends Controller
                     $mediaPath = $this->storeUpload($img, 'bank-media');
                 }
             }
+            // شکلی که هوش مصنوعی کشیده یا از برگه بریده
+            $mediaPath ??= \App\Support\QuestionMedia::safeUrl($q['media_url'] ?? null);
             SmartQuestionBank::create([
                 'school_id' => $user->school_id, 'teacher_id' => $user->id, 'scope' => $scope,
                 'level' => $data['level'] ?? null, 'lesson_no' => $data['lesson_no'] ?? null,
@@ -153,6 +156,10 @@ class QuestionBankController extends Controller
         $q = SmartQuestionBank::withoutGlobalScopes()->whereIn('id', $data['ids']);
         $paths = (clone $q)->whereNotNull('media_path')->pluck('media_path');
         foreach ($paths as $p) {
+            // شکل‌های مشترک (نشانیِ /storage/… که آزمون و بازی هم از آن استفاده می‌کنند) پاک نمی‌شوند
+            if (str_starts_with($p, '/') || preg_match('#^https?://#', $p)) {
+                continue;
+            }
             Storage::disk('public')->delete($p);
         }
         $n = $q->delete();

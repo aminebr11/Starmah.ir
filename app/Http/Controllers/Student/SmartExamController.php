@@ -268,7 +268,7 @@ class SmartExamController extends Controller
             if (! empty($rules['shuffle_choices'])) {
                 $choices = $choices->shuffle()->values();
             }
-            return ['i' => $i, 'type' => $q->type, 'prompt' => $q->prompt, 'media' => $q->media_path,
+            return ['i' => $i, 'type' => $q->type, 'prompt' => $q->prompt, 'media' => \App\Support\QuestionMedia::url($q->media_path),
                 'choices' => $choices, 'points' => $q->points,
                 'diffRank' => ['easy' => 0, 'medium' => 1, 'hard' => 2][$q->difficulty] ?? 1];
         });
