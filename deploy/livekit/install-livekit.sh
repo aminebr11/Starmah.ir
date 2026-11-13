@@ -43,6 +43,15 @@ if [ "$DNS_IP" != "$PUBLIC_IP" ]; then
   warn "در cPanel → Zone Editor یک رکوردِ A برای $DOMAIN با مقدارِ $PUBLIC_IP بسازید، چند دقیقه صبر کنید و دوباره اجرا کنید."
   die "تا وقتی DNS درست نشده، گواهیِ SSL صادر نمی‌شود."
 fi
+# چند رکوردِ A (مثلاً IPِ سرورِ قبلی هم مانده) → Let's Encrypt ممکن است سراغِ سرورِ دیگر برود و «404» بگیرد
+OTHER_IPS=$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u | grep -vx "$PUBLIC_IP" || true)
+if [ -n "$OTHER_IPS" ]; then
+  warn "دامنه‌ی $DOMAIN علاوه بر $PUBLIC_IP به این IP(ها) هم اشاره می‌کند: $(echo $OTHER_IPS)"
+  die "در cPanel → Zone Editor رکوردِ A اضافی (IPهای بالا) را برای $DOMAIN حذف کنید، چند دقیقه صبر کنید و دوباره اجرا کنید."
+fi
+if getent ahostsv6 "$DOMAIN" 2>/dev/null | awk '{print $1}' | grep -qv '^::ffff:'; then
+  warn "برای $DOMAIN رکوردِ AAAA (IPv6) هم هست؛ Let's Encrypt اول همان را امتحان می‌کند. اگر IPv6 مالِ این سرور نیست، آن رکورد را در Zone Editor حذف کنید."
+fi
 ok "DNS درست است"
 
 # ── ۲) بسته‌ها ─────────────────────────────────────────────────────────
