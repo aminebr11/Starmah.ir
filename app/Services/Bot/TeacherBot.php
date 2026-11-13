@@ -396,31 +396,75 @@ class TeacherBot
                 break;
             case 'create_quiz':
                 $this->quiz($chat)->start($user, ['kind' => (string) ($a['kind'] ?? 'exam'), 'lesson' => (string) ($a['lesson'] ?? ''), 'topic' => (string) ($a['topic'] ?? ''),
-                    'count' => (int) ($a['count'] ?? 8), 'difficulty' => (string) ($a['difficulty'] ?? 'medium')] + $extra);
+                    'count' => (int) ($a['count'] ?? 8), 'difficulty' => (string) ($a['difficulty'] ?? 'medium'),
+                    'start' => $a['start'] ?? null, 'seconds' => $a['seconds'] ?? null, 'end_minutes' => $a['end_minutes'] ?? null] + $extra);
                 break;
             case 'build_from_items':
-                $it = new BotItems($user);
-                $refs = [];
-                $types = isset(BotItems::TYPES[$a['from_type'] ?? '']) ? [$a['from_type']] : array_keys(BotItems::TYPES);
-                foreach ($types as $t) {
-                    if (! empty($a['titles'])) {
-                        foreach ((array) $a['titles'] as $title) {
-                            if ($m = $it->search($t, (string) $title, 1)->first()) {
-                                $refs[] = [$t, $m];
-                            }
-                        }
-                    } elseif (count($types) === 1) {
-                        foreach ($it->search($t, null, max(1, min(10, (int) ($a['last_n'] ?? 1)))) as $m) {
-                            $refs[] = [$t, $m];
-                        }
-                    }
-                }
+                $refs = (new BotItems($user))->refs($a);
                 if (! $refs) {
-                    $this->api->send($chat, '🔍 ' . (! empty($a['titles']) ? 'موردی با این نام پیدا نشد: ' . implode('، ', (array) $a['titles']) : 'هنوز چیزی ساخته نشده.'), [[['text' => '📚 کارهای من', 'data' => 'lb:home']]]);
+                    $this->api->send($chat, '🔍 ' . (! empty($a['titles']) ? 'موردی با این نام پیدا نشد: ' . implode('، ', (array) $a['titles'])
+                        : (! empty($a['date']) || ! empty($a['days']) ? 'در آن تاریخ چیزی پیدا نشد.' : 'هنوز چیزی ساخته نشده.')), [[['text' => '📚 کارهای من', 'data' => 'lb:home']]]);
                     break;
                 }
                 $this->library($chat)->make($user, $refs, (string) ($a['kind'] ?? 'exam'), ($a['mode'] ?? 'copy') === 'similar' ? 'similar' : 'copy',
-                    array_filter(['count' => (int) ($a['count'] ?? 0), 'shuffle' => (bool) ($a['shuffle'] ?? false), 'title' => (string) ($a['title'] ?? ''), 'class' => $cls?->id]));
+                    array_filter(['count' => (int) ($a['count'] ?? 0), 'shuffle' => (bool) ($a['shuffle'] ?? false), 'title' => (string) ($a['title'] ?? ''), 'class' => $cls?->id,
+                        'start' => $a['start'] ?? null, 'seconds' => $a['seconds'] ?? null, 'end_minutes' => $a['end_minutes'] ?? null], fn ($v) => $v !== null && $v !== '' && $v !== 0 && $v !== false));
+                break;
+            case 'show_items':
+                $it = new BotItems($user);
+                $refs = $it->refs($a + ['last_n' => $a['limit'] ?? 15]);
+                if (! $refs) {
+                    $this->api->send($chat, '🔍 چیزی با این مشخصات پیدا نشد.', [[['text' => '📚 کارهای من', 'data' => 'lb:home']]]);
+                    break;
+                }
+                $L = ['📚 ' . ($note !== '' ? Str::limit($note, 200) : 'فهرست'), ''];
+                $rows = [];
+                foreach ($refs as $k => [$t, $m]) {
+                    $sm = $it->summary($t, $m);
+                    $L[] = Jalali::fa((string) ($k + 1)) . '. ' . BotItems::TYPES[$t] . ' «' . $m->title . '» — ' . $sm['status'] . ' · ' . Jalali::fa((string) $sm['questions']) . ' سؤال · '
+                        . Jalali::fa((string) $sm['participants']) . ' شرکت‌کننده · ' . $sm['date'];
+                    $rows[] = ['text' => Jalali::fa((string) ($k + 1)) . '. ' . Str::limit($m->title, 18), 'data' => "lb:v:{$t}:{$m->id}"];
+                }
+                $kb = array_chunk(array_slice($rows, 0, 20), 2);
+                $kb[] = [['text' => '📚 کارهای من', 'data' => 'lb:home'], ['text' => '🏠 منو', 'data' => 'm:main']];
+                $this->api->send($chat, Str::limit(implode("\n", $L), 3900), $kb);
+                break;
+            case 'show_questions':
+                $it = new BotItems($user);
+                $refs = $it->refs($a);
+                if (! $refs) {
+                    $this->api->send($chat, '🔍 چیزی با این مشخصات پیدا نشد.', [[['text' => '📚 کارهای من', 'data' => 'lb:home']]]);
+                    break;
+                }
+                $L = [];
+                foreach ($refs as [$t, $m]) {
+                    $qs = $it->questions($t, $m);
+                    $L[] = '';
+                    $L[] = BotItems::TYPES[$t] . ' «' . $m->title . '» — ' . Jalali::fa((string) count($qs)) . ' سؤال';
+                    foreach ($qs as $k => $q) {
+                        $L[] = BotItems::line($q, $k);
+                    }
+                }
+                $parts = [];
+                $cur = '';
+                foreach ($L as $line) {
+                    if (mb_strlen($cur) + mb_strlen($line) > 3700 && $cur !== '') {
+                        $parts[] = $cur;
+                        $cur = '';
+                    }
+                    $cur .= ($cur === '' ? '' : "\n") . $line;
+                }
+                $parts[] = $cur;
+                // دکمه‌های «ساختن از همین‌ها» زیرِ آخرین تکه
+                $key = 'shq:' . Str::lower(Str::random(6));
+                Cache::put($this->key($key), array_map(fn ($r) => $r[0] . ':' . $r[1]->id, $refs), now()->addHours(3));
+                foreach ($parts as $k => $part) {
+                    $this->api->send($chat, trim($part), $k === array_key_last($parts) ? [
+                        [['text' => '📝 آزمون از این‌ها', 'data' => 'lb:set:' . substr($key, 4) . ':exam'], ['text' => '🎮 بازی', 'data' => 'lb:set:' . substr($key, 4) . ':game'],
+                            ['text' => '🏆 مسابقه', 'data' => 'lb:set:' . substr($key, 4) . ':live']],
+                        [['text' => '📚 کارهای من', 'data' => 'lb:home']],
+                    ] : []);
+                }
                 break;
             case 'open_item':
                 $it = new BotItems($user);

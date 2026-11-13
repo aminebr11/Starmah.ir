@@ -139,6 +139,99 @@ class BotLibraryTest extends TestCase
         $this->assertNull(EduGame::find($g2->id));
     }
 
+    private function ai(array ...$responses): void
+    {
+        Setting::put('ai_provider', 'openai');
+        Setting::put('openai_key', 'sk-test');
+        $seq = Http::sequence();
+        foreach ($responses as $r) {
+            isset($r['__status']) ? $seq->push($r['body'], $r['__status']) : $seq->push(['choices' => [['message' => $r]]]);
+        }
+        Http::fake(['*' => $seq]);
+    }
+
+    private static function tc(string $n, array $a): array
+    {
+        return ['role' => 'assistant', 'content' => null, 'tool_calls' => [['id' => 'c1', 'type' => 'function', 'function' => ['name' => $n, 'arguments' => json_encode($a, JSON_UNESCAPED_UNICODE)]]]];
+    }
+
+    public function test_screenshot_case_model_says_it_cannot_then_real_list_is_shown(): void
+    {
+        [$teacher] = $this->setupTeacher();
+        $this->game($teacher, 'بازیِ کسرها', ['سؤالِ یک']);
+        $this->game($teacher, 'بازیِ ضرب', ['سؤالِ دو']);
+        // ۱) مدل ابزارها را نادیده گرفت و گفت «نمی‌تونم» ← ۲) روشِ جایگزین با داده‌ی واقعی ← فهرستِ دقیق
+        $this->ai(['role' => 'assistant', 'content' => 'متأسفانه فهرست بازی‌های منتشرشده رو نمی‌تونم نمایش بدم'],
+            ['role' => 'assistant', 'content' => '{"reply":"","tool":"show_items","args":{"type":"game"}}']);
+        $this->text('کارهای من لیست بازی‌ها رو بهم برسون');
+        $t = $this->texts();
+        $this->assertStringContainsString('بازیِ کسرها', $t);
+        $this->assertStringContainsString('بازیِ ضرب', $t);
+        $this->assertStringNotContainsString('نمی‌تونم', $t);
+        // روشِ جایگزین «داده‌ی واقعی» را در پرامپت داشت
+        Http::assertSent(fn (HttpRequest $r) => ! isset($r->data()['tools']) && str_contains(json_encode($r->data(), JSON_UNESCAPED_UNICODE), '«بازیِ کسرها»'));
+        $this->assertSame('tools_ignored', \Illuminate\Support\Facades\Cache::get('bot-brain-diag')['state']);
+    }
+
+    public function test_service_rejecting_tools_and_gemini_safe_schemas(): void
+    {
+        [$teacher] = $this->setupTeacher();
+        $this->game($teacher, 'بازیِ کسرها', ['سؤالِ یک']);
+        $this->ai(['__status' => 400, 'body' => ['error' => ['message' => 'function declarations: properties should be non-empty for OBJECT type']]],
+            ['__status' => 400, 'body' => ['error' => ['message' => 'still bad']]],
+            ['role' => 'assistant', 'content' => '{"reply":"","tool":"show_questions","args":{"type":"game","last":1}}']);
+        $this->text('سؤال‌های بازیِ آخر رو بده');
+        $this->assertStringContainsString('سؤالِ یک', $this->texts());
+        $this->assertSame('tools_rejected', \Illuminate\Support\Facades\Cache::get('bot-brain-diag')['state']);
+        // ابزارِ بی‌پارامتر «parameters» ندارد (Gemini آن را رد می‌کرد)
+        Http::assertSent(function (HttpRequest $r) {
+            $t = collect($r->data()['tools'] ?? [])->firstWhere('function.name', 'today_summary');
+
+            return $t && ! array_key_exists('parameters', $t['function']);
+        });
+    }
+
+    public function test_live_contest_from_games_published_yesterday_scheduled_for_17(): void
+    {
+        [$teacher] = $this->setupTeacher();
+        $this->travelTo(now()->setTime(10, 0));
+        $yes = $this->game($teacher, 'بازیِ دیروز', ['دیروز — سؤالِ الف', 'دیروز — سؤالِ ب']);
+        $yes->forceFill(['status' => 'published', 'created_at' => now()->subDay(), 'updated_at' => now()->subDay()])->saveQuietly();
+        $draft = $this->game($teacher, 'پیش‌نویسِ دیروز', ['پیش‌نویس — سؤال']);
+        $draft->forceFill(['created_at' => now()->subDay(), 'updated_at' => now()->subDay()])->saveQuietly();
+        $today = $this->game($teacher, 'بازیِ امروز', ['امروز — سؤال']);
+        $today->forceFill(['status' => 'published'])->saveQuietly();
+
+        $this->ai(self::tc('build_from_items', ['kind' => 'live', 'from_type' => 'game', 'date' => now()->subDay()->toDateString(), 'status' => 'published', 'start' => '17:00', 'seconds' => 30]));
+        $this->text('از بازی‌هایی که دیروز منتشر کردم از بین سوالاتش یک مسابقه زنده بساز امروز ساعت ۱۷ منتشر کن');
+        $s = $this->quiz();
+        $this->assertSame('live', $s['kind']);
+        $this->assertSame(['دیروز — سؤالِ الف', 'دیروز — سؤالِ ب'], array_column($s['qs'], 'prompt'));
+        $this->assertSame(['17:00', 30], [$s['rules']['start'], $s['rules']['seconds']]);
+        $this->assertStringContainsString('ساعتِ ۱۷:۰۰ امروز', $this->texts());
+        $this->press('q:pub:1');
+        $c = LiveContest::where('teacher_id', $teacher->id)->firstOrFail();
+        $this->assertSame(['auto', '17:00', 30], [$c->mode, $c->starts_at->format('H:i'), $c->seconds]);
+        $this->assertTrue($c->starts_at->isToday());
+    }
+
+    public function test_show_questions_then_build_from_them_with_one_tap_and_admin_probe(): void
+    {
+        [$teacher] = $this->setupTeacher();
+        $this->game($teacher, 'بازی ۱', ['اولی — سؤال']);
+        $this->game($teacher, 'بازی ۲', ['دومی — سؤال']);
+        $this->ai(self::tc('show_questions', ['type' => 'game', 'last' => 2]), self::tc('show_items', ['type' => 'game']));
+        $this->text('سوالای دو بازی آخر رو بده');
+        $this->assertStringContainsString('دومی — سؤال', $this->texts());
+        $set = collect(BotApi::$fake)->flatMap(fn ($c) => collect($c['params']['reply_markup']['inline_keyboard'] ?? [])->flatten(1))->pluck('callback_data')
+            ->first(fn ($d) => str_starts_with((string) $d, 'lb:set:') && str_ends_with((string) $d, ':exam'));
+        $this->press($set);
+        $this->assertEqualsCanonicalizing(['اولی — سؤال', 'دومی — سؤال'], array_column($this->quiz()['qs'], 'prompt'));
+
+        $admin = $this->makeUser(null, \App\Support\Roles::SUPER_ADMIN);
+        $this->actingAs($admin)->postJson(route('admin.bot.brain'))->assertOk()->assertJsonPath('ok', true)->assertJsonPath('called', 'show_items');
+    }
+
     public function test_basket_of_games_and_exam_becomes_one_exam_without_duplicates(): void
     {
         [$teacher] = $this->setupTeacher();

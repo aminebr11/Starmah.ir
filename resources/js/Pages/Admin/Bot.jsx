@@ -15,6 +15,13 @@ export default function AdminBot() {
     const d = form.data;
     const [copied, setCopied] = useState(false);
     const [diag, setDiag] = useState({});   // {bale: {busy, steps}, telegram: …}
+    const [brainTest, setBrainTest] = useState(null);
+    const testBrain = async () => {
+        setBrainTest({ busy: true });
+        try { const { data } = await axios.post(route('admin.bot.brain')); setBrainTest(data); }
+        catch (e) { setBrainTest({ ok: false, message: e?.response?.status ? `خطای ${e.response.status}` : 'اتصال قطع شد' }); }
+    };
+    const LAST = { ok: '✅ با ابزارها', ok_no_tool: '✅ جوابِ مستقیم (بدونِ نیاز به داده)', tools_rejected: '⚠️ سرویس ابزار را رد کرد → روشِ جایگزین', tools_ignored: '⚠️ مدل ابزار را نادیده گرفت → روشِ جایگزین' };
     const diagnose = async (p) => {
         setDiag((x) => ({ ...x, [p]: { busy: true } }));
         try {
@@ -144,6 +151,16 @@ export default function AdminBot() {
                         نامِ بچه‌های هر کلاس خودکار به سرویس داده می‌شود تا نام‌ها درست نوشته شوند.
                         برای فهمِ دستورها هم مدل‌های قوی‌تر (مثلاً <code dir="ltr">gpt-4.1-mini</code>، <code dir="ltr">gpt-4o</code>، Claude یا <code dir="ltr">gemini-2.5-flash</code>) دقیق‌ترند؛ مدل‌های خیلی کوچک گاهی ابزارها را درست به کار نمی‌برند.
                     </p>
+                    <div className="bt-row" style={{ marginBottom: 10 }}>
+                        <button type="button" className="btn btn-sm" onClick={testBrain} disabled={brainTest?.busy}>{brainTest?.busy ? '⏳ در حالِ آزمایش…' : '🧪 آزمایشِ مغزِ دستیار'}</button>
+                    </div>
+                    {brainTest && !brainTest.busy && (
+                        <div className={`bt-step ${brainTest.ok ? 'ok' : 'bad'} first`} style={{ marginBottom: 10 }}>
+                            <b>{brainTest.ok ? '✅' : '⚠️'} {brainTest.provider} — <span dir="ltr">{brainTest.model}</span></b>
+                            <span>{brainTest.message}</span>
+                            {brainTest.last && <small>آخرین گفتگوی واقعی ({brainTest.last.at}): {LAST[brainTest.last.state] || brainTest.last.state}{brainTest.last.detail ? ` — ${brainTest.last.detail}` : ''}</small>}
+                        </div>
+                    )}
                     <div className="bt-grid">
                         {F('stt_base', '🎙️ نشانیِ سرویسِ صدا به متن (اختیاری)', 'https://api.example.ir/v1')}
                         {F('stt_key', '🔑 کلیدِ سرویس', 'sk-…')}

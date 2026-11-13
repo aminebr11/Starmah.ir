@@ -89,6 +89,14 @@ class BotSettingsController extends Controller
      * 🩺 عیب‌یابیِ قدم‌به‌قدم روی همین سرور: توکن، دسترسی به پیام‌رسان، نشانیِ دریافت، گزارشِ خودِ
      * پیام‌رسان از آخرین خطای تحویل، و ارسالِ آزمایشی به نشانیِ دریافتِ خودِ سایت.
      */
+    /** 🧪 آزمایشِ «مغزِ» دستیار: ابزارها را می‌فهمد؟ */
+    public function adminBrain(Request $request): JsonResponse
+    {
+        $r = (new \App\Services\Bot\BotBrain($request->user(), new \App\Services\Bot\TeacherBot('bale')))->probe();
+
+        return response()->json($r + ['last' => \Illuminate\Support\Facades\Cache::get('bot-brain-diag')]);
+    }
+
     public function adminDiagnose(string $platform): JsonResponse
     {
         abort_unless(in_array($platform, ['bale', 'telegram'], true), 404);

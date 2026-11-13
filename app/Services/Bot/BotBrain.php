@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\Http;
 class BotBrain
 {
     public const ACTIONS = ['record_attendance', 'record_grades', 'give_points', 'record_discipline', 'send_announcement', 'grade_submissions', 'create_quiz',
-        'build_from_items', 'open_item', 'open_screen'];
+        'build_from_items', 'show_items', 'show_questions', 'open_item', 'open_screen'];
 
     private const ROUNDS = 5;
 
@@ -62,7 +62,8 @@ class BotBrain
                 'value' => $str + ['description' => 'خیلی خوب | خوب | قابل قبول | نیاز به تلاش | عالی (کاربرگ) | عددِ نمره از ۲۰'], 'feedback' => $str]],
             'create_quiz' => ['ساختِ آزمون، بازیِ آموزشی یا مسابقه‌ی زنده با هوش مصنوعی (معلم بعد تنظیمات و سؤال‌ها را می‌بیند)', [
                 'kind' => ['type' => 'string', 'enum' => ['exam', 'game', 'live']], 'class' => $str, 'lesson' => $str, 'topic' => $str, 'count' => $int,
-                'difficulty' => ['type' => 'string', 'enum' => ['easy', 'medium', 'hard', 'mixed']]]],
+                'difficulty' => ['type' => 'string', 'enum' => ['easy', 'medium', 'hard', 'mixed']],
+                'start' => $str + ['description' => 'فقط مسابقه: «HH:MM»، «now» یا «board»'], 'seconds' => $int, 'end_minutes' => $int]],
             'build_from_items' => ['ساختنِ آزمون/بازی/مسابقه‌ی زنده از سؤال‌های آزمون‌ها، بازی‌ها یا مسابقه‌های قبلیِ خودِ معلم (همان سؤال‌ها یا با هوش مصنوعی سؤال‌های تازه‌ی مشابه). معلم پیش از انتشار بازبینی می‌کند.', [
                 'kind' => ['type' => 'string', 'enum' => ['exam', 'game', 'live'], 'description' => 'چه چیزی ساخته شود'],
                 'from_type' => ['type' => 'string', 'enum' => ['exam', 'game', 'live'], 'description' => 'سؤال‌ها از کجا'],
@@ -70,7 +71,17 @@ class BotBrain
                 'last_n' => $int + ['description' => 'یا: چند موردِ آخر («سه بازیِ آخر» = 3)'],
                 'count' => $int + ['description' => 'تعدادِ سؤالِ نهایی (اختیاری)'], 'shuffle' => ['type' => 'boolean'],
                 'mode' => ['type' => 'string', 'enum' => ['copy', 'similar'], 'description' => 'copy = همان سؤال‌ها؛ similar = سؤال‌های تازه‌ی مشابه با هوش مصنوعی'],
-                'title' => $str, 'class' => $str]],
+                'title' => $str, 'class' => $str,
+                'date' => $str + ['description' => 'فقط مواردی که در این روز ساخته/منتشر شده‌اند (YYYY-MM-DD از جدولِ تاریخ‌ها؛ «دیروز»)'],
+                'days' => $int + ['description' => 'یا: مواردِ چند روزِ اخیر'], 'status' => ['type' => 'string', 'enum' => ['published', 'draft', 'closed']],
+                'start' => $str + ['description' => 'فقط مسابقه‌ی زنده: ساعتِ شروع «HH:MM» (مثلاً «17:00»)، یا «now» یا «board» (روی تخته)'],
+                'seconds' => $int + ['description' => 'فقط مسابقه: ثانیه‌ی هر سؤال'], 'end_minutes' => $int + ['description' => 'فقط مسابقه: چند دقیقه بعد از شروع تمام شود']]],
+            'show_items' => ['نشان دادنِ دقیقِ فهرستِ آزمون‌ها/بازی‌ها/مسابقه‌ها از سامانه (با دکمه‌ی هر کدام). برای «لیستِ بازی‌ها/آزمون‌ها» همین را بزن.', [
+                'type' => ['type' => 'string', 'enum' => ['exam', 'game', 'live']], 'date' => $str, 'days' => $int,
+                'status' => ['type' => 'string', 'enum' => ['published', 'draft', 'closed']], 'limit' => $int]],
+            'show_questions' => ['نشان دادنِ متنِ کاملِ سؤال‌های چند آزمون/بازی/مسابقه، مستقیم از سامانه (کامل و بی‌خطا، با دکمه‌ی ساختن از همین‌ها). برای «سؤال‌های … را بده» همین را بزن.', [
+                'type' => ['type' => 'string', 'enum' => ['exam', 'game', 'live']], 'titles' => ['type' => 'array', 'items' => $str], 'last' => $int,
+                'date' => $str, 'days' => $int, 'status' => ['type' => 'string', 'enum' => ['published', 'draft', 'closed']]]],
             'open_item' => ['باز کردنِ کارتِ یک آزمون/بازی/مسابقه (برای انتشار، بستن، حذف، نتیجه و سؤال‌ها با دکمه)', [
                 'type' => ['type' => 'string', 'enum' => ['exam', 'game', 'live']], 'title' => $str]],
             'open_screen' => ['باز کردنِ یک صفحه‌ی بات برای معلم', ['screen' => ['type' => 'string', 'enum' => [
@@ -85,9 +96,10 @@ class BotBrain
         $out = [];
         foreach (BotData::tools() + self::actionTools() as $name => [$desc, $props]) {
             $schema = ['type' => 'object', 'properties' => (object) $props];
+            // ابزارِ بی‌پارامتر: Gemini و بعضی واسطه‌ها «properties»ِ خالی را رد می‌کنند و کلِ درخواست ۴۰۰ می‌شود
             $out[] = $family === 'anthropic'
                 ? ['name' => $name, 'description' => $desc, 'input_schema' => $schema]
-                : ['type' => 'function', 'function' => ['name' => $name, 'description' => $desc, 'parameters' => $schema]];
+                : ['type' => 'function', 'function' => ['name' => $name, 'description' => $desc] + ($props ? ['parameters' => $schema] : [])];
         }
 
         return $out;
@@ -128,7 +140,7 @@ class BotBrain
 
 قواعد (خیلی مهم):
 ۱) هیچ عدد، نام، نمره یا وضعیتی را حدس نزن و از خودت نساز. برای هر سؤال درباره‌ی بچه‌ها، حضور، نمره‌ها، کارهای فرستاده‌شده، آزمون‌ها، بازی‌ها، امتیاز، انضباط، پیام‌ها یا برنامه، اول ابزارِ خواندنیِ مناسب را صدا بزن و فقط بر اساسِ خروجیِ آن جواب بده. اگر داده نبود، صادقانه بگو.
-۲) هر تغییری (حضور و غیاب، نمره، امتیاز، انضباط، اطلاعیه/پیام، تصحیح و نمره‌دادن به کارهای فرستاده‌شده، ساختِ آزمون/بازی/مسابقه) فقط با ابزارِ «کار»ِ مربوط. برای «از سؤال‌های بازی/آزمون/مسابقه‌های قبلی … بساز» از build_from_items؛ برای انتشار، بستن یا حذفِ یک آزمون/بازی از open_item (دکمه‌ی تأیید دارد). سامانه پیش‌نمایش نشان می‌دهد و معلم تأیید می‌کند؛ پس هرگز نگو «انجام شد».
+۲) هر تغییری (حضور و غیاب، نمره، امتیاز، انضباط، اطلاعیه/پیام، تصحیح و نمره‌دادن به کارهای فرستاده‌شده، ساختِ آزمون/بازی/مسابقه) فقط با ابزارِ «کار»ِ مربوط. برای «فهرستِ بازی‌ها/آزمون‌ها» از show_items، برای «سؤال‌های … را بده» از show_questions (کامل و دقیق از سامانه؛ خودت سؤال‌ها را بازنویسی نکن)، برای «از سؤال‌های بازی/آزمون/مسابقه‌های قبلی … بساز» از build_from_items (با date/days/status اگر معلم زمان یا وضعیت گفت، و start/seconds برای زمان‌بندیِ مسابقه)؛ برای انتشار، بستن یا حذفِ یک آزمون/بازی از open_item (دکمه‌ی تأیید دارد). سامانه پیش‌نمایش نشان می‌دهد و معلم تأیید می‌کند؛ پس هرگز نگو «انجام شد».
 ۳) دقیقاً همان کاری را بکن که معلم خواست؛ نه بیشتر، نه کمتر. فیلترهایش (امشب، دیروز، فقط روخوانی، به‌جز فلانی، فقط کسانی که فرستادند…) را دقیق در بخش‌های ابزار بگذار.
 ۴) نام‌ها را همیشه با املای دقیقِ فهرستِ بالا بنویس. {$this->voiceRule($voice)} اگر یک نام به دو دانش‌آموز می‌خورد، یا کلاس معلوم نیست و چند کلاس هست، کوتاه بپرس.
 ۵) جوابِ نهایی: فارسیِ روان، کوتاه و کاربردی (حداکثر حدودِ ۱۲ خط)، با فهرستِ نقطه‌دار (•) برای چند مورد. از Markdown (ستاره‌ی ** یا # یا جدول) استفاده نکن؛ پیام‌رسان آن را نشان نمی‌دهد. اگر کاری لازم است، یک پیشنهادِ عملیِ کوتاه بده (مثلاً «بگو تا برایشان … بفرستم»).
@@ -174,15 +186,30 @@ TXT;
                 $last = $round === self::ROUNDS - 1 || microtime(true) - $started > 70;
                 $r = $family === 'anthropic' ? $this->callAnthropic($key, $sys, $msgs, $last) : $this->callOpenAi($key, $p, $sys, $msgs, $last);
                 if (! $r['ok']) {
-                    // سرویسی که ابزار نمی‌فهمد → روشِ قدیمی
+                    // سرویسی که ابزار نمی‌فهمد → روشِ قدیمی (با خلاصه‌ای از داده‌ی واقعی)
                     if ($round === 0 && $r['status'] === 400) {
+                        self::diag('tools_rejected', $r['error']);
+
                         return $this->legacy($text, $history, $voice);
                     }
 
                     return ['type' => 'error', 'text' => $r['error']];
                 }
                 if (! $r['calls']) {
+                    // مدل بدونِ نگاه به داده گفت «نمی‌توانم» → ابزارها به او نرسیده‌اند (واسطه حذفشان کرده)
+                    if ($round === 0 && preg_match('/(نمی\s*‌?\s*(تونم|توانم)|دسترسی\s*(ندارم|نیست)|امکان\s*ندارد|can.?t|cannot|don.?t have access)/u', $r['text'])) {
+                        self::diag('tools_ignored', mb_substr($r['text'], 0, 200));
+
+                        return $this->legacy($text, $history, $voice);
+                    }
+                    if ($round === 0) {
+                        self::diag('ok_no_tool', '');
+                    }
+
                     return $this->final($r['text']);
+                }
+                if ($round === 0) {
+                    self::diag('ok', '');
                 }
                 // اولین «کار» → به بات برمی‌گردد (پیش‌نمایش و تأیید)
                 foreach ($r['calls'] as $c) {
@@ -250,9 +277,58 @@ TXT;
             'game', 'exam', 'live' => ['type' => 'action', 'tool' => 'create_quiz', 'args' => ['kind' => $tool] + $a],
             'messages' => ['type' => 'action', 'tool' => 'open_screen', 'args' => ['screen' => 'messages']],
             'report' => ['type' => 'action', 'tool' => 'legacy_report', 'args' => $a],
+            'build_from_items', 'show_items', 'show_questions', 'open_item', 'open_screen' => ['type' => 'action', 'tool' => $tool, 'args' => $a],
             'student' => ['type' => 'action', 'tool' => 'legacy_student', 'args' => $a],
             default => null,
         };
+    }
+
+    /**
+     * 🧪 آزمایشِ سرویس برای ادمین: آیا ابزار (function calling) را می‌پذیرد و درست صدا می‌زند؟
+     * @return array{ok:bool, provider:string, model:string, tools:bool, called:?string, message:string}
+     */
+    public function probe(): array
+    {
+        $p = AiConfig::provider();
+        $family = AiConfig::family($p);
+        $base = ['provider' => $p, 'model' => AiConfig::model($p), 'tools' => false, 'called' => null];
+        if ($p === 'off' || ! ($key = AiConfig::key($p))) {
+            return $base + ['ok' => false, 'message' => 'هوش مصنوعی خاموش است یا کلید ندارد (مرکزِ هوش مصنوعی).'];
+        }
+        $sys = 'تو دستیارِ معلم هستی. برای هر سؤال درباره‌ی بازی‌ها حتماً ابزارِ show_items را صدا بزن.';
+        $msgs = [['role' => 'user', 'content' => 'فهرستِ بازی‌هایم را نشان بده']];
+        $t0 = microtime(true);
+        $r = $family === 'anthropic' ? $this->callAnthropic($key, $sys, $msgs, false) : $this->callOpenAi($key, $p, $sys, $msgs, false);
+        $ms = (int) round((microtime(true) - $t0) * 1000);
+        if (! $r['ok']) {
+            return $base + ['ok' => false, 'message' => 'سرویس درخواستِ ابزاردار را رد کرد (' . $r['status'] . '): ' . $r['error']
+                . ' — بات با روشِ ساده‌تر کار می‌کند، ولی دقیق نیست. مدلی مثلِ gpt-4o-mini، gpt-4.1-mini، Claude یا gemini-2.5-flash انتخاب کنید.'];
+        }
+        $called = $r['calls'][0]['name'] ?? null;
+
+        return ['ok' => $called !== null, 'tools' => true, 'called' => $called, 'message' => $called
+            ? '✅ سرویس ابزارها را می‌فهمد و درست صدا زد («' . $called . '»، ' . Jalali::fa((string) $ms) . ' میلی‌ثانیه). دستیار در بهترین حالت کار می‌کند.'
+            : '⚠️ سرویس خطا نداد ولی ابزار را صدا نزد (احتمالاً واسطه ابزارها را حذف می‌کند یا مدل ضعیف است). بات خودکار از روشِ جایگزین با داده‌ی واقعی استفاده می‌کند؛ برای دقتِ بیشتر مدلِ قوی‌تری انتخاب کنید. جوابِ مدل: ' . mb_substr($r['text'], 0, 120)] + $base;
+    }
+
+    /** آخرین وضعیتِ «مغز» برای صفحه‌ی ادمین (کلید و رمز در آن نیست). */
+    public static function diag(string $state, string $detail): void
+    {
+        \Illuminate\Support\Facades\Cache::put('bot-brain-diag', ['state' => $state, 'detail' => mb_substr($detail, 0, 300), 'at' => now()->toDateTimeString(),
+            'provider' => AiConfig::provider(), 'model' => AiConfig::model()], now()->addDays(3));
+    }
+
+    /** خلاصه‌ی داده‌ی واقعی برای روشِ قدیمی (وقتی ابزار در دسترس نیست). */
+    private function snapshot(): string
+    {
+        $it = new BotItems($this->user);
+        $L = [];
+        foreach (BotItems::TYPES as $t => $label) {
+            $rows = $it->search($t, null, 10)->map(fn ($m) => '«' . $m->title . '» (' . $it->summary($t, $m)['status'] . '، ' . $m->created_at->toDateString() . ')')->all();
+            $L[] = $label . 'ها: ' . ($rows ? implode('، ', $rows) : 'ندارد');
+        }
+
+        return implode("\n", $L);
     }
 
     private function legacy(string $text, array $history, bool $voice): array
@@ -261,7 +337,7 @@ TXT;
         $ctx = $classes->map(fn ($c) => ['name' => $c->name, 'students' => $c->students()->orderBy('name')->pluck('name')->all(),
             'subjects' => collect(rescue(fn () => $c->subjectNames(), [], false))->pluck('name')->all()])->values()->all();
         $topics = rescue(fn () => \App\Models\DisciplineTopic::where('school_id', $this->user->school_id)->where('is_active', true)->get(['id', 'name', 'kind', 'points'])->toArray(), [], false);
-        $d = BotAgent::decide($this->user, $ctx, $topics, $history, ($voice ? '[پیامِ صوتی؛ ممکن است نامی اشتباه شنیده شده باشد] ' : '') . $text);
+        $d = BotAgent::decide($this->user, $ctx, $topics, $history, ($voice ? '[پیامِ صوتی؛ ممکن است نامی اشتباه شنیده شده باشد] ' : '') . $text, rescue(fn () => $this->snapshot(), '', false));
         if (! $d['ok']) {
             return ['type' => 'error', 'text' => $d['reply']];
         }
@@ -301,6 +377,10 @@ TXT;
             'messages' => array_merge([['role' => 'system', 'content' => $sys]], $msgs),
             'tools' => self::schemas('openai'), 'tool_choice' => $last ? 'none' : 'auto'];
         $res = AiConfig::postChat($key, $body, 40, $p);
+        if ($res->status() === 400 && isset($body['tool_choice'])) {
+            unset($body['tool_choice']);   // بعضی واسطه‌ها/مدل‌ها tool_choice را نمی‌شناسند
+            $res = AiConfig::postChat($key, $body, 40, $p);
+        }
         if (! $res->successful()) {
             return ['ok' => false, 'status' => $res->status(), 'error' => \App\Support\AiChat::friendly($res->status(), (string) (data_get($res->json(), 'error.message') ?: $res->body()))];
         }

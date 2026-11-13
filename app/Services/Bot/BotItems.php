@@ -40,15 +40,69 @@ class BotItems
     }
 
     /** آخرین‌ها، یا آن‌که عنوانش (بی‌حساسیت به اعراب و نیم‌فاصله) می‌خورد. */
-    public function search(string $type, ?string $title = null, int $limit = 10): Collection
+    /**
+     * آخرین‌ها، یا آن‌که عنوانش (بی‌حساسیت به اعراب و نیم‌فاصله) می‌خورد.
+     * $f: date (YYYY-MM-DD؛ ساخته یا منتشر/ویرایش‌شده در آن روز) · days (چند روزِ اخیر) · status (published|draft|closed|…)
+     */
+    public function search(string $type, ?string $title = null, int $limit = 10, array $f = []): Collection
     {
-        $rows = $this->query($type)->latest('id')->limit($title ? 60 : $limit)->get();
+        $q = $this->query($type)->latest('id');
+        if (! empty($f['date'])) {
+            try {
+                $d = \Illuminate\Support\Carbon::parse(P::digits((string) $f['date']))->toDateString();
+                $q->where(fn ($w) => $w->whereDate('created_at', $d)->orWhereDate('updated_at', $d)
+                    ->when($type === 'game', fn ($x) => $x->orWhereDate('publish_at', $d))
+                    ->when($type === 'exam', fn ($x) => $x->orWhereDate('opens_at', $d))
+                    ->when($type === 'live', fn ($x) => $x->orWhereDate('starts_at', $d)));
+            } catch (\Throwable $e) {
+                // تاریخِ نامعتبر → بدونِ فیلتر
+            }
+        } elseif (! empty($f['days'])) {
+            $from = now()->subDays(max(1, (int) $f['days']) - 1)->startOfDay();
+            $q->where(fn ($w) => $w->where('created_at', '>=', $from)->orWhere('updated_at', '>=', $from));
+        }
+        if (! empty($f['status'])) {
+            $st = (string) $f['status'];
+            $type === 'live'
+                ? $q->when($st === 'published', fn ($w) => $w->where('phase', '!=', 'draft'))
+                : $q->where('status', $st);
+        }
+        $rows = $q->limit($title ? 60 : $limit)->get();
         if ($title !== null && trim($title) !== '') {
             $h = self::flat($title);
             $rows = $rows->filter(fn ($r) => str_contains(self::flat($r->title), $h))->take($limit);
         }
 
         return $rows->values();
+    }
+
+    /**
+     * پارامترهای دستیار → فهرستِ [نوع، مورد]:
+     * from_type/type، titles[] یا title، last_n/last، date، days، status
+     */
+    public function refs(array $a): array
+    {
+        $type = $a['from_type'] ?? ($a['type'] ?? null);
+        $types = isset(self::TYPES[$type]) ? [$type] : array_keys(self::TYPES);
+        $f = array_filter(['date' => $a['date'] ?? null, 'days' => $a['days'] ?? null, 'status' => $a['status'] ?? null]);
+        $titles = array_values(array_filter(array_map('strval', (array) ($a['titles'] ?? (isset($a['title']) ? [$a['title']] : [])))));
+        $n = max(1, min(15, (int) ($a['last_n'] ?? ($a['last'] ?? ($f ? 15 : 1)))));
+        $refs = [];
+        foreach ($types as $t) {
+            if ($titles) {
+                foreach ($titles as $title) {
+                    foreach ($this->search($t, $title, 1, $f) as $m) {
+                        $refs[] = [$t, $m];
+                    }
+                }
+            } elseif (count($types) === 1 || $f) {
+                foreach ($this->search($t, null, $n, $f) as $m) {
+                    $refs[] = [$t, $m];
+                }
+            }
+        }
+
+        return $refs;
     }
 
     public static function flat(string $v): string

@@ -142,6 +142,7 @@ class BotQuiz
             $s['kind'] = null;   // آزمایشگاهِ آزمون خاموش است → فقط بازی پیشنهاد می‌شود
         }
         $s['rules'] = self::rulesFor($s['kind']);
+        self::liveOpts($s, $p);
         $s['topic'] = trim((string) ($p['topic'] ?? ''));
         $s['lesson'] = trim((string) ($p['lesson'] ?? ''));
         if (! empty($p['count'])) {
@@ -180,6 +181,7 @@ class BotQuiz
             $s['kind'] = 'game';
         }
         $s['rules'] = self::rulesFor($s['kind']);
+        self::liveOpts($s, $opt);
         $s['types'] = $this->allowedTypes($s) === ['mc', 'tf'] ? ['mc', 'tf'] : $s['types'];
         if (! empty($opt['class'])) {
             $s['class'] = (int) $opt['class'];
@@ -224,7 +226,8 @@ class BotQuiz
         $s['qs'] = array_map(fn ($q) => array_intersect_key($q, array_flip(['type', 'prompt', 'choices', 'answer', 'explanation', 'hint', 'difficulty', 'bloom', 'topic', 'media_url', 'bank_id'])) + ['hint' => null], $ok);
         $s['ready'] = true;
         $this->save($s);
-        $this->api->send($this->chat, $note . "\nپیش از ساخت، سؤال‌ها را ببین؛ می‌توانی ویرایش، جایگزین یا حذف کنی و قوانین را تنظیم کنی.");
+        $this->api->send($this->chat, $note . ($s['kind'] === 'live' ? "\n🗓 " . self::liveLine($s['rules']) : '')
+            . "\nپیش از ساخت، سؤال‌ها را ببین؛ می‌توانی ویرایش، جایگزین یا حذف کنی و قوانین را تنظیم کنی.");
         $this->next($user);
     }
 
@@ -1379,6 +1382,33 @@ class BotQuiz
     }
 
     /* ═════════════════════════ 🏆 مسابقه‌ی زنده ═════════════════════════ */
+
+    /**
+     * زمان‌بندیِ مسابقه از حرفِ معلم: start = «17:00» | «ساعت ۵ عصر» | «now» | «board» | دقیقه‌ی بعد؛
+     * seconds = ثانیه‌ی هر سؤال؛ end_minutes = چند دقیقه بعد از شروع تمام شود.
+     */
+    public static function liveOpts(array &$s, array $o): void
+    {
+        if (($s['kind'] ?? '') !== 'live') {
+            return;
+        }
+        $st = trim((string) ($o['start'] ?? ''));
+        if ($st !== '') {
+            $n = P::norm($st);
+            $s['rules']['start'] = match (true) {
+                in_array($n, ['now', 'الان', 'همین الان', 'همین حالا', 'فورا'], true) => 0,
+                in_array($n, ['board', 'تخته', 'روی تخته', 'کلاس'], true) => 'board',
+                (bool) preg_match('/^\d{1,3}$/', P::digits($n)) && (int) P::digits($n) <= 240 && ! str_contains($n, ':') => (int) P::digits($n),
+                default => self::parseTime($st) ?? $s['rules']['start'],
+            };
+        }
+        if (! empty($o['seconds'])) {
+            $s['rules']['seconds'] = max(5, min(120, (int) $o['seconds']));
+        }
+        if (isset($o['end_minutes'])) {
+            $s['rules']['end'] = max(0, min(600, (int) $o['end_minutes']));
+        }
+    }
 
     public static function rulesFor(?string $kind): array
     {

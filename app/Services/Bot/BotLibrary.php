@@ -76,6 +76,19 @@ class BotLibrary
 
             return;
         }
+        if ($act === 'set') {   // ساختن از فهرستی که همین الان نشان داده شد: lb:set:کلید:نوعِ‌مقصد
+            $it = new BotItems($u);
+            $refs = [];
+            foreach ((array) Cache::get($this->key('shq:' . $t), []) as $k) {
+                [$ty, $iid] = explode(':', $k) + [null, null];
+                if ($ty && ($m = $it->find($ty, (int) $iid))) {
+                    $refs[] = [$ty, $m];
+                }
+            }
+            $this->make($u, $refs, (string) ($a[3] ?? 'exam'), 'copy');
+
+            return;
+        }
         if ($act === 'mkp') {   // ساختن از انتخاب‌شده‌ها: lb:mkp:نوعِ‌مقصد
             $this->make($u, $this->resolvePicks($u), $t, 'copy');
 
