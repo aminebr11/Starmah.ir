@@ -154,6 +154,7 @@ class TeacherBot
         . "📎 عکسِ برگه‌ی نمونه‌سؤال یا صفحه‌ی کتاب (یا PDF) را بفرست تا همان سؤال‌ها، سؤالِ مشابه یا سؤال از روی متن بسازم\n"
         . "✍️ «برای کسایی که امشب روخوانی فرستادن خیلی خوب بزن» · «املای دیروز همه قابل قبول جز رضا»\n"
         . "🏆 «یک مسابقه‌ی زنده‌ی ۱۰ سؤالی از کسرها برای ساعت ۸ شب بساز»\n"
+        . "📚 «سؤال‌های سه بازیِ آخر رو بده» · «با همین‌ها یک مسابقه‌ی زنده بساز» · «آزمونِ کسرها رو ببند»\n"
         . "🗄 بانکِ سؤال، 👥 دانش‌آموزان، ✍️ صفِ تصحیح، 📨 پیام‌ها و ⭐ امتیازها هم در منو هست؛ 🔔 اعلان‌های سایت همان لحظه این‌جا می‌آید\n\n🎙️ می‌توانی پیامِ صوتی هم بفرستی. یا از دکمه‌های منو استفاده کن.";
 
     /* ═════════════════════════ منو ═════════════════════════ */
@@ -165,6 +166,7 @@ class TeacherBot
             [['text' => '📔 ثبتِ نمره', 'data' => 'm:grade'], ['text' => '📢 اطلاعیه', 'data' => 'm:ann']],
             [['text' => '📝 ساختِ آزمون', 'data' => 'q:new:exam'], ['text' => '🎮 ساختِ بازی', 'data' => 'q:new:game']],
             [['text' => '🏆 مسابقه‌ی زنده', 'data' => 'q:new:live'], ['text' => '✍️ تصحیح', 'data' => 'g:home']],
+            [['text' => '📚 کارهای من (آزمون، بازی، مسابقه)', 'data' => 'lb:home']],
             [['text' => '🗄 بانکِ سؤال', 'data' => 'q:bank'], ['text' => '👥 دانش‌آموزان', 'data' => 'm:stl']],
             [['text' => '📨 پیام‌ها', 'data' => 'm:msg'], ['text' => '⭐ امتیازها', 'data' => 'r:xp']],
             [['text' => '📊 گزارش‌ها', 'data' => 'm:rep'], ['text' => '⚙️ تنظیمات', 'data' => 'm:set']],
@@ -239,6 +241,11 @@ class TeacherBot
         // «اطلاعیه: …» همیشه مستقیم؛ بقیه‌ی شکل‌ها («به سارا بگو…») اگر هوش مصنوعی هست، با او (نامِ دقیق‌تر)
         if (($a = P::announce($text)) && ($a['to'] === 'class' || ! BotAgent::available($user))) {
             $this->prepare($chat, $user, 'announce', ['to' => $a['to'], 'text' => $a['text']]);
+
+            return;
+        }
+        if (preg_match('/^(کارهای\s*من|آزمون\s*ها(ی\s*من)?|بازی\s*ها(ی\s*من)?|مسابقه\s*ها(ی\s*من)?)$/u', $n)) {
+            $this->library($chat)->home($user);
 
             return;
         }
@@ -391,8 +398,39 @@ class TeacherBot
                 $this->quiz($chat)->start($user, ['kind' => (string) ($a['kind'] ?? 'exam'), 'lesson' => (string) ($a['lesson'] ?? ''), 'topic' => (string) ($a['topic'] ?? ''),
                     'count' => (int) ($a['count'] ?? 8), 'difficulty' => (string) ($a['difficulty'] ?? 'medium')] + $extra);
                 break;
+            case 'build_from_items':
+                $it = new BotItems($user);
+                $refs = [];
+                $types = isset(BotItems::TYPES[$a['from_type'] ?? '']) ? [$a['from_type']] : array_keys(BotItems::TYPES);
+                foreach ($types as $t) {
+                    if (! empty($a['titles'])) {
+                        foreach ((array) $a['titles'] as $title) {
+                            if ($m = $it->search($t, (string) $title, 1)->first()) {
+                                $refs[] = [$t, $m];
+                            }
+                        }
+                    } elseif (count($types) === 1) {
+                        foreach ($it->search($t, null, max(1, min(10, (int) ($a['last_n'] ?? 1)))) as $m) {
+                            $refs[] = [$t, $m];
+                        }
+                    }
+                }
+                if (! $refs) {
+                    $this->api->send($chat, '🔍 ' . (! empty($a['titles']) ? 'موردی با این نام پیدا نشد: ' . implode('، ', (array) $a['titles']) : 'هنوز چیزی ساخته نشده.'), [[['text' => '📚 کارهای من', 'data' => 'lb:home']]]);
+                    break;
+                }
+                $this->library($chat)->make($user, $refs, (string) ($a['kind'] ?? 'exam'), ($a['mode'] ?? 'copy') === 'similar' ? 'similar' : 'copy',
+                    array_filter(['count' => (int) ($a['count'] ?? 0), 'shuffle' => (bool) ($a['shuffle'] ?? false), 'title' => (string) ($a['title'] ?? ''), 'class' => $cls?->id]));
+                break;
+            case 'open_item':
+                $it = new BotItems($user);
+                $t = isset(BotItems::TYPES[$a['type'] ?? '']) ? $a['type'] : 'exam';
+                $m = $it->search($t, (string) ($a['title'] ?? ''), 1)->first();
+                $m ? $this->library($chat)->onButton($user, "lb:v:{$t}:{$m->id}", 0) : $this->library($chat)->onButton($user, "lb:l:{$t}:0", 0);
+                break;
             case 'open_screen':
                 match ((string) ($a['screen'] ?? 'menu')) {
+                    'library' => $this->library($chat)->home($user),
                     'grading_queue' => isset(BotGrading::TYPES[['reading' => 'r', 'dictation' => 'd', 'worksheet' => 'w'][$a['kind'] ?? ''] ?? ''])
                         ? $this->grading($chat)->next($user, ['reading' => 'r', 'dictation' => 'd', 'worksheet' => 'w'][$a['kind']]) : $this->grading($chat)->home($user),
                     'messages' => $this->inbox($chat, $user, 0),
@@ -510,6 +548,10 @@ class TeacherBot
                     \App\Models\Message::where('recipient_id', $user->id)->where('sender_id', (int) $b)->whereNull('read_at')->update(['read_at' => now()]);
                     $this->inbox($chat, $user, $msgId);
                 }
+
+                return;
+            case 'lb':   // 📚 کارهای من
+                $this->library($chat)->onButton($user, $data, $msgId);
 
                 return;
             case 'q':    // استودیوی سؤال، آزمون و بازی
@@ -1352,6 +1394,16 @@ class TeacherBot
         }
         \App\Models\Message::where('recipient_id', $user->id)->where('sender_id', $to)->whereNull('read_at')->update(['read_at' => now()]);
         $this->api->send($chat, '✅ پاسخ فرستاده شد.', [[['text' => '📨 پیام‌های دیگر', 'data' => 'm:msg'], ['text' => '🏠 منو', 'data' => 'm:main']]]);
+    }
+
+    public function quizFor(string $chat): BotQuiz
+    {
+        return $this->quiz($chat);
+    }
+
+    private function library(string $chat): BotLibrary
+    {
+        return new BotLibrary($this, $this->api, $this->platform, $chat);
     }
 
     private function quiz(string $chat): BotQuiz

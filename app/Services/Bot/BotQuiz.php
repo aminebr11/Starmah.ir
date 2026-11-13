@@ -167,6 +167,67 @@ class BotQuiz
         $this->next($user);
     }
 
+    /**
+     * 📚 ساختن از سؤال‌های موجود (آزمون/بازی/مسابقه‌ی قبلی یا بانک).
+     * $mode: copy = همان سؤال‌ها (تکراری‌ها حذف، به اندازه‌ی count، با ترتیبِ تصادفی اگر shuffle)
+     *        similar = هوش مصنوعی سؤال‌های تازه‌ی هم‌سطح و هم‌موضوع می‌سازد (سؤال‌های قبلی تکرار نمی‌شوند)
+     */
+    public function seed(User $user, string $kind, array $questions, array $opt = []): void
+    {
+        $s = $this->fresh();
+        $s['kind'] = in_array($kind, ['exam', 'game', 'live'], true) ? $kind : 'exam';
+        if ($s['kind'] === 'exam' && ! \App\Support\SmartLab::enabledFor($user)) {
+            $s['kind'] = 'game';
+        }
+        $s['rules'] = self::rulesFor($s['kind']);
+        $s['types'] = $this->allowedTypes($s) === ['mc', 'tf'] ? ['mc', 'tf'] : $s['types'];
+        if (! empty($opt['class'])) {
+            $s['class'] = (int) $opt['class'];
+        }
+        $allowed = $this->allowedTypes($s);
+        $ok = array_values(array_filter($questions, fn ($q) => in_array($q['type'] ?? '', $allowed, true)
+            && (! in_array($q['type'], ['mc', 'tf'], true) || collect($q['choices'] ?? [])->contains('correct', true))));
+        $dropped = count($questions) - count($ok);
+        if (! empty($opt['shuffle'])) {
+            shuffle($ok);
+        }
+        $count = (int) ($opt['count'] ?? 0);
+        if ($count > 0) {
+            $ok = array_slice($ok, 0, $count);
+        }
+        $ok = array_slice($ok, 0, $this->maxCount($s) * ($s['kind'] === 'live' ? 1 : 2));
+        $topics = collect($questions)->pluck('topic')->filter()->countBy()->sortDesc()->keys()->take(3)->implode('، ');
+        $s['topic'] = $topics;
+        $s['title'] = Str::limit((string) ($opt['title'] ?? '') ?: (self::KIND_FA[$s['kind']] . ($topics ? ' — ' . $topics : ' از سؤال‌های قبلی')), 100, '');
+        $note = '📚 ' . Jalali::fa((string) count($ok)) . ' سؤال از ' . Str::limit(implode('، ', (array) ($opt['from'] ?? [])), 300) . ' آمد.'
+            . ($dropped ? ' (' . Jalali::fa((string) $dropped) . ' سؤال برای ' . self::KIND_FA[$s['kind']] . ' مناسب نبود: ' . ($s['kind'] === 'live' ? 'مسابقه فقط گزینه‌ای است' : 'بازی تشریحی ندارد') . ')' : '');
+
+        if (($opt['mode'] ?? 'copy') === 'similar') {
+            // سؤالِ تازه با هوش مصنوعی، هم‌موضوع با سؤال‌های قبلی و بدونِ تکرارِ آن‌ها
+            $s['mode'] = 'topic';
+            $s['count'] = max(3, min($this->maxCount($s), $count ?: count($ok) ?: 8));
+            $s['ins'] = Str::limit('سؤال‌هایی هم‌سطح و هم‌سبک با این نمونه‌ها ولی تازه: ' . collect($questions)->take(4)->map(fn ($q) => '«' . Str::limit($q['prompt'], 80) . '»')->implode(' '), 480, '');
+            $s['ready'] = true;
+            $s['src'] = [];
+            $this->save($s + ['avoid' => array_column($questions, 'prompt')]);
+            $this->api->send($this->chat, $note . "\n🤖 حالا سؤال‌های تازه‌ی مشابه می‌سازم…");
+            $this->next($user);
+
+            return;
+        }
+        if (! $ok) {
+            $this->api->send($this->chat, '⚠️ سؤالِ مناسبی برای ' . self::KIND_FA[$s['kind']] . ' پیدا نشد.' . ($dropped ? ' ' . $note : ''), $this->bot->mainRows());
+
+            return;
+        }
+        $s['mode'] = 'bank';
+        $s['qs'] = array_map(fn ($q) => array_intersect_key($q, array_flip(['type', 'prompt', 'choices', 'answer', 'explanation', 'hint', 'difficulty', 'bloom', 'topic', 'media_url', 'bank_id'])) + ['hint' => null], $ok);
+        $s['ready'] = true;
+        $this->save($s);
+        $this->api->send($this->chat, $note . "\nپیش از ساخت، سؤال‌ها را ببین؛ می‌توانی ویرایش، جایگزین یا حذف کنی و قوانین را تنظیم کنی.");
+        $this->next($user);
+    }
+
     /** متنی که در انتظارش بودیم (ویرایشِ سؤال، عنوان، موضوع، توضیح). true یعنی مصرف شد. */
     public function onText(User $user, string $text): bool
     {
@@ -717,7 +778,7 @@ class BotQuiz
             'grade' => $class?->grade, 'subject' => $s['lesson'], 'topic' => $s['topic'],
             'flavor' => $s['flavor'], 'instructions' => $s['ins'],
             'sources' => $sources, 'source_mode' => $s['mode'] === 'same' && $more ? 'similar' : ($s['mode'] === 'topic' ? 'similar' : $s['mode']),
-            'avoid' => array_column($s['qs'], 'prompt'),
+            'avoid' => array_slice(array_merge(array_column($s['qs'], 'prompt'), (array) ($s['avoid'] ?? [])), -60),
             'school_id' => $user->school_id, 'teacher_id' => $user->id,
         ]);
         $qs = array_values(array_filter(array_map(fn ($q) => self::fromAi($q), (array) ($r['questions'] ?? []))));

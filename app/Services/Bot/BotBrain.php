@@ -22,7 +22,8 @@ use Illuminate\Support\Facades\Http;
  */
 class BotBrain
 {
-    public const ACTIONS = ['record_attendance', 'record_grades', 'give_points', 'record_discipline', 'send_announcement', 'grade_submissions', 'create_quiz', 'open_screen'];
+    public const ACTIONS = ['record_attendance', 'record_grades', 'give_points', 'record_discipline', 'send_announcement', 'grade_submissions', 'create_quiz',
+        'build_from_items', 'open_item', 'open_screen'];
 
     private const ROUNDS = 5;
 
@@ -62,8 +63,18 @@ class BotBrain
             'create_quiz' => ['ساختِ آزمون، بازیِ آموزشی یا مسابقه‌ی زنده با هوش مصنوعی (معلم بعد تنظیمات و سؤال‌ها را می‌بیند)', [
                 'kind' => ['type' => 'string', 'enum' => ['exam', 'game', 'live']], 'class' => $str, 'lesson' => $str, 'topic' => $str, 'count' => $int,
                 'difficulty' => ['type' => 'string', 'enum' => ['easy', 'medium', 'hard', 'mixed']]]],
+            'build_from_items' => ['ساختنِ آزمون/بازی/مسابقه‌ی زنده از سؤال‌های آزمون‌ها، بازی‌ها یا مسابقه‌های قبلیِ خودِ معلم (همان سؤال‌ها یا با هوش مصنوعی سؤال‌های تازه‌ی مشابه). معلم پیش از انتشار بازبینی می‌کند.', [
+                'kind' => ['type' => 'string', 'enum' => ['exam', 'game', 'live'], 'description' => 'چه چیزی ساخته شود'],
+                'from_type' => ['type' => 'string', 'enum' => ['exam', 'game', 'live'], 'description' => 'سؤال‌ها از کجا'],
+                'titles' => ['type' => 'array', 'items' => $str, 'description' => 'عنوان‌ها (اگر معلم نام برد)'],
+                'last_n' => $int + ['description' => 'یا: چند موردِ آخر («سه بازیِ آخر» = 3)'],
+                'count' => $int + ['description' => 'تعدادِ سؤالِ نهایی (اختیاری)'], 'shuffle' => ['type' => 'boolean'],
+                'mode' => ['type' => 'string', 'enum' => ['copy', 'similar'], 'description' => 'copy = همان سؤال‌ها؛ similar = سؤال‌های تازه‌ی مشابه با هوش مصنوعی'],
+                'title' => $str, 'class' => $str]],
+            'open_item' => ['باز کردنِ کارتِ یک آزمون/بازی/مسابقه (برای انتشار، بستن، حذف، نتیجه و سؤال‌ها با دکمه)', [
+                'type' => ['type' => 'string', 'enum' => ['exam', 'game', 'live']], 'title' => $str]],
             'open_screen' => ['باز کردنِ یک صفحه‌ی بات برای معلم', ['screen' => ['type' => 'string', 'enum' => [
-                'grading_queue', 'messages', 'students', 'question_bank', 'attendance_board', 'reports', 'settings', 'menu']],
+                'library', 'grading_queue', 'messages', 'students', 'question_bank', 'attendance_board', 'reports', 'settings', 'menu']],
                 'kind' => ['type' => 'string', 'enum' => ['reading', 'dictation', 'worksheet']]]],
         ];
     }
@@ -117,7 +128,7 @@ class BotBrain
 
 قواعد (خیلی مهم):
 ۱) هیچ عدد، نام، نمره یا وضعیتی را حدس نزن و از خودت نساز. برای هر سؤال درباره‌ی بچه‌ها، حضور، نمره‌ها، کارهای فرستاده‌شده، آزمون‌ها، بازی‌ها، امتیاز، انضباط، پیام‌ها یا برنامه، اول ابزارِ خواندنیِ مناسب را صدا بزن و فقط بر اساسِ خروجیِ آن جواب بده. اگر داده نبود، صادقانه بگو.
-۲) هر تغییری (حضور و غیاب، نمره، امتیاز، انضباط، اطلاعیه/پیام، تصحیح و نمره‌دادن به کارهای فرستاده‌شده، ساختِ آزمون/بازی/مسابقه) فقط با ابزارِ «کار»ِ مربوط. سامانه پیش‌نمایش نشان می‌دهد و معلم تأیید می‌کند؛ پس هرگز نگو «انجام شد».
+۲) هر تغییری (حضور و غیاب، نمره، امتیاز، انضباط، اطلاعیه/پیام، تصحیح و نمره‌دادن به کارهای فرستاده‌شده، ساختِ آزمون/بازی/مسابقه) فقط با ابزارِ «کار»ِ مربوط. برای «از سؤال‌های بازی/آزمون/مسابقه‌های قبلی … بساز» از build_from_items؛ برای انتشار، بستن یا حذفِ یک آزمون/بازی از open_item (دکمه‌ی تأیید دارد). سامانه پیش‌نمایش نشان می‌دهد و معلم تأیید می‌کند؛ پس هرگز نگو «انجام شد».
 ۳) دقیقاً همان کاری را بکن که معلم خواست؛ نه بیشتر، نه کمتر. فیلترهایش (امشب، دیروز، فقط روخوانی، به‌جز فلانی، فقط کسانی که فرستادند…) را دقیق در بخش‌های ابزار بگذار.
 ۴) نام‌ها را همیشه با املای دقیقِ فهرستِ بالا بنویس. {$this->voiceRule($voice)} اگر یک نام به دو دانش‌آموز می‌خورد، یا کلاس معلوم نیست و چند کلاس هست، کوتاه بپرس.
 ۵) جوابِ نهایی: فارسیِ روان، کوتاه و کاربردی (حداکثر حدودِ ۱۲ خط)، با فهرستِ نقطه‌دار (•) برای چند مورد. از Markdown (ستاره‌ی ** یا # یا جدول) استفاده نکن؛ پیام‌رسان آن را نشان نمی‌دهد. اگر کاری لازم است، یک پیشنهادِ عملیِ کوتاه بده (مثلاً «بگو تا برایشان … بفرستم»).

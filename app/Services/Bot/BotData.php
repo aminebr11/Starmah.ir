@@ -65,6 +65,10 @@ class BotData
             'student_profile' => ['کارنامه‌ی کاملِ یک دانش‌آموز: حضور، نمره‌ها، تسلط، امتیاز، انضباط، کارهای فرستاده، آزمون‌ها', ['name' => $str]],
             'points' => ['امتیازِ (XP) بچه‌ها', ['class' => $str, 'period' => ['type' => 'string', 'enum' => ['today', 'week', 'month', 'all']]]],
             'discipline_records' => ['سوابقِ انضباطی (تشویق و تذکر)', ['days' => $int, 'student' => $str]],
+            'my_items' => ['فهرستِ آزمون‌ها، بازی‌ها و مسابقه‌های زنده‌ی معلم (وضعیت، تعدادِ سؤال، شرکت‌کننده)', [
+                'type' => ['type' => 'string', 'enum' => ['exam', 'game', 'live', 'all']], 'limit' => $int]],
+            'item_questions' => ['متنِ کاملِ سؤال‌ها (با گزینه‌ها و پاسخ) از یک آزمون/بازی/مسابقه با عنوان، یا از چند موردِ آخر', [
+                'type' => ['type' => 'string', 'enum' => ['exam', 'game', 'live']], 'title' => $str, 'last' => $int + ['description' => '«سه بازیِ آخر» = 3']]],
             'exams' => ['آزمون‌های معلم با تعدادِ شرکت‌کننده و میانگین', []],
             'exam_results' => ['نتیجه‌ی یک آزمون: نمره‌ی هر دانش‌آموز و چه کسانی شرکت نکرده‌اند', ['title' => $str]],
             'games' => ['بازی‌های آموزشی و نتیجه‌ها (با title: نتیجه‌ی هر دانش‌آموز)', ['title' => $str]],
@@ -88,6 +92,8 @@ class BotData
                 'student_profile' => $this->profile($a),
                 'points' => $this->points($a),
                 'discipline_records' => $this->discipline($a),
+                'my_items' => $this->myItems($a),
+                'item_questions' => $this->itemQuestions($a),
                 'exams' => $this->exams(),
                 'exam_results' => $this->examResults($a),
                 'games' => $this->games($a),
@@ -375,6 +381,39 @@ class BotData
 
         return ['records' => $rows->map(fn ($d) => ['student' => $this->roster[$d->student_id] ?? '—', 'title' => $d->title, 'points' => $d->points, 'note' => $d->note,
             'date' => Jalali::format($d->created_at)])->values()->all()];
+    }
+
+    private function myItems(array $a): array
+    {
+        $it = new BotItems($this->user);
+        $types = isset(BotItems::TYPES[$a['type'] ?? '']) ? [$a['type']] : array_keys(BotItems::TYPES);
+        $limit = max(1, min(30, (int) ($a['limit'] ?? 12)));
+        $out = [];
+        foreach ($types as $t) {
+            $out[$t] = $it->search($t, null, $limit)->map(fn ($m) => $it->summary($t, $m))->all();
+        }
+
+        return $out;
+    }
+
+    private function itemQuestions(array $a): array
+    {
+        $it = new BotItems($this->user);
+        $t = isset(BotItems::TYPES[$a['type'] ?? '']) ? $a['type'] : 'game';
+        $items = ! empty($a['title']) ? $it->search($t, (string) $a['title'], 1) : $it->search($t, null, max(1, min(10, (int) ($a['last'] ?? 1))));
+        if ($items->isEmpty()) {
+            return ['not_found' => $a['title'] ?? $t];
+        }
+        $left = 80;
+
+        return ['items' => $items->map(function ($m) use ($it, $t, &$left) {
+            $qs = array_slice($it->questions($t, $m), 0, max(0, $left));
+            $left -= count($qs);
+
+            return ['title' => $m->title, 'status' => $it->summary($t, $m)['status'], 'questions' => array_map(fn ($q) => [
+                'type' => $q['type'], 'prompt' => $q['prompt'], 'choices' => array_column($q['choices'], 'value'), 'answer' => BotQuiz::answerOf($q), 'has_figure' => (bool) $q['media_url'],
+            ], $qs)];
+        })->values()->all(), 'hint' => 'برای ساختنِ آزمون/بازی/مسابقه از همین‌ها ابزارِ build_from_items را صدا بزن.'];
     }
 
     private function exams(): array
