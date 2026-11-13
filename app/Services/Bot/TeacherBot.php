@@ -400,6 +400,13 @@ class TeacherBot
                     'start' => $a['start'] ?? null, 'seconds' => $a['seconds'] ?? null, 'end_minutes' => $a['end_minutes'] ?? null] + $extra);
                 break;
             case 'build_from_items':
+                // «با همین‌ها …» → دقیقاً همان سؤال‌هایی که همین الان نشان داده شد
+                if (! empty($a['from_shown']) && ($k = Cache::get($this->key('lastshown'))) && ($saved = Cache::get($this->key('shq:' . $k))) && isset($saved['qs'])) {
+                    $sv = ['kind' => (string) ($a['kind'] ?? 'exam')] + array_filter(['count' => (int) ($a['count'] ?? 0), 'class' => $cls?->id,
+                        'start' => $a['start'] ?? null, 'seconds' => $a['seconds'] ?? null, 'end_minutes' => $a['end_minutes'] ?? null, 'shuffle' => (bool) ($a['shuffle'] ?? false)]);
+                    $this->quiz($chat)->seed($user, $sv['kind'], $saved['qs'], $sv + ['from' => $saved['from'] ?? [], 'mode' => ($a['mode'] ?? 'copy') === 'similar' ? 'similar' : 'copy']);
+                    break;
+                }
                 $refs = (new BotItems($user))->refs($a);
                 if (! $refs) {
                     $this->api->send($chat, '🔍 ' . (! empty($a['titles']) ? 'موردی با این نام پیدا نشد: ' . implode('، ', (array) $a['titles'])
@@ -407,7 +414,7 @@ class TeacherBot
                     break;
                 }
                 $this->library($chat)->make($user, $refs, (string) ($a['kind'] ?? 'exam'), ($a['mode'] ?? 'copy') === 'similar' ? 'similar' : 'copy',
-                    array_filter(['count' => (int) ($a['count'] ?? 0), 'shuffle' => (bool) ($a['shuffle'] ?? false), 'title' => (string) ($a['title'] ?? ''), 'class' => $cls?->id,
+                    array_filter(['count' => (int) ($a['count'] ?? 0), 'per_item' => (int) ($a['per_item'] ?? 0), 'shuffle' => (bool) ($a['shuffle'] ?? false), 'title' => (string) ($a['title'] ?? ''), 'class' => $cls?->id,
                         'start' => $a['start'] ?? null, 'seconds' => $a['seconds'] ?? null, 'end_minutes' => $a['end_minutes'] ?? null], fn ($v) => $v !== null && $v !== '' && $v !== 0 && $v !== false));
                 break;
             case 'show_items':
@@ -431,19 +438,26 @@ class TeacherBot
                 break;
             case 'show_questions':
                 $it = new BotItems($user);
-                $refs = $it->refs($a);
+                $refs = $it->refs($a + (! empty($a['per_item']) && empty($a['last']) && empty($a['titles']) ? ['last' => 15] : []));
                 if (! $refs) {
-                    $this->api->send($chat, '🔍 چیزی با این مشخصات پیدا نشد.', [[['text' => '📚 کارهای من', 'data' => 'lb:home']]]);
+                    $this->api->send($chat, '🔍 چیزی با این مشخصات پیدا نشد' . (! empty($a['date']) ? ' (در آن تاریخ)' : '') . '.', [[['text' => '📚 کارهای من', 'data' => 'lb:home']]]);
                     break;
                 }
-                $L = [];
-                foreach ($refs as [$t, $m]) {
-                    $qs = $it->questions($t, $m);
-                    $L[] = '';
-                    $L[] = BotItems::TYPES[$t] . ' «' . $m->title . '» — ' . Jalali::fa((string) count($qs)) . ' سؤال';
-                    foreach ($qs as $k => $q) {
-                        $L[] = BotItems::line($q, $k);
+                $c = $it->collect($refs, (int) ($a['per_item'] ?? 0), (int) ($a['count'] ?? 0), (bool) ($a['shuffle'] ?? false));
+                $L = ['📋 ' . Jalali::fa((string) count($c['questions'])) . ' سؤال از ' . Jalali::fa((string) count($refs)) . ' مورد'
+                    . (! empty($a['per_item']) ? ' (از هر کدام حداکثر ' . Jalali::fa((string) $a['per_item']) . ' تا)' : '')];
+                $last = null;
+                foreach ($c['questions'] as $k => $q) {
+                    if ($q['_from'] !== $last) {
+                        $L[] = '';
+                        $L[] = '🎯 «' . $q['_from'] . '»';
+                        $last = $q['_from'];
                     }
+                    $L[] = BotItems::line($q, $k);
+                }
+                if (! empty($a['count']) && count($c['questions']) < (int) $a['count']) {
+                    $L[] = '';
+                    $L[] = 'ℹ️ ' . Jalali::fa((string) $a['count']) . ' سؤال خواستی ولی فقط ' . Jalali::fa((string) count($c['questions'])) . ' سؤال در این موارد بود.';
                 }
                 $parts = [];
                 $cur = '';
@@ -455,16 +469,18 @@ class TeacherBot
                     $cur .= ($cur === '' ? '' : "\n") . $line;
                 }
                 $parts[] = $cur;
-                // دکمه‌های «ساختن از همین‌ها» زیرِ آخرین تکه
-                $key = 'shq:' . Str::lower(Str::random(6));
-                Cache::put($this->key($key), array_map(fn ($r) => $r[0] . ':' . $r[1]->id, $refs), now()->addHours(3));
+                // «ساختن از همین‌ها» دقیقاً با همین سؤال‌های نشان‌داده‌شده
+                $key = Str::lower(Str::random(6));
+                Cache::put($this->key('shq:' . $key), ['qs' => array_map(fn ($q) => array_diff_key($q, ['_from' => 1]), $c['questions']), 'from' => $c['from']], now()->addHours(3));
                 foreach ($parts as $k => $part) {
                     $this->api->send($chat, trim($part), $k === array_key_last($parts) ? [
-                        [['text' => '📝 آزمون از این‌ها', 'data' => 'lb:set:' . substr($key, 4) . ':exam'], ['text' => '🎮 بازی', 'data' => 'lb:set:' . substr($key, 4) . ':game'],
-                            ['text' => '🏆 مسابقه', 'data' => 'lb:set:' . substr($key, 4) . ':live']],
+                        [['text' => '📝 آزمون از این‌ها', 'data' => 'lb:set:' . $key . ':exam'], ['text' => '🎮 بازی', 'data' => 'lb:set:' . $key . ':game'],
+                            ['text' => '🏆 مسابقه', 'data' => 'lb:set:' . $key . ':live']],
                         [['text' => '📚 کارهای من', 'data' => 'lb:home']],
                     ] : []);
                 }
+                $this->remember('a', '(' . count($c['questions']) . ' سؤال نشان داده شد؛ معلم می‌تواند بگوید «با همین‌ها آزمون/بازی/مسابقه بساز»)');
+                Cache::put($this->key('lastshown'), $key, now()->addHours(3));
                 break;
             case 'open_item':
                 $it = new BotItems($user);
@@ -494,7 +510,7 @@ class TeacherBot
                 $this->studentReport($chat, $user, (string) ($a['name'] ?? ''), (string) ($a['question'] ?? $said));
                 break;
             default:
-                $this->api->send($chat, $note !== '' ? $note : self::HELP, $this->mainRows());
+                $this->api->send($chat, $note !== '' ? $note : "🤔 این را دقیق نفهمیدم. کمی کامل‌تر بگو؛ مثلاً:\n• «فهرستِ بازی‌هایی که دیروز منتشر کردم»\n• «از هر بازی ۴ سؤال بده، مجموعاً ۲۰ تا»\n• «با همین‌ها یک مسابقه‌ی زنده برای ساعت ۱۷ بساز»", $this->mainRows());
         }
     }
 

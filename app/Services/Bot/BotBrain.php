@@ -70,6 +70,8 @@ class BotBrain
                 'titles' => ['type' => 'array', 'items' => $str, 'description' => 'عنوان‌ها (اگر معلم نام برد)'],
                 'last_n' => $int + ['description' => 'یا: چند موردِ آخر («سه بازیِ آخر» = 3)'],
                 'count' => $int + ['description' => 'تعدادِ سؤالِ نهایی (اختیاری)'], 'shuffle' => ['type' => 'boolean'],
+                'per_item' => $int + ['description' => 'از هر مورد چند سؤال'],
+                'from_shown' => ['type' => 'boolean', 'description' => 'true اگر معلم گفت «با همین‌ها» بعد از نشان‌دادنِ سؤال‌ها'],
                 'mode' => ['type' => 'string', 'enum' => ['copy', 'similar'], 'description' => 'copy = همان سؤال‌ها؛ similar = سؤال‌های تازه‌ی مشابه با هوش مصنوعی'],
                 'title' => $str, 'class' => $str,
                 'date' => $str + ['description' => 'فقط مواردی که در این روز ساخته/منتشر شده‌اند (YYYY-MM-DD از جدولِ تاریخ‌ها؛ «دیروز»)'],
@@ -81,7 +83,8 @@ class BotBrain
                 'status' => ['type' => 'string', 'enum' => ['published', 'draft', 'closed']], 'limit' => $int]],
             'show_questions' => ['نشان دادنِ متنِ کاملِ سؤال‌های چند آزمون/بازی/مسابقه، مستقیم از سامانه (کامل و بی‌خطا، با دکمه‌ی ساختن از همین‌ها). برای «سؤال‌های … را بده» همین را بزن.', [
                 'type' => ['type' => 'string', 'enum' => ['exam', 'game', 'live']], 'titles' => ['type' => 'array', 'items' => $str], 'last' => $int,
-                'date' => $str, 'days' => $int, 'status' => ['type' => 'string', 'enum' => ['published', 'draft', 'closed']]]],
+                'date' => $str, 'days' => $int, 'status' => ['type' => 'string', 'enum' => ['published', 'draft', 'closed']],
+                'per_item' => $int + ['description' => '«از هر کدام ۴ تا» = 4'], 'count' => $int + ['description' => '«مجموعاً ۲۰ تا» = 20'], 'shuffle' => ['type' => 'boolean']]],
             'open_item' => ['باز کردنِ کارتِ یک آزمون/بازی/مسابقه (برای انتشار، بستن، حذف، نتیجه و سؤال‌ها با دکمه)', [
                 'type' => ['type' => 'string', 'enum' => ['exam', 'game', 'live']], 'title' => $str]],
             'open_screen' => ['باز کردنِ یک صفحه‌ی بات برای معلم', ['screen' => ['type' => 'string', 'enum' => [
@@ -246,7 +249,9 @@ TXT;
                 return $conv + ['text' => trim((string) ($j['reply'] ?? ''))];
             }
 
-            return ['type' => 'answer', 'text' => trim((string) ($j['reply'] ?? '')) ?: '🙂'];
+            self::diag('legacy_unknown_tool', (string) $j['tool']);
+
+            return ['type' => 'answer', 'text' => trim((string) ($j['reply'] ?? '')) ?: self::NOT_UNDERSTOOD];
         }
 
         return ['type' => 'answer', 'text' => $t !== '' ? self::plain($t) : '🤔 منظورت را دقیق نفهمیدم؛ کمی بیشتر توضیح بده.'];
@@ -264,9 +269,22 @@ TXT;
         return trim($t);
     }
 
-    /** ابزارهای روشِ قدیمی → ابزارهای تازه. */
+    public const NOT_UNDERSTOOD = "🤔 این را دقیق نفهمیدم. کمی کامل‌تر بگو؛ مثلاً:\n• «فهرستِ بازی‌هایی که دیروز منتشر کردم»\n• «از هر بازی ۴ سؤال بده، مجموعاً ۲۰ تا»\n• «با همین‌ها یک مسابقه‌ی زنده برای ساعت ۱۷ بساز»";
+
+    /** ابزارهای روشِ قدیمی (و نام‌های مشابهی که مدل‌ها می‌سازند) → ابزارهای تازه. */
     public static function fromLegacy(string $tool, array $a): ?array
     {
+        $alias = ['item_questions' => 'show_questions', 'get_questions' => 'show_questions', 'questions' => 'show_questions', 'list_questions' => 'show_questions',
+            'show_question' => 'show_questions', 'my_items' => 'show_items', 'list_items' => 'show_items', 'list_games' => 'show_items', 'games' => 'show_items',
+            'exams' => 'show_items', 'list_exams' => 'show_items', 'items' => 'show_items', 'build' => 'build_from_items', 'build_from' => 'build_from_items',
+            'create_from_items' => 'build_from_items', 'make_from_items' => 'build_from_items', 'create_quiz' => 'exam'];
+        if (in_array($tool, ['list_games', 'games'], true)) {
+            $a['type'] ??= 'game';
+        } elseif (in_array($tool, ['exams', 'list_exams'], true)) {
+            $a['type'] ??= 'exam';
+        }
+        $tool = $alias[$tool] ?? $tool;
+
         return match ($tool) {
             'attendance' => ['type' => 'action', 'tool' => 'record_attendance', 'args' => $a],
             'grades' => ['type' => 'action', 'tool' => 'record_grades', 'args' => $a],
@@ -344,7 +362,11 @@ TXT;
 
         $conv = self::fromLegacy($d['tool'], $d['args']);
 
-        return $conv ? $conv + ['text' => $d['reply']] : ['type' => 'answer', 'text' => $d['reply'] ?: '🙂'];
+        if (! $conv && $d['tool'] !== 'none') {
+            self::diag('legacy_unknown_tool', (string) $d['tool']);
+        }
+
+        return $conv ? $conv + ['text' => $d['reply']] : ['type' => 'answer', 'text' => trim((string) $d['reply']) !== '' ? $d['reply'] : self::NOT_UNDERSTOOD];
     }
 
     /** گفتگوی اخیر → پیام‌ها (نوبت‌ها یکی‌درمیان، با پیامِ کاربر شروع). */

@@ -163,21 +163,38 @@ class BotItems
     }
 
     /** سؤال‌های چند مورد، بدونِ تکراری (بر اساسِ اثرانگشتِ متن). */
-    public function collect(array $refs): array
+    /**
+     * @param  int  $perItem  از هر مورد چند سؤال («از هر کدام ۴ تا»)؛ ۰ = همه
+     * @param  int  $count  سقفِ کل («مجموعاً ۲۰ تا»)؛ ۰ = بی‌سقف
+     * @param  bool  $shuffle  انتخابِ تصادفی (وگرنه از اول)
+     */
+    public function collect(array $refs, int $perItem = 0, int $count = 0, bool $shuffle = false): array
     {
         $out = [];
         $seen = [];
         $from = [];
         foreach ($refs as [$type, $item]) {
             $from[] = self::TYPES[$type] . ' «' . $item->title . '»';
-            foreach ($this->questions($type, $item) as $q) {
+            $qs = $this->questions($type, $item);
+            if ($shuffle) {
+                shuffle($qs);
+            }
+            $took = 0;
+            foreach ($qs as $q) {
+                if ($perItem > 0 && $took >= $perItem) {
+                    break;
+                }
                 $fp = Curriculum::fingerprint($q['prompt']);
                 if (isset($seen[$fp])) {
                     continue;
                 }
                 $seen[$fp] = true;
-                $out[] = $q;
+                $out[] = $q + ['_from' => $item->title];
+                $took++;
             }
+        }
+        if ($count > 0) {
+            $out = array_slice($out, 0, $count);
         }
 
         return ['questions' => $out, 'from' => $from];

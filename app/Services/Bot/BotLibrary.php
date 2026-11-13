@@ -77,6 +77,12 @@ class BotLibrary
             return;
         }
         if ($act === 'set') {   // ساختن از فهرستی که همین الان نشان داده شد: lb:set:کلید:نوعِ‌مقصد
+            $saved = Cache::get($this->key('shq:' . $t), []);
+            if (isset($saved['qs'])) {   // دقیقاً همان سؤال‌هایی که نشان داده شد
+                $this->bot->quizFor($this->chat)->seed($u, (string) ($a[3] ?? 'exam'), $saved['qs'], ['from' => $saved['from'] ?? [], 'mode' => 'copy']);
+
+                return;
+            }
             $it = new BotItems($u);
             $refs = [];
             foreach ((array) Cache::get($this->key('shq:' . $t), []) as $k) {
@@ -340,7 +346,8 @@ class BotLibrary
 
             return;
         }
-        $c = (new BotItems($u))->collect($refs);
+        $c = (new BotItems($u))->collect($refs, (int) ($opt['per_item'] ?? 0), (int) ($opt['per_item'] ?? 0) ? (int) ($opt['count'] ?? 0) : 0, (bool) ($opt['shuffle'] ?? false));
+        unset($opt['per_item']);
         Cache::forget($this->key('lbpick'));
         $this->bot->quizFor($this->chat)->seed($u, $kind, $c['questions'], ['from' => $c['from'], 'mode' => $mode] + $opt);
     }

@@ -66,9 +66,11 @@ class BotAgent
 - live: مسابقه‌ی زنده (کوییزِ هم‌زمانِ کلاس) {"class","lesson","topic","count":۵ تا ۲۰,"difficulty"} — تنظیمِ زمان و قوانین با دکمه انجام می‌شود.
 - messages: نشان‌دادنِ پیام‌ها و سؤال‌های تازه‌ی بچه‌ها و والدین (با دکمه‌ی پاسخ)
 - show_items: فهرستِ آزمون/بازی/مسابقه‌ها {"type":"exam|game|live","date":"YYYY-MM-DD یا null","days":عدد یا null,"status":"published|draft|closed یا null"}
-- show_questions: متنِ کاملِ سؤال‌ها {"type":"exam|game|live","titles":[...],"last":عدد («سه بازیِ آخر» = 3),"date","days","status"}
+- show_questions: متنِ کاملِ سؤال‌ها {"type":"exam|game|live","titles":[...],"last":عدد («سه بازیِ آخر» = 3),"date","days","status","per_item":عدد («از هر کدام ۴ تا»),"count":عدد («مجموعاً ۲۰ تا»),"shuffle":true/false}
+  مثال: «از بازی‌هایی که دیروز منتشر کردم از هر کدام ۴ سؤال بده، مجموعاً ۲۰ تا» → {"type":"game","date":"(دیروز)","status":"published","per_item":4,"count":20}
 - build_from_items: ساختن از سؤال‌های قبلی {"kind":"exam|game|live","from_type":"exam|game|live","titles":[],"last_n":عدد,"date":"YYYY-MM-DD","days":عدد,"status":"published",
-  "count":عدد,"shuffle":true/false,"mode":"copy|similar","start":"HH:MM یا now یا board (فقط مسابقه)","seconds":عدد,"end_minutes":عدد}
+  "count":عدد,"per_item":عدد,"shuffle":true/false,"mode":"copy|similar","start":"HH:MM یا now یا board (فقط مسابقه)","seconds":عدد,"end_minutes":عدد,
+  "from_shown":true اگر معلم گفت «با همین‌ها / با این سؤال‌ها» بعد از نشان‌دادنِ سؤال‌ها}
   مثال: «از بازی‌هایی که دیروز منتشر کردم یک مسابقه‌ی زنده بساز، امروز ساعت ۱۷» → {"kind":"live","from_type":"game","date":"(دیروز)","status":"published","start":"17:00"}
 - open_item: کارتِ یک مورد برای انتشار/بستن/حذف/نتیجه {"type":"exam|game|live","title":"…"}
 - open_screen: {"screen":"library|grading_queue|messages|students|question_bank|reports|settings|menu"}
@@ -93,7 +95,8 @@ TXT;
             // پاسخِ متنیِ ساده (بدونِ JSON) هم پذیرفته می‌شود
             return ['ok' => true, 'reply' => trim(mb_substr($r['text'], 0, 900)), 'tool' => 'none', 'args' => []];
         }
-        $tool = in_array($j['tool'] ?? 'none', self::TOOLS, true) ? $j['tool'] : 'none';
+        // نامِ ناشناخته هم نگه داشته می‌شود تا BotBrain مترادف‌ها را بفهمد (به‌جای «هیچ‌کار»)
+        $tool = is_string($j['tool'] ?? null) && $j['tool'] !== '' ? $j['tool'] : 'none';
 
         return ['ok' => true, 'reply' => trim((string) ($j['reply'] ?? '')), 'tool' => $tool, 'args' => is_array($j['args'] ?? null) ? $j['args'] : []];
     }

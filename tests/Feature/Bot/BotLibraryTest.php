@@ -232,6 +232,54 @@ class BotLibraryTest extends TestCase
         $this->actingAs($admin)->postJson(route('admin.bot.brain'))->assertOk()->assertJsonPath('ok', true)->assertJsonPath('called', 'show_items');
     }
 
+    public function test_four_from_each_of_yesterdays_games_twenty_total_then_with_these_a_live_contest(): void
+    {
+        [$teacher] = $this->setupTeacher();
+        $this->travelTo(now()->setTime(11, 0));
+        foreach (range(1, 6) as $g) {
+            $game = $this->game($teacher, "بازیِ {$g}", array_map(fn ($i) => "بازی {$g} — سؤالِ {$i}", range(1, 6)));
+            $game->questions()->update(['type' => 'mc', 'choices' => [['value' => 'یک', 'correct' => false], ['value' => 'دو', 'correct' => true]]]);
+            $game->forceFill(['status' => 'published', 'created_at' => now()->subDay(), 'updated_at' => now()->subDay()])->saveQuietly();
+        }
+        $old = $this->game($teacher, 'بازیِ قدیمی', ['قدیمی — سؤال']);
+        $old->forceFill(['status' => 'published', 'created_at' => now()->subDays(5), 'updated_at' => now()->subDays(5)])->saveQuietly();
+
+        // روشِ ابزاردار
+        $this->ai(self::tc('show_questions', ['type' => 'game', 'date' => now()->subDay()->toDateString(), 'status' => 'published', 'per_item' => 4, 'count' => 20]),
+            self::tc('build_from_items', ['kind' => 'live', 'from_shown' => true, 'start' => '17:00']));
+        $this->text('از بازی‌هایی که دیروز منتشر کردی از هر کدوم چهار تا سوال بهم بده، مجموعاً بیست تا سوال.');
+        $t = $this->texts();
+        $this->assertStringContainsString('۲۰ سؤال از ۶ مورد', $t);
+        $this->assertStringContainsString('بازی 6 — سؤالِ 4', $t);
+        $this->assertStringNotContainsString('بازی 6 — سؤالِ 5', $t);       // از هر کدام فقط ۴ تا
+        $this->assertStringNotContainsString('قدیمی', $t);
+        $this->assertStringNotContainsString('🙂', $t);
+
+        $this->text('با همین‌ها یک مسابقه زنده ساعت ۱۷ بساز');
+        $s = $this->quiz();
+        $this->assertSame('live', $s['kind']);
+        $this->assertCount(20, $s['qs']);
+        $this->assertSame('17:00', $s['rules']['start']);
+    }
+
+    public function test_legacy_path_unknown_tool_name_is_mapped_and_empty_reply_is_never_a_smiley(): void
+    {
+        [$teacher] = $this->setupTeacher();
+        $g = $this->game($teacher, 'بازیِ کسرها', ['کسر — سؤالِ ۱', 'کسر — سؤالِ ۲']);
+        // سرویس ابزار را رد می‌کند → روشِ ساده؛ مدل نامِ «get_questions» را می‌سازد
+        $this->ai(['__status' => 400, 'body' => ['error' => ['message' => 'tools unsupported']]], ['__status' => 400, 'body' => ['error' => ['message' => 'tools unsupported']]],
+            ['role' => 'assistant', 'content' => '{"reply":"","tool":"get_questions","args":{"type":"game","per_item":1}}'],
+            ['__status' => 400, 'body' => ['error' => ['message' => 'tools unsupported']]], ['__status' => 400, 'body' => ['error' => ['message' => 'tools unsupported']]],
+            ['role' => 'assistant', 'content' => '{"reply":"","tool":"none","args":{}}']);
+        $this->text('از بازی آخر یک سوال بده');
+        $this->assertStringContainsString('کسر — سؤالِ ۱', $this->texts());
+        $this->assertStringNotContainsString('کسر — سؤالِ ۲', $this->texts());
+        BotApi::$fake = [];
+        $this->text('یه چیز نامفهوم');
+        $this->assertStringContainsString('دقیق نفهمیدم', $this->texts());
+        $this->assertStringNotContainsString('🙂', $this->texts());
+    }
+
     public function test_basket_of_games_and_exam_becomes_one_exam_without_duplicates(): void
     {
         [$teacher] = $this->setupTeacher();
