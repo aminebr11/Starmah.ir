@@ -3,7 +3,7 @@
 #  نصبِ سرورِ کلاسِ آنلاینِ «ستاره ماه» — LiveKit + nginx + SSL + TURN
 #
 #  روی یک سرورِ تازه‌ی Ubuntu 22.04 / 24.04 با کاربرِ root اجرا کنید:
-#      bash install-livekit.sh live.starmah.ir you@example.com
+#      bash install-livekit.sh online.starmah.ir yourname@gmail.com   (ایمیلِ واقعی)
 #
 #  دوباره اجرا کردنش بی‌خطر است: کلیدهای قبلی حفظ می‌شوند.
 # ═══════════════════════════════════════════════════════════════════════
@@ -21,7 +21,12 @@ warn() { printf '\033[1;33m⚠ %s\033[0m\n' "$*"; }
 die()  { printf '\033[1;31m✖ %s\033[0m\n' "$*"; exit 1; }
 
 [ "$(id -u)" = 0 ] || die "باید با کاربرِ root اجرا شود (یا: sudo bash $0 ...)"
-[ -n "$EMAIL" ] || die "ایمیل را هم بدهید؛ مثال: bash $0 $DOMAIN you@example.com"
+[ -n "$EMAIL" ] || die "ایمیل را هم بدهید؛ مثال: bash $0 $DOMAIN yourname@gmail.com"
+case "$EMAIL" in
+  *@example.com|*@example.org|you@*|*@*.example) die "«$EMAIL» ایمیلِ نمونه است و Let's Encrypt قبولش نمی‌کند؛ ایمیلِ واقعیِ خودتان را بدهید." ;;
+  *@*.*) ;;
+  *) die "«$EMAIL» ایمیلِ معتبر نیست." ;;
+esac
 
 case "$(uname -m)" in
   x86_64) ARCH=amd64 ;; aarch64|arm64) ARCH=arm64 ;; *) die "معماریِ پردازنده پشتیبانی نمی‌شود: $(uname -m)" ;;
