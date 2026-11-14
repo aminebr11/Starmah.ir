@@ -63,6 +63,19 @@ class OnlineRoom extends Model
         return DB::table('classroom_student')->whereIn('classroom_id', $rooms)->distinct()->pluck('student_id')->map(fn ($v) => (int) $v)->all();
     }
 
+    /**
+     * آیا این دانش‌آموز حقِ ورود دارد؟ (یک پرس‌وجوی سبک — در هر همگام‌سازیِ کلاس صدا زده می‌شود،
+     * پس نباید هر بار فهرستِ همه‌ی دانش‌آموزان خوانده شود.)
+     */
+    public function admits(int $studentId): bool
+    {
+        $q = DB::table('classroom_student')->where('student_id', $studentId);
+
+        return $this->classroom_id
+            ? $q->where('classroom_id', $this->classroom_id)->exists()
+            : $q->whereIn('classroom_id', Classroom::where('teacher_id', $this->teacher_id)->select('id'))->exists();
+    }
+
     /** کلاس‌هایی که یک دانش‌آموز می‌تواند ببیند. */
     public static function forStudent(User $student)
     {

@@ -61,7 +61,9 @@ class RoomController extends Controller
                 'starts_ms' => $room->starts_at?->getTimestampMs(), 'duration' => $room->duration_min],
             'me' => ['id' => $user->id, 'name' => $user->name, 'role' => $role],
             'config' => ['ice' => OnlineAccess::iceServers(), 'budget' => OnlineAccess::budgetKbps(), 'recording' => OnlineAccess::recordingAllowed(),
-                'max' => OnlineAccess::maxParticipants($room->school_id), 'livekit' => (bool) OnlineAccess::livekit()],
+                'max' => OnlineAccess::maxParticipants($room->school_id), 'livekit' => (bool) OnlineAccess::livekit(),
+                // برای «پیش‌اتصال» به سرورِ رسانه در لابی (فقط نشانیِ عمومی؛ کلید و رمز هرگز به مرورگر نمی‌رود)
+                'lk_origin' => ($lk = OnlineAccess::livekit()) ? preg_replace('#^ws#i', 'http', rtrim((string) ($lk['url'] ?? ''), '/')) ?: null : null],
             'back' => match ($role) {
                 'host' => route('teacher.online'),
                 'student' => route('online.list'),
@@ -181,8 +183,8 @@ class RoomController extends Controller
         [$role, $me] = $this->ctx($request, $room);
         abort_unless($this->moderator($role), 403);
         $data = $request->validate([
-            'action' => 'required|in:perm,mute_all,lower_hands,chat,lock,timer,star,stage,page,kick,spotlight,announce,recording,open_mics,kidview,layout,book_close,reactions,playing,view,end',
-            'user' => 'nullable|integer', 'perm' => 'nullable|in:can_speak,can_video,can_draw', 'value' => 'nullable',
+            'action' => 'required|in:perm,mute_all,revoke_all,lower_hands,chat,lock,timer,star,stage,page,kick,spotlight,announce,recording,open_mics,kidview,layout,book_close,reactions,playing,view,end',
+            'user' => 'nullable|integer', 'perm' => 'nullable|in:can_speak,can_video,can_draw,all', 'value' => 'nullable', 'keep_hand' => 'nullable|boolean',
         ]);
         $target = isset($data['user']) ? OnlineParticipant::where('room_id', $room->id)->where('user_id', $data['user'])->first() : null;
         $value = $data['value'] ?? null;
@@ -192,8 +194,19 @@ class RoomController extends Controller
             case 'perm':
                 abort_unless($target && $target->role === 'student' && isset($data['perm']), 422);
                 $on = filter_var($value, FILTER_VALIDATE_BOOLEAN);
-                $target->forceFill([$data['perm'] => $on] + ($data['perm'] === 'can_speak' && $on ? ['hand_at' => null] : []))->save();
+                // «all»: هر سه دسترسی با هم (برای «قطعِ همه‌ی دسترسی‌های این دانش‌آموز» با یک لمس)
+                $set = $data['perm'] === 'all' ? ['can_speak' => $on, 'can_video' => $on, 'can_draw' => $on] : [$data['perm'] => $on];
+                // اجازه‌ی صحبت دست را پایین می‌آورد؛ مگر معلم از روی کارتِ «دستِ بالا» چند دسترسی پشتِ هم بدهد
+                if (($set['can_speak'] ?? false) && ! $request->boolean('keep_hand')) {
+                    $set['hand_at'] = null;
+                }
+                $target->forceFill($set)->save();
                 $room->bump();
+                break;
+            case 'revoke_all':
+                // قطعِ همه‌ی دسترسی‌های همه‌ی دانش‌آموزان (صحبت، دوربین، تخته)
+                OnlineParticipant::where('room_id', $room->id)->where('role', 'student')->update(['can_speak' => false, 'can_video' => false, 'can_draw' => false]);
+                $room->setOpts(['open_mics' => false]);
                 break;
             case 'mute_all':
                 OnlineParticipant::where('room_id', $room->id)->where('role', 'student')->update(['can_speak' => false, 'can_video' => false]);
@@ -205,7 +218,8 @@ class RoomController extends Controller
                 $room->setOpts(['open_mics' => $on]);
                 break;
             case 'lower_hands':
-                OnlineParticipant::where('room_id', $room->id)->update(['hand_at' => null]);
+                // همه، یا فقط یک نفر (دکمه‌ی ✓ روی کارتِ «دستِ بالا»)
+                OnlineParticipant::where('room_id', $room->id)->when($target, fn ($q) => $q->where('user_id', $target->user_id))->update(['hand_at' => null]);
                 $room->bump();
                 break;
             case 'chat':

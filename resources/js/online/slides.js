@@ -7,11 +7,12 @@ import shrinkImage from '@/lib/shrinkImage';
  * می‌شود)، پس گوشیِ بچه‌ها فقط تصویرِ سبک می‌گیرد و چیزی نصب یا اجرا نمی‌کند.
  * خروجی: فهرستِ نشانیِ تصویرها (هر کدام یک صفحه‌ی تخته).
  */
-export async function importSlides(file, uploadUrl, onProgress) {
-    if (/pdf$/i.test(file.type) || /\.pdf$/i.test(file.name)) return importPdf(file, uploadUrl, onProgress);
+export async function importSlides(file, uploadUrl, onProgress, onPage) {
+    if (/pdf$/i.test(file.type) || /\.pdf$/i.test(file.name)) return importPdf(file, uploadUrl, onProgress, onPage);
     const small = await shrinkImage(file, { max: 1800, quality: 0.85, minBytes: 300 * 1024 });
     onProgress?.(0, 1);
     const url = await upload(small, uploadUrl);
+    await onPage?.(url, 0, 1);
     onProgress?.(1, 1);
     return [url];
 }
@@ -61,18 +62,21 @@ export async function renderPdfPage(doc, i, max = 1600) {
     const g = c.getContext('2d');
     g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
     await page.render({ canvasContext: g, viewport: vp }).promise;
-    const blob = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.85));
+    const blob = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.82));
     page.cleanup();
     return blob;
 }
 
-async function importPdf(file, uploadUrl, onProgress) {
+/** هر صفحه همین‌که آماده شد با onPage خبر داده می‌شود (صفحه‌ی اول فوری روی تخته می‌آید؛ بقیه پشتِ صحنه). */
+async function importPdf(file, uploadUrl, onProgress, onPage) {
     const doc = await openPdf(await file.arrayBuffer());
     const n = Math.min(doc.numPages, 60);
     const urls = [];
     for (let i = 1; i <= n; i += 1) {
         onProgress?.(i - 1, n);
-        urls.push(await upload(await renderPdfPage(doc, i), uploadUrl, `page-${i}.jpg`));
+        const url = await upload(await renderPdfPage(doc, i), uploadUrl, `page-${i}.jpg`);
+        urls.push(url);
+        await onPage?.(url, i - 1, n);
     }
     onProgress?.(n, n);
     return urls;

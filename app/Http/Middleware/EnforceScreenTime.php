@@ -13,8 +13,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class EnforceScreenTime
 {
-    /** مسیرهایی که همیشه باز می‌مانند (خروج، بخشِ والدین، مسابقه‌ی کلاسی، فایل‌ها…). */
-    private const OPEN = ['time-up', 'logout', 'presence', 'notices/pulse', 'family', 'live', 'build/', 'storage/', 'up', 'sw.js', 'manifest', 'install', 'login', 'favicon'];
+    /** مسیرهایی که همیشه باز می‌مانند (خروج، بخشِ والدین، مسابقه‌ی کلاسی، کلاسِ آنلاین، فایل‌ها…). */
+    private const OPEN = ['time-up', 'logout', 'presence', 'notices/pulse', 'family', 'live', 'online', 'online-check', 'build/', 'storage/', 'up', 'sw.js', 'manifest', 'install', 'login', 'favicon'];
 
     public function handle(Request $request, Closure $next): Response
     {

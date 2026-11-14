@@ -569,4 +569,52 @@ class OnlineClassTest extends TestCase
         $otherAdmin = $this->makeUser(\App\Models\School::where('slug', 'other-school')->first(), Roles::SCHOOL_ADMIN);
         $this->actingAs($otherAdmin)->put(route('school.teachers.supervise', $nazem), ['classes' => [$foreign->id]])->assertNotFound();
     }
+
+    /** دستِ بالا → دسترسی در همان‌جا (دست بالا می‌ماند)، پایین آوردنِ دستِ یک نفر، قطعِ همه با یک لمس، زمانِ ورود در فهرست. */
+    public function test_hand_grants_keep_hand_single_lower_and_revoke_all(): void
+    {
+        [, $teacher, $classroom, $student, , , $room] = $this->live();
+        $other = $this->makeUser($teacher->school, Roles::STUDENT);
+        DB::table('classroom_student')->insert(['classroom_id' => $classroom->id, 'student_id' => $other->id]);
+        $this->actingAs($student)->postJson(route('online.join', $room))->assertOk();
+        $this->actingAs($other)->postJson(route('online.join', $room))->assertOk();
+        $this->actingAs($student)->postJson(route('online.hand', $room), ['up' => true])->assertOk();
+        $this->actingAs($other)->postJson(route('online.hand', $room), ['up' => true])->assertOk();
+        $ctl = fn (array $d) => $this->actingAs($teacher)->postJson(route('online.control', $room), $d);
+        $part = fn ($u) => OnlineParticipant::where('room_id', $room->id)->where('user_id', $u->id)->firstOrFail();
+
+        // از روی کارتِ «دستِ بالا»: صحبت + دوربین + تخته، دست هنوز بالاست
+        foreach (['can_speak', 'can_video', 'can_draw'] as $perm) {
+            $ctl(['action' => 'perm', 'user' => $student->id, 'perm' => $perm, 'value' => true, 'keep_hand' => true])->assertOk();
+        }
+        $p = $part($student);
+        $this->assertTrue($p->can_speak && $p->can_video && $p->can_draw);
+        $this->assertNotNull($p->hand_at);
+        // «رسیدگی شد»: فقط دستِ همین یک نفر پایین می‌آید
+        $ctl(['action' => 'lower_hands', 'user' => $student->id])->assertOk();
+        $this->assertNull($part($student)->hand_at);
+        $this->assertNotNull($part($other)->hand_at);
+        // اجازه‌ی صحبتِ معمولی (از فهرست) مثلِ قبل دست را پایین می‌آورد
+        $ctl(['action' => 'perm', 'user' => $other->id, 'perm' => 'can_speak', 'value' => true])->assertOk();
+        $this->assertNull($part($other)->hand_at);
+
+        // فهرست: زمانِ ورود و وضعیتِ «میکِ همه باز»
+        $state = $this->actingAs($teacher)->postJson(route('online.sync', $room), ['v' => 0])->assertOk()->json('state');
+        $this->assertFalse($state['settings']['open_mics']);
+        $this->assertIsInt(collect($state['people'])->firstWhere('id', $student->id)['joined']);
+
+        // قطعِ همه‌ی دسترسی‌های یک نفر
+        $ctl(['action' => 'perm', 'user' => $student->id, 'perm' => 'all', 'value' => false])->assertOk();
+        $p = $part($student);
+        $this->assertFalse($p->can_speak || $p->can_video || $p->can_draw);
+        $this->assertTrue($part($other)->can_speak);
+        // قطعِ دسترسیِ همه
+        $ctl(['action' => 'perm', 'user' => $student->id, 'perm' => 'can_draw', 'value' => true])->assertOk();
+        $ctl(['action' => 'revoke_all'])->assertOk();
+        $this->assertSame(0, OnlineParticipant::where('room_id', $room->id)->where('role', 'student')
+            ->where(fn ($q) => $q->where('can_speak', true)->orWhere('can_video', true)->orWhere('can_draw', true))->count());
+        // دانش‌آموز نمی‌تواند به کسی دسترسی بدهد
+        $this->actingAs($student)->postJson(route('online.control', $room), ['action' => 'revoke_all'])->assertForbidden();
+        $this->actingAs($student)->postJson(route('online.control', $room), ['action' => 'perm', 'user' => $student->id, 'perm' => 'all', 'value' => true])->assertForbidden();
+    }
 }

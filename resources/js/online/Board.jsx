@@ -129,17 +129,58 @@ function hit(op, x, y) {
     return false;
 }
 
-const imgCache = new Map();
+const imgCache = new Map();   // نشانی → تصویر (آماده یا در راه)
+const imgWait = new Map();    // نشانی → کسانی که منتظرِ آمدنش هستند
+const imgTries = new Map();
 /** پیش‌بارگذاریِ تصویرِ صفحه‌های بعدیِ فایلِ درس (ورق‌زدنِ فوری). */
-export function preloadImg(url) { if (url && !imgCache.has(url)) loadImg(url, () => {}); }
+export function preloadImg(url) { if (url && !imgCache.has(url)) loadImg(url, null); }
+/**
+ * تصویرِ صفحه (اسلاید/صفحه‌ی کتاب). اگر بارگذاری شکست بخورد (اینترنتِ ضعیف، سرورِ شلوغ) خودش
+ * دوباره تلاش می‌کند — وگرنه دانش‌آموز تا آخرِ کلاس «تخته‌ی سفید» می‌دید.
+ */
 function loadImg(url, cb) {
-    if (imgCache.has(url)) { const im = imgCache.get(url); if (im.complete) return im; im.addEventListener('load', cb, { once: true }); return null; }
+    const ready = imgCache.get(url);
+    if (ready && ready.complete && ready.naturalWidth) return ready;
+    if (cb) { if (!imgWait.has(url)) imgWait.set(url, new Set()); imgWait.get(url).add(cb); }
+    if (ready) return null;   // در راه است
     const im = new Image();
     im.decoding = 'async';
-    im.addEventListener('load', cb, { once: true });
+    im.addEventListener('load', () => {
+        imgTries.delete(url);
+        const w = imgWait.get(url); imgWait.delete(url);
+        w?.forEach((f) => { try { f(); } catch { /* */ } });
+    }, { once: true });
+    im.addEventListener('error', () => {
+        imgCache.delete(url);
+        const n = (imgTries.get(url) || 0) + 1;
+        imgTries.set(url, n);
+        if (n <= 12) setTimeout(() => { if (!imgCache.has(url)) loadImg(url, null); }, Math.min(8000, 500 * 2 ** Math.min(n - 1, 4)));
+    }, { once: true });
     im.src = url;
     imgCache.set(url, im);
     return null;
+}
+
+/** امضای کوتاهِ محتوای تخته (از آخرین «پاک کردنِ همه» به بعد) — برای این‌که بفهمیم تخته‌ی دانش‌آموز با معلم یکی است. */
+const h32 = (str) => { let h = 0x811c9dc5; for (let i = 0; i < str.length; i += 1) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; };
+export function opsSig(ops) {
+    let n = 0; let x = 0;
+    for (const o of ops || []) {
+        if (o.k === 'clear') { n = 0; x = 0; }
+        n += 1; x ^= h32(String(o.id));
+    }
+    return `${n}.${(x >>> 0).toString(36)}`;
+}
+
+/** خطِ خیلی بلند به چند تکه‌ی سبک شکسته می‌شود تا در یک پیام جا شود و در راه گم نشود. */
+const CHUNK = 700;   // عدد (= ۳۵۰ نقطه)
+function splitOp(op) {
+    if ((op.k !== 'pen' && op.k !== 'hl') || !op.p || op.p.length <= CHUNK) return [op];
+    const out = [];
+    for (let i = 0, k = 0; i < op.p.length - 2; i += CHUNK - 2, k += 1) {
+        out.push({ ...op, id: k ? `${op.id}~${k}` : op.id, p: op.p.slice(i, i + CHUNK) });
+    }
+    return out;
 }
 
 export function drawBg(ctx, bg, onLoad) {
@@ -269,6 +310,7 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
         load(ops, bg) { const s = st.current; s.ops = Array.isArray(ops) ? ops : []; s.bg = bg || 'blank'; s.live.clear(); s.redo = []; s.dirty = true; schedule(); },
         setBg(bg) { st.current.bg = bg || 'blank'; st.current.dirty = true; schedule(); },
         ops() { return st.current.ops; },
+        sig() { return opsSig(st.current.ops); },
         bg() { return st.current.bg; },
         add(op) { const s = st.current; s.live.delete(op.id); if (!s.ops.some((o) => o.id === op.id)) s.ops.push(op); s.dirty = true; schedule(); },
         undo(id) { const s = st.current; s.ops = s.ops.filter((o) => o.id !== id); s.dirty = true; schedule(); },
@@ -450,7 +492,7 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
         s.cur = null;
         if (!op) return;
         if ((op.k !== 'pen' && op.k !== 'hl') && op.p.length >= 4 && Math.hypot(op.p[2] - op.p[0], op.p[3] - op.p[1]) < 6) { schedule(); return; }
-        commit(op);
+        splitOp(op).forEach(commit);
     };
 
     const commitText = () => {

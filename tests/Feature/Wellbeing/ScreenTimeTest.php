@@ -98,4 +98,47 @@ class ScreenTimeTest extends TestCase
         $this->actingAs($other)->post(route('teacher.wellbeing.reset', $student))->assertForbidden();
         $this->assertNull(app(WellbeingService::class)->locked($student));
     }
+
+    /** کلاسِ آنلاین درس است: زمانش شمرده نمی‌شود، وسطش «استراحت» نمی‌آید و با قفلِ زمان هم باز می‌ماند. */
+    public function test_online_class_is_not_counted_and_stays_open_when_locked(): void
+    {
+        $this->seedRoles();
+        Carbon::setTestNow(Carbon::parse('2026-10-10 09:00'));
+        [$teacher, $classroom, $student] = $this->makeClass($this->makeSchool());
+        $this->actingAs($teacher)->post(route('teacher.wellbeing.settings'), ['classroom_id' => $classroom->id, 'daily' => 5, 'session' => 0, 'break_every' => 2, 'break_minutes' => 2])
+            ->assertSessionHasNoErrors();
+
+        // ۱۰ دقیقه در کلاسِ آنلاین (نشانه‌ی برنامه یا نشانیِ صفحه): نه استراحت، نه شمارش
+        for ($i = 0; $i < 10; $i++) {
+            Carbon::setTestNow(now()->addSeconds(60));
+            $r = $i % 2
+                ? $this->actingAs($student)->postJson(route('presence'), ['in_class' => 1])
+                : $this->actingAs($student)->withHeaders(['referer' => url('/online/7')])->postJson(route('presence'));
+            $r->assertNoContent();
+        }
+        $this->assertSame(0, (int) ScreenTime::query()->sum('seconds'));
+        // فهرستِ کلاس‌ها (/online) صفحه‌ی معمولی است و شمرده می‌شود
+        $this->actingAs($student)->withHeaders(['referer' => url('/online')])->postJson(route('presence'))->assertOk();
+
+        // بیرون از کلاس سقف پر می‌شود → قفل؛ ولی کلاسِ آنلاین و آزمایشِ اتصال باز می‌مانند
+        $s = $this->beatFor($student, 6);
+        $this->assertTrue($s['locked']);
+        $this->actingAs($student)->get(route('dashboard'))->assertRedirect(route('time-up'));
+        $this->assertNotSame(route('time-up'), $this->actingAs($student)->get(route('online.list'))->headers->get('Location'));
+        $this->assertNotSame(route('time-up'), $this->actingAs($student)->get('/online/999')->headers->get('Location'));
+        $this->assertNotSame(423, $this->actingAs($student)->postJson('/online/999/sync')->status());
+        // در کلاس، ضربان هم پیامِ قفل برنمی‌گرداند
+        $this->actingAs($student)->postJson(route('presence'), ['in_class' => 1])->assertNoContent();
+    }
+
+    public function test_class_polling_does_not_trigger_bot_push(): void
+    {
+        $skip = (new \ReflectionClass(\App\Http\Middleware\PushBotNotices::class))->getConstant('SKIP');
+        foreach (['online.sync', 'online.signal', 'online.board.op', 'online.chat', 'live.state', 'presence'] as $name) {
+            $this->assertSame(1, preg_match($skip, $name), $name);
+        }
+        foreach (['teacher.online.store', 'teacher.exams.store', 'teacher.homework.store'] as $name) {
+            $this->assertSame(0, preg_match($skip, $name), $name);
+        }
+    }
 }

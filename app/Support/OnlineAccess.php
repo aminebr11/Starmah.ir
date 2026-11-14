@@ -105,7 +105,7 @@ class OnlineAccess
             return 'observer';
         }
         if ($user->isStudent() && (int) $user->school_id === (int) $room->school_id && self::schoolEnabled($room->school_id)
-            && in_array((int) $user->id, $room->audienceIds(), true)) {
+            && $room->admits((int) $user->id)) {
             return 'student';
         }
 

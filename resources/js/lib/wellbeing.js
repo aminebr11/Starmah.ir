@@ -11,6 +11,10 @@ const fa = (n) => String(n ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d
 const MOVES = ['👀 به دورترین نقطه‌ی اتاق نگاه کن (۲۰ ثانیه)', '🙆 دست‌هایت را بالا ببر و کش بیاور', '💧 یک لیوان آب بنوش', '🔄 شانه‌هایت را ۵ بار بچرخان', '🦒 گردنت را آرام به چپ و راست بچرخان', '🚶 کمی راه برو و برگرد'];
 let warned = false;
 let open = false;
+let closeBreak = null;
+
+/** کلاسِ آنلاین (و آزمایشِ اتصال): وسطِ درسِ زنده نه «استراحت» می‌آید و نه قفلِ زمان. */
+export const inLiveClass = () => typeof location !== 'undefined' && /^\/online(-check)?(\/|$)/.test(location.pathname) && location.pathname !== '/online';
 
 function breakOverlay(minutes) {
     if (open || typeof document === 'undefined') return;
@@ -38,11 +42,16 @@ function breakOverlay(minutes) {
     };
     tick();
     const id = setInterval(() => { left -= 1; tick(); if (left <= 0) clearInterval(id); }, 1000);
-    b.addEventListener('click', () => { clearInterval(id); el.remove(); open = false; });
+    closeBreak = () => { clearInterval(id); el.remove(); open = false; closeBreak = null; };
+    b.addEventListener('click', () => closeBreak?.());
 }
+
+/** اگر پنجره‌ی استراحت باز بود و دانش‌آموز واردِ کلاسِ آنلاین شد، بسته شود. */
+export function dismissBreak() { closeBreak?.(); }
 
 export function handleWellbeing(s) {
     if (!s) return;
+    if (inLiveClass()) { dismissBreak(); return; }
     if (s.locked) {
         if (!location.pathname.startsWith('/time-up') && !location.pathname.startsWith('/live') && !location.pathname.startsWith('/family')) router.visit('/time-up');
         return;

@@ -130,11 +130,20 @@ write_conf
 
 # بافرِ UDP بزرگ‌تر برای صدا/تصویرِ روان
 cat > /etc/sysctl.d/90-livekit.conf <<'SYS'
-net.core.rmem_max=5000000
-net.core.wmem_max=5000000
+net.core.rmem_max=7500000
+net.core.wmem_max=7500000
 net.core.rmem_default=1000000
 net.core.wmem_default=1000000
+net.core.netdev_max_backlog=5000
+net.ipv4.tcp_slow_start_after_idle=0
+net.ipv4.tcp_mtu_probing=1
 SYS
+# BBR (اگر هسته داشته باشد): روی اینترنتِ همراهِ پُرافت، اتصال‌های wss/TCP روان‌تر می‌مانند
+modprobe tcp_bbr 2>/dev/null || true
+if grep -qw bbr /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null; then
+  printf 'net.core.default_qdisc=fq\nnet.ipv4.tcp_congestion_control=bbr\n' >> /etc/sysctl.d/90-livekit.conf
+  echo tcp_bbr > /etc/modules-load.d/starmah-bbr.conf
+fi
 sysctl --system >/dev/null || true
 ok "تنظیمات نوشته شد"
 

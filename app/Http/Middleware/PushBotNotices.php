@@ -13,7 +13,9 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class PushBotNotices
 {
-    private const SKIP = '/(save|autosave|heartbeat|ping|presence|progress|track|visit|beacon|preview|\.ai$|^bot\.|^notifications\.|login|logout|password|^figures)/i';
+    // کلاسِ آنلاین و مسابقه‌ی زنده هر یکی‌دو ثانیه برای هر دانش‌آموز درخواست می‌فرستند (sync/signal/state)؛
+    // این‌ها اعلان نمی‌سازند و نباید بعد از هر کدام بررسیِ بات اجرا شود (بارِ سنگین روی سرور وسطِ کلاس).
+    private const SKIP = '/(^online\.|^live\.|sync|signal|state|answer|save|autosave|heartbeat|ping|presence|progress|track|visit|beacon|preview|\.ai$|^bot\.|^notifications\.|login|logout|password|^figures)/i';
 
     public function handle(Request $request, Closure $next): Response
     {

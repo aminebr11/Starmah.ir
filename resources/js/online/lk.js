@@ -131,6 +131,16 @@ export default async function createLk(opts) {
         relayCam() {},
         broadcast(msg) { send(msg, isHost ? undefined : [String(hostId)]); },
         sendTo(uid, msg) { send(msg, [String(uid)]); },
+        /** یک پیام برای چند نفر (یک بار فرستاده می‌شود؛ سرور پخشش می‌کند). */
+        sendMany(uids, msg) { if (uids.length) send(msg, uids.map(String)); },
+        /** معلم تصویرِ یک نفر را بزرگ کرده: بهترین کیفیتِ دوربینِ او؛ بسته شد → حالتِ عادی. */
+        setBig(uid, on) {
+            const p = room.remoteParticipants.get(String(uid));
+            if (!p) return;
+            for (const pub of p.videoTrackPublications.values()) {
+                if (pub.source === Track.Source.Camera) { try { pub.setVideoQuality(on ? VideoQuality.HIGH : qualityFor(Number(uid), pub.source)); } catch { /* */ } }
+            }
+        },
         remoteAudioTracks() { return [...remoteAudio.values()]; },
         resumeAudio() { room.startAudio?.().catch(() => {}); },
         /** «فقط دوربین»: تصویرِ معلم با بیشترین کیفیت؛ برگشت به حالتِ عادی. */

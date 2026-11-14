@@ -9,7 +9,7 @@ import createMesh from '@/online/mesh';
 import ClassRecorder from '@/online/recorder';
 import { importSlides, openPdf, renderPdfPage } from '@/online/slides';
 import BookPanel from '@/online/books';
-import { fa, Vid, DragBox, AudioSink, Clock, Countdown, Chat, People, PollPanel, PollCard, ReportModal } from '@/online/parts';
+import { fa, Vid, DragBox, AudioSink, Clock, Countdown, Chat, People, PollPanel, PollCard, ReportModal, HandCards, CamViewer } from '@/online/parts';
 import '@/../css/online.css';
 
 /**
@@ -43,6 +43,13 @@ async function grab(kind, base, id) {
     return want(kind === 'video' ? { facingMode: 'user' } : {});
 }
 const BGS = [['blank', '⬜ ساده'], ['lines', '📒 خط‌دار'], ['grid', '🔲 شطرنجی'], ['dots', '⠿ نقطه‌ای'], ['chalk', '🟩 تخته‌سیاه']];
+
+/** این دستگاه چه چیزهایی را پشتیبانی می‌کند؟ (روی گوشی اشتراکِ صفحه/پخشِ فیلم/ضبط معمولاً نیست → دکمه‌اش نشان داده نمی‌شود) */
+const CAN = (() => {
+    if (typeof navigator === 'undefined' || typeof document === 'undefined') return { share: false, film: false, rec: false };
+    const v = document.createElement('video');
+    return { share: !!navigator.mediaDevices?.getDisplayMedia, film: !!(v.captureStream || v.mozCaptureStream), rec: ClassRecorder.supported() };
+})();
 
 const xsrf = () => decodeURIComponent((document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]+)/) || [])[1] || '');
 
@@ -78,12 +85,15 @@ export default function Room({ room, me, config, back }) {
     const [devs, setDevs] = useState({ cams: [], mics: [] });   // دوربین‌ها و میکروفون‌های این دستگاه
     const [devOpen, setDevOpen] = useState(false);   // دلیلِ وصل نشدنِ صدا/تصویر (برای عیب‌یابی)
     const [busy, setBusy] = useState(null);
+    const [job, setJob] = useState(null);   // کارِ پشتِ صحنه (بقیه‌ی صفحه‌های فایل) — جلوی کارِ معلم را نمی‌گیرد
     const [booksOpen, setBooksOpen] = useState(false);
     const [play, setPlay] = useState(null);         // فیلم/آهنگی که معلم برای همه پخش می‌کند: { name, kind, url }
     const [bookGo, setBookGo] = useState('');
     const [rec, setRec] = useState(null);
     const [skew, setSkew] = useState(0);
     const [endOpen, setEndOpen] = useState(false);
+    const [leaveOpen, setLeaveOpen] = useState(false);
+    const [viewer, setViewer] = useState(null);   // معلم: شناسه‌ی کسی که تصویرش تمام‌صفحه باز است
     const [wait, setWait] = useState(null);
 
     const tr = useRef(null);          // ابزارِ رسانه (mesh یا livekit)
@@ -93,6 +103,20 @@ export default function Room({ room, me, config, back }) {
     const mineRef = useRef(null);
     const loaded = useRef({ page: -1, version: -1 });
     const saveT = useRef(null);
+    // ── رساندنِ مطمئنِ تخته ──
+    const lastHb = useRef(0);                 // آخرین «ضربانِ تخته» از معلم (نشانه‌ی سالم بودنِ کانالِ زنده)
+    const loadingPg = useRef(null);           // صفحه‌ای که همین حالا از سرور خوانده می‌شود
+    const loadSeq = useRef(0);
+    const pendMsgs = useRef([]);              // پیام‌های تخته که پیش از آماده شدنِ صفحه رسیده‌اند
+    const ownOps = useRef([]);                // نوشته‌های تازه‌ی خودم (تا هنگامِ ترمیم گم نشوند)
+    const ownOpAt = useRef(0);
+    const ownViewAt = useRef(0);
+    const repair = useRef({ at: 0, n: 0, t: null });
+    const snapBuf = useRef(null);
+    const needers = useRef(new Map());        // معلم: چه کسانی نسخه‌ی کاملِ تخته می‌خواهند
+    const needT = useRef(null);
+    const savedIds = useRef(new Set());       // معلم: خط‌هایی که روی سرور ذخیره شده‌اند
+    const saveChain = useRef(Promise.resolve());
     const recRef = useRef(null);
     const screenEl = useRef(null);
     const camEl = useRef(null);
@@ -153,6 +177,13 @@ export default function Room({ room, me, config, back }) {
                 : (hostTiles.cam && media === 'livekit' && camOn(room.teacher_id)) ? hostTiles.cam : null;
     const mainCamLabel = spotId ? `👁️ ${people.find((p) => p.id === spotId)?.name || ''}` : isHost ? 'من' : `👩‍🏫 ${room.teacher}`;
     const speakingNames = people.filter((p) => speaking.includes(p.id)).map((p) => p.name);
+    // همه‌ی دوربین‌های روشن (برای «سینمای دوربین»ِ معلم)
+    const camList = [
+        ...(local.cam ? [{ id: me.id, name: 'من', track: local.cam, mirror: true }] : []),
+        ...Object.entries(tiles).map(([uid, t]) => ({ id: Number(uid), track: t.cam })).filter((c) => c.id !== me.id && c.track && camOn(c.id))
+            .map((c) => ({ ...c, name: people.find((p) => p.id === c.id)?.name || (c.id === room.teacher_id ? room.teacher : '') }))
+            .sort((a, b) => (a.id === room.teacher_id ? -1 : b.id === room.teacher_id ? 1 : String(a.name).localeCompare(String(b.name), 'fa'))),
+    ];
     const toggleFs = () => {
         const next = !fs;
         setFs(next);
@@ -163,41 +194,89 @@ export default function Room({ room, me, config, back }) {
     };
 
     // ── تخته ─────────────────────────────────────────────────────────
-    const loadPage = useCallback(async (p, merge = false) => {
+    /** کانالِ زنده‌ی تخته سالم است؟ (معلم همیشه؛ دانش‌آموز فقط وقتی ضربانِ تخته‌ی معلم می‌رسد) */
+    const chanLive = useCallback(() => !!tr.current?.dataOpen() && (isHost || Date.now() - lastHb.current < 9000), [isHost]);
+
+    /** پیامِ تخته را روی تخته اعمال کن. */
+    const applyBoardMsg = useCallback((msg) => {
+        if (msg.t === 'op' && msg.op) board.current?.add(msg.op);
+        else if (msg.t === 'undo') board.current?.undo(msg.id);
+        else if (msg.t === 'bg') { board.current?.setBg(msg.bg); loaded.current.bg = msg.bg; }
+    }, []);
+
+    const loadPage = useCallback(async (p, merge = false, tries = 0) => {
+        // همان صفحه همین حالا در راه است → درخواستِ تکراری نفرست
+        if (loadingPg.current && loadingPg.current.page === p && Date.now() - loadingPg.current.at < 8000 && !tries) return;
+        const my = ++loadSeq.current;
+        loadingPg.current = { page: p, at: Date.now() };
         try {
-            const { data } = await axios.get(R('board'), { params: { page: p } });
-            let ops = data.ops;
-            // معلم: کارهای ذخیره‌نشده‌ی خودش را نگه می‌دارد تا با نوشته‌ی بچه پاک نشوند
+            const { data } = await axios.get(R('board'), { params: { page: p }, timeout: 15000 });
+            if (my !== loadSeq.current) return;   // درخواستِ تازه‌تری جایش را گرفته
+            loadingPg.current = null;
+            let ops = Array.isArray(data.ops) ? data.ops : [];
+            const have = new Set(ops.map((o) => o.id));
             if (merge && board.current) {
-                const have = new Set(ops.map((o) => o.id));
-                ops = [...ops, ...board.current.ops().filter((o) => !have.has(o.id))];
+                // معلم: کارهای هنوز ذخیره‌نشده را نگه می‌دارد تا با نوشته‌ی بچه پاک نشوند؛
+                // ولی خطی که قبلاً ذخیره بود و حالا روی سرور نیست یعنی دانش‌آموز پاکش کرده → برداشته می‌شود.
+                const before = board.current.ops();
+                const mine = new Set(before.map((o) => o.id));
+                const keep = before.filter((o) => !have.has(o.id) && !savedIds.current.has(o.id));
+                const gone = before.filter((o) => !have.has(o.id) && savedIds.current.has(o.id));
+                const fresh = ops.filter((o) => !mine.has(o.id));
+                ops = [...ops, ...keep];
+                // آنچه از راهِ سرور آمده برای بچه‌هایی که کانالِ زنده دارند هم پخش شود
+                fresh.slice(-200).forEach((op) => tr.current?.broadcast({ t: 'op', page: p, op }));
+                gone.slice(-200).forEach((op) => tr.current?.broadcast({ t: 'undo', page: p, id: op.id }));
+            } else if (!isHost && board.current && loaded.current.page === p) {
+                // دانش‌آموز: نوشته‌ی چند ثانیه‌ی اخیرِ خودش که هنوز به سرور نرسیده، نپرد
+                const now = Date.now();
+                ops = [...ops, ...ownOps.current.filter((x) => x.page === p && now - x.at < 6000 && !have.has(x.op.id)).map((x) => x.op)];
             }
+            savedIds.current = have;
             loaded.current = { page: p, version: data.version, bg: data.bg };
             board.current?.load(ops, data.bg);
+            // پیام‌هایی که وسطِ بارگذاری رسیده بودند (معلم همان لحظه شروع به نوشتن کرده)
+            if (!isHost) {
+                const now = Date.now();
+                const mineNow = pendMsgs.current.filter((x) => x.msg.page === p && now - x.at < 20000);
+                pendMsgs.current = pendMsgs.current.filter((x) => x.msg.page !== p && now - x.at < 20000);
+                mineNow.forEach((x) => applyBoardMsg(x.msg));
+            }
             // بزرگ‌نماییِ ذخیره‌شده‌ی همین صفحه (برای کسی که تازه آمده)؛ صفحه‌ی دیگر از اندازه‌ی کامل
             const v = stRef.current?.settings?.view;
             board.current?.setView(v && v.page === p ? v : null);
             viewApplied.current = v && v.page === p ? JSON.stringify(v) : '';
-        } catch { /* دورِ بعد */ }
+        } catch {
+            if (my !== loadSeq.current) return;
+            loadingPg.current = null;
+            // سرور جواب نداد: خودش دوباره تلاش می‌کند (قبلاً تا تغییرِ بعدیِ کلاس، تخته خالی می‌ماند)
+            const want = stRef.current?.settings?.page;
+            if (tries < 6 && (want === undefined || want === p)) setTimeout(() => { if (loadSeq.current === my) loadPage(p, merge, tries + 1); }, Math.min(6000, 900 * (tries + 1)));
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const saveBoard = useCallback((now = false) => {
-        if (!isHost) return;
-        clearTimeout(saveT.current);
+        if (!isHost) return null;
         const run = async (retry = false) => {
             const p = loaded.current.page;
             if (p < 0 || !board.current) return;
+            const ops = board.current.ops().slice();
             try {
-                const { data } = await axios.post(R('board.save'), { page: p, bg: board.current.bg(), ops: JSON.stringify(board.current.ops()), base: loaded.current.version });
-                if (loaded.current.page === p) loaded.current.version = data.version;
+                const { data } = await axios.post(R('board.save'), { page: p, bg: board.current.bg(), ops: JSON.stringify(ops), base: loaded.current.version });
+                if (loaded.current.page === p) { loaded.current.version = data.version; savedIds.current = new Set(ops.map((o) => o.id)); }
             } catch (e) {
                 // یک دانش‌آموز همین‌وقت چیزی نوشته: اول نسخه‌ی تازه، بعد ذخیره‌ی دوباره
-                if (e?.response?.status === 409 && !retry) { await loadPage(p, true); return run(true); }
+                if (e?.response?.status === 409 && !retry) { await loadPage(p, true, 1); return run(true); }
+                // سرور جواب نداد → کمی بعد دوباره (تخته از کانالِ زنده به بچه‌ها رسیده است)
+                if (!retry && loaded.current.page === p && !saveT.current) saveT.current = setTimeout(() => { saveT.current = null; queue(); }, 3000);
             }
         };
-        if (now) return run();
-        saveT.current = setTimeout(() => run(), 1200);
+        // ذخیره‌ها پشتِ سرِ هم (نه هم‌زمان) تا با خودشان تداخل نکنند
+        const queue = () => { saveChain.current = saveChain.current.then(() => run()).catch(() => {}); return saveChain.current; };
+        if (now) { clearTimeout(saveT.current); saveT.current = null; return queue(); }
+        // هنگامِ نوشتنِ پیوسته هم هر ~۱ ثانیه ذخیره می‌شود (قبلاً تا مکثِ معلم صبر می‌کرد و بچه‌های بدونِ کانالِ زنده عقب می‌ماندند)
+        if (!saveT.current) saveT.current = setTimeout(() => { saveT.current = null; queue(); }, 900);
         return null;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [loadPage]);
@@ -212,7 +291,12 @@ export default function Room({ room, me, config, back }) {
 
     const onOp = useCallback((op) => {
         const p = loaded.current.page;
-        const direct = !!tr.current?.dataOpen();
+        const direct = chanLive();
+        if (!isHost) {
+            const now = Date.now();
+            ownOps.current = [...ownOps.current.filter((x) => now - x.at < 8000 && x.op.id !== op.id), ...(op.k === '__undo' ? [] : [{ page: p, op, at: now }])];
+            ownOpAt.current = now;
+        }
         if (op.k === '__undo') {
             send({ t: 'undo', page: p, id: op.id });
             if (!isHost && !direct) boardOpSend({ page: p, kind: 'undo', id: op.id });
@@ -221,7 +305,7 @@ export default function Room({ room, me, config, back }) {
             if (!isHost && !direct) boardOpSend({ page: p, kind: 'op', op });
         }
         saveBoard();
-    }, [send, saveBoard, boardOpSend]);
+    }, [send, saveBoard, boardOpSend, chanLive]);
     const onStroke = useCallback((s) => send({ t: 'stroke', page: loaded.current.page, ...s }), [send]);
     const onPtr = useCallback((x, y) => send({ t: 'ptr', x, y }), [send]);
     /** بزرگ‌نمایی/جابه‌جاییِ تخته (معلم یا دانش‌آموزِ مجاز) → برای همه. معلم آن را ذخیره هم می‌کند. */
@@ -235,10 +319,85 @@ export default function Room({ room, me, config, back }) {
     }, []);
     const onView = useCallback((v) => {
         const msg = { t: 'view', page: loaded.current.page, z: v.z, x: v.x, y: v.y };
+        ownViewAt.current = Date.now();
         viewApplied.current = JSON.stringify({ page: msg.page, z: v.z, x: v.x, y: v.y });
         send(msg);
         if (isHost) saveView({ page: msg.page, z: v.z, x: v.x, y: v.y });
     }, [send, isHost, saveView]);
+
+    /**
+     * «ضربانِ تخته»: معلم هر ~۲٫۵ ثانیه امضای کوتاهِ تخته‌اش را می‌فرستد. پیام‌های مطمئن به‌ترتیب می‌رسند،
+     * پس اگر امضای دانش‌آموز فرق داشت یعنی واقعاً چیزی جا مانده (قطعیِ کوتاه، ورودِ دیرهنگام…) و همان لحظه ترمیم می‌شود.
+     */
+    const onHeartbeat = (msg) => {
+        lastHb.current = Date.now();
+        const b = board.current;
+        if (!b || phaseRef.current !== 'in') return;
+        if (msg.page !== loaded.current.page) {
+            if (msg.page !== stRef.current?.settings?.page) sync.current?.now();   // معلم ورق زده و من هنوز خبر ندارم
+            return;
+        }
+        if (loadingPg.current) return;
+        if (msg.bg && msg.bg !== b.bg()) { b.setBg(msg.bg); loaded.current.bg = msg.bg; }
+        if (Date.now() - ownViewAt.current > 3000) {
+            const v = msg.v ? { z: msg.v[0], x: msg.v[1], y: msg.v[2] } : { z: 1, x: 0, y: 0 };
+            const cur = b.view();
+            if (Math.abs(cur.z - v.z) > 0.01 || Math.abs(cur.x - v.x) > 2 || Math.abs(cur.y - v.y) > 2) b.setView(v);
+        }
+        if (Date.now() - ownOpAt.current < 3500) return;   // نوشته‌ی خودم هنوز در راهِ معلم است
+        if (b.sig() === msg.sig) { repair.current.n = 0; clearTimeout(repair.current.t); return; }
+        const r = repair.current; const now = Date.now();
+        if (now - r.at < [0, 3500, 7000, 14000, 30000][Math.min(r.n, 4)]) return;
+        r.at = now; r.n += 1;
+        const pg = msg.page;
+        tr.current?.sendTo(room.teacher_id, { t: 'need', page: pg });
+        // اگر نسخه‌ی کامل از کانالِ زنده نرسید، از سرور بخوان
+        clearTimeout(r.t);
+        r.t = setTimeout(() => { if (loaded.current.page === pg) loadPage(pg, false, 1); }, 3200);
+    };
+
+    /** نسخه‌ی کاملِ تخته از معلم (چند تکه). */
+    const onSnap = (msg) => {
+        if (msg.via === 'server') { clearTimeout(repair.current.t); if (msg.page === loaded.current.page) loadPage(msg.page, false, 1); return; }
+        let buf = snapBuf.current;
+        if (!buf || buf.sid !== msg.sid) buf = snapBuf.current = { sid: msg.sid, parts: [], got: 0 };
+        if (buf.parts[msg.i] === undefined) { buf.parts[msg.i] = msg.ops || []; buf.got += 1; }
+        if (buf.got < msg.of) return;
+        snapBuf.current = null;
+        clearTimeout(repair.current.t);
+        if (msg.page !== loaded.current.page || !board.current) return;
+        let ops = buf.parts.flat();
+        const have = new Set(ops.map((o) => o.id));
+        const now = Date.now();
+        ops = [...ops, ...ownOps.current.filter((x) => x.page === msg.page && now - x.at < 6000 && !have.has(x.op.id)).map((x) => x.op)];
+        board.current.load(ops, msg.bg || board.current.bg());
+        loaded.current.bg = msg.bg || loaded.current.bg;
+    };
+
+    /** معلم: نسخه‌ی کاملِ تخته برای کسانی که خواسته‌اند — تکه‌تکه تا هر پیام سبک بماند. */
+    const sendSnap = () => {
+        const b = board.current; const t = tr.current;
+        const now = Date.now();
+        const ids = [...needers.current.entries()].filter(([, at]) => now - at < 2000).map(([uid]) => uid);
+        for (const [uid, at] of needers.current) if (now - at > 60000) needers.current.delete(uid);
+        const p = loaded.current.page;
+        if (!b || !t || !ids.length || p < 0) return;
+        const many = (m) => (t.sendMany ? t.sendMany(ids, m) : ids.forEach((u) => t.sendTo(u, m)));
+        const chunks = [[]]; let size = 0; let big = false;
+        for (const o of b.ops()) {
+            const l = JSON.stringify(o).length;
+            if (l > 12000) big = true;
+            if (size + l > 7000 && chunks[chunks.length - 1].length) { chunks.push([]); size = 0; }
+            chunks[chunks.length - 1].push(o); size += l;
+        }
+        if (big || chunks.length > 80) {
+            // تخته‌ی خیلی سنگین: از سرور خوانده شود (اول ذخیره، بعد خبر)
+            Promise.resolve(saveBoard(true)).then(() => many({ t: 'snap', page: p, via: 'server' }));
+            return;
+        }
+        const sid = Math.random().toString(36).slice(2, 8);
+        chunks.forEach((ops, i) => many({ t: 'snap', page: p, sid, i, of: chunks.length, bg: b.bg(), ops }));
+    };
 
     /** پیام از کانالِ داده. */
     const onData = useCallback((from, msg) => {
@@ -246,6 +405,19 @@ export default function Room({ room, me, config, back }) {
         const curPage = loaded.current.page;
         const sender = stRef.current?.people?.find((p) => p.id === from);
         const fromHost = from === room.teacher_id;
+        // ── ترمیمِ تخته ──
+        if (msg.t === 'need') {
+            // دانش‌آموزی فهمیده تخته‌اش با معلم یکی نیست → نسخه‌ی کامل را برایش بفرست (چند نفر با هم، یک‌جا)
+            if (!isHost || msg.page !== curPage || !sender) return;
+            const last = needers.current.get(from) || 0;
+            if (Date.now() - last < 2500) return;
+            needers.current.set(from, Date.now());
+            clearTimeout(needT.current);
+            needT.current = setTimeout(sendSnap, 250);
+            return;
+        }
+        if (msg.t === 'hb') { if (!isHost && fromHost) onHeartbeat(msg); return; }
+        if (msg.t === 'snap') { if (!isHost && fromHost) onSnap(msg); return; }
         // معلم: نوشته‌ی دانش‌آموزی که اجازه‌ی تخته دارد را ثبت و برای بقیه پخش کن
         if (isHost && ['op', 'stroke', 'undo', 'view'].includes(msg.t)) {
             if (!sender?.can_draw || msg.page !== curPage) return;
@@ -274,12 +446,18 @@ export default function Room({ room, me, config, back }) {
             return;
         }
         if (!fromHost && !isHost) return;
-        if (msg.t === 'op' && msg.page === curPage && msg.op) board.current?.add(msg.op);
-        else if (msg.t === 'undo' && msg.page === curPage) board.current?.undo(msg.id);
-        else if (msg.t === 'stroke' && msg.page === curPage) board.current?.stroke(msg);
+        if (msg.t === 'op' || msg.t === 'undo' || msg.t === 'bg') {
+            if (msg.page === curPage && !(loadingPg.current && loadingPg.current.page === msg.page)) applyBoardMsg(msg);
+            else if (!isHost) {
+                // صفحه هنوز آماده نیست (معلم تازه ورق زده یا من تازه آمده‌ام) → نگه دار و بعد از آماده شدن اعمال کن؛
+                // قبلاً این پیام‌ها دور ریخته می‌شد و تخته‌ی دانش‌آموز «سفید» می‌ماند.
+                pendMsgs.current.push({ at: Date.now(), msg });
+                if (pendMsgs.current.length > 400) pendMsgs.current.splice(0, pendMsgs.current.length - 400);
+                if (msg.page !== stRef.current?.settings?.page) sync.current?.now();
+            }
+        } else if (msg.t === 'stroke' && msg.page === curPage) board.current?.stroke(msg);
         else if (msg.t === 'ptr') board.current?.pointer(msg.x, msg.y);
         else if (msg.t === 'view' && msg.page === curPage) { board.current?.setView(msg); viewApplied.current = JSON.stringify({ page: msg.page, z: msg.z, x: msg.x, y: msg.y }); }
-        else if (msg.t === 'bg' && msg.page === curPage) { board.current?.setBg(msg.bg); loaded.current.bg = msg.bg; }
         else if (msg.t === 'sync') sync.current?.now();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -329,18 +507,22 @@ export default function Room({ room, me, config, back }) {
             for (const x of s.pages) {
                 if (x.page > pg && x.page <= pg + 2 && typeof x.bg === 'string' && x.bg.startsWith('/')) preloadImg(x.bg);
             }
+            const live = chanLive();
             if (loaded.current.page !== pg) loadPage(pg);
             else if (isHost && ver > loaded.current.version) loadPage(pg, true);
-            else if (!isHost && ver > loaded.current.version && !tr.current?.dataOpen()) loadPage(pg);
-            // بزرگ‌نمایی از راهِ سرور (برای کسی که اتصالِ مستقیم ندارد)
-            if (!isHost && s.settings.view && s.settings.view.page === pg && loaded.current.page === pg) {
-                const vs = JSON.stringify(s.settings.view);
-                if (vs !== viewApplied.current) { viewApplied.current = vs; board.current?.setView(s.settings.view); }
-            }
-            // زمینه‌ی صفحه عوض شده (مثلاً تصویرِ صفحه‌ی کتاب تازه آماده شد) → دوباره بخوان
-            else if (!isHost) {
+            // بدونِ کانالِ زنده (یا وقتی ضربانِ تخته‌ی معلم نمی‌رسد): تخته از سرور می‌آید و همگام‌سازی تندتر می‌شود
+            else if (!isHost && ver > loaded.current.version && !live) { loadPage(pg); sync.current?.fast(5000); }
+            if (!isHost && loaded.current.page === pg && !loadingPg.current) {
+                // بزرگ‌نمایی از راهِ سرور (برای کسی که اتصالِ مستقیم ندارد)
+                if (!live && s.settings.view && s.settings.view.page === pg) {
+                    const vs = JSON.stringify(s.settings.view);
+                    if (vs !== viewApplied.current) { viewApplied.current = vs; board.current?.setView(s.settings.view); }
+                }
+                // زمینه‌ی صفحه (اسلاید/صفحه‌ی کتاب) — همیشه بررسی می‌شود؛ قبلاً اگر معلم یک بار بزرگ‌نمایی کرده بود
+                // این بررسی از کار می‌افتاد و تصویرِ صفحه‌ی تازه‌آماده‌شده به دانش‌آموز نمی‌رسید.
                 const nbg = s.pages.find((x) => x.page === pg)?.bg;
-                if (nbg && loaded.current.bg && nbg !== loaded.current.bg) loadPage(pg);
+                const cur = board.current?.bg();
+                if (nbg && cur && nbg !== cur && (!live || cur === 'blank')) { board.current?.setBg(nbg); loaded.current.bg = nbg; }
             }
             // معلم: ورودِ ناظم/مدیر به کلاس اطلاع داده شود
             if (isHost) {
@@ -388,8 +570,9 @@ export default function Room({ room, me, config, back }) {
         };
         try {
             if (media === 'livekit') {
-                const { data } = await axios.get(R('token'));
-                const createLk = (await import('@/online/lk')).default;
+                // توکن و کتابخانه هم‌زمان (کتابخانه از لابی پیش‌بارگذاری شده است)
+                const [{ data }, lk] = await Promise.all([axios.get(R('token')), import('@/online/lk')]);
+                const createLk = lk.default;
                 tr.current = await createLk({ ...common, url: data.url, token: data.token });
             } else {
                 tr.current = createMesh({ ...common, ice: config.ice, budget: config.budget, signal: (to, kind, payload) => { sync.current?.fast(); return axios.post(R('signal'), { to, kind, payload }); } });
@@ -452,6 +635,69 @@ export default function Room({ room, me, config, back }) {
         Object.values(localRef.current).forEach((t) => t?.stop());
         setLocal({ mic: null, cam: null, screen: null });
     }
+
+    // ── سرعتِ ورود: تا بچه راهنمای لابی را می‌خواند، کتابخانه‌ی رسانه و اتصال به سرورِ رسانه آماده می‌شود
+    useEffect(() => {
+        if ((room.media || '') !== 'livekit') return;
+        import('@/online/lk').catch(() => {});
+        import('livekit-client').catch(() => {});
+        if (config.lk_origin && !document.querySelector(`link[data-oc-pre="${config.lk_origin}"]`)) {
+            const l = document.createElement('link');
+            l.rel = 'preconnect'; l.href = config.lk_origin; l.crossOrigin = 'anonymous'; l.dataset.ocPre = config.lk_origin;
+            document.head.appendChild(l);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // ── گوشی: صفحه وسطِ کلاس خاموش نشود (بچه‌ای که فقط تخته را نگاه می‌کند دست به صفحه نمی‌زند)
+    useEffect(() => {
+        if (phase !== 'in' || !navigator.wakeLock?.request) return undefined;
+        let lock = null;
+        let gone = false;
+        const get = () => { if (document.visibilityState === 'visible') navigator.wakeLock.request('screen').then((l) => { if (gone) l.release().catch(() => {}); else lock = l; }).catch(() => {}); };
+        get();
+        document.addEventListener('visibilitychange', get);
+        return () => { gone = true; document.removeEventListener('visibilitychange', get); lock?.release?.().catch(() => {}); };
+    }, [phase]);
+
+    // ── برگشتن از برنامه‌ی دیگر (تماس، پیام): همان لحظه همگام شو و صدا را دوباره راه بینداز
+    useEffect(() => {
+        if (phase !== 'in') return undefined;
+        const back = () => {
+            if (document.visibilityState !== 'visible') return;
+            sync.current?.now();
+            tr.current?.resumeAudio?.();
+            document.querySelectorAll('audio[data-oc-audio]').forEach((a) => a.play().catch(() => setAudioBlocked(true)));
+            if (!isHost && tr.current && !tr.current.connected() && Date.now() - helloAt.current > 4000) { helloAt.current = Date.now(); tr.current.hello(); }
+        };
+        const online = () => { toast('🌐 اینترنت برگشت؛ در حالِ اتصالِ دوباره…', 'info'); back(); };
+        document.addEventListener('visibilitychange', back);
+        window.addEventListener('online', online);
+        return () => { document.removeEventListener('visibilitychange', back); window.removeEventListener('online', online); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [phase]);
+
+    // ── گوشی: وقتی صفحه‌کلید باز می‌شود، کلاس به اندازه‌ی فضای دیدنی جمع شود (کادرِ پیام زیرِ صفحه‌کلید نماند)
+    useEffect(() => {
+        const vv = window.visualViewport;
+        if (phase !== 'in' || !vv) return undefined;
+        const root = document.documentElement;
+        const fit = () => {
+            const kb = window.innerHeight - vv.height > 120;   // صفحه‌کلید باز است
+            if (kb) { root.style.setProperty('--oc-vvh', `${Math.round(vv.height)}px`); root.style.setProperty('--oc-vvt', `${Math.round(vv.offsetTop)}px`); root.classList.add('oc-kb'); }
+            else { root.style.removeProperty('--oc-vvh'); root.style.removeProperty('--oc-vvt'); root.classList.remove('oc-kb'); }
+        };
+        vv.addEventListener('resize', fit);
+        vv.addEventListener('scroll', fit);
+        return () => { vv.removeEventListener('resize', fit); vv.removeEventListener('scroll', fit); root.style.removeProperty('--oc-vvh'); root.style.removeProperty('--oc-vvt'); root.classList.remove('oc-kb'); };
+    }, [phase]);
+
+    // با Esc یا دکمه‌ی برگشتِ گوشی از تمام‌صفحه‌ی مرورگر بیرون آمد → حالتِ تمام‌صفحه‌ی تخته هم بسته شود
+    useEffect(() => {
+        const ch = () => { if (!document.fullscreenElement) setFs(false); };
+        document.addEventListener('fullscreenchange', ch);
+        return () => document.removeEventListener('fullscreenchange', ch);
+    }, []);
 
     // خروج با بستنِ صفحه
     useEffect(() => {
@@ -656,9 +902,9 @@ export default function Room({ room, me, config, back }) {
     };
 
     // ── فرمان‌ها ──────────────────────────────────────────────────────
-    const control = async (action, value, user, perm) => {
+    const control = async (action, value, user, perm, extra) => {
         try {
-            const { data } = await axios.post(R('control'), { action, value, user, perm });
+            const { data } = await axios.post(R('control'), { action, value, user, perm, ...(extra || {}) });
             sync.current?.now();
             send({ t: 'sync' });
             return data;
@@ -672,6 +918,7 @@ export default function Room({ room, me, config, back }) {
         await control('page', p);
     };
     const addPage = async (bg = 'blank') => {
+        if (job) { toast('کمی صبر کنید تا همه‌ی صفحه‌های فایل اضافه شود.', 'info'); return; }
         await saveBoard(true);
         const p = pageCount;
         await axios.post(R('board.save'), { page: p, bg, ops: '[]' });
@@ -743,6 +990,7 @@ export default function Room({ room, me, config, back }) {
 
     const uploadSlides = async (file) => {
         if (!file) return;
+        if (job) { toast('فایلِ قبلی هنوز در حالِ اضافه شدن است؛ کمی صبر کنید.', 'info'); return; }
         setBusy('در حالِ آماده کردنِ اسلایدها…');
         try {
             await saveBoard(true);
@@ -766,16 +1014,22 @@ export default function Room({ room, me, config, back }) {
                 }
                 file = new File([pdf], file.name.replace(/\.[^.]+$/, '') + '.pdf', { type: 'application/pdf' });
             }
-            const urls = await importSlides(file, R('asset.upload'), (i, n) => setBusy(`اسلایدِ ${fa(i)} از ${fa(n)}…`));
             const start = pageCount;
-            for (let i = 0; i < urls.length; i += 1) await axios.post(R('board.save'), { page: start + i, bg: urls[i], ops: '[]' });
-            loaded.current = { page: -1, version: -1 };
-            await control('page', start);
+            // صفحه‌ی اول همین‌که آماده شد برای همه نمایش داده می‌شود؛ بقیه پشتِ صحنه اضافه می‌شوند
+            const urls = await importSlides(file, R('asset.upload'), (i, n) => (i < 1 ? setBusy(`آماده کردنِ صفحه‌ی اول از ${fa(n)}…`) : setJob(`صفحه‌ی ${fa(Math.min(i + 1, n))} از ${fa(n)} در حالِ آماده شدن…`)),
+                async (url, i) => {
+                    await axios.post(R('board.save'), { page: start + i, bg: url, ops: '[]' });
+                    if (i === 0) {
+                        loaded.current = { page: -1, version: -1 };
+                        await control('page', start);
+                        setBusy(null);
+                    }
+                });
             toast(`🖼️ ${fa(urls.length)} صفحه به تخته اضافه شد.`, 'success');
         } catch (e) {
             console.warn(e);
             toast(e?.response?.data?.message || 'فایل آماده نشد. عکس (JPG/PNG)، PDF یا پاورپوینت بفرستید.');
-        } finally { setBusy(null); }
+        } finally { setBusy(null); setJob(null); }
     };
 
     const reactOn = isMod || st?.settings?.reactions !== false;
@@ -795,7 +1049,23 @@ export default function Room({ room, me, config, back }) {
     const closePoll = (id) => axios.post(R('poll.close', id)).then(() => { sync.current?.now(); send({ t: 'sync' }); }).catch(() => {});
     const deletePoll = (id) => axios.delete(R('poll.destroy', id)).then(() => { setPollHidden(null); sync.current?.now(); send({ t: 'sync' }); }).catch(() => toast('پاک نشد.'));
 
-    const perm = (uid, p, v) => control('perm', v, uid, p);
+    /** تغییرِ فوری روی صفحه (پیش از پاسخِ سرور) تا دکمه‌ها بی‌درنگ واکنش نشان دهند. */
+    const patchPerson = (uid, patch) => {
+        const upd = (st0) => (st0 ? { ...st0, people: st0.people.map((x) => (uid === null ? (x.role === 'student' ? { ...x, ...patch } : x) : x.id === uid ? { ...x, ...patch } : x)) } : st0);
+        stRef.current = upd(stRef.current);
+        setSt(upd);
+    };
+    /** دسترسیِ یک دانش‌آموز. keep: دستش بالا بماند (از کارتِ «دستِ بالا» چند دسترسی پشتِ هم داده می‌شود). */
+    const perm = (uid, p, v, keep = false) => {
+        patchPerson(uid, p === 'all' ? { can_speak: v, can_video: v, can_draw: v } : { [p]: v, ...(p === 'can_speak' && v && !keep ? { hand: null } : {}) });
+        return control('perm', v, uid, p, keep ? { keep_hand: true } : null);
+    };
+    const lowerHand = (uid) => { patchPerson(uid, { hand: null }); return control('lower_hands', null, uid); };
+    const allAct = (a, v) => {
+        if (a === 'revoke_all') patchPerson(null, { can_speak: false, can_video: false, can_draw: false });
+        if (a === 'lower_hands') patchPerson(null, { hand: null });
+        return control(a, v);
+    };
     const star = async (uid) => { const d = await control('star', null, uid); if (d) { showReact('⭐'); toast(d.xp ? `⭐ ستاره داده شد (+${fa(d.xp)} امتیاز)` : '⭐ ستاره داده شد', 'success'); } };
     const kick = (p) => { if (confirm(`«${p.name}» از کلاس بیرون گذاشته شود؟`)) control('kick', null, p.id); };
     const spot = async (uid) => {
@@ -857,6 +1127,31 @@ export default function Room({ room, me, config, back }) {
         window.location.href = back;
     };
 
+    // تصویرِ بزرگ‌شده با بهترین کیفیت گرفته شود؛ با بستن به حالتِ کم‌مصرف برگردد
+    useEffect(() => {
+        if (viewer === null || viewer === me.id) return undefined;
+        tr.current?.setBig?.(viewer, true);
+        return () => tr.current?.setBig?.(viewer, false);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [viewer]);
+
+    // دسترسیِ آزمایشی برای عیب‌یابی (فقط با oc-debug در حافظه‌ی مرورگر)
+    useEffect(() => {
+        try { if (window.localStorage.getItem('oc-debug')) window.__ocDbg = { board, tr, loaded, lastHb, sync }; } catch { /* */ }
+    }, []);
+
+    // معلم: ضربانِ تخته (امضای محتوا + زمینه + بزرگ‌نمایی) برای ترمیمِ خودکارِ تخته‌ی بچه‌ها
+    useEffect(() => {
+        if (!isHost || phase !== 'in') return undefined;
+        const id = setInterval(() => {
+            const b = board.current; const p = loaded.current.page;
+            if (!b || p < 0 || !tr.current || loadingPg.current) return;
+            const v = b.view();
+            tr.current.broadcast({ t: 'hb', page: p, sig: b.sig(), bg: b.bg(), v: v.z > 1.001 ? [v.z, v.x, v.y] : 0 });
+        }, 2500);
+        return () => clearInterval(id);
+    }, [isHost, phase]);
+
     // تخته پس از نمایشِ صفحه‌ی کلاس بارگذاری شود (پیش از آن بوم وجود ندارد)
     useEffect(() => {
         if (phase === 'in' && stRef.current) { loaded.current = { page: -1, version: -1 }; loadPage(stRef.current.settings.page); }
@@ -915,6 +1210,8 @@ export default function Room({ room, me, config, back }) {
     const poll = st?.poll;
     const showPollCard = !isMod && poll && pollHidden !== `${poll.id}:${poll.status}` && (poll.status === 'open' || (poll.status === 'shown' && poll.mine !== null));
     const hands = people.filter((p) => p.online && p.hand).length;
+    // فهرستِ نفرات جلوی چشمِ معلم است؟ (آن‌وقت کارتِ شناورِ «دستِ بالا» تکراری است و جلوی فهرست را می‌گیرد)
+    const peopleShown = panel === 'people' && (sheet || (typeof window !== 'undefined' && (window.innerWidth > 900 || window.matchMedia('(orientation: portrait)').matches)));
 
     // ═════════════════════════════ صفحه‌ها ═══════════════════════════════
     if (phase === 'lobby' || phase === 'waiting') {
@@ -983,26 +1280,26 @@ export default function Room({ room, me, config, back }) {
             <div className="oc-side-body">
                 {panel === 'chat' && <Chat msgs={msgs} me={me.id} chatOn={st?.settings?.chat !== false} isMod={isMod} onSend={chat} onHide={hideMsg} />}
                 {panel === 'people' && <People people={people} me={me.id} isMod={isMod} isHost={isHost} tiles={tiles} speaking={speaking} msOf={msOf} onPerm={perm} onStar={star} onKick={kick} onSpot={spot}
-                    spotlight={st?.settings?.spotlight} onAll={(a, v) => control(a, v)} />}
+                    spotlight={st?.settings?.spotlight} onAll={allAct} openMics={!!st?.settings?.open_mics} onLower={lowerHand} onCam={isMod ? setViewer : undefined} />}
                 {panel === 'poll' && <PollPanel poll={poll} isMod={isMod} onCreate={newPoll} onClose={closePoll} onDelete={deletePoll} />}
             </div>
         </aside>
     );
 
     return (
-        <div className={`oc ${isHost ? 'is-host' : ''} ${kidFull ? 'kid-board' : ''} ${kidMedia ? 'kid-media' : ''} ${fs ? 'oc-fs' : ''}`} dir="rtl">
+        <div className={`oc ${isHost ? 'is-host' : ''} ${canDraw && stage === 'board' ? 'has-tools' : ''} ${kidFull ? 'kid-board' : ''} ${kidMedia ? 'kid-media' : ''} ${fs ? 'oc-fs' : ''}`} dir="rtl">
             <Head title={room.title} />
             {audioTracks.map(([uid, t]) => <AudioSink key={`${uid}:${t.id}`} track={t} muted={mute} onBlocked={() => setAudioBlocked(true)} />)}
 
             <header className="oc-top">
-                <button type="button" className="oc-ib" onClick={leave} title="خروج" aria-label="خروج">→</button>
+                <button type="button" className="oc-ib" onClick={() => setLeaveOpen(true)} title="خروج" aria-label="خروج از کلاس">→</button>
                 <div className="oc-title">
                     <b>{st?.title || room.title}</b>
                     <span><i className="oc-live" />زنده · <Clock from={st?.started_at} skew={skew} /></span>
                 </div>
                 <Countdown end={st?.settings?.timer_end} skew={skew} />
                 {st?.settings?.recording && <span className="oc-rec">⏺ ضبط</span>}
-                <span className={`oc-link ${link.state === 'failed' && !isHost ? 'bad' : ''}`} title={media === 'livekit' ? 'سرورِ رسانه' : 'اتصالِ مستقیم'}>{linkBadge}</span>
+                <span className={`oc-link ${link.state === 'failed' && !isHost ? 'bad' : ''}`} title={linkBadge}><i>{linkBadge.split(' ')[0]}</i><em>{linkBadge.slice(linkBadge.indexOf(' ') + 1)}</em></span>
                 {!isHost && link.state === 'failed' && <button type="button" className="oc-ib" onClick={() => { helloAt.current = Date.now(); joinedAt.current = Date.now(); setLink((l) => ({ ...l, state: 'connecting' })); tr.current?.hello(); }} title="تلاشِ دوباره">↻</button>}
                 <span className="oc-count">👥 {fa(people.filter((p) => p.online).length)}</span>
                 {isMod && <button type="button" className="oc-end" onClick={() => setEndOpen(true)}>⏹ پایانِ کلاس</button>}
@@ -1038,12 +1335,12 @@ export default function Room({ room, me, config, back }) {
                             </div>
                         )}
                         {/* دوربین‌ها: جابه‌جاشدنی با کشیدن، کوچک/بزرگ و جمع‌شدنی */}
-                        <DragBox id="pips" className="oc-pips">
-                            {isHost && local.cam && stage !== 'cam' && <Vid key="me" track={local.cam} mirror className="oc-pip" label="من" onEl={(el) => { camEl.current = el; }} />}
-                            {!isHost && mainCam && stage !== 'cam' && <Vid key="main" track={mainCam} className={`oc-pip ${speaking.includes(room.teacher_id) ? 'spk' : ''}`} label={mainCamLabel} />}
+                        <DragBox id="pips" className="oc-pips" onTap={isMod ? setViewer : undefined}>
+                            {isHost && local.cam && stage !== 'cam' && <Vid key="me" track={local.cam} mirror className="oc-pip" label="من" cam={isMod ? me.id : undefined} onEl={(el) => { camEl.current = el; }} />}
+                            {!isHost && mainCam && stage !== 'cam' && <Vid key="main" track={mainCam} className={`oc-pip ${speaking.includes(room.teacher_id) ? 'spk' : ''}`} label={mainCamLabel} cam={isMod ? (spotId || room.teacher_id) : undefined} />}
                             {!isHost && local.cam && <Vid key="me" track={local.cam} mirror className="oc-pip small" label="من" />}
                             {media === 'livekit' && Object.entries(tiles).filter(([uid, t]) => Number(uid) !== room.teacher_id && Number(uid) !== me.id && Number(uid) !== spotId && t.cam && camOn(Number(uid)))
-                                .slice(0, 6).map(([uid, t]) => <Vid key={uid} track={t.cam} className={`oc-pip small ${speaking.includes(Number(uid)) ? 'spk' : ''}`} label={people.find((p) => p.id === Number(uid))?.name} />)}
+                                .slice(0, 6).map(([uid, t]) => <Vid key={uid} track={t.cam} className={`oc-pip small ${speaking.includes(Number(uid)) ? 'spk' : ''}`} label={people.find((p) => p.id === Number(uid))?.name} cam={isMod ? Number(uid) : undefined} />)}
                         </DragBox>
                         {kidFull && <button type="button" className="oc-kid-fs" onClick={kidGoFull} aria-label="تمام‌صفحه">⛶</button>}
                         {kidMedia && <div className="oc-rotate-hint" aria-hidden="true">🔄 برای تصویرِ بزرگ‌تر گوشی را افقی کن</div>}
@@ -1058,6 +1355,7 @@ export default function Room({ room, me, config, back }) {
                         </div>
                         {showPollCard && <PollCard poll={poll} onAnswer={answer} onDismiss={() => setPollHidden(`${poll.id}:${poll.status}`)} />}
                         {busy && <div className="oc-busy"><Mascot mood="think" size={64} /><span>{busy}</span></div>}
+                        {!busy && job && <div className="oc-job">⏳ {job}</div>}
                         {!busy && bookPending && stage === 'board' && <div className="oc-book-wait">📖 صفحه‌ی {fa(bookNo)} در حالِ آماده شدن…</div>}
                     </div>
 
@@ -1148,7 +1446,7 @@ export default function Room({ room, me, config, back }) {
                         )}
                     </div>
                 )}
-                {isHost && (
+                {isHost && (CAN.share || (local.screen && !play)) && (
                     <button type="button" className={`oc-cb ${local.screen && !play ? 'on' : ''}`} onClick={toggleScreen}>
                         <span>🖥️</span><small>{local.screen && !play ? 'توقفِ اشتراک' : 'اشتراکِ صفحه'}</small>
                     </button>
@@ -1158,7 +1456,7 @@ export default function Room({ room, me, config, back }) {
                         <button type="button" className="oc-cb rec" onClick={() => stopPlay()}>
                             <span>⏹</span><small>پایانِ پخش</small>
                         </button>
-                    ) : (
+                    ) : CAN.film && (
                         <label className="oc-cb oc-cb-file" title="پخشِ فیلم یا آهنگ از رایانه‌ی شما برای همه">
                             <span>🎬</span><small>فیلم/آهنگ</small>
                             <input type="file" accept="video/*,audio/*,.mkv,.mp3,.m4a,.wav,.ogg" onChange={(e) => { startPlay(e.target.files?.[0]); e.target.value = ''; }} />
@@ -1182,7 +1480,7 @@ export default function Room({ room, me, config, back }) {
                 <button type="button" className={`oc-cb ${mute ? 'off' : ''}`} onClick={() => setMute((m) => !m)}>
                     <span>{mute ? '🔈' : '🔊'}</span><small>{mute ? 'صدا بسته' : 'صدا'}</small>
                 </button>
-                {isHost && config.recording && (
+                {isHost && config.recording && (CAN.rec || rec) && (
                     <button type="button" className={`oc-cb ${rec ? 'rec' : ''}`} onClick={toggleRec}>
                         <span>{rec ? '⏹' : '⏺'}</span><small>{rec ? 'توقفِ ضبط' : 'ضبط'}</small>
                     </button>
@@ -1193,22 +1491,19 @@ export default function Room({ room, me, config, back }) {
                     </button>
                 )}
                 {isHost && (
-                    <button type="button" className={`oc-cb ${layoutOpen ? 'on' : ''}`} onClick={() => setLayoutOpen((o) => !o)} title="بچه‌ها چه چیزی را ببینند">
+                    <button type="button" className={`oc-cb oc-cb-layout ${layoutOpen ? 'on' : ''}`} onClick={() => setLayoutOpen((o) => !o)} title="بچه‌ها چه چیزی را ببینند">
                         <span>{LAYOUTS.find((l) => l[0] === layout)?.[1]}</span><small>چیدمان</small>
                     </button>
                 )}
                 {isHost && layoutOpen && (
                     <div className="oc-layouts" role="menu" aria-label="چیدمانِ صفحه">
                         <b>بچه‌ها چه ببینند؟</b>
-                        {LAYOUTS.map(([k, ic, t, d]) => (
+                        {LAYOUTS.filter(([k]) => k !== 'screen' || CAN.share || layout === 'screen').map(([k, ic, t, d]) => (
                             <button key={k} type="button" role="menuitemradio" aria-checked={layout === k} className={layout === k ? 'on' : ''} onClick={() => setLayout(k)}>
                                 <span>{ic}</span><span><b>{t}</b><small>{d}</small></span>
                             </button>
                         ))}
                     </div>
-                )}
-                {fs && (
-                    <button type="button" className="oc-fs-x" onClick={toggleFs}>⤫ خروج از تمام‌صفحه</button>
                 )}
                 <button type="button" className="oc-cb oc-only-m oc-only-land" onClick={() => setSheet(true)}>
                     <span>💬</span><small>گفت‌وگو{unread > 0 ? ` (${fa(unread)})` : ''}</small>
@@ -1254,7 +1549,7 @@ export default function Room({ room, me, config, back }) {
                     <div className="oc-more-g">
                         <b>🧩 چیدمانِ صفحه برای بچه‌ها</b>
                         <div className="oc-chips">
-                            {LAYOUTS.map(([k, ic, t]) => <button key={k} type="button" className={layout === k ? 'on' : ''} onClick={() => setLayout(k)} disabled={!isHost}>{ic} {t}</button>)}
+                            {LAYOUTS.filter(([k]) => k !== 'screen' || CAN.share || layout === 'screen').map(([k, ic, t]) => <button key={k} type="button" className={layout === k ? 'on' : ''} onClick={() => setLayout(k)} disabled={!isHost}>{ic} {t}</button>)}
                         </div>
                     </div>
                     <div className="oc-more-g">
@@ -1265,6 +1560,7 @@ export default function Room({ room, me, config, back }) {
                         </form>
                         {st?.settings?.announce && <button type="button" className="oc-link" onClick={() => control('announce', '')}>✕ برداشتنِ پیام</button>}
                     </div>
+                    {isHost && !(CAN.share && CAN.film && CAN.rec) && <small className="oc-note">📱 روی این دستگاه {[!CAN.share && 'اشتراکِ صفحه', !CAN.film && 'پخشِ فیلم', !CAN.rec && 'ضبط'].filter(Boolean).join('، ')} پشتیبانی نمی‌شود؛ برای این‌ها از کروم یا اج روی رایانه واردِ کلاس شوید.</small>}
                     <small className="oc-note">{media === 'livekit' ? 'حالتِ سرورِ رسانه: مناسبِ کلاس‌های بزرگ.' : `حالتِ داخلی: صدای شما برای ${fa(link.connected)} نفر فرستاده می‌شود؛ کیفیتِ تصویر خودکار با تعدادِ نفرات تنظیم می‌شود.`}</small>
                 </div>
             )}
@@ -1276,6 +1572,23 @@ export default function Room({ room, me, config, back }) {
                         <h3>کلاس تمام شود؟</h3>
                         <p>همه از کلاس خارج می‌شوند و امتیازِ حضور به بچه‌هایی که بیشترِ کلاس بودند داده می‌شود.</p>
                         <div className="oc-row"><button type="button" className="oc-go danger" onClick={endClass}>⏹ بله، تمام شود</button><button type="button" className="oc-back" onClick={() => setEndOpen(false)}>ادامه‌ی کلاس</button></div>
+                    </div>
+                </div>
+            )}
+            {/* بیرون از نوارِ پایین: آن نوار در تمام‌صفحه پنهان است و این دکمه هم با آن پنهان می‌شد */}
+            {fs && <button type="button" className="oc-fs-x" onClick={toggleFs}>⤫ خروج از تمام‌صفحه</button>}
+            {isMod && phase === 'in' && viewer === null && !peopleShown && <HandCards people={people} onPerm={perm} onLower={lowerHand} onMore={() => { setPanel('people'); setSheet(true); }} />}
+            {isMod && viewer !== null && (
+                <CamViewer cams={camList} id={viewer} onChange={setViewer} onClose={() => setViewer(null)} people={people} isMod={isMod} isHost={isHost}
+                    onPerm={perm} onStar={star} onSpot={spot} spotlight={st?.settings?.spotlight} speaking={speaking} msOf={msOf} />
+            )}
+            {leaveOpen && (
+                <div className="oc-modal" role="dialog" aria-label="خروج از کلاس" onClick={(e) => { if (e.target === e.currentTarget) setLeaveOpen(false); }}>
+                    <div className="oc-modal-box small">
+                        <Mascot mood="idle" size={72} />
+                        <h3>{isHost ? 'از کلاس بیرون می‌روید؟' : 'از کلاس بیرون می‌روی؟'}</h3>
+                        <p>{isHost ? 'کلاس برای بچه‌ها باز می‌ماند و می‌توانید دوباره برگردید. برای تمام کردنِ کلاس «⏹ پایانِ کلاس» را بزنید.' : 'کلاس هنوز ادامه دارد؛ هر وقت خواستی می‌توانی دوباره برگردی.'}</p>
+                        <div className="oc-row"><button type="button" className="oc-go" onClick={() => setLeaveOpen(false)}>🎥 می‌مانم</button><button type="button" className="oc-back" onClick={leave}>خروج</button></div>
                     </div>
                 </div>
             )}

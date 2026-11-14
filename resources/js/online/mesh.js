@@ -346,6 +346,12 @@ export default function createMesh(opts) {
             if (p?.dc?.readyState === 'open') { try { p.dc.send(JSON.stringify(msg)); } catch { /* */ } }
         },
 
+        sendMany(uids, msg) {
+            const str = JSON.stringify(msg);
+            for (const uid of uids) { const p = peers.get(uid); if (p?.dc?.readyState === 'open') { try { p.dc.send(str); } catch { /* */ } } }
+        },
+        setBig() {},
+
         /** همه‌ی صداهای رسیده (برای ضبط). */
         remoteAudioTracks() {
             return [...remotes.values()].map((r) => r.el.srcObject?.getAudioTracks()[0]).filter(Boolean);

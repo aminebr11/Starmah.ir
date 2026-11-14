@@ -166,6 +166,7 @@ class OnlineClassService
             'settings' => [
                 'chat' => (bool) $room->opt('chat', true),
                 'locked' => (bool) $room->opt('locked', false),
+                'open_mics' => (bool) $room->opt('open_mics', false),
                 'page' => (int) $room->opt('page', 0),
                 'stage' => (string) $room->opt('stage', 'board'),
                 'kid_view' => (string) $room->opt('kid_view', 'normal'),
@@ -182,6 +183,7 @@ class OnlineClassService
                 'id' => (int) $x->user_id, 'name' => $x->user?->name ?? '—', 'role' => $x->role, 'online' => $x->online(),
                 'hand' => $x->hand_at?->getTimestampMs(), 'can_speak' => (bool) $x->can_speak, 'can_video' => (bool) $x->can_video,
                 'can_draw' => (bool) $x->can_draw, 'stars' => (int) $x->stars, 'ms' => $x->media_state,
+                'joined' => $x->joined_at?->getTimestampMs(),
             ])->sortBy([['online', 'desc'], ['role', 'asc'], ['name', 'asc']])->values(),
             'messages' => $msgs->map(fn ($m) => ['id' => $m->id, 'uid' => (int) $m->user_id, 'name' => $m->user?->name ?? '—',
                 'kind' => $m->kind, 'body' => $m->body, 'at' => $m->created_at?->getTimestampMs()]),

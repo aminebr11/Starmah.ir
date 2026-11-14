@@ -31,6 +31,14 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        // درخواست‌های پرتکرارِ JSON (همگام‌سازیِ کلاسِ آنلاین، ضربانِ حضور…) صفحه نمی‌سازند؛
+        // ساختنِ تم و نقش‌ها برای هر کدام فقط پرس‌وجوی اضافه روی سرور است.
+        // همه‌ی مسیرهای درونِ کلاس (‎/online/{room}/…‎) جز خودِ صفحه‌ی کلاس، JSON یا فایل (تصویرِ اسلاید/کتاب) برمی‌گردانند.
+        if (! $request->header('X-Inertia')
+            && (($request->routeIs('online.*') && ! $request->routeIs('online.room', 'online.list', 'online.supervise', 'online.check'))
+                || ($request->routeIs('presence') && $request->expectsJson()))) {
+            return [];
+        }
         $user = $request->user();
         $theme = app(ThemeEngine::class)->for($user);
 

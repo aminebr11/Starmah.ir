@@ -35,7 +35,9 @@ Route::get('/install', fn () => Inertia::render('Install'))->name('install');
 Route::post('/presence', function (\Illuminate\Http\Request $r) {
     \App\Support\VisitTracker::hit($r, false);
     // دانش‌آموز: زمانِ استفاده (سلامتِ دیجیتال) — یادآوریِ استراحت و قفلِ بعد از سقف
-    if ($r->user()?->isStudent()) {
+    // کلاسِ آنلاین درس است: زمانش در سقفِ روزانه شمرده نمی‌شود و وسطش «استراحت» نمی‌آید
+    $inClass = $r->boolean('in_class') || preg_match('#/online(-check)?/#', (string) $r->headers->get('referer'));
+    if ($r->user()?->isStudent() && ! $inClass) {
         $wb = rescue(fn () => app(\App\Services\WellbeingService::class)->beat($r->user()), null, true);
         if ($wb) return response()->json(['wellbeing' => $wb]);
     }

@@ -188,8 +188,10 @@
 .oc-link{border:0;background:none;color:var(--oc-pri);font:inherit;font-weight:800;cursor:pointer;padding:4px;text-decoration:none}
 
 /* ── نوارِ پایین ──────────────────────────────────────────────────── */
-.oc-bar{flex:none;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 10px calc(8px + var(--oc-sab));background:#fff;border-top:1px solid var(--oc-line);overflow-x:auto;scrollbar-width:none}
-.oc-bar::-webkit-scrollbar{display:none}
+nav.oc-bar{flex:none;display:flex;align-items:center;justify-content:flex-start;gap:6px;padding:8px 10px calc(8px + var(--oc-sab));background:#fff;border-top:1px solid var(--oc-line);overflow-x:auto;scrollbar-width:none;border-radius:0;margin:0;-webkit-overflow-scrolling:touch}
+nav.oc-bar::-webkit-scrollbar{display:none}
+/* وسط‌چین وقتی جا هست؛ وقتی دکمه‌ها بیشتر از عرضِ صفحه‌اند از اول قابلِ کشیدن (با justify-content:center دکمه‌ی اول بیرون می‌افتاد) */
+nav.oc-bar::before,nav.oc-bar::after{content:'';margin:auto}
 .oc-cb{flex:none;min-width:64px;border:0;border-radius:16px;background:#f5f2fd;padding:6px 8px;font:inherit;color:var(--oc-ink);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;transition:transform .1s}
 .oc-cb span{font-size:21px;line-height:1.2}
 .oc-cb small{font-size:11px;font-weight:800;white-space:nowrap}
@@ -527,3 +529,192 @@
 .oc-sup-banner>span{font-size:34px}
 .oc-sup-banner b{display:block;font-size:15px}
 .oc-sup-banner small{color:#4338ca;font-weight:800}
+
+
+/* ═══ بازبینیِ گوشی (نسخه‌ی ۱۰۱) ═══════════════════════════════════════════ */
+.oc-link{display:inline-flex;align-items:center;gap:4px}
+.oc-link i,.oc-link em{font-style:normal}
+/* صفحه‌کلیدِ گوشی باز است: کلاس به اندازه‌ی فضای دیدنی جمع می‌شود */
+html.oc-kb .oc{inset:var(--oc-vvt,0px) 0 auto 0;height:var(--oc-vvh,100dvh)}
+html.oc-kb nav.oc-bar,html.oc-kb .oc-pages,html.oc-kb .oc-announce{display:none}
+@media (pointer:coarse){
+  .oc-drag-h button{min-width:36px;height:32px;font-size:13px}
+  .ob-tools .ob-color{width:32px;height:32px}
+}
+@media (max-width:900px){
+  /* وضعیتِ اتصال و تعدادِ نفرات روی گوشی هم دیده شود (فشرده) */
+  .oc-link{display:inline-flex;padding:5px 7px}
+  .oc-link em{display:none}
+  .oc-link.bad em{display:inline}
+  .oc-count{display:inline-block;padding:5px 8px}
+  /* نوارِ صفحه‌های تخته: یک ردیفِ کشیدنی (قبلاً سه ردیف می‌شد و جای تخته و گفت‌وگو را می‌گرفت) */
+  .oc-pages:not(.ro){flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none;padding:2px 2px 6px;-webkit-overflow-scrolling:touch;
+    -webkit-mask-image:linear-gradient(to right,transparent 0,#000 22px,#000 100%);mask-image:linear-gradient(to right,transparent 0,#000 22px,#000 100%)}
+  .oc-pages:not(.ro)::-webkit-scrollbar{display:none}
+  .oc-pages:not(.ro)>*{flex:none}
+  .oc-pages:not(.ro)::after{content:'';flex:0 0 14px}
+  .oc.oc-fs .oc-pages{flex-wrap:nowrap}
+}
+/* گوشیِ عمودی: دوربینِ کوچک زیرِ ردیفِ ابزارهای تخته بنشیند، نه روی آن */
+@media (max-width:900px) and (orientation:portrait){
+  .oc.has-tools .oc-pips{top:64px}
+}
+/* گوشی/تبلتِ افقی: ابزارها کنارِ تخته، و تخته با نسبتِ درست (۱۶:۹) در ارتفاعِ موجود جا می‌شود.
+   قبلاً عرض ۱۰۰٪ می‌ماند و ارتفاع جمع می‌شد → نوشته‌ها کشیده دیده می‌شدند. */
+@media (max-width:900px) and (orientation:landscape){
+  .ob{flex-direction:row}
+  /* ابزارها در چند ستون کنارِ تخته (فضای کناری خالی است) تا همه بدونِ کشیدن دیده شوند */
+  .ob-tools{flex-direction:column;flex-wrap:wrap;align-content:flex-start;order:0;max-width:none;max-height:100%;overflow:visible;padding:6px 5px;border-radius:16px}
+  .ob-sep{width:auto;height:1px;margin:2px 4px}
+  .ob-stamps{inset-inline-start:100%;top:8px;margin-top:0}
+  .ob-stage{flex:none;width:auto;max-width:none;max-height:none;height:min(100%,calc((100vw - 84px) * 9 / 16))}
+  .ob:not(.can-draw) .ob-stage{height:min(100%,calc((100vw - 16px) * 9 / 16))}
+}
+/* گوشیِ افقی (ارتفاعِ کم): نوارها فشرده تا تخته بزرگ‌تر شود */
+@media (orientation:landscape) and (max-height:520px){
+  .oc-top{padding:calc(3px + var(--oc-sat)) 10px 3px}
+  .oc-ib{width:34px;height:34px;border-radius:11px;font-size:16px}
+  .oc-title{flex-direction:row;align-items:center;gap:10px}
+  .oc-title b{flex:0 1 auto}
+  .oc-end{padding:6px 10px}
+  .oc-main{padding:6px;gap:6px}
+  .oc-stage-wrap{gap:5px}
+  nav.oc-bar{padding:4px 8px calc(4px + var(--oc-sab))}
+  .oc-cb{flex-direction:row;gap:5px;min-width:0;padding:7px 10px;border-radius:13px}
+  .oc-cb span{font-size:18px}
+  .oc-pages button,.oc-pages select,.oc-file{min-height:32px;padding:5px 10px;font-size:12.5px}
+  .oc-pages:not(.ro){padding-bottom:4px}
+  .oc-pages.ro{font-size:12px}
+  .ob-tools button{width:34px;height:34px;font-size:16px}
+  .oc-layouts,.oc-more{bottom:calc(52px + var(--oc-sab));max-height:calc(100dvh - 110px);overflow-y:auto}
+  .oc-side{height:min(92dvh,620px)}
+}
+/* تمام‌صفحه‌ی تخته (معلم): تخته با نسبتِ ۱۶:۹ در صفحه جا می‌شود (قبلاً به اندازه‌ی صفحه کشیده می‌شد) */
+.oc.oc-fs .oc-main{background:#14112a}
+.oc.oc-fs .ob-stage{flex:none!important;height:auto!important;aspect-ratio:16/9!important;width:min(calc(100vw - 70px),calc((100dvh - 56px) * 16 / 9))!important}
+@media (max-width:900px) and (orientation:portrait){
+  .oc.oc-fs .ob-stage{width:min(100vw,calc((100dvh - 130px) * 16 / 9))!important}
+}
+.oc.oc-fs .oc-pages{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start}
+.oc.oc-fs .oc-pages>*{flex:none}
+/* نوارِ پایین روی گوشی: همه‌ی دکمه‌های اصلی بدونِ کشیدن جا شوند */
+@media (max-width:560px){
+  /* «چیدمان» در «⚙️ ابزارها» هم هست */
+  .oc-cb-layout{display:none}
+}
+@media (max-width:400px){
+  nav.oc-bar{gap:4px;padding-inline:8px}
+  .oc-cb{min-width:48px;padding:6px 3px}
+  .oc-cb small{font-size:10.5px}
+}
+@media (orientation:landscape) and (max-height:520px){
+  .oc-only-n{display:flex}
+  .oc-reactbar{display:none;position:fixed;bottom:calc(52px + var(--oc-sab));left:50%;transform:translateX(-50%);z-index:30;box-shadow:0 14px 30px -10px rgba(40,20,120,.5);background:#fff}
+  .oc-reactbar.open{display:flex}
+}
+
+/* ═══════════ نسخه‌ی ۱۰۱ (ب): دستِ بالا، فهرستِ نفرات، سینمای دوربین ═══════════ */
+.oc-job,.oc-book-wait{max-width:calc(100% - 24px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oc-job{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:6;background:#fff;color:#4c1d95;font-weight:900;font-size:13px;border-radius:99px;padding:7px 14px;
+  box-shadow:0 0 0 2px #ddd0fb,0 8px 20px -10px rgba(0,0,0,.35);pointer-events:none}
+
+/* ── دکمه‌های دسترسی (کارتِ دستِ بالا و فهرست) ── */
+.oc-hc-acts{display:flex;gap:6px;flex:none}
+.oc-hc-acts button,.oc-hand .oc-hc-acts button{min-width:46px;min-height:44px;border:0;border-radius:14px;background:#f1edfb;color:var(--oc-ink);cursor:pointer;font:inherit;font-size:18px;line-height:1;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px 6px;transition:background .15s,transform .1s;-webkit-tap-highlight-color:transparent}
+.oc-hc-acts button small{font-size:10px;font-weight:800;color:var(--oc-mut)}
+.oc-hc-acts button:active{transform:scale(.94)}
+.oc-hc-acts button.on{background:#dcfce7;box-shadow:inset 0 0 0 2px #22c55e}
+.oc-hc-acts button.on small{color:#15803d}
+.oc-hc-acts button.ok,.oc-hand .oc-hc-acts button.ok{background:var(--oc-pri);color:#fff;font-size:20px;font-weight:900;min-width:44px}
+.oc-hc-acts button:focus-visible,.oc-vw-acts button:focus-visible,.oc-vw-x:focus-visible,.oc-vw-nav:focus-visible{outline:3px solid #fbbf24;outline-offset:2px}
+
+/* ── کارتِ شناورِ «دستِ بالا» ── */
+.oc-handbar{position:fixed;z-index:28;left:50%;transform:translateX(-50%);bottom:calc(88px + var(--oc-sab));width:min(430px,calc(100vw - 16px));display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.oc-handcard{pointer-events:auto;display:flex;align-items:center;justify-content:space-between;gap:8px;background:#fff;border-radius:20px;padding:8px 10px 8px 8px;
+  box-shadow:0 0 0 2px #fde68a,0 6px 0 #f5d77a,0 22px 40px -18px rgba(60,30,0,.55);animation:oc-hand-in .32s cubic-bezier(.2,.9,.3,1.25)}
+@keyframes oc-hand-in{from{opacity:0;transform:translateY(14px) scale(.96)}}
+.oc-hc-name{display:flex;align-items:center;gap:6px;min-width:0;font-size:14px}
+.oc-hc-name i{font-style:normal;font-size:22px;animation:oc-wave 1.4s ease-in-out infinite;transform-origin:70% 80%}
+.oc-hc-name b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:900}
+@keyframes oc-wave{0%,100%{transform:rotate(0)}25%{transform:rotate(-14deg)}75%{transform:rotate(12deg)}}
+.oc-hc-more{pointer-events:auto;align-self:center;border:0;border-radius:99px;background:#fff7e0;color:#7a4a00;font:inherit;font-size:12.5px;font-weight:900;padding:8px 14px;cursor:pointer;box-shadow:0 0 0 2px #fde68a}
+@media (min-width:901px){.oc-handbar{left:auto;transform:none;inset-inline-start:16px;bottom:calc(92px + var(--oc-sab))}}
+@media (orientation:landscape) and (max-height:520px){
+  .oc-handbar{bottom:calc(64px + var(--oc-sab));width:min(400px,60vw)}
+  .oc-hc-acts button small{display:none}
+  .oc-hc-acts button{min-height:40px}
+}
+.oc-hands{gap:6px}
+.oc-hand{flex-wrap:wrap}
+.oc-hand>span:first-child{font-weight:800;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+
+/* ── فهرستِ نفرات: جستجو و بخش‌ها ── */
+.oc-pp-search{position:sticky;top:-8px;z-index:2;display:flex;gap:6px;background:#fff;margin:-8px -8px 0;padding:8px}
+.oc-pp-search input{flex:1;min-width:0;border:1.5px solid var(--oc-line);border-radius:14px;padding:10px 12px;font:inherit;font-size:16px;outline:none;background:#fbfaff;color:var(--oc-ink)}
+.oc-pp-search input:focus{border-color:var(--oc-pri2);background:#fff}
+.oc-pp-search input::-webkit-search-cancel-button{display:none}
+.oc-pp-search button{flex:none;width:44px;border:0;border-radius:14px;background:#f1edfb;color:var(--oc-ink);font-size:16px;cursor:pointer}
+.oc-pp-sec{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 4px 2px;font-size:12.5px;color:var(--oc-mut)}
+.oc-pp-sec b{font-weight:900;color:var(--oc-ink)}
+.oc-pp-sec button{border:0;border-radius:10px;background:#f5f2fd;color:var(--oc-ink);font:inherit;font-size:12px;font-weight:800;padding:7px 10px;cursor:pointer;min-height:36px}
+.oc-pp-sec.access b{color:#15803d}
+.oc-pp-sec.access button{background:#fee2e2;color:#b91c1c}
+.oc-person.pin{background:#f0fdf4;box-shadow:inset 0 0 0 1.5px #bbf7d0}
+.oc-p-name small em{font-style:normal;opacity:.85}
+.oc-p-acts button.cut{flex:1.6;opacity:1;background:#fee2e2;color:#b91c1c;font:inherit;font-size:12.5px;font-weight:900}
+.oc-pp-none{text-align:center;color:var(--oc-mut);font-weight:800;padding:18px 8px}
+.oc-vid.tap{cursor:zoom-in}
+.oc-p-cam.tap{position:relative}
+.oc-p-cam.tap::after,.oc-pip.tap::after{content:'⤢';position:absolute;top:6px;inset-inline-end:6px;width:24px;height:24px;border-radius:8px;background:rgba(0,0,0,.45);color:#fff;font-size:14px;line-height:24px;text-align:center;pointer-events:none}
+
+/* ── سینمای دوربین (تمام‌صفحه) ── */
+.oc-viewer{position:fixed;inset:0;z-index:1400;display:flex;flex-direction:column;background:radial-gradient(120% 90% at 50% 0%,#2a1a66 0%,#120b30 55%,#07041a 100%);color:#fff;
+  font-family:inherit;animation:oc-vw-in .22s ease-out;overflow:hidden;touch-action:pan-y}
+@keyframes oc-vw-in{from{opacity:0}}
+.oc-vw-amb{position:absolute;inset:-8%;z-index:0;background:none;opacity:.5;filter:blur(46px) saturate(1.5);pointer-events:none;display:none}
+@media (min-width:760px) and (prefers-reduced-motion:no-preference){.oc-vw-amb{display:block}}
+.oc-vw-top,.oc-vw-stage,.oc-vw-foot{position:relative;z-index:1}
+.oc-vw-top{flex:none;display:flex;align-items:center;gap:10px;padding:calc(10px + var(--oc-sat)) 12px 8px}
+.oc-vw-who{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.oc-vw-who .oc-av{flex:none;box-shadow:0 0 0 2px rgba(255,255,255,.35)}
+.oc-vw-who.spk .oc-av{box-shadow:0 0 0 3px #22c55e,0 0 18px 2px rgba(34,197,94,.7)}
+.oc-vw-who span{display:flex;flex-direction:column;min-width:0}
+.oc-vw-who b{font-size:16px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oc-vw-who small{font-size:12px;color:#cfc6f5;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oc-vw-count{flex:none;font-size:12.5px;font-weight:800;background:rgba(255,255,255,.14);border-radius:99px;padding:5px 11px}
+.oc-vw-x{flex:none;width:46px;height:46px;border:0;border-radius:16px;background:rgba(255,255,255,.16);color:#fff;font-size:20px;cursor:pointer}
+.oc-vw-stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:4px 10px}
+.oc-vw-main{width:100%;height:100%;border-radius:22px;background:#000;box-shadow:0 30px 80px -30px #000;transition:box-shadow .2s}
+.oc-vw-main.spk{box-shadow:0 0 0 4px #22c55e,0 0 44px 4px rgba(34,197,94,.45)}
+.oc-vw-main:not(.live)::before{content:'در حالِ دریافتِ تصویر…';position:absolute;inset:0;display:grid;place-items:center;color:#cfc6f5;font-weight:800}
+.oc-vw-off{display:flex;flex-direction:column;align-items:center;gap:10px;color:#cfc6f5;font-weight:800}
+.oc-vw-off b{color:#fff;font-size:18px}
+.oc-vw-nav{position:absolute;top:50%;transform:translateY(-50%);width:48px;height:64px;border:0;border-radius:18px;background:rgba(0,0,0,.42);color:#fff;font-size:30px;line-height:1;cursor:pointer;backdrop-filter:blur(6px)}
+.oc-vw-nav.prev{right:16px}.oc-vw-nav.next{left:16px}
+.oc-vw-foot{flex:none;display:flex;flex-direction:column;gap:8px;padding:8px 10px calc(10px + var(--oc-sab))}
+.oc-vw-acts{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+.oc-vw-acts button{min-width:62px;min-height:52px;border:0;border-radius:16px;background:rgba(255,255,255,.14);color:#fff;font:inherit;font-size:20px;line-height:1;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px 8px;transition:background .15s,transform .1s}
+.oc-vw-acts button small{font-size:10.5px;font-weight:800;color:#d9d2f7}
+.oc-vw-acts button:active{transform:scale(.94)}
+.oc-vw-acts button.on{background:#16a34a}
+.oc-vw-acts button.on small{color:#fff}
+.oc-vw-strip{display:flex;gap:8px;overflow-x:auto;padding:4px 2px;scrollbar-width:none;justify-content:safe center}
+.oc-vw-strip::-webkit-scrollbar{display:none}
+.oc-vw-strip button{flex:none;width:92px;border:0;background:none;color:#d9d2f7;font:inherit;font-size:11px;font-weight:800;cursor:pointer;padding:0;display:flex;flex-direction:column;gap:3px;opacity:.7}
+.oc-vw-strip button .oc-vid{width:92px;aspect-ratio:4/3;border-radius:12px;border:2px solid transparent}
+.oc-vw-strip button span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:92px}
+.oc-vw-strip button.on{opacity:1;color:#fff}
+.oc-vw-strip button.on .oc-vid{border-color:#fff}
+.oc-vw-strip button.spk .oc-vid{border-color:#22c55e}
+.oc-vw-tip{margin:0;text-align:center;font-size:11px;color:#a99fd6;font-weight:700}
+@media (hover:hover){.oc-vw-tip{display:none}}
+@media (orientation:landscape) and (max-height:520px){
+  .oc-vw-top{padding-top:calc(6px + var(--oc-sat));padding-bottom:4px}
+  .oc-vw-foot{flex-direction:row;align-items:center;justify-content:center;padding-top:4px}
+  .oc-vw-strip button{width:68px}.oc-vw-strip button .oc-vid{width:68px}
+  .oc-vw-strip button span,.oc-vw-tip,.oc-vw-acts button small{display:none}
+  .oc-vw-acts button{min-height:44px;min-width:48px}
+}
+@media (prefers-reduced-motion:reduce){.oc-handcard,.oc-viewer,.oc-hc-name i{animation:none}}

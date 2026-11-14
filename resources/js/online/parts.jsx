@@ -16,7 +16,7 @@ export function Avatar({ id, name, size = 36 }) {
 }
 
 /** نمایشِ یک ترکِ ویدیو (با جای‌خالی وقتی تصویری نمی‌آید). */
-export function Vid({ track, mirror = false, className = '', label, fit = 'cover', onEl }) {
+export function Vid({ track, mirror = false, className = '', label, fit = 'cover', onEl, onClick, cam }) {
     const ref = useRef(null);
     const [live, setLive] = useState(false);
     useEffect(() => {
@@ -33,7 +33,8 @@ export function Vid({ track, mirror = false, className = '', label, fit = 'cover
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [track]);
     return (
-        <div className={`oc-vid ${live ? 'live' : ''} ${className}`}>
+        <div className={`oc-vid ${live ? 'live' : ''} ${onClick || cam ? 'tap' : ''} ${className}`} data-cam={cam || undefined} onClick={onClick}
+            role={onClick ? 'button' : undefined} title={onClick || cam ? 'برای بزرگ دیدن بزن' : undefined}>
             <video ref={ref} autoPlay playsInline muted style={{ transform: mirror ? 'scaleX(-1)' : undefined, objectFit: fit }} />
             {label && <span className="oc-vid-l">{label}</span>}
         </div>
@@ -44,7 +45,7 @@ export function Vid({ track, mirror = false, className = '', label, fit = 'cover
  * جعبه‌ی جابه‌جاشدنی برای تصویرها: با انگشت/ماوس بکشید؛ جای آن روی همین دستگاه می‌ماند.
  * جا به نسبتِ قاب ذخیره می‌شود تا با چرخاندنِ گوشی بیرون نزند.
  */
-export function DragBox({ id, className = '', children }) {
+export function DragBox({ id, className = '', children, onTap }) {
     const ref = useRef(null);
     const drag = useRef(null);
     const key = `oc-pos-${id}`;
@@ -72,10 +73,15 @@ export function DragBox({ id, className = '', children }) {
         const clamp = (v) => Math.max(0, Math.min(1, v));
         setPos({ fx: d.w > 0 ? clamp((d.x + dx) / d.w) : 0, fy: d.h > 0 ? clamp((d.y + dy) / d.h) : 0 });
     };
-    const up = () => {
+    const up = (e) => {
         const d = drag.current;
         drag.current = null;
         if (d?.moved) setPos((p) => { save(key, p); return p; });
+        // لمسِ کوتاه (بدونِ کشیدن) روی یک تصویر → بزرگ‌نمایی
+        else if (d && onTap && e?.type === 'pointerup') {
+            const hit = document.elementFromPoint(e.clientX, e.clientY)?.closest?.('[data-cam]');
+            if (hit && ref.current?.contains(hit)) onTap(Number(hit.dataset.cam));
+        }
     };
     const toggle = (k, v, set) => { set(v); save(`${key}-${k}`, v); };
     const style = pos ? { left: `${pos.fx * 100}%`, top: `${pos.fy * 100}%`, right: 'auto', bottom: 'auto', transform: `translate(${-pos.fx * 100}%, ${-pos.fy * 100}%)` } : undefined;
@@ -163,12 +169,79 @@ export function Chat({ msgs, me, chatOn, isMod, onSend, onHide }) {
     );
 }
 
-export function People({ people, me, isMod, isHost, tiles, onPerm, onStar, onKick, onSpot, spotlight, onAll, speaking = [], msOf = () => '' }) {
+/** نام بدونِ نیم‌فاصله/فاصله و با حروفِ یکسان (ی/ک عربی) — برای جستجو. */
+const norm = (v) => String(v || '').replace(/[‌‏\s]+/g, '').replace(/ي/g, 'ی').replace(/ك/g, 'ک').toLowerCase();
+const clock = (ms) => { try { return ms ? new Date(ms).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }) : ''; } catch { return ''; } };
+
+/**
+ * فهرستِ نفرات: جستجو؛ «دسترسی‌دارها» بالای فهرست (تا برای قطعِ دسترسی دنبالِ اسم نگردی)؛
+ * بقیه به ترتیبِ زمانِ ورود. کارتِ «دستِ بالا» همان‌جا دکمه‌ی صحبت/دوربین/تخته دارد.
+ */
+export function People({ people, me, isMod, isHost, tiles, onPerm, onStar, onKick, onSpot, spotlight, onAll, speaking = [], msOf = () => '', openMics = false, onCam, onLower }) {
+    const [q, setQ] = useState('');
+    const [newest, setNewest] = useState(false);
     const online = people.filter((p) => p.online);
     const hands = online.filter((p) => p.hand).sort((a, b) => a.hand - b.hand);
     const students = people.filter((p) => p.role === 'student');
+    // «میکِ همه باز» که باشد، صحبت دسترسیِ ویژه حساب نمی‌شود
+    const hasAccess = (p) => p.role === 'student' && ((p.can_speak && !openMics) || p.can_video || p.can_draw);
+    const nq = norm(q);
+    const match = (p) => !nq || norm(p.name).includes(nq);
+    const byJoin = (a, b) => ((newest ? -1 : 1) * ((a.joined || 0) - (b.joined || 0))) || String(a.name).localeCompare(String(b.name), 'fa');
+    const staff = people.filter((p) => p.role !== 'student' && match(p));
+    const access = isMod ? students.filter((p) => hasAccess(p) && match(p)).sort(byJoin) : [];
+    const rest = students.filter((p) => !(isMod && hasAccess(p)) && match(p)).sort((a, b) => (Number(b.online) - Number(a.online)) || byJoin(a, b));
+    const found = staff.length + access.length + rest.length;
+
+    const row = (p, pinned = false) => {
+        const ms = msOf(p.id);
+        const cam = (p.can_video || p.role !== 'student') && ms.includes('+cam') ? tiles[p.id]?.cam : null;
+        return (
+            <div key={p.id} className={`oc-person ${p.online ? '' : 'off'} ${pinned ? 'pin' : ''}`}>
+                <div className="oc-p-main">
+                    <span className={`oc-p-av ${speaking.includes(p.id) ? 'spk' : ''}`}><Avatar id={p.id} name={p.name} size={34} /><i className={p.online ? 'on' : ''} /></span>
+                    <span className="oc-p-name">
+                        {p.name}{p.id === me ? ' (من)' : ''}
+                        <small>
+                            {p.role === 'host' ? '👩‍🏫 معلم' : p.role === 'observer' ? '🛡️ ناظر' : p.stars ? `⭐ ${fa(p.stars)}` : ''}{p.hand ? ' ✋' : ''}
+                            {isMod && p.role === 'student' && p.joined ? <em>{p.stars || p.hand ? ' · ' : ''}ورود {clock(p.joined)}</em> : null}
+                        </small>
+                    </span>
+                    {p.role === 'student' && !isMod && (
+                        <span className="oc-p-flags">
+                            {p.can_speak && <i title="اجازه‌ی صحبت">🎤</i>}
+                            {p.can_video && <i title="اجازه‌ی دوربین">🎥</i>}
+                            {p.can_draw && <i title="اجازه‌ی نوشتن روی تخته">✏️</i>}
+                        </span>
+                    )}
+                    {p.online && (ms.includes('+mic') || ms.includes('+cam') || ms.includes('+scr')) && (
+                        <span className="oc-p-live" title="الان روشن است">
+                            {ms.includes('+mic') && <i>🎙️</i>}{ms.includes('+cam') && <i>📹</i>}{ms.includes('+scr') && <i>🖥️</i>}
+                        </span>
+                    )}
+                </div>
+                {isMod && p.role === 'student' && (
+                    <div className="oc-p-acts">
+                        {pinned && <button type="button" className="cut" onClick={() => onPerm(p.id, 'all', false)} title="قطعِ همه‌ی دسترسی‌های این دانش‌آموز">🚫 قطع</button>}
+                        <button type="button" className={p.can_speak ? 'on' : ''} onClick={() => onPerm(p.id, 'can_speak', !p.can_speak)} title="صحبت" aria-label="اجازه‌ی صحبت" aria-pressed={!!p.can_speak}>🎤</button>
+                        <button type="button" className={p.can_video ? 'on' : ''} onClick={() => onPerm(p.id, 'can_video', !p.can_video)} title="دوربین" aria-label="اجازه‌ی دوربین" aria-pressed={!!p.can_video}>🎥</button>
+                        <button type="button" className={p.can_draw ? 'on' : ''} onClick={() => onPerm(p.id, 'can_draw', !p.can_draw)} title="تخته" aria-label="اجازه‌ی تخته" aria-pressed={!!p.can_draw}>✏️</button>
+                        <button type="button" onClick={() => onStar(p.id)} title="ستاره و امتیاز">⭐</button>
+                        {isHost && cam && <button type="button" className={spotlight === p.id ? 'on' : ''} onClick={() => onSpot(spotlight === p.id ? null : p.id)} title="نمایشِ تصویرش برای همه">👁️</button>}
+                        <button type="button" onClick={() => onKick(p)} title="بیرون گذاشتن">🚪</button>
+                    </div>
+                )}
+                {isMod && cam && <Vid track={cam} className="oc-p-cam" onClick={onCam ? () => onCam(p.id) : undefined} />}
+            </div>
+        );
+    };
+
     return (
         <div className="oc-people">
+            <div className="oc-pp-search">
+                <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔎 جستجوی نام…" aria-label="جستجو در فهرستِ نفرات" enterKeyHint="search" />
+                {q && <button type="button" onClick={() => setQ('')} aria-label="پاک کردنِ جستجو">✕</button>}
+            </div>
             {isMod && (
                 <div className="oc-pp-acts">
                     <button type="button" onClick={() => onAll('lower_hands')}>✋ پایین آوردنِ دست‌ها</button>
@@ -176,57 +249,142 @@ export function People({ people, me, isMod, isHost, tiles, onPerm, onStar, onKic
                     <button type="button" onClick={() => onAll('open_mics', true)}>🎤 باز کردنِ میکِ همه</button>
                 </div>
             )}
-            {hands.length > 0 && (
+            {hands.length > 0 && !nq && (
                 <div className="oc-hands">
                     <b>✋ دستِ بالا ({fa(hands.length)})</b>
                     {hands.map((p, i) => (
                         <div key={p.id} className="oc-hand">
                             <span>{fa(i + 1)}. {p.name}</span>
-                            {isMod && p.role === 'student' && <button type="button" onClick={() => onPerm(p.id, 'can_speak', true)}>🎤 اجازه‌ی صحبت</button>}
+                            {isMod && p.role === 'student' && <HandActs p={p} onPerm={onPerm} onLower={onLower} />}
                         </div>
                     ))}
                 </div>
             )}
             <div className="oc-pp-count">{fa(online.length)} نفر آنلاین · {fa(students.length)} دانش‌آموز</div>
-            {people.map((p) => {
-                const ms = msOf(p.id);
-                const cam = (p.can_video || p.role !== 'student') && ms.includes('+cam') ? tiles[p.id]?.cam : null;
-                return (
-                    <div key={p.id} className={`oc-person ${p.online ? '' : 'off'}`}>
-                        <div className="oc-p-main">
-                            <span className={`oc-p-av ${speaking.includes(p.id) ? 'spk' : ''}`}><Avatar id={p.id} name={p.name} size={34} /><i className={p.online ? 'on' : ''} /></span>
-                            <span className="oc-p-name">
-                                {p.name}{p.id === me ? ' (من)' : ''}
-                                <small>{p.role === 'host' ? '👩‍🏫 معلم' : p.role === 'observer' ? '🛡️ ناظر' : p.stars ? `⭐ ${fa(p.stars)}` : ''}{p.hand ? ' ✋' : ''}</small>
-                            </span>
-                            {p.role === 'student' && (
-                                <span className="oc-p-flags">
-                                    {p.can_speak && <i title="اجازه‌ی صحبت">🎤</i>}
-                                    {p.can_video && <i title="اجازه‌ی دوربین">🎥</i>}
-                                    {p.can_draw && <i title="اجازه‌ی نوشتن روی تخته">✏️</i>}
-                                </span>
-                            )}
-                            {p.online && (ms.includes('+mic') || ms.includes('+cam') || ms.includes('+scr')) && (
-                                <span className="oc-p-live" title="الان روشن است">
-                                    {ms.includes('+mic') && <i>🎙️</i>}{ms.includes('+cam') && <i>📹</i>}{ms.includes('+scr') && <i>🖥️</i>}
-                                </span>
-                            )}
-                        </div>
-                        {isMod && p.role === 'student' && (
-                            <div className="oc-p-acts">
-                                <button type="button" className={p.can_speak ? 'on' : ''} onClick={() => onPerm(p.id, 'can_speak', !p.can_speak)} title="صحبت">🎤</button>
-                                <button type="button" className={p.can_video ? 'on' : ''} onClick={() => onPerm(p.id, 'can_video', !p.can_video)} title="دوربین">🎥</button>
-                                <button type="button" className={p.can_draw ? 'on' : ''} onClick={() => onPerm(p.id, 'can_draw', !p.can_draw)} title="تخته">✏️</button>
-                                <button type="button" onClick={() => onStar(p.id)} title="ستاره و امتیاز">⭐</button>
-                                {isHost && cam && <button type="button" className={spotlight === p.id ? 'on' : ''} onClick={() => onSpot(spotlight === p.id ? null : p.id)} title="نمایشِ تصویرش برای همه">👁️</button>}
-                                <button type="button" onClick={() => onKick(p)} title="بیرون گذاشتن">🚪</button>
-                            </div>
-                        )}
-                        {isMod && cam && <Vid track={cam} className="oc-p-cam" />}
-                    </div>
-                );
-            })}
+            {staff.map((p) => row(p))}
+            {access.length > 0 && (
+                <div className="oc-pp-sec access">
+                    <b>🔓 دسترسی دارند ({fa(access.length)})</b>
+                    <button type="button" onClick={() => { if (window.confirm('دسترسیِ صحبت، دوربین و تخته‌ی همه‌ی دانش‌آموزان قطع شود؟')) onAll('revoke_all'); }}>🚫 قطعِ همه</button>
+                </div>
+            )}
+            {access.map((p) => row(p, true))}
+            {rest.length > 0 && (
+                <div className="oc-pp-sec">
+                    <b>👥 {access.length ? 'بقیه‌ی دانش‌آموزان' : 'دانش‌آموزان'} — به ترتیبِ ورود</b>
+                    <button type="button" onClick={() => setNewest((v) => !v)} title="عوض کردنِ ترتیب">{newest ? '⬆️ تازه‌واردها بالا' : '⬇️ تازه‌واردها پایین'}</button>
+                </div>
+            )}
+            {rest.map((p) => row(p))}
+            {!found && <div className="oc-pp-none">کسی با این نام پیدا نشد.</div>}
         </div>
+    );
+}
+
+/** دکمه‌های دسترسی برای کسی که دست بالا کرده: صحبت، دوربین، تخته + «رسیدگی شد». */
+export function HandActs({ p, onPerm, onLower }) {
+    return (
+        <span className="oc-hc-acts">
+            <button type="button" className={p.can_speak ? 'on' : ''} onClick={() => onPerm(p.id, 'can_speak', !p.can_speak, true)} aria-pressed={!!p.can_speak} title="اجازه‌ی صحبت">🎤<small>صحبت</small></button>
+            <button type="button" className={p.can_video ? 'on' : ''} onClick={() => onPerm(p.id, 'can_video', !p.can_video, true)} aria-pressed={!!p.can_video} title="اجازه‌ی دوربین">🎥<small>دوربین</small></button>
+            <button type="button" className={p.can_draw ? 'on' : ''} onClick={() => onPerm(p.id, 'can_draw', !p.can_draw, true)} aria-pressed={!!p.can_draw} title="اجازه‌ی نوشتن روی تخته">✏️<small>تخته</small></button>
+            <button type="button" className="ok" onClick={() => onLower(p.id)} title="رسیدگی شد؛ دستش پایین بیاید" aria-label="پایین آوردنِ دست">✓</button>
+        </span>
+    );
+}
+
+/** کارتِ شناورِ «دستِ بالا» برای معلم: همان‌جا روی صفحه‌ی کلاس، بدونِ باز کردنِ فهرستِ نفرات. */
+export function HandCards({ people, onPerm, onLower, onMore }) {
+    const hands = people.filter((p) => p.online && p.hand && p.role === 'student').sort((a, b) => a.hand - b.hand);
+    if (!hands.length) return null;
+    return (
+        <div className="oc-handbar" role="region" aria-label="دست‌های بالا">
+            {hands.slice(0, 3).map((p) => (
+                <div key={p.id} className="oc-handcard">
+                    <span className="oc-hc-name"><i aria-hidden="true">✋</i><b>{p.name}</b></span>
+                    <HandActs p={p} onPerm={onPerm} onLower={onLower} />
+                </div>
+            ))}
+            {hands.length > 3 && <button type="button" className="oc-hc-more" onClick={onMore}>+{fa(hands.length - 3)} دستِ دیگر</button>}
+        </div>
+    );
+}
+
+/**
+ * «سینمای دوربین»: معلم روی هر تصویر بزند، تمام‌صفحه می‌بیند — با نوارِ همه‌ی دوربین‌ها، ورق زدن با
+ * کشیدنِ انگشت/فلش، و دکمه‌های دسترسیِ همان دانش‌آموز.
+ */
+export function CamViewer({ cams, id, onChange, onClose, people = [], isMod, isHost, onPerm, onStar, onSpot, spotlight, speaking = [], msOf = () => '' }) {
+    const idx = cams.findIndex((c) => c.id === id);
+    const cur = idx >= 0 ? cams[idx] : null;
+    const person = people.find((p) => p.id === id);
+    const [fill, setFill] = useState(false);
+    const touch = useRef(null);
+    const lastTap = useRef(0);
+    const go = (d) => { if (cams.length > 1) onChange(cams[(Math.max(idx, 0) + d + cams.length) % cams.length].id); };
+    useEffect(() => {
+        const onKey = (e) => {
+            if (e.key === 'Escape') onClose();
+            else if (e.key === 'ArrowLeft') go(1);
+            else if (e.key === 'ArrowRight') go(-1);
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    });
+    const name = cur?.name || person?.name || '';
+    const ms = msOf(id);
+    const student = person?.role === 'student';
+    return createPortal(
+        <div className="oc-viewer" dir="rtl" role="dialog" aria-modal="true" aria-label={`تصویرِ ${name}`}>
+            {cur && <Vid key={`amb-${cur.id}`} track={cur.track} mirror={cur.mirror} className="oc-vw-amb" />}
+            <header className="oc-vw-top">
+                <span className={`oc-vw-who ${speaking.includes(id) ? 'spk' : ''}`}>
+                    <Avatar id={id} name={name} size={38} />
+                    <span><b>{name}</b><small>{person?.role === 'host' ? '👩‍🏫 معلم' : person?.role === 'observer' ? '🛡️ ناظر' : student ? `دانش‌آموز${person?.stars ? ` · ⭐ ${fa(person.stars)}` : ''}` : ''}{ms.includes('+mic') ? ' · 🎙️ میکروفون روشن' : ''}</small></span>
+                </span>
+                {cams.length > 1 && <span className="oc-vw-count">{fa(Math.max(idx, 0) + 1)} از {fa(cams.length)}</span>}
+                <button type="button" className="oc-vw-x" onClick={onClose} aria-label="بستن">✕</button>
+            </header>
+            <div className="oc-vw-stage"
+                onTouchStart={(e) => { touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }}
+                onTouchEnd={(e) => {
+                    const t = touch.current; touch.current = null;
+                    if (!t) return;
+                    const dx = e.changedTouches[0].clientX - t.x; const dy = e.changedTouches[0].clientY - t.y;
+                    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx > 0 ? 1 : -1);
+                    else if (dy > 110 && Math.abs(dy) > Math.abs(dx) * 1.5) onClose();
+                }}
+                onClick={() => { const now = Date.now(); if (now - lastTap.current < 320) setFill((v) => !v); lastTap.current = now; }}>
+                {cur
+                    ? <Vid key={cur.id} track={cur.track} mirror={cur.mirror} fit={fill ? 'cover' : 'contain'} className={`oc-vw-main ${speaking.includes(id) ? 'spk' : ''}`} />
+                    : <div className="oc-vw-off"><Avatar id={id} name={name} size={96} /><b>{name}</b><span>دوربین خاموش شد.</span></div>}
+                {cams.length > 1 && <button type="button" className="oc-vw-nav prev" onClick={(e) => { e.stopPropagation(); go(-1); }} aria-label="تصویرِ قبلی">›</button>}
+                {cams.length > 1 && <button type="button" className="oc-vw-nav next" onClick={(e) => { e.stopPropagation(); go(1); }} aria-label="تصویرِ بعدی">‹</button>}
+            </div>
+            <footer className="oc-vw-foot">
+                {isMod && student && person && (
+                    <div className="oc-vw-acts">
+                        <button type="button" className={person.can_speak ? 'on' : ''} onClick={() => onPerm(id, 'can_speak', !person.can_speak, true)} aria-pressed={!!person.can_speak}>🎤<small>صحبت</small></button>
+                        <button type="button" className={person.can_video ? 'on' : ''} onClick={() => onPerm(id, 'can_video', !person.can_video)} aria-pressed={!!person.can_video}>🎥<small>دوربین</small></button>
+                        <button type="button" className={person.can_draw ? 'on' : ''} onClick={() => onPerm(id, 'can_draw', !person.can_draw)} aria-pressed={!!person.can_draw}>✏️<small>تخته</small></button>
+                        <button type="button" onClick={() => onStar(id)}>⭐<small>ستاره</small></button>
+                        {isHost && cur && <button type="button" className={spotlight === id ? 'on' : ''} onClick={() => onSpot(spotlight === id ? null : id)}>👁️<small>{spotlight === id ? 'پایانِ نمایش' : 'برای همه'}</small></button>}
+                    </div>
+                )}
+                {cams.length > 1 && (
+                    <div className="oc-vw-strip" role="tablist" aria-label="همه‌ی دوربین‌ها">
+                        {cams.map((c) => (
+                            <button key={c.id} type="button" role="tab" aria-selected={c.id === id} className={`${c.id === id ? 'on' : ''} ${speaking.includes(c.id) ? 'spk' : ''}`} onClick={() => onChange(c.id)}>
+                                <Vid track={c.track} mirror={c.mirror} />
+                                <span>{c.name}</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
+                <p className="oc-vw-tip">دو بار بزن: پُر/کامل · به چپ و راست بکش: دوربینِ بعدی · پایین بکش: بستن</p>
+            </footer>
+        </div>,
+        document.body,
     );
 }
 
