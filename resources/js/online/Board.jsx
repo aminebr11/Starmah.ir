@@ -129,6 +129,30 @@ function hit(op, x, y) {
     return false;
 }
 
+const boxCache = new WeakMap();
+/** کادرِ تقریبیِ یک نوشته به مختصاتِ تخته. */
+function opBox(op) {
+    if (boxCache.has(op)) return boxCache.get(op);
+    const p = op.p || [];
+    let b = null;
+    if (op.k === 'text') {
+        const lines = String(op.s || '').split('\n');
+        const fs = op.w || 40;
+        const len = Math.max(...lines.map((l) => l.length)) * fs * 0.6;
+        b = [p[0] - len, p[1], p[0], p[1] + lines.length * fs * 1.35];
+    } else if (op.k === 'stamp') {
+        const r = (op.w || 90) / 2;
+        b = [p[0] - r, p[1] - r, p[0] + r, p[1] + r];
+    } else if (p.length >= 2) {
+        let x0 = Infinity; let y0 = Infinity; let x1 = -Infinity; let y1 = -Infinity;
+        for (let i = 0; i < p.length - 1; i += 2) { x0 = Math.min(x0, p[i]); x1 = Math.max(x1, p[i]); y0 = Math.min(y0, p[i + 1]); y1 = Math.max(y1, p[i + 1]); }
+        const r = (op.w || 6) / 2;
+        b = [x0 - r, y0 - r, x1 + r, y1 + r];
+    }
+    boxCache.set(op, b);
+    return b;
+}
+
 const imgCache = new Map();   // نشانی → تصویر (آماده یا در راه)
 const imgWait = new Map();    // نشانی → کسانی که منتظرِ آمدنش هستند
 const imgTries = new Map();
@@ -209,6 +233,8 @@ export function drawBg(ctx, bg, onLoad) {
             const s = Math.min(W / im.naturalWidth, H / im.naturalHeight);
             const w = im.naturalWidth * s; const h = im.naturalHeight * s;
             ctx.drawImage(im, (W - w) / 2, (H - h) / 2, w, h);
+            ctx.restore();
+            return { x: (W - w) / 2, y: (H - h) / 2, w, h };
         } else {
             ctx.fillStyle = '#9aa7c2'; ctx.font = '700 34px Vazirmatn, Tahoma'; ctx.textAlign = 'center';
             ctx.fillText('در حالِ بارگذاریِ اسلاید…', W / 2, H / 2);
@@ -226,12 +252,15 @@ export function clampView(v) {
     return { z: Math.round(z * 1000) / 1000, x: Math.round(x), y: Math.round(y) };
 }
 
-const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, onOp, onStroke, onPtr, onView, tools = true }, ref) {
+const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, onOp, onStroke, onPtr, onView, tools = true, pageKey }, ref) {
     const wrapRef = useRef(null);
     const bgRef = useRef(null);
     const inkRef = useRef(null);
     const liveRef = useRef(null);
-    const st = useRef({ ops: [], bg: 'blank', live: new Map(), ptr: null, cur: null, redo: [], erasing: new Set(), dirty: true, raf: 0, scale: 1, view: { z: 1, x: 0, y: 0 } });
+    const st = useRef({ ops: [], bg: 'blank', live: new Map(), ptr: null, cur: null, redo: [], erasing: new Set(), dirty: true, raf: 0, scale: 1, view: { z: 1, x: 0, y: 0 }, cw: 1, ch: 1, content: null, g: { k: 1, ox: 0, oy: 0 }, local: { s: 1, tx: 0, ty: 0 } });
+    const [lzoom, setLzoom] = useState(1);   // بزرگ‌نماییِ شخصیِ دانش‌آموز (فقط روی گوشیِ خودش)
+    const vpin = useRef(null);               // دو انگشت / کشیدنِ دانش‌آموز
+    const lastTap = useRef({ at: 0, x: 0, y: 0 });
     const [zoom, setZoom] = useState(1);
     const ptrs = useRef(new Map());   // انگشت‌های روی تخته (برای بزرگ‌نماییِ دوانگشتی)
     const pinch = useRef(null);
@@ -248,13 +277,50 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
 
     // ── رسم ───────────────────────────────────────────────────────────
     /** تبدیلِ مختصاتِ تخته به بوم با در نظر گرفتنِ بزرگ‌نمایی. */
-    const tf = (c) => { const s = st.current; const k = s.scale * s.view.z; c.setTransform(k, 0, 0, k, -s.view.x * k, -s.view.y * k); };
+    /**
+     * چه بخشی از تخته در قاب دیده شود و با چه اندازه‌ای.
+     * قاب هر شکلی می‌تواند داشته باشد (۱۶:۹ روی رایانه، بلند و باریک روی گوشیِ ایستاده در حالتِ «فقط تخته»):
+     * بخشِ دیدنی کامل و وسطِ قاب جا می‌گیرد. برای دانش‌آموز، وقتی زمینه تصویرِ کتاب/اسلاید است،
+     * خودِ صفحه (و نوشته‌های کنارش) کلِ قاب را می‌گیرد — نه این‌که کوچک در بالای گوشی بنشیند.
+     */
+    const geom = () => {
+        const s = st.current; const v = s.view;
+        let R = { x: v.x, y: v.y, w: W / v.z, h: H / v.z };
+        if (v.z <= 1.001 && s.content) {
+            let [x0, y0, x1, y1] = [s.content.x, s.content.y, s.content.x + s.content.w, s.content.y + s.content.h];
+            for (const op of visible(s.ops)) {
+                const b = opBox(op);
+                if (b) { x0 = Math.min(x0, b[0]); y0 = Math.min(y0, b[1]); x1 = Math.max(x1, b[2]); y1 = Math.max(y1, b[3]); }
+            }
+            const pad = 8;
+            x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(W, x1 + pad); y1 = Math.min(H, y1 + pad);
+            if (x1 - x0 > 50 && y1 - y0 > 50) {
+                // تا شکلِ قاب بزرگش کن (داخلِ تخته) — روی قابِ ۱۶:۹ همان کلِ تخته می‌شود و چیزی جابه‌جا نمی‌شود
+                const a = s.cw / s.ch;
+                R = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+                if (R.w / R.h < a) { const nw = Math.min(W, R.h * a); R.x = Math.max(0, Math.min(W - nw, R.x + R.w / 2 - nw / 2)); R.w = nw; }
+                else { const nh = Math.min(H, R.w / a); R.y = Math.max(0, Math.min(H - nh, R.y + R.h / 2 - nh / 2)); R.h = nh; }
+            }
+        }
+        const k = Math.min(s.cw / R.w, s.ch / R.h);
+        const ox = (s.cw - R.w * k) / 2 - R.x * k; const oy = (s.ch - R.h * k) / 2 - R.y * k;
+        const L = canDraw ? { s: 1, tx: 0, ty: 0 } : s.local;
+        return { k: k * L.s, ox: ox * L.s + L.tx, oy: oy * L.s + L.ty };
+    };
+    const tf = (c) => { const g = st.current.g; c.setTransform(g.k, 0, 0, g.k, g.ox, g.oy); };
     const paintAll = () => {
         const s = st.current;
         const bgc = bgRef.current?.getContext('2d'); const ink = inkRef.current?.getContext('2d');
         if (!bgc || !ink) return;
+        s.g = geom();
         bgc.setTransform(1, 0, 0, 1, 0, 0); bgc.clearRect(0, 0, bgRef.current.width, bgRef.current.height);
-        tf(bgc); drawBg(bgc, s.bg, () => { s.dirty = true; schedule(); });
+        // بیرونِ تخته (وقتی قاب با تخته هم‌شکل نیست) کمی رنگی، تا لبه‌ی صفحه پیدا باشد
+        const g0 = s.g;
+        if (g0.ox > 1.5 || g0.oy > 1.5 || g0.ox + W * g0.k < s.cw - 1.5 || g0.oy + H * g0.k < s.ch - 1.5) { bgc.fillStyle = '#eceaf6'; bgc.fillRect(0, 0, s.cw, s.ch); }
+        tf(bgc);
+        const content = drawBg(bgc, s.bg, () => { s.dirty = true; schedule(); }) || null;
+        const ck = (r) => (r ? `${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.w)},${Math.round(r.h)}` : '');
+        if (ck(content) !== ck(s.content)) { s.content = content; s.dirty = true; paintAll(); return; }
         ink.setTransform(1, 0, 0, 1, 0, 0); ink.clearRect(0, 0, inkRef.current.width, inkRef.current.height);
         tf(ink);
         for (const op of visible(s.ops)) drawOp(ink, op, s.erasing.has(op.id));
@@ -295,6 +361,7 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
             const w = Math.max(1, Math.round(r.width * dpr)); const h = Math.max(1, Math.round(r.height * dpr));
             for (const c of [bgRef.current, inkRef.current, liveRef.current]) { if (c && (c.width !== w || c.height !== h)) { c.width = w; c.height = h; } }
             st.current.scale = w / W;
+            st.current.cw = w; st.current.ch = h;
             st.current.dirty = true;
             schedule();
         };
@@ -342,6 +409,7 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
         const s = st.current;
         if (v.z === s.view.z && v.x === s.view.x && v.y === s.view.y) return;
         s.view = v; s.dirty = true;
+        if (!canDraw && s.local.s !== 1) { s.local = { s: 1, tx: 0, ty: 0 }; setLzoom(1); }
         setZoom(v.z);
         schedule();
     };
@@ -352,11 +420,25 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
         onView?.({ ...st.current.view });
     };
     /** بزرگ‌نمایی حولِ یک نقطه‌ی صفحه (fx,fy بین ۰ و ۱). */
-    const zoomAt = (z, fx = 0.5, fy = 0.5, final = true) => {
+    /** بزرگ‌نماییِ فعلی به زبانِ «نما» (وقتی صفحه‌ی کتاب قاب را پُر کرده، معادلش بیش از ۱ است). */
+    const effZ = () => {
         const s = st.current;
-        const bx = s.view.x + fx * (W / s.view.z); const by = s.view.y + fy * (H / s.view.z);
+        if (s.view.z > 1.001) return s.view.z;
+        return Math.max(1, Math.min(ZMAX, s.g.k / Math.min(s.cw / W, s.ch / H)));
+    };
+    /** نمای تازه‌ای که در آن نقطه‌ی (bx,by) تخته زیرِ نقطه‌ی (sx,sy) قاب (پیکسلِ بوم) بماند. */
+    const viewAround = (z, bx, by, sx, sy) => {
+        const s = st.current;
+        const k1 = Math.min(s.cw / W, s.ch / H); const k = k1 * z;
+        return clampView({ z, x: bx - (sx - (s.cw - W * k1) / 2) / k, y: by - (sy - (s.ch - H * k1) / 2) / k });
+    };
+    /** بزرگ‌نمایی حولِ یک نقطه‌ی قاب (fx,fy بین ۰ و ۱). */
+    const zoomAt = (z, fx = 0.5, fy = 0.5, final = true) => {
+        const s = st.current; const g = s.g;
+        const sx = fx * s.cw; const sy = fy * s.ch;
         const nz = Math.max(1, Math.min(ZMAX, z));
-        applyView(clampView({ z: nz, x: bx - fx * (W / nz), y: by - fy * (H / nz) }));
+        applyView(viewAround(nz, (sx - g.ox) / g.k, (sy - g.oy) / g.k, sx, sy));
+        s.g = geom();
         emitView(final);
     };
     // Ctrl + چرخِ ماوس / دو انگشت روی تاچ‌پد
@@ -367,7 +449,7 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
             if (!e.ctrlKey && !e.metaKey) return;
             e.preventDefault();
             const r = el.getBoundingClientRect();
-            zoomAt(st.current.view.z * Math.exp(-e.deltaY * 0.01), (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height, true);
+            zoomAt(effZ() * Math.exp(-e.deltaY * 0.01), (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height, true);
         };
         el.addEventListener('wheel', onWheel, { passive: false });
         return () => el.removeEventListener('wheel', onWheel);
@@ -375,10 +457,15 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
     }, [canDraw]);
 
     // ── کشیدن ────────────────────────────────────────────────────────
+    /** نقطه‌ی صفحه‌نمایش → پیکسلِ بوم */
+    const cpx = (cx, cy) => {
+        const r = liveRef.current.getBoundingClientRect(); const s = st.current;
+        return [(cx - r.left) * (s.cw / (r.width || 1)), (cy - r.top) * (s.ch / (r.height || 1))];
+    };
     const pos = (e) => {
-        const r = liveRef.current.getBoundingClientRect();
-        const v = st.current.view;
-        return [Math.round(v.x + ((e.clientX - r.left) / r.width) * (W / v.z)), Math.round(v.y + ((e.clientY - r.top) / r.height) * (H / v.z))];
+        const g = st.current.g;
+        const [px, py] = cpx(e.clientX, e.clientY);
+        return [Math.round((px - g.ox) / g.k), Math.round((py - g.oy) / g.k)];
     };
     /** دو انگشت: کارِ نیمه‌تمام کنار می‌رود و بزرگ‌نمایی/جابه‌جاییِ تخته شروع می‌شود. */
     const startPinch = () => {
@@ -386,20 +473,20 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
         s.cur = null; s.erasing = new Set(); s.dirty = true;
         drag.current = null;
         const [a, b] = [...ptrs.current.values()];
-        const r = liveRef.current.getBoundingClientRect();
-        const mx = ((a.x + b.x) / 2 - r.left) / r.width; const my = ((a.y + b.y) / 2 - r.top) / r.height;
-        pinch.current = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: s.view.z, bx: s.view.x + mx * (W / s.view.z), by: s.view.y + my * (H / s.view.z) };
+        const [mx, my] = cpx((a.x + b.x) / 2, (a.y + b.y) / 2);
+        const g = s.g;
+        pinch.current = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: effZ(), bx: (mx - g.ox) / g.k, by: (my - g.oy) / g.k };
         schedule();
     };
     const movePinch = () => {
         const p = pinch.current;
         const [a, b] = [...ptrs.current.values()];
         if (!p || !a || !b) return;
-        const r = liveRef.current.getBoundingClientRect();
         const z = Math.max(1, Math.min(ZMAX, p.z0 * (Math.hypot(a.x - b.x, a.y - b.y) / p.d0)));
-        const mx = ((a.x + b.x) / 2 - r.left) / r.width; const my = ((a.y + b.y) / 2 - r.top) / r.height;
+        const [mx, my] = cpx((a.x + b.x) / 2, (a.y + b.y) / 2);
         // همان نقطه‌ی تخته زیرِ وسطِ دو انگشت می‌ماند (هم بزرگ‌نمایی، هم جابه‌جایی)
-        applyView(clampView({ z, x: p.bx - mx * (W / z), y: p.by - my * (H / z) }));
+        applyView(viewAround(z, p.bx, p.by, mx, my));
+        st.current.g = geom();
         emitView(false);
     };
     const commit = (op) => {
@@ -412,8 +499,95 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
     };
     const drag = useRef(null);
 
+    // ── بزرگ‌نماییِ شخصیِ دانش‌آموز (دو انگشت، دوبار زدن، کشیدن) — فقط روی گوشیِ خودش ──
+    const LMAX = 5;
+    const setLocal = (L) => {
+        const s = st.current;
+        const sc = Math.max(1, Math.min(LMAX, L.s));
+        // بیرون از قاب نرود
+        const tx = Math.min(0, Math.max(s.cw - s.cw * sc, L.tx)); const ty = Math.min(0, Math.max(s.ch - s.ch * sc, L.ty));
+        s.local = sc <= 1.001 ? { s: 1, tx: 0, ty: 0 } : { s: sc, tx, ty };
+        s.dirty = true;
+        setLzoom(s.local.s);
+        schedule();
+    };
+    /** بزرگ‌نمایی حولِ نقطه‌ی (px,py) بوم. */
+    const localAt = (sc, px, py) => {
+        const L = st.current.local;
+        const qx = (px - L.tx) / L.s; const qy = (py - L.ty) / L.s;
+        setLocal({ s: sc, tx: px - qx * sc, ty: py - qy * sc });
+    };
+    const vDown = (e) => {
+        if (e.button > 0) return;
+        liveRef.current.setPointerCapture?.(e.pointerId);
+        ptrs.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        const L = st.current.local;
+        if (ptrs.current.size === 2) {
+            const [a, b] = [...ptrs.current.values()];
+            const [mx, my] = cpx((a.x + b.x) / 2, (a.y + b.y) / 2);
+            vpin.current = { two: true, d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, s0: L.s, qx: (mx - L.tx) / L.s, qy: (my - L.ty) / L.s };
+            return;
+        }
+        if (ptrs.current.size > 2) return;
+        // دوبار زدن: بزرگ / برگشت
+        const now = Date.now(); const t = lastTap.current;
+        if (now - t.at < 320 && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 30) {
+            lastTap.current = { at: 0, x: 0, y: 0 };
+            const [px, py] = cpx(e.clientX, e.clientY);
+            if (L.s > 1.05) setLocal({ s: 1, tx: 0, ty: 0 }); else localAt(2.5, px, py);
+            vpin.current = null;
+            return;
+        }
+        lastTap.current = { at: now, x: e.clientX, y: e.clientY };
+        vpin.current = { two: false, sx: e.clientX, sy: e.clientY, tx: L.tx, ty: L.ty };
+    };
+    const vMove = (e) => {
+        if (!ptrs.current.has(e.pointerId)) return;
+        ptrs.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        const p = vpin.current;
+        if (!p) return;
+        if (p.two && ptrs.current.size >= 2) {
+            const [a, b] = [...ptrs.current.values()];
+            const [mx, my] = cpx((a.x + b.x) / 2, (a.y + b.y) / 2);
+            const sc = Math.max(1, Math.min(LMAX, p.s0 * (Math.hypot(a.x - b.x, a.y - b.y) / p.d0)));
+            setLocal({ s: sc, tx: mx - p.qx * sc, ty: my - p.qy * sc });
+        } else if (!p.two && st.current.local.s > 1) {
+            const s = st.current; const r = liveRef.current.getBoundingClientRect();
+            const k = s.cw / (r.width || 1);
+            setLocal({ s: s.local.s, tx: p.tx + (e.clientX - p.sx) * k, ty: p.ty + (e.clientY - p.sy) * k });
+        }
+    };
+    const vUp = (e) => {
+        ptrs.current.delete(e.pointerId);
+        if (ptrs.current.size === 0) vpin.current = null;
+        else if (ptrs.current.size === 1 && vpin.current?.two) {
+            const [a] = [...ptrs.current.values()]; const L = st.current.local;
+            vpin.current = { two: false, sx: a.x, sy: a.y, tx: L.tx, ty: L.ty };
+        }
+    };
+    // صفحه عوض شد → بزرگ‌نماییِ شخصی صفر
+    useEffect(() => {
+        if (st.current.local.s !== 1) { st.current.local = { s: 1, tx: 0, ty: 0 }; st.current.dirty = true; setLzoom(1); schedule(); }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pageKey]);
+    // چرخِ ماوس + Ctrl برای دانش‌آموز روی رایانه
+    useEffect(() => {
+        const el = liveRef.current;
+        if (!el || canDraw) return undefined;
+        const onWheel = (e) => {
+            if (!e.ctrlKey && !e.metaKey) return;
+            e.preventDefault();
+            const [px, py] = cpx(e.clientX, e.clientY);
+            localAt(st.current.local.s * Math.exp(-e.deltaY * 0.01), px, py);
+        };
+        el.addEventListener('wheel', onWheel, { passive: false });
+        return () => el.removeEventListener('wheel', onWheel);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [canDraw]);
+
     const down = (e) => {
-        if (!canDraw || e.button > 0) return;
+        if (!canDraw) { vDown(e); return; }
+        if (e.button > 0) return;
         if (e.pointerType === 'touch') {
             ptrs.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
             if (ptrs.current.size === 2) { liveRef.current.setPointerCapture?.(e.pointerId); startPinch(); return; }
@@ -437,6 +611,7 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
         schedule();
     };
     const move = (e) => {
+        if (!canDraw) { vMove(e); return; }
         if (ptrs.current.has(e.pointerId)) {
             ptrs.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
             if (pinch.current) { movePinch(); return; }
@@ -468,6 +643,7 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
         schedule();
     };
     const up = (e) => {
+        if (!canDraw) { if (e) vUp(e); return; }
         if (e && ptrs.current.has(e.pointerId)) {
             ptrs.current.delete(e.pointerId);
             if (pinch.current) {
@@ -565,8 +741,8 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
                     <button type="button" onClick={redo} title="دوباره" aria-label="دوباره">↷</button>
                     {isHost && <button type="button" onClick={clear} title="پاک کردنِ کلِ صفحه" aria-label="پاک کردنِ صفحه">🗑️</button>}
                     <span className="ob-sep" />
-                    <button type="button" onClick={() => zoomAt(st.current.view.z * 1.5)} disabled={zoom >= ZMAX} title="بزرگ‌نمایی (برای همه) — روی گوشی با دو انگشت" aria-label="بزرگ‌نمایی">🔍</button>
-                    <button type="button" onClick={() => zoomAt(st.current.view.z / 1.5)} disabled={zoom <= 1} title="کوچک‌نمایی" aria-label="کوچک‌نمایی">➖</button>
+                    <button type="button" onClick={() => zoomAt(effZ() * 1.5)} disabled={zoom >= ZMAX} title="بزرگ‌نمایی (برای همه) — روی گوشی با دو انگشت" aria-label="بزرگ‌نمایی">🔍</button>
+                    <button type="button" onClick={() => zoomAt(effZ() / 1.5)} disabled={zoom <= 1} title="کوچک‌نمایی" aria-label="کوچک‌نمایی">➖</button>
                     {showStamps && tool === 'stamp' && (
                         <div className="ob-stamps">
                             {STAMPS.map((s) => <button key={s} type="button" onClick={() => { setStamp(s); setShowStamps(false); }}>{s}</button>)}
@@ -578,15 +754,21 @@ const Board = forwardRef(function Board({ canDraw = false, isHost = false, me, o
                 <canvas ref={bgRef} className="ob-c" />
                 <canvas ref={inkRef} className="ob-c" />
                 <canvas ref={liveRef} className={`ob-c ob-top tool-${tool}`} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
-                    style={{ touchAction: canDraw ? 'none' : 'auto' }} />
-                {zoom > 1.01 && (
+                    style={{ touchAction: 'none' }} />
+                {!canDraw && lzoom > 1.01 && (
+                    <div className="ob-zoom mine">
+                        🔍 {String(Math.round(lzoom * 10) / 10).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]).replace('.', '٫')}×
+                        <button type="button" onClick={() => setLocal({ s: 1, tx: 0, ty: 0 })} aria-label="اندازه‌ی کامل">⟲ کامل</button>
+                    </div>
+                )}
+                {zoom > 1.01 && (canDraw || lzoom <= 1.01) && (
                     <div className="ob-zoom">
                         🔍 {String(Math.round(zoom * 10) / 10).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]).replace('.', '٫')}×
                         {canDraw && <button type="button" onClick={() => zoomAt(1)} aria-label="اندازه‌ی کامل">⟲ کامل</button>}
                     </div>
                 )}
                 {textAt && (
-                    <div className="ob-text" style={{ right: `${(1 - (textAt.x - st.current.view.x) / (W / st.current.view.z)) * 100}%`, top: `${((textAt.y - st.current.view.y) / (H / st.current.view.z)) * 100}%` }}>
+                    <div className="ob-text" style={{ right: `${(1 - (st.current.g.ox + textAt.x * st.current.g.k) / st.current.cw) * 100}%`, top: `${((st.current.g.oy + textAt.y * st.current.g.k) / st.current.ch) * 100}%` }}>
                         <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="بنویس…" rows={2}
                             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitText(); } if (e.key === 'Escape') setTextAt(null); }} />
                         <div><button type="button" onClick={commitText}>✓</button><button type="button" onClick={() => setTextAt(null)}>✕</button></div>

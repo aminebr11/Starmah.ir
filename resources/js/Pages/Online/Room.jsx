@@ -1319,7 +1319,7 @@ export default function Room({ room, me, config, back }) {
                 <section className="oc-stage-wrap">
                     <div className={`oc-stage stage-${stage}`}>
                         <div className="oc-board" style={{ display: stage !== 'board' ? 'none' : undefined }}>
-                            <Board ref={board} canDraw={canDraw} isHost={isHost} me={me.id} onOp={onOp} onStroke={onStroke} onPtr={onPtr} onView={onView} />
+                            <Board ref={board} canDraw={canDraw} isHost={isHost} me={me.id} onOp={onOp} onStroke={onStroke} onPtr={onPtr} onView={onView} pageKey={page} />
                         </div>
                         {stage === 'screen' && (
                             <div className="oc-screen">

@@ -718,3 +718,23 @@ html.oc-kb nav.oc-bar,html.oc-kb .oc-pages,html.oc-kb .oc-announce{display:none}
   .oc-vw-acts button{min-height:44px;min-width:48px}
 }
 @media (prefers-reduced-motion:reduce){.oc-handcard,.oc-viewer,.oc-hc-name i{animation:none}}
+
+/* ═══════════ نسخه‌ی ۱۰۲: «فقط تخته» روی گوشی ═══════════
+   تخته کلِ قاب را می‌گیرد و صفحه‌ی کتاب/اسلاید خودش را تا جای ممکن بزرگ می‌کند (Board.jsx).
+   دانش‌آموزی که اجازه‌ی نوشتن دارد: ابزارها بالای تخته (ایستاده) یا کنارش (افقی)، نه زیرِ آن. */
+.oc.kid-board .ob.can-draw{display:flex;gap:6px}
+.oc.kid-board .ob.can-draw .ob-stage{position:relative!important;inset:auto!important;flex:1 1 0!important;min-width:0;min-height:0;width:auto!important;height:auto!important;align-self:stretch}
+@media (orientation:portrait){
+  .oc.kid-board .ob.can-draw{flex-direction:column}
+  .oc.kid-board .ob.can-draw .ob-tools{flex-direction:row;flex-wrap:nowrap;max-width:100%;overflow-x:auto;overflow-y:visible;padding:6px;border-radius:16px;order:-1}
+  .oc.kid-board .ob.can-draw .ob-sep{width:1px;height:auto;margin:4px 2px}
+}
+@media (orientation:landscape){
+  .oc.kid-board .ob.can-draw{flex-direction:row}
+  .oc.kid-board .ob.can-draw .ob-tools{flex-direction:column;flex-wrap:wrap;align-content:flex-start;max-height:100%;order:0;overflow:visible}
+}
+/* بزرگ‌نماییِ شخصیِ دانش‌آموز */
+.ob-zoom.mine{background:rgba(76,29,149,.9)}
+/* دکمه‌ی تمام‌صفحه روی ابزارهای تخته نیفتد */
+.oc.kid-board.has-tools .oc-kid-fs{inset-inline-start:auto;inset-inline-end:10px;top:10px}
+@media (orientation:portrait){.oc.kid-board.has-tools .oc-kid-fs{top:76px}}
