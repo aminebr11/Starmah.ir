@@ -58,7 +58,8 @@ class RoomController extends Controller
             'room' => ['id' => $room->id, 'title' => $room->title, 'status' => $room->status, 'media' => $room->live() ? $room->media : OnlineAccess::media(),
                 'teacher' => $room->teacher?->name, 'teacher_id' => (int) $room->teacher_id, 'classroom' => $room->classroom?->name,
                 'starts_at' => $room->starts_at ? Jalali::format($room->starts_at) . ' ساعت ' . Jalali::fa($room->starts_at->format('H:i')) : null,
-                'starts_ms' => $room->starts_at?->getTimestampMs(), 'duration' => $room->duration_min],
+                'starts_ms' => $room->starts_at?->getTimestampMs(), 'duration' => $room->duration_min,
+                'cover' => ManageController::coverUrl($room), 'welcome' => $room->opt('welcome')],
             'me' => ['id' => $user->id, 'name' => $user->name, 'role' => $role],
             'config' => ['ice' => OnlineAccess::iceServers(), 'budget' => OnlineAccess::budgetKbps(), 'recording' => OnlineAccess::recordingAllowed(),
                 'max' => OnlineAccess::maxParticipants($room->school_id), 'livekit' => (bool) OnlineAccess::livekit(),
@@ -67,7 +68,12 @@ class RoomController extends Controller
             'back' => match ($role) {
                 'host' => route('teacher.online'),
                 'student' => route('online.list'),
-                default => $user->hasRole(\App\Support\Roles::SUPER_ADMIN) ? route('admin.online') : route('school.online'),
+                // ناظر (حسابِ معلم) به صفحه‌ی نظارتِ خودش برمی‌گردد؛ قبلاً به صفحه‌ی مدیرِ مدرسه می‌رفت و «اجازه ندارید» می‌دید
+                default => match (true) {
+                    $user->hasRole(\App\Support\Roles::SUPER_ADMIN) => route('admin.online'),
+                    $user->hasRole(\App\Support\Roles::SCHOOL_ADMIN) => route('school.online'),
+                    default => route('teacher.supervise'),
+                },
             },
         ]);
     }
@@ -238,7 +244,7 @@ class RoomController extends Controller
                 break;
             case 'layout':
                 // چیدمانِ صفحه برای همه: تخته+دوربین، فقط تخته/فایل، فقط دوربین، اشتراکِ صفحه
-                $map = ['board_cam' => ['board', 'normal'], 'board' => ['board', 'board'], 'cam' => ['cam', 'normal'], 'screen' => ['screen', 'normal']];
+                $map = ['board_cam' => ['board', 'normal'], 'board' => ['board', 'board'], 'cam' => ['cam', 'normal'], 'gallery' => ['cam', 'gallery'], 'screen' => ['screen', 'normal']];
                 abort_unless(is_string($value) && isset($map[$value]), 422);
                 [$stage, $kid] = $map[$value];
                 $room->setOpts(['stage' => $stage, 'kid_view' => $kid]);
@@ -624,11 +630,18 @@ class RoomController extends Controller
             'first' => isset($rows[$id]) && $rows[$id]->joined_at ? Jalali::fa($rows[$id]->joined_at->format('H:i')) : null,
         ])->sortBy([['present', 'desc'], ['minutes', 'desc']])->values();
 
+        // «💬 سابقه‌ی گفت‌وگو»: همه‌ی پیام‌های کلاس (پیام‌های پنهان‌شده هم با نشانه، فقط برای معلم و مدیر/ناظر)
+        $chat = OnlineMessage::with('user:id,name')->where('room_id', $room->id)->orderBy('id')->limit(3000)->get()
+            ->map(fn ($m) => ['id' => $m->id, 'uid' => (int) $m->user_id, 'name' => $m->user?->name ?? '—', 'kind' => $m->kind,
+                'body' => $m->body, 'hidden' => (bool) $m->hidden, 'teacher' => (int) $m->user_id === (int) $room->teacher_id,
+                'at' => $m->created_at ? Jalali::fa($m->created_at->format('H:i')) : '']);
+
         return response()->json([
             'title' => $room->title, 'status' => $room->status,
+            'date' => $room->started_at ? Jalali::format($room->started_at) : null,
             'length' => $room->started_at ? (int) round(($room->ended_at ?? now())->diffInSeconds($room->started_at, true) / 60) : 0,
             'present' => $list->where('present', true)->count(), 'total' => $list->count(), 'rows' => $list,
-            'messages' => OnlineMessage::where('room_id', $room->id)->count(),
+            'messages' => $chat->where('kind', '!=', 'system')->count(), 'chat' => $chat->values(),
         ]);
     }
 }

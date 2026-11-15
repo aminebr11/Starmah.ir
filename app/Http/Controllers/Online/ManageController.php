@@ -43,6 +43,7 @@ class ManageController extends Controller
             'length' => $r->started_at ? (int) round(($r->ended_at ?? now())->diffInSeconds($r->started_at, true) / 60) : null,
             'online' => $online, 'recording' => (bool) $r->recording_path, 'recording_size' => $r->recording_size,
             'recording_shared' => (bool) $r->recording_shared,
+            'cover' => self::coverUrl($r), 'welcome' => $r->opt('welcome'),
         ];
         if ($withStats) {
             $out['present'] = $r->present_count ?? OnlineParticipant::where('room_id', $r->id)->where('role', 'student')->count();
@@ -123,6 +124,53 @@ class ManageController extends Controller
         }
 
         return back()->with('success', '🎥 کلاسِ «' . $room->title . '» ساخته شد.');
+    }
+
+    /** نشانیِ «تصویرِ خوش‌آمد»ِ کلاس (یا null). */
+    public static function coverUrl(OnlineRoom $r): ?string
+    {
+        $name = $r->opt('cover');
+
+        return $name ? route('online.asset', [$r->id, $name], false) : null;
+    }
+
+    /**
+     * «🖼️ تصویرِ خوش‌آمد»: عکسی که بچه‌ها پیش از شروع (در اتاقِ انتظار و ورودِ کلاس) و در فهرستِ کلاس‌ها می‌بینند،
+     * با یک جمله‌ی کوتاهِ خوش‌آمد. فقط معلمِ همان کلاس.
+     */
+    public function cover(Request $request, OnlineRoom $room): RedirectResponse|\Illuminate\Http\JsonResponse
+    {
+        abort_unless((int) $room->teacher_id === (int) $request->user()->id, 403);
+        $data = $request->validate([
+            'file' => 'nullable|file|max:8192|mimes:jpg,jpeg,png,webp,gif', 'remove' => 'nullable|boolean', 'welcome' => 'nullable|string|max:200',
+        ], [], ['file' => 'تصویر', 'welcome' => 'جمله‌ی خوش‌آمد']);
+        $old = $room->opt('cover');
+        $set = [];
+        if ($request->boolean('remove')) {
+            $set = ['cover' => null, 'welcome' => null];
+        } else {
+            if ($request->hasFile('file')) {
+                $ext = strtolower($request->file('file')->getClientOriginalExtension() ?: 'jpg');
+                $ext = in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true) ? $ext : 'jpg';
+                $name = \Illuminate\Support\Str::random(24) . '.' . $ext;
+                Storage::disk('local')->putFileAs("online/{$room->id}", $request->file('file'), $name);
+                $set['cover'] = $name;
+            }
+            if ($request->has('welcome')) {
+                $set['welcome'] = trim((string) $request->input('welcome')) ?: null;
+            }
+        }
+        if (array_key_exists('cover', $set) && $old && $old !== $set['cover']) {
+            Storage::disk('local')->delete("online/{$room->id}/{$old}");
+        }
+        if ($set) {
+            $room->setOpts($set);
+        }
+        if ($request->expectsJson()) {
+            return response()->json(['cover' => self::coverUrl($room->fresh()), 'welcome' => $room->fresh()->opt('welcome')]);
+        }
+
+        return back()->with('success', $request->boolean('remove') ? 'تصویرِ خوش‌آمد برداشته شد.' : '🖼️ تصویرِ خوش‌آمد ذخیره شد.');
     }
 
     public function update(Request $request, OnlineRoom $room): RedirectResponse

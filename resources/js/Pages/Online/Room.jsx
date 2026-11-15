@@ -9,7 +9,7 @@ import createMesh from '@/online/mesh';
 import ClassRecorder from '@/online/recorder';
 import { importSlides, openPdf, renderPdfPage } from '@/online/slides';
 import BookPanel from '@/online/books';
-import { fa, Vid, DragBox, AudioSink, Clock, Countdown, Chat, People, PollPanel, PollCard, ReportModal, HandCards, CamViewer } from '@/online/parts';
+import { fa, Avatar, Vid, DragBox, AudioSink, Clock, Countdown, Chat, People, PollPanel, PollCard, ReportModal, HandCards, CamViewer, CoverEditor } from '@/online/parts';
 import '@/../css/online.css';
 
 /**
@@ -27,7 +27,8 @@ const OFFICE = /\.(pptx?|ppsx?|odp|docx?|odt|rtf)$/i;
 const LAYOUTS = [
     ['board_cam', '📝🎥', 'تخته + دوربین', 'تخته بزرگ، تصویرِ معلم کوچک و جابه‌جاشدنی'],
     ['board', '📝', 'فقط تخته / فایل', 'بچه‌ها فقط تخته و فایلِ درس را تمام‌صفحه می‌بینند'],
-    ['cam', '🎥', 'فقط دوربین', 'تصویرِ معلم بزرگ وسطِ صفحه'],
+    ['cam', '🎥', 'فقط دوربین', 'تصویرِ معلم (یا دانش‌آموزی که سنجاق کرده‌اید) بزرگ وسطِ صفحه'],
+    ['gallery', '🧑‍🤝‍🧑', 'همه‌ی دوربین‌ها', 'تصویرِ همه کنارِ هم؛ معلم بزرگ‌تر، هر کس حرف بزند کادرش سبز می‌شود'],
     ['screen', '🖥️', 'اشتراکِ صفحه', 'نمایشِ صفحه‌ی رایانه‌ی معلم'],
 ];
 const BACK = /back|rear|environment|پشت/i;
@@ -78,6 +79,11 @@ export default function Room({ room, me, config, back }) {
     const [more, setMore] = useState(false);
     const [reactOpen, setReactOpen] = useState(false);
     const [speaking, setSpeaking] = useState([]);   // شناسه‌ی کسانی که الان حرف می‌زنند
+    // چیدمانِ تصویرها روی همین دستگاه: «شناور» (تصویر در تصویر) یا «نوارِ کنار»
+    const [camView, setCamView] = useState(() => (pref('oc-camview') === 'side' ? 'side' : 'float'));
+    const lastSpoke = useRef({});                   // آخرین باری که هر کس حرف زد (برای ترتیبِ تصویرها)
+    const galRef = useRef(null);
+    const [galBox, setGalBox] = useState({ w: 800, h: 450 });
     const [fs, setFs] = useState(false);           // تمام‌صفحه‌ی تخته (معلم)
     const [liveMs, setLiveMs] = useState({});      // uid → { ms, at }: وضعیتِ میک/دوربینِ تازه از کانالِ داده
     const [layoutOpen, setLayoutOpen] = useState(false);
@@ -93,7 +99,8 @@ export default function Room({ room, me, config, back }) {
     const [skew, setSkew] = useState(0);
     const [endOpen, setEndOpen] = useState(false);
     const [leaveOpen, setLeaveOpen] = useState(false);
-    const [viewer, setViewer] = useState(null);   // معلم: شناسه‌ی کسی که تصویرش تمام‌صفحه باز است
+    const [viewer, setViewer] = useState(null);
+    const [cover, setCover] = useState({ url: room.cover || null, welcome: room.welcome || null, edit: false });   // معلم: شناسه‌ی کسی که تصویرش تمام‌صفحه باز است
     const [wait, setWait] = useState(null);
 
     const tr = useRef(null);          // ابزارِ رسانه (mesh یا livekit)
@@ -103,6 +110,7 @@ export default function Room({ room, me, config, back }) {
     const mineRef = useRef(null);
     const loaded = useRef({ page: -1, version: -1 });
     const saveT = useRef(null);
+    const bgFile = useRef(null);
     // ── رساندنِ مطمئنِ تخته ──
     const lastHb = useRef(0);                 // آخرین «ضربانِ تخته» از معلم (نشانه‌ی سالم بودنِ کانالِ زنده)
     const loadingPg = useRef(null);           // صفحه‌ای که همین حالا از سرور خوانده می‌شود
@@ -160,7 +168,8 @@ export default function Room({ room, me, config, back }) {
         } catch { /* */ }
         toast('گوشی را افقی کن تا بزرگ‌تر ببینی.', 'info');
     };
-    const layout = stage === 'screen' ? 'screen' : stage === 'cam' ? 'cam' : st?.settings?.kid_view === 'board' ? 'board' : 'board_cam';
+    const gallery = stage === 'cam' && st?.settings?.kid_view === 'gallery';
+    const layout = stage === 'screen' ? 'screen' : stage === 'cam' ? (gallery ? 'gallery' : 'cam') : st?.settings?.kid_view === 'board' ? 'board' : 'board_cam';
     /** وضعیتِ رسانه‌ی هر نفر: ready+mic+cam+scr (تازه‌ترین: کانالِ داده؛ وگرنه سرور). */
     const msOf = (uid) => {
         const l = liveMs[uid];
@@ -177,6 +186,69 @@ export default function Room({ room, me, config, back }) {
                 : (hostTiles.cam && media === 'livekit' && camOn(room.teacher_id)) ? hostTiles.cam : null;
     const mainCamLabel = spotId ? `👁️ ${people.find((p) => p.id === spotId)?.name || ''}` : isHost ? 'من' : `👩‍🏫 ${room.teacher}`;
     const speakingNames = people.filter((p) => speaking.includes(p.id)).map((p) => p.name);
+    // ── تصویرها برای «تصویر در تصویر»، نوارِ کنار و «همه‌ی دوربین‌ها» ──
+    // اول معلم (یا کسی که معلم برای همه سنجاق کرده)، بعد کسانی که تازه حرف زده‌اند، بعد بقیه
+    speaking.forEach((u) => { lastSpoke.current[u] = Date.now(); });
+    const nameOf = (uid) => (uid === me.id ? 'من' : people.find((p) => p.id === uid)?.name || (uid === room.teacher_id ? room.teacher : ''));
+    const camTiles = (() => {
+        const out = [];
+        const seen = new Set();
+        const add = (t) => { if (t && !seen.has(t.id)) { seen.add(t.id); out.push(t); } };
+        if (isHost) {
+            if (spotId && media === 'livekit' && tiles[spotId]?.cam && camOn(spotId)) add({ id: spotId, track: tiles[spotId].cam, main: true, pinned: true });
+            add({ id: me.id, track: local.cam || null, mirror: true, main: !spotId, label: 'من' });
+        } else {
+            const mid = spotId && (media === 'livekit' ? tiles[spotId]?.cam && camOn(spotId) : camOn(spotId)) ? spotId : room.teacher_id;
+            add({ id: mid, track: mainCam || null, main: true, pinned: mid === spotId && !!spotId, label: mid === spotId ? undefined : mainCamLabel });
+            if (mid !== room.teacher_id) add({ id: room.teacher_id, track: media === 'livekit' && camOn(room.teacher_id) ? hostTiles.cam || null : null });
+            if (local.cam) add({ id: me.id, track: local.cam, mirror: true, label: 'من' });
+        }
+        const others = (media === 'livekit' || isHost) ? Object.entries(tiles)
+            .map(([uid, t]) => ({ id: Number(uid), track: t.cam }))
+            .filter((c) => c.track && camOn(c.id) && !seen.has(c.id)) : [];
+        others.sort((a, b) => ((lastSpoke.current[b.id] || 0) - (lastSpoke.current[a.id] || 0)) || String(nameOf(a.id)).localeCompare(String(nameOf(b.id)), 'fa'));
+        others.forEach((c) => add({ ...c, pinned: c.id === spotId }));
+        return out.map((t) => ({ ...t, name: t.label || nameOf(t.id), spk: speaking.includes(t.id) }));
+    })();
+    const setCamPref = (v) => { setCamView(v); savePref('oc-camview', v === 'side' ? 'side' : ''); };
+    /** یک کاشیِ تصویر: کادرِ سبز برای کسی که حرف می‌زند، 📌 برای «تصویرِ اصلیِ همه» (فقط معلم). */
+    const camTile = (t, { cls = '', click = true, avatar = 56 } = {}) => (
+        <div key={t.id} className={`oc-tile ${t.main ? 'main' : ''} ${t.spk ? 'spk' : ''} ${t.pinned ? 'pinned' : ''} ${t.track ? '' : 'noc'} ${cls}`}
+            data-cam={isMod ? t.id : undefined} onClick={isMod && click ? () => setViewer(t.id) : undefined}
+            role={isMod && click ? 'button' : undefined} aria-label={isMod && click ? `بزرگ دیدنِ تصویرِ ${t.name}` : undefined}>
+            {t.track ? <Vid track={t.track} mirror={t.mirror} /> : <span className="oc-tile-av"><Avatar id={t.id} name={t.name} size={avatar} /></span>}
+            <span className="oc-tile-l">{t.spk && <i aria-hidden="true">🎙️</i>}{t.name}{t.pinned && <i title="همه این تصویر را بزرگ می‌بینند"> · 📌</i>}</span>
+            {isHost && t.id !== me.id && (
+                <button type="button" className={`oc-pin ${t.pinned ? 'on' : ''}`} onClick={(e) => { e.stopPropagation(); spot(t.pinned ? null : t.id); }}
+                    title={t.pinned ? 'برداشتن از تصویرِ اصلی' : 'تصویرِ اصلیِ همه شود'} aria-label={t.pinned ? 'برداشتن از تصویرِ اصلی' : 'تصویرِ اصلیِ همه شود'}>📌</button>
+            )}
+        </div>
+    );
+    const narrow = typeof window !== 'undefined' && window.innerWidth < 600;
+    const floatTiles = camTiles.filter((t) => t.track && !(stage === 'cam' && t.main)).slice(0, narrow ? 4 : 7);
+    const sideOn = camView === 'side' && !kidFull && !gallery && camTiles.some((t) => t.track);
+    // «همه‌ی دوربین‌ها»: بی‌دوربین‌هایی که الان حرف می‌زنند هم با عکسِ نام دیده شوند
+    const galTiles = [
+        ...camTiles.filter((t) => t.track || t.main),
+        ...speaking.filter((u) => !camTiles.some((t) => t.id === u) && people.some((p) => p.id === u)).map((u) => ({ id: u, track: null, name: nameOf(u), spk: true })),
+    ];
+    /**
+     * «همه‌ی دوربین‌ها»: بزرگ‌ترین اندازه‌ای که همه بدونِ پیمایش جا شوند (نسبتِ ۴:۳).
+     * از ۳ نفر به بالا تصویرِ اول (معلم یا کسی که سنجاق شده) دو برابر است.
+     */
+    const galGrid = (() => {
+        const n = galTiles.length; const gap = 8;
+        const Wc = Math.max(100, galBox.w - 20); const Hc = Math.max(80, galBox.h - 20);
+        const big = n >= 3; const cells = n + (big ? 3 : 0);
+        let best = { c: 1, w: 0 };
+        for (let c = big ? 2 : 1; c <= Math.max(1, cells); c += 1) {
+            const r = Math.ceil(cells / c) + (big && c === 2 ? 0 : 0);
+            const w = Math.min((Wc - gap * (c - 1)) / c, ((Hc - gap * (r - 1)) / r) * (4 / 3));
+            if (w > best.w) best = { c, w };
+        }
+        const w = Math.max(60, Math.floor(best.w)); const h = Math.floor(w * 0.75);
+        return { big, style: { gridTemplateColumns: `repeat(${best.c}, ${w}px)`, gridAutoRows: `${h}px` } };
+    })();
     // همه‌ی دوربین‌های روشن (برای «سینمای دوربین»ِ معلم)
     const camList = [
         ...(local.cam ? [{ id: me.id, name: 'من', track: local.cam, mirror: true }] : []),
@@ -723,7 +795,7 @@ export default function Room({ room, me, config, back }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [local, phase]);
     // «فقط دوربین» با سرورِ رسانه: تصویرِ معلم با بالاترین کیفیت
-    useEffect(() => { if (!isHost) tr.current?.setFocus?.(stage === 'cam'); }, [stage, isHost, tiles]);
+    useEffect(() => { if (!isHost) tr.current?.setFocus?.(stage === 'cam' && !gallery); }, [stage, gallery, isHost, tiles]);
     // هر چند ثانیه یک بار: وضعیتِ خودم برای کسی که تازه وصل شده
     useEffect(() => {
         if (phase !== 'in') return undefined;
@@ -930,6 +1002,23 @@ export default function Room({ room, me, config, back }) {
         send({ t: 'bg', page: loaded.current.page, bg });
         saveBoard(true);
     };
+    /** «🖼️ عکسِ دلخواه» به‌عنوانِ زمینه‌ی همین صفحه (مثلاً تصویرِ خوش‌آمد پیش از شروعِ درس). */
+    const bgImage = async (file) => {
+        if (!file) return;
+        if (!/^image\//.test(file.type)) { toast('یک عکس انتخاب کنید (JPG، PNG یا WEBP).'); return; }
+        setBusy('در حالِ گذاشتنِ عکس روی تخته…');
+        try {
+            const { default: shrink } = await import('@/lib/shrinkImage');
+            const small = await shrink(file, { max: 1800, quality: 0.85, minBytes: 300 * 1024 });
+            const fd = new FormData();
+            fd.append('file', small instanceof File ? small : new File([small], 'bg.jpg', { type: small.type || 'image/jpeg' }));
+            const { data } = await axios.post(R('asset.upload'), fd);
+            setBg(data.url);
+            toast('🖼️ عکس زمینه‌ی این صفحه شد؛ می‌توانید رویش بنویسید.', 'success');
+        } catch (e) {
+            toast(e?.response?.data?.message || 'عکس بارگذاری نشد.');
+        } finally { setBusy(null); }
+    };
     const removePage = async () => {
         if (pageCount <= 1 || !confirm('این صفحه‌ی تخته حذف شود؟')) return;
         const p = loaded.current.page;
@@ -1127,6 +1216,17 @@ export default function Room({ room, me, config, back }) {
         window.location.href = back;
     };
 
+    // اندازه‌ی قابِ «همه‌ی دوربین‌ها»
+    useEffect(() => {
+        const el = galRef.current?.parentElement;
+        if (!el) return undefined;
+        const fit = () => { const r = el.getBoundingClientRect(); setGalBox((b) => (Math.abs(b.w - r.width) > 2 || Math.abs(b.h - r.height) > 2 ? { w: r.width, h: r.height } : b)); };
+        fit();
+        const ro = new ResizeObserver(fit);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, [gallery, phase]);
+
     // تصویرِ بزرگ‌شده با بهترین کیفیت گرفته شود؛ با بستن به حالتِ کم‌مصرف برگردد
     useEffect(() => {
         if (viewer === null || viewer === me.id) return undefined;
@@ -1218,9 +1318,10 @@ export default function Room({ room, me, config, back }) {
         return (
             <div className="oc-lobby" dir="rtl">
                 <Head title={room.title} />
-                <div className="oc-lobby-card">
-                    <Mascot mood={phase === 'waiting' ? 'sleep' : 'wave'} size={120} />
+                <div className={`oc-lobby-card ${cover.url ? 'has-cover' : ''}`}>
+                    {cover.url ? <img className="oc-lobby-cover" src={cover.url} alt="تصویرِ خوش‌آمدِ کلاس" /> : <Mascot mood={phase === 'waiting' ? 'sleep' : 'wave'} size={120} />}
                     <h1>{room.title}</h1>
+                    {cover.welcome && <p className="oc-lobby-wel">💬 {cover.welcome}</p>}
                     <p>👩‍🏫 {room.teacher}{room.classroom ? ` · ${room.classroom}` : ''}</p>
                     {phase === 'waiting' ? (
                         <>
@@ -1241,8 +1342,11 @@ export default function Room({ room, me, config, back }) {
                             </button>
                         </>
                     )}
+                    {isHost && <button type="button" className="oc-back" onClick={() => setCover((c) => ({ ...c, edit: true }))}>🖼️ {cover.url || cover.welcome ? 'تغییرِ تصویرِ خوش‌آمد' : 'گذاشتنِ تصویرِ خوش‌آمد برای بچه‌ها'}</button>}
                     <a href={back} className="oc-back">بازگشت</a>
                 </div>
+                {cover.edit && <CoverEditor url={route('teacher.online.cover', room.id)} cover={cover.url} welcome={cover.welcome}
+                    onClose={() => setCover((c) => ({ ...c, edit: false }))} onDone={(d) => setCover({ url: d.cover, welcome: d.welcome, edit: false })} />}
             </div>
         );
     }
@@ -1257,7 +1361,7 @@ export default function Room({ room, me, config, back }) {
                     <h1>{phase === 'ended' ? 'کلاس تمام شد 🌟' : 'از کلاس بیرون آمدی'}</h1>
                     {phase === 'ended' && !isMod && <p>ممنون که آمدی! {myRow?.stars ? `امروز ${fa(myRow.stars)} ستاره گرفتی. ⭐` : 'تا کلاسِ بعد!'}</p>}
                     {phase === 'ended' && !isMod && <p className="oc-small">امتیازِ حضور بعد از پایانِ کلاس به حسابت اضافه می‌شود.</p>}
-                    {isMod && <button type="button" className="oc-go" onClick={() => setReport(true)}>📋 گزارشِ حضور</button>}
+                    {isMod && <button type="button" className="oc-go" onClick={() => setReport(true)}>📋 گزارشِ حضور و گفت‌وگو</button>}
                     <a href={back} className="oc-back">بازگشت</a>
                 </div>
                 {report && <ReportModal url={R('report')} onClose={() => setReport(false)} />}
@@ -1317,7 +1421,16 @@ export default function Room({ room, me, config, back }) {
 
             <div className="oc-main">
                 <section className="oc-stage-wrap">
-                    <div className={`oc-stage stage-${stage}`}>
+                    <div className={`oc-stage stage-${stage} ${sideOn ? 'with-side' : ''}`}>
+                        {sideOn && (
+                            <aside className="oc-side-cams" aria-label="تصویرها">
+                                <div className="oc-sc-h">
+                                    <b>🎥 {fa(camTiles.filter((t) => t.track).length)}</b>
+                                    <button type="button" onClick={() => setCamPref('float')} title="تصویر در تصویر (شناور)" aria-label="تصویرها شناور شوند">⧉</button>
+                                </div>
+                                <div className="oc-sc-b">{camTiles.filter((t) => t.track && !(stage === 'cam' && t.main)).map((t) => camTile(t))}</div>
+                            </aside>
+                        )}
                         <div className="oc-board" style={{ display: stage !== 'board' ? 'none' : undefined }}>
                             <Board ref={board} canDraw={canDraw} isHost={isHost} me={me.id} onOp={onOp} onStroke={onStroke} onPtr={onPtr} onView={onView} pageKey={page} />
                         </div>
@@ -1327,7 +1440,14 @@ export default function Room({ room, me, config, back }) {
                                     : hostTiles.screen ? <Vid track={hostTiles.screen} fit="contain" /> : <div className="oc-empty">🖥️ معلم صفحه‌اش را نشان می‌دهد…</div>}
                             </div>
                         )}
-                        {stage === 'cam' && (
+                        {gallery && (
+                            <div className="oc-screen oc-camstage oc-galwrap">
+                                <div className="oc-gal" ref={galRef} style={galGrid.style}>
+                                    {galTiles.map((t, i) => camTile(t, { cls: i === 0 && galGrid.big ? 'wide' : '', avatar: galTiles.length > 6 ? 48 : 72 }))}
+                                </div>
+                            </div>
+                        )}
+                        {stage === 'cam' && !gallery && (
                             <div className="oc-screen oc-camstage">
                                 {mainCam
                                     ? <Vid key={mainCam.id} track={mainCam} fit="contain" mirror={isHost && !spotId} className={speaking.includes(room.teacher_id) ? 'spk' : ''} label={mainCamLabel} onEl={isHost ? (el) => { camEl.current = el; } : undefined} />
@@ -1335,13 +1455,15 @@ export default function Room({ room, me, config, back }) {
                             </div>
                         )}
                         {/* دوربین‌ها: جابه‌جاشدنی با کشیدن، کوچک/بزرگ و جمع‌شدنی */}
-                        <DragBox id="pips" className="oc-pips" onTap={isMod ? setViewer : undefined}>
-                            {isHost && local.cam && stage !== 'cam' && <Vid key="me" track={local.cam} mirror className="oc-pip" label="من" cam={isMod ? me.id : undefined} onEl={(el) => { camEl.current = el; }} />}
-                            {!isHost && mainCam && stage !== 'cam' && <Vid key="main" track={mainCam} className={`oc-pip ${speaking.includes(room.teacher_id) ? 'spk' : ''}`} label={mainCamLabel} cam={isMod ? (spotId || room.teacher_id) : undefined} />}
-                            {!isHost && local.cam && <Vid key="me" track={local.cam} mirror className="oc-pip small" label="من" />}
-                            {media === 'livekit' && Object.entries(tiles).filter(([uid, t]) => Number(uid) !== room.teacher_id && Number(uid) !== me.id && Number(uid) !== spotId && t.cam && camOn(Number(uid)))
-                                .slice(0, 6).map(([uid, t]) => <Vid key={uid} track={t.cam} className={`oc-pip small ${speaking.includes(Number(uid)) ? 'spk' : ''}`} label={people.find((p) => p.id === Number(uid))?.name} cam={isMod ? Number(uid) : undefined} />)}
-                        </DragBox>
+                        {!gallery && !sideOn && (
+                            <DragBox id="pips" className="oc-pips" onTap={isMod ? setViewer : undefined}
+                                extra={!kidFull && floatTiles.length > 0 ? <button type="button" onClick={() => setCamPref('side')} title="تصویرها کنارِ صفحه، در یک نوار" aria-label="چسباندنِ تصویرها کنارِ صفحه">⇥</button> : null}>
+                                {floatTiles.map((t, i) => camTile(t, { cls: `oc-pip ${i === 0 && t.main ? '' : 'small'}`, click: false }))}
+                                {camTiles.filter((t) => t.track).length > floatTiles.length + (stage === 'cam' ? 1 : 0) && (
+                                    <button type="button" className="oc-more-cams" onClick={() => setCamPref('side')}>+{fa(camTiles.filter((t) => t.track).length - floatTiles.length - (stage === 'cam' ? 1 : 0))} تصویرِ دیگر</button>
+                                )}
+                            </DragBox>
+                        )}
                         {kidFull && <button type="button" className="oc-kid-fs" onClick={kidGoFull} aria-label="تمام‌صفحه">⛶</button>}
                         {kidMedia && <div className="oc-rotate-hint" aria-hidden="true">🔄 برای تصویرِ بزرگ‌تر گوشی را افقی کن</div>}
                         {st?.settings?.playing && (
@@ -1365,10 +1487,12 @@ export default function Room({ room, me, config, back }) {
                             <span>صفحه‌ی {fa(page + 1)} از {fa(pageCount)}</span>
                             <button type="button" onClick={() => goPage(page + 1)} disabled={page >= pageCount - 1} aria-label="صفحه‌ی بعد">▶</button>
                             <button type="button" onClick={() => addPage('blank')}>➕ صفحه</button>
-                            <select aria-label="زمینه‌ی صفحه" onChange={(e) => { setBg(e.target.value); e.target.value = ''; }} value="">
+                            <select aria-label="زمینه‌ی صفحه" onChange={(e) => { const v = e.target.value; e.target.value = ''; if (v === '__img') bgFile.current?.click(); else setBg(v); }} value="">
                                 <option value="" disabled>🎨 زمینه</option>
                                 {BGS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                                <option value="__img">🖼️ عکسِ دلخواه…</option>
                             </select>
+                            <input ref={bgFile} type="file" accept="image/*" hidden onChange={(e) => { bgImage(e.target.files?.[0]); e.target.value = ''; }} />
                             <label className="oc-file" title="عکس، PDF، پاورپوینت یا ورد؛ بعد با قلم روی آن بنویسید">📂 فایلِ درس<input type="file" accept="image/*,application/pdf,.pdf,.ppt,.pptx,.pps,.ppsx,.odp,.doc,.docx,.odt,.rtf" onChange={(e) => { uploadSlides(e.target.files?.[0]); e.target.value = ''; }} /></label>
                             <button type="button" className="oc-book-btn" onClick={() => setBooksOpen(true)} title="کتاب‌های درسیِ من (روی سرور)">📚 کتاب{book ? `: ${book.title}` : ''}</button>
                             <button type="button" onClick={removePage} disabled={pageCount <= 1} aria-label="حذفِ صفحه">🗑️</button>

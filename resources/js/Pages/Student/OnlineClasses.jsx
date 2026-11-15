@@ -18,7 +18,7 @@ export default function OnlineClasses({ on, rooms, recordings = [] }) {
             {!on && <div className="panel oc-warn">کلاسِ آنلاین برای مدرسه‌ی تو هنوز فعال نشده است.</div>}
             {live.map((r) => (
                 <a key={r.id} href={route('online.room', r.id)} className="oc-live-card">
-                    <span className="oc-live-dot" />
+                    {r.cover ? <img className="oc-live-cover" src={r.cover} alt="" /> : <span className="oc-live-dot" />}
                     <div><b>{r.title}</b><small>👩‍🏫 {r.teacher} · {fa(r.online)} نفر در کلاس</small></div>
                     <span className="oc-live-go">ورود 🚀</span>
                 </a>
@@ -26,7 +26,8 @@ export default function OnlineClasses({ on, rooms, recordings = [] }) {
             {next.length > 0 && (
                 <div className="oc-sec"><h3>🗓️ کلاس‌های بعدی</h3>
                     <div className="oc-cards">{next.map((r) => (
-                        <div key={r.id} className="oc-card"><div className="oc-card-h"><b>{r.title}</b></div>
+                        <div key={r.id} className="oc-card">{r.cover && <img className="oc-card-cover" src={r.cover} alt="" loading="lazy" />}<div className="oc-card-h"><b>{r.title}</b></div>
+                            {r.welcome && <p className="oc-card-wel">💬 {r.welcome}</p>}
                             <div className="oc-card-m"><span>👩‍🏫 {r.teacher}</span>{r.when && <span>🗓️ {r.when}</span>}</div>
                             <div className="oc-card-a"><a className="btn btn-sm btn-ghost" href={route('online.room', r.id)}>اتاقِ انتظار</a></div>
                         </div>

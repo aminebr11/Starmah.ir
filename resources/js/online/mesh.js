@@ -63,13 +63,16 @@ export default function createMesh(opts) {
     /** معلم هر ۲۵۰ میلی‌ثانیه می‌سنجد چه کسی حرف می‌زند؛ فقط وقتی فهرست عوض شود خبر می‌دهد. */
     function startSpeakers() {
         if (spkTimer || !isHost) return;
+        // صدای آخرین ~۰٫۹ ثانیه حساب می‌شود تا کادرِ سبز با مکث‌های کوتاهِ بینِ کلمه‌ها چشمک نزند
+        const loud = new Map();
         spkTimer = setInterval(() => {
-            const now = [];
-            for (const [uid, r] of remotes) if (r.an && level(r.an) > 0.02) now.push(uid);
-            if (micAn && level(micAn) > 0.02) now.push(me);
+            const t = Date.now();
+            for (const [uid, r] of remotes) if (r.an && level(r.an) > 0.02) loud.set(uid, t);
+            if (micAn && level(micAn) > 0.02) loud.set(me, t);
+            const now = [...loud.entries()].filter(([, at]) => t - at < 900).map(([uid]) => uid).sort((a, b) => a - b);
             const key = now.join(',');
             if (key !== lastSpk) { lastSpk = key; onSpeaking?.(now); }
-        }, 250);
+        }, 150);
     }
     function audio() {
         if (!ctx) {
@@ -100,7 +103,7 @@ export default function createMesh(opts) {
         const src = ctx.createMediaStreamSource(stream);
         const gain = ctx.createGain();
         const an = ctx.createAnalyser();      // فقط برای تشخیصِ گوینده؛ به خروجی وصل نیست
-        an.fftSize = 256;
+        an.fftSize = 1024;
         src.connect(gain);
         src.connect(an);
         remotes.set(uid, { src, gain, el, an });
@@ -288,7 +291,7 @@ export default function createMesh(opts) {
                 if (track) {
                     micSrc = ctx.createMediaStreamSource(new MediaStream([track]));
                     micSrc.connect(micGain);
-                    micAn = ctx.createAnalyser(); micAn.fftSize = 256; micSrc.connect(micAn);
+                    micAn = ctx.createAnalyser(); micAn.fftSize = 1024; micSrc.connect(micAn);
                 }
             } else {
                 for (const p of peers.values()) await p.tx?.audio?.sender.replaceTrack(track).catch(() => {});
@@ -344,6 +347,11 @@ export default function createMesh(opts) {
         sendTo(uid, msg) {
             const p = peers.get(uid);
             if (p?.dc?.readyState === 'open') { try { p.dc.send(JSON.stringify(msg)); } catch { /* */ } }
+        },
+
+        /** عیب‌یابی: وضعیتِ صدا و ترازِ هر نفر (فقط برای آزمایش). */
+        audioInfo() {
+            return { ctx: ctx?.state || 'none', remotes: [...remotes.entries()].map(([uid, r]) => ({ uid, level: r.an ? +level(r.an).toFixed(3) : null, track: r.el?.srcObject?.getAudioTracks?.()[0]?.readyState })) };
         },
 
         sendMany(uids, msg) {

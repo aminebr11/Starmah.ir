@@ -47,7 +47,7 @@ export default function Supervise({ school, classes = [], alerts = [], onlineOn 
                             <div className="oc-card-m"><span>👩‍🏫 {r.teacher}</span><span>👥 {r.classroom}</span>{r.length !== null && <span>⏱️ {fa(r.length)} دقیقه</span>}</div>
                             <div className="oc-card-a">
                                 <a className="btn btn-sm" href={route('online.room', r.id)}>🛡️ ورود به‌عنوانِ ناظر</a>
-                                <button type="button" className="btn btn-sm btn-ghost" onClick={() => setReport(r.id)}>📋 حضور</button>
+                                <button type="button" className="btn btn-sm btn-ghost" onClick={() => setReport(r.id)}>📋 حضور و گفت‌وگو</button>
                                 <button type="button" className="btn btn-sm btn-danger" onClick={() => end(r)}>⏹ پایان</button>
                             </div>
                         </div>
@@ -117,7 +117,7 @@ export default function Supervise({ school, classes = [], alerts = [], onlineOn 
                                     <td>{r.title}</td><td>{r.teacher}</td><td>{r.classroom}</td>
                                     <td>{r.started || '—'}{r.length ? ` · ${fa(r.length)} دقیقه` : ''}</td>
                                     <td>{fa(r.present)}</td>
-                                    <td>{r.present > 0 && <button type="button" className="oc-link" onClick={() => setReport(r.id)}>📋 حضور</button>}</td>
+                                    <td><button type="button" className="oc-link" onClick={() => setReport(r.id)}>📋 حضور و گفت‌وگو</button></td>
                                 </tr>
                             ))}</tbody>
                         </table>

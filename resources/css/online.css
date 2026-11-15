@@ -738,3 +738,95 @@ html.oc-kb nav.oc-bar,html.oc-kb .oc-pages,html.oc-kb .oc-announce{display:none}
 /* دکمه‌ی تمام‌صفحه روی ابزارهای تخته نیفتد */
 .oc.kid-board.has-tools .oc-kid-fs{inset-inline-start:auto;inset-inline-end:10px;top:10px}
 @media (orientation:portrait){.oc.kid-board.has-tools .oc-kid-fs{top:76px}}
+
+/* ═══════════ نسخه‌ی ۱۰۳: تصویرها — شناور، نوارِ کنار، همه‌ی دوربین‌ها ═══════════ */
+.oc-tile{position:relative;flex:none;overflow:hidden;border-radius:16px;background:#1b1640;transition:box-shadow .15s}
+.oc-tile>.oc-vid{position:absolute;inset:0;width:100%;height:100%;border-radius:inherit;background:transparent}
+.oc-tile>.oc-vid video{object-fit:cover}
+.oc-tile.oc-pip{display:block}
+.oc-tile.oc-pip:has(>.oc-vid:not(.live)){display:none}
+.oc-tile.spk{box-shadow:0 0 0 4px #22c55e,0 0 22px 2px rgba(34,197,94,.55)}
+.oc-tile.pinned{outline:3px solid #fbbf24;outline-offset:-3px}
+.oc-tile[role=button]{cursor:zoom-in}
+.oc-tile-av{position:absolute;inset:0;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#3b2a83,#1b1640)}
+.oc-tile-l{position:absolute;bottom:6px;inset-inline-start:6px;max-width:calc(100% - 12px);display:flex;align-items:center;gap:3px;background:rgba(0,0,0,.55);color:#fff;
+  font-size:11.5px;font-weight:800;border-radius:99px;padding:2px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.oc-tile-l i{font-style:normal}
+.oc-tile.spk .oc-tile-l{background:#16a34a}
+.oc-pin{position:absolute;top:6px;inset-inline-end:6px;width:34px;height:34px;border:0;border-radius:11px;background:rgba(0,0,0,.45);color:#fff;font-size:15px;cursor:pointer;
+  opacity:.85;transition:opacity .15s,background .15s;-webkit-tap-highlight-color:transparent}
+.oc-pin.on{background:#f59e0b;opacity:1}
+.oc-pin:focus-visible{outline:3px solid #fbbf24;outline-offset:1px}
+@media (hover:hover){.oc-tile .oc-pin:not(.on){opacity:0}.oc-tile:hover .oc-pin,.oc-pin:focus-visible{opacity:1}}
+.oc-pip.oc-tile::after{content:none}
+.oc-more-cams{border:0;border-radius:12px;background:rgba(255,255,255,.92);color:#3b2a83;font:inherit;font-size:12px;font-weight:900;padding:6px 8px;cursor:pointer}
+
+/* نوارِ کنار */
+.oc-stage.with-side{gap:8px;align-items:stretch}
+.oc-stage.with-side>.oc-board,.oc-stage.with-side>.oc-screen{flex:1 1 0;min-width:0;min-height:0;width:auto}
+.oc-side-cams{order:2;flex:none;width:clamp(128px,15vw,210px);display:flex;flex-direction:column;gap:6px;background:#fff;border-radius:18px;padding:6px;
+  box-shadow:0 0 0 1px var(--oc-line),0 4px 0 #e3dbfa;min-height:0}
+.oc-sc-h{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:2px 4px;font-size:12.5px;color:var(--oc-mut)}
+.oc-sc-h button{border:0;border-radius:10px;min-width:34px;height:30px;background:#f1edfb;color:var(--oc-ink);font-size:15px;cursor:pointer}
+.oc-sc-b{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:4px;scrollbar-width:thin}
+.oc-sc-b .oc-tile{width:100%;aspect-ratio:4/3}
+@media (max-width:900px) and (orientation:portrait){
+  .oc-stage.with-side{flex-direction:column}
+  .oc-side-cams{order:-1;width:auto;height:96px;flex-direction:row;padding:4px}
+  .oc-sc-h{flex-direction:column;justify-content:center;padding:0 2px}
+  .oc-sc-b{flex-direction:row;overflow-x:auto;overflow-y:hidden;padding:4px}
+  .oc-sc-b .oc-tile{width:auto;height:100%}
+  .oc-stage.with-side>.oc-board,.oc-stage.with-side>.oc-screen{flex:none;width:100%;height:auto}
+  .oc-stage.with-side .ob{height:auto}
+  .oc-stage.with-side .ob-stage{max-height:none}
+}
+@media (max-width:900px) and (orientation:landscape){.oc-side-cams{width:clamp(96px,18vw,150px)}}
+
+/* همه‌ی دوربین‌ها */
+.oc-galwrap{overflow:hidden}
+.oc-gal{position:absolute;inset:0;display:grid;gap:8px;padding:10px;align-content:center;justify-content:center;grid-auto-flow:row dense;overflow:auto}
+.oc-gal .oc-tile{width:100%;height:100%}
+.oc-gal .oc-tile.wide{grid-column:span 2;grid-row:span 2}
+.oc-gal .oc-tile-l{font-size:13px;padding:3px 10px}
+.oc-gal .oc-tile.main:not(.spk){box-shadow:0 0 0 3px rgba(255,255,255,.85)}
+@media (prefers-reduced-motion:no-preference){.oc-tile.spk{animation:oc-spk-glow 1.1s ease-in-out infinite alternate}}
+@keyframes oc-spk-glow{from{box-shadow:0 0 0 3px #22c55e,0 0 10px 0 rgba(34,197,94,.35)}to{box-shadow:0 0 0 5px #22c55e,0 0 26px 4px rgba(34,197,94,.6)}}
+@media (max-width:900px) and (orientation:portrait){.oc-stage.with-side .oc-spk-chip{top:104px}}
+
+/* ── تصویرِ خوش‌آمد ── */
+.oc-lobby-card.has-cover{padding-top:14px}
+.oc-lobby-cover{display:block;width:100%;max-height:min(42vh,320px);object-fit:contain;background:#f5f1ff;border-radius:22px;margin:0 0 12px;box-shadow:0 10px 30px -14px rgba(40,20,120,.55)}
+.oc-lobby-wel{background:#f5f1ff;color:#4c1d95!important;font-weight:800;border-radius:16px;padding:8px 12px;margin:4px 0 10px!important}
+.oc-lobby-card button.oc-back{display:block;margin:12px auto 0}
+.oc-card-cover{display:block;width:calc(100% + 28px);margin:-14px -14px 10px;height:120px;object-fit:cover;border-radius:18px 18px 0 0}
+.oc-card-wel{margin:2px 0 6px;font-size:13px;color:#4c1d95;font-weight:700}
+.oc-live-cover{flex:none;width:58px;height:58px;border-radius:16px;object-fit:cover;box-shadow:0 0 0 3px #fff}
+.oc-cover-box p{margin:0 0 10px}
+.oc-cover-pick{display:grid;place-items:center;min-height:150px;border:2px dashed #cbbdf7;border-radius:20px;background:#faf8ff;cursor:pointer;overflow:hidden;font-weight:900;color:#6d28d9}
+.oc-cover-pick.has{border-style:solid;min-height:0}
+.oc-cover-pick img{display:block;width:100%;max-height:260px;object-fit:cover}
+.oc-cover-pick input{position:absolute;width:1px;height:1px;opacity:0}
+.oc-cover-t{width:100%;margin:10px 0 4px;border:1.5px solid var(--oc-line);border-radius:14px;padding:10px 12px;font:inherit;font-size:16px;outline:none}
+.oc-cover-t:focus{border-color:var(--oc-pri2)}
+.oc-cover-a{display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:8px}
+.oc-cover-a .oc-go{width:100%}
+
+/* ── گزارش: سابقه‌ی گفت‌وگو ── */
+.oc-rep-tabs{display:flex;gap:6px;margin:4px 0 10px;background:#f5f2fd;border-radius:14px;padding:4px}
+.oc-rep-tabs button{flex:1;border:0;border-radius:11px;background:none;padding:9px 6px;font:inherit;font-size:13.5px;font-weight:800;color:var(--oc-mut);cursor:pointer;min-height:40px}
+.oc-rep-tabs button.on{background:#fff;color:var(--oc-pri);box-shadow:0 2px 0 #e3dbfa}
+.oc-rep-link{border:0;background:#ede5ff;color:var(--oc-pri);font:inherit;font-weight:900;border-radius:9px;padding:3px 9px;cursor:pointer}
+.oc-rep-f{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.oc-rep-f input{flex:1 1 160px;min-width:0;border:1.5px solid var(--oc-line);border-radius:12px;padding:9px 11px;font:inherit;font-size:16px;outline:none}
+.oc-rep-f select{flex:0 1 auto;max-width:100%;border:1.5px solid var(--oc-line);border-radius:12px;padding:8px 10px;font:inherit;font-size:14px;background:#fff}
+.oc-rep-f button{border:0;border-radius:12px;background:#f1edfb;font:inherit;font-weight:800;padding:8px 12px;cursor:pointer;min-height:40px}
+.oc-rep-msgs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.oc-rep-msgs li{background:#faf8ff;border-radius:14px;padding:8px 11px;box-shadow:inset 0 0 0 1px #efe9fc}
+.oc-rep-msgs li.t{background:#f0f9ff;box-shadow:inset 0 0 0 1px #bae6fd}
+.oc-rep-msgs li.hid{opacity:.6}
+.oc-rep-msgs li.oc-empty{background:none;box-shadow:none}
+.oc-rep-mh{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--oc-mut)}
+.oc-rep-mh b{color:var(--oc-ink);font-weight:900}
+.oc-rep-mh time{margin-inline-start:auto;font-variant-numeric:tabular-nums}
+.oc-rep-mh em{font-style:normal;background:#fee2e2;color:#b91c1c;border-radius:8px;padding:1px 6px;font-size:11px;font-weight:800}
+.oc-rep-msgs p{margin:3px 0 0;line-height:1.8;font-size:14.5px;white-space:pre-wrap;word-break:break-word}

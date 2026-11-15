@@ -617,4 +617,58 @@ class OnlineClassTest extends TestCase
         $this->actingAs($student)->postJson(route('online.control', $room), ['action' => 'revoke_all'])->assertForbidden();
         $this->actingAs($student)->postJson(route('online.control', $room), ['action' => 'perm', 'user' => $student->id, 'perm' => 'all', 'value' => true])->assertForbidden();
     }
+
+    /** تصویرِ خوش‌آمد، سابقه‌ی گفت‌وگو در گزارش، چیدمانِ «همه‌ی دوربین‌ها» و بازگشتِ ناظر. */
+    public function test_welcome_image_chat_history_gallery_and_supervisor_back_link(): void
+    {
+        Storage::fake('local');
+        [$school, $teacher, $classroom, $student, $admin, , $room] = $this->live();
+        // تصویرِ خوش‌آمد: فقط معلمِ همان کلاس
+        $this->actingAs($student)->post(route('teacher.online.cover', $room), ['welcome' => 'x'])->assertForbidden();
+        $this->actingAs($teacher)->postJson(route('teacher.online.cover', $room), [
+            'file' => UploadedFile::fake()->image('hello.jpg', 800, 600), 'welcome' => 'سلام بچه‌ها 🌟',
+        ])->assertOk()->assertJsonPath('welcome', 'سلام بچه‌ها 🌟');
+        $name = $room->fresh()->opt('cover');
+        $this->assertMatchesRegularExpression('/^[A-Za-z0-9]{24}\.jpg$/', $name);
+        Storage::disk('local')->assertExists("online/{$room->id}/{$name}");
+        // بچه‌ها: در فهرست و صفحه‌ی کلاس می‌بینند و فایل را می‌گیرند
+        $this->actingAs($student)->get(route('online.list'))->assertInertia(fn ($p) => $p->where('rooms.0.welcome', 'سلام بچه‌ها 🌟')->where('rooms.0.cover', fn ($u) => str_contains($u, $name)));
+        $this->actingAs($student)->get(route('online.room', $room))->assertInertia(fn ($p) => $p->where('room.welcome', 'سلام بچه‌ها 🌟'));
+        $this->actingAs($student)->get(route('online.asset', [$room, $name]))->assertOk();
+        // عوض کردن عکس فایلِ قبلی را پاک می‌کند؛ برداشتن همه را
+        $this->actingAs($teacher)->postJson(route('teacher.online.cover', $room), ['file' => UploadedFile::fake()->image('b.png', 400, 300)])->assertOk();
+        Storage::disk('local')->assertMissing("online/{$room->id}/{$name}");
+        $this->actingAs($teacher)->post(route('teacher.online.cover', $room), ['remove' => 1])->assertRedirect();
+        $this->assertNull($room->fresh()->opt('cover'));
+        $this->assertNull($room->fresh()->opt('welcome'));
+
+        // گفت‌وگو → سابقه در گزارش (پیامِ پنهان‌شده هم با نشانه)
+        $this->actingAs($student)->postJson(route('online.join', $room))->assertOk();
+        $id = $this->actingAs($student)->postJson(route('online.chat', $room), ['body' => 'سلام خانم'])->assertOk()->json('id');
+        $this->actingAs($teacher)->postJson(route('online.chat', $room), ['body' => 'سلام عزیزم'])->assertOk();
+        $this->actingAs($teacher)->deleteJson(route('online.chat.hide', [$room, $id]))->assertOk();
+        $this->actingAs($teacher)->post(route('online.end', $room));
+        $rep = $this->actingAs($teacher)->getJson(route('online.report', $room))->assertOk()->json();
+        $this->assertSame(2, $rep['messages']);
+        $this->assertSame(['سلام خانم', 'سلام عزیزم'], array_column($rep['chat'], 'body'));
+        $this->assertTrue($rep['chat'][0]['hidden']);
+        $this->assertTrue($rep['chat'][1]['teacher']);
+        $this->actingAs($admin)->getJson(route('online.report', $room))->assertOk()->assertJsonCount(2, 'chat');
+        $this->actingAs($student)->getJson(route('online.report', $room))->assertForbidden();
+
+        // ناظر (حسابِ معلم): بازگشت به صفحه‌ی نظارتِ خودش، نه صفحه‌ی مدیر
+        $this->actingAs($teacher)->post(route('teacher.online.store'), ['title' => 'علوم', 'classroom_id' => $classroom->id]);
+        $room2 = OnlineRoom::where('title', 'علوم')->firstOrFail();
+        $this->actingAs($teacher)->postJson(route('online.join', $room2))->assertOk();
+        $this->actingAs($teacher)->postJson(route('online.control', $room2), ['action' => 'layout', 'value' => 'gallery'])->assertOk();
+        $this->assertSame(['cam', 'gallery'], [$room2->fresh()->opt('stage'), $room2->fresh()->opt('kid_view')]);
+        $this->actingAs($admin)->post(route('school.teachers.store'), ['kind' => 'supervisor', 'name' => 'ناظر', 'phone' => '09125550001', 'supervise' => [$classroom->id]])->assertSessionHasNoErrors();
+        $nazem = \App\Models\User::where('phone', '09125550001')->firstOrFail();
+        $nazem->forceFill(['must_change_password' => false])->save();
+        \App\Support\ClassSupervision::forget();
+        $this->actingAs($nazem)->get(route('online.room', $room2))->assertOk()->assertInertia(fn ($p) => $p->where('me.role', 'observer')->where('back', route('teacher.supervise')));
+        $this->actingAs($admin)->get(route('online.room', $room2))->assertInertia(fn ($p) => $p->where('back', route('school.online')));
+        $this->actingAs($nazem)->getJson(route('online.report', $room))->assertOk();
+        $this->actingAs($nazem)->post(route('teacher.online.cover', $room2), ['remove' => 1])->assertForbidden();
+    }
 }

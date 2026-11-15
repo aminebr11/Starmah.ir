@@ -45,7 +45,7 @@ export function Vid({ track, mirror = false, className = '', label, fit = 'cover
  * جعبه‌ی جابه‌جاشدنی برای تصویرها: با انگشت/ماوس بکشید؛ جای آن روی همین دستگاه می‌ماند.
  * جا به نسبتِ قاب ذخیره می‌شود تا با چرخاندنِ گوشی بیرون نزند.
  */
-export function DragBox({ id, className = '', children, onTap }) {
+export function DragBox({ id, className = '', children, onTap, extra = null }) {
     const ref = useRef(null);
     const drag = useRef(null);
     const key = `oc-pos-${id}`;
@@ -91,6 +91,7 @@ export function DragBox({ id, className = '', children, onTap }) {
             onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
             <div className="oc-drag-h">
                 <span className="oc-drag-grip" aria-hidden="true">⠿</span>
+                {!mini && extra}
                 {!mini && <button type="button" onClick={() => toggle('big', !big, setBig)} title={big ? 'کوچک‌تر' : 'بزرگ‌تر'} aria-label={big ? 'کوچک‌تر' : 'بزرگ‌تر'}>{big ? '➖' : '➕'}</button>}
                 <button type="button" onClick={() => toggle('mini', !mini, setMini)} title={mini ? 'نمایشِ تصویرها' : 'جمع کردن'} aria-label={mini ? 'نمایشِ تصویرها' : 'جمع کردن'}>{mini ? `🎥 ${fa(items.length)}` : '▁'}</button>
                 {pos && !mini && <button type="button" onClick={() => { setPos(null); save(key, null); }} title="برگشت به جای اول" aria-label="برگشت به جای اول">↺</button>}
@@ -522,35 +523,135 @@ export function Modal({ label, onClose, boxClass = '', children }) {
     );
 }
 
-/** گزارشِ حضورِ کلاس (برای معلم و مدیر). */
-export function ReportModal({ url, onClose }) {
+/** گزارشِ کلاس (برای معلم، مدیر و ناظر): حضور + سابقه‌ی کاملِ گفت‌وگو. */
+export function ReportModal({ url, onClose, tab: tab0 = 'att' }) {
     const [data, setData] = useState(null);
+    const [tab, setTab] = useState(tab0);
+    const [q, setQ] = useState('');
+    const [who, setWho] = useState('');
     useEffect(() => { axios.get(url).then(({ data: d }) => setData(d)).catch(() => setData({ error: true })); }, [url]);
+    const chat = (data?.chat || []).filter((m) => m.kind !== 'system');
+    const nq = q.trim();
+    const shown = chat.filter((m) => (!who || String(m.uid) === who) && (!nq || m.body.includes(nq) || m.name.includes(nq)));
+    const writers = [...new Map(chat.map((m) => [m.uid, m.name])).entries()];
+    const counts = chat.reduce((o, m) => ({ ...o, [m.uid]: (o[m.uid] || 0) + 1 }), {});
+    const download = () => {
+        const lines = [`گفت‌وگوی کلاس: ${data.title}${data.date ? ` — ${data.date}` : ''}`, ''];
+        chat.forEach((m) => lines.push(`[${m.at}] ${m.name}${m.hidden ? ' (پنهان‌شده)' : ''}: ${m.body}`));
+        const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+        const el = document.createElement('a');
+        el.href = URL.createObjectURL(blob);
+        el.download = `گفت‌وگو-${String(data.title).replace(/[\\/:*?"<>|]+/g, ' ').trim()}.txt`;
+        document.body.appendChild(el); el.click(); el.remove();
+        setTimeout(() => URL.revokeObjectURL(el.href), 4000);
+    };
     return (
-        <Modal label="گزارشِ حضور" onClose={onClose}>
-                <div className="oc-modal-h"><b>📋 گزارشِ حضور</b><button type="button" onClick={onClose} aria-label="بستن">×</button></div>
+        <Modal label="گزارشِ کلاس" onClose={onClose}>
+                <div className="oc-modal-h"><b>📋 گزارشِ کلاس{data?.title ? ` — ${data.title}` : ''}</b><button type="button" onClick={onClose} aria-label="بستن">×</button></div>
                 {!data && <div className="oc-empty">در حالِ بارگذاری…</div>}
                 {data?.error && <div className="oc-empty">گزارش بارگذاری نشد.</div>}
                 {data?.rows && (
                     <>
                         <div className="oc-rep-sum">
+                            {data.date && <span>🗓️ <b>{data.date}</b></span>}
                             <span>🎓 حاضر: <b>{fa(data.present)}</b> از {fa(data.total)}</span>
                             <span>⏱️ مدت: <b>{fa(data.length)}</b> دقیقه</span>
                             <span>💬 پیام: <b>{fa(data.messages)}</b></span>
                         </div>
-                        <table className="oc-rep">
-                            <thead><tr><th>نام</th><th>حضور</th><th>دقیقه</th><th>ورود</th><th>⭐</th><th>امتیاز</th></tr></thead>
-                            <tbody>
-                                {data.rows.map((r) => (
-                                    <tr key={r.id} className={r.present ? '' : 'abs'}>
-                                        <td>{r.name}</td><td>{r.present ? '✅' : '❌ غایب'}</td><td>{fa(r.minutes)}</td>
-                                        <td>{r.first ? `${r.first}${r.joins > 1 ? ` (${fa(r.joins)} بار)` : ''}` : '—'}</td><td>{fa(r.stars)}</td><td>{fa(r.xp)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                        <div className="oc-rep-tabs" role="tablist">
+                            <button type="button" role="tab" aria-selected={tab === 'att'} className={tab === 'att' ? 'on' : ''} onClick={() => setTab('att')}>📋 حضور</button>
+                            <button type="button" role="tab" aria-selected={tab === 'chat'} className={tab === 'chat' ? 'on' : ''} onClick={() => setTab('chat')}>💬 گفت‌وگوها ({fa(chat.length)})</button>
+                        </div>
+                        {tab === 'att' && (
+                            <table className="oc-rep">
+                                <thead><tr><th>نام</th><th>حضور</th><th>دقیقه</th><th>ورود</th><th>⭐</th><th>امتیاز</th><th>💬</th></tr></thead>
+                                <tbody>
+                                    {data.rows.map((r) => (
+                                        <tr key={r.id} className={r.present ? '' : 'abs'}>
+                                            <td>{r.name}</td><td>{r.present ? '✅' : '❌ غایب'}</td><td>{fa(r.minutes)}</td>
+                                            <td>{r.first ? `${r.first}${r.joins > 1 ? ` (${fa(r.joins)} بار)` : ''}` : '—'}</td><td>{fa(r.stars)}</td><td>{fa(r.xp)}</td>
+                                            <td>{counts[r.id] ? <button type="button" className="oc-rep-link" onClick={() => { setWho(String(r.id)); setTab('chat'); }}>{fa(counts[r.id])}</button> : '—'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                        {tab === 'chat' && (
+                            <div className="oc-rep-chat">
+                                {chat.length === 0 ? <div className="oc-empty">در این کلاس پیامی نوشته نشده است.</div> : (
+                                    <>
+                                        <div className="oc-rep-f">
+                                            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔎 جستجو در پیام‌ها…" aria-label="جستجو در پیام‌ها" />
+                                            <select value={who} onChange={(e) => setWho(e.target.value)} aria-label="فقط پیام‌های یک نفر">
+                                                <option value="">همه ({fa(chat.length)})</option>
+                                                {writers.map(([id, name]) => <option key={id} value={String(id)}>{name} ({fa(counts[id])})</option>)}
+                                            </select>
+                                            <button type="button" onClick={download} title="ذخیره‌ی متنِ گفت‌وگو">⬇️ متن</button>
+                                        </div>
+                                        <ol className="oc-rep-msgs">
+                                            {shown.map((m) => (
+                                                <li key={m.id} className={`${m.teacher ? 't' : ''} ${m.hidden ? 'hid' : ''}`}>
+                                                    <span className="oc-rep-mh"><b>{m.teacher ? '👩‍🏫 ' : ''}{m.name}</b><time>{m.at}</time>{m.hidden && <em>پنهان‌شده</em>}</span>
+                                                    <p>{m.body}</p>
+                                                </li>
+                                            ))}
+                                            {shown.length === 0 && <li className="oc-empty">پیامی با این جستجو پیدا نشد.</li>}
+                                        </ol>
+                                    </>
+                                )}
+                            </div>
+                        )}
                     </>
                 )}
+        </Modal>
+    );
+}
+
+/** «🖼️ تصویرِ خوش‌آمد» کلاس: عکس + یک جمله؛ بچه‌ها پیش از شروع و در فهرستِ کلاس‌ها می‌بینند. */
+export function CoverEditor({ url, cover, welcome, onDone, onClose }) {
+    const [file, setFile] = useState(null);
+    const [preview, setPreview] = useState(cover || null);
+    const [text, setText] = useState(welcome || '');
+    const [busy, setBusy] = useState(false);
+    const [err, setErr] = useState(null);
+    const pick = async (f) => {
+        if (!f) return;
+        if (!/^image\//.test(f.type)) { setErr('یک عکس انتخاب کنید (JPG، PNG یا WEBP).'); return; }
+        setErr(null); setBusy(true);
+        try {
+            const { default: shrink } = await import('@/lib/shrinkImage');
+            const small = await shrink(f, { max: 1800, quality: 0.85, minBytes: 400 * 1024 });
+            setFile(small);
+            setPreview(URL.createObjectURL(small));
+        } catch { setErr('این عکس خوانده نشد؛ عکسِ دیگری انتخاب کنید.'); } finally { setBusy(false); }
+    };
+    const save = async (remove = false) => {
+        setBusy(true); setErr(null);
+        try {
+            const fd = new FormData();
+            if (remove) fd.append('remove', '1');
+            else { if (file) fd.append('file', file instanceof File ? file : new File([file], 'cover.jpg', { type: file.type || 'image/jpeg' })); fd.append('welcome', text); }
+            const { data } = await axios.post(url, fd, { headers: { Accept: 'application/json' } });
+            onDone?.(data);
+            onClose();
+        } catch (e) {
+            setErr(e?.response?.data?.message || 'ذخیره نشد؛ دوباره امتحان کنید.');
+        } finally { setBusy(false); }
+    };
+    return (
+        <Modal label="تصویرِ خوش‌آمد" onClose={onClose} boxClass="small oc-cover-box">
+            <div className="oc-modal-h"><b>🖼️ تصویرِ خوش‌آمد</b><button type="button" onClick={onClose} aria-label="بستن">×</button></div>
+            <p>بچه‌ها پیش از شروعِ کلاس (در اتاقِ انتظار) و در فهرستِ کلاس‌ها این تصویر و جمله را می‌بینند.</p>
+            <label className={`oc-cover-pick ${preview ? 'has' : ''}`}>
+                {preview ? <img src={preview} alt="پیش‌نمایشِ تصویرِ خوش‌آمد" /> : <span>📷 انتخابِ عکس</span>}
+                <input type="file" accept="image/*" onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ''; }} />
+            </label>
+            <input className="oc-cover-t" value={text} maxLength={200} onChange={(e) => setText(e.target.value)} placeholder="مثلاً: سلام بچه‌ها! امروز با کسرها بازی می‌کنیم 🍕" aria-label="جمله‌ی خوش‌آمد" />
+            {err && <div className="oc-err">{err}</div>}
+            <div className="oc-cover-a">
+                <button type="button" className="oc-go" disabled={busy || (!file && text === (welcome || ''))} onClick={() => save(false)}>{busy ? 'در حالِ ذخیره…' : '💾 ذخیره'}</button>
+                {(cover || welcome) && <button type="button" className="oc-back" disabled={busy} onClick={() => save(true)}>🗑️ برداشتن</button>}
+            </div>
         </Modal>
     );
 }

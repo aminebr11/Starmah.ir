@@ -42,7 +42,7 @@ export default function OnlineClasses({ ready, on, max, media, teachers, rooms, 
                                     <div className="oc-card-m"><span>👩‍🏫 {r.teacher}</span><span>👥 {r.classroom}</span><span>⏱️ {fa(r.length)} دقیقه</span></div>
                                     <div className="oc-card-a">
                                         <a className="btn btn-sm" href={route('online.room', r.id)}>🛡️ ورود به‌عنوانِ ناظر</a>
-                                        <button type="button" className="btn btn-sm btn-ghost" onClick={() => setReport(r.id)}>📋 حضور</button>
+                                        <button type="button" className="btn btn-sm btn-ghost" onClick={() => setReport(r.id)}>📋 حضور و گفت‌وگو</button>
                                         <button type="button" className="btn btn-sm btn-danger" onClick={() => end(r)}>⏹ پایان</button>
                                     </div>
                                 </div>
@@ -83,7 +83,7 @@ export default function OnlineClasses({ ready, on, max, media, teachers, rooms, 
                                         <td>{r.started || r.when || '—'}{r.length ? ` · ${fa(r.length)} دقیقه` : ''}</td>
                                         <td>{fa(r.present)}</td>
                                         <td>
-                                            {r.present > 0 && <button type="button" className="oc-link" onClick={() => setReport(r.id)}>📋</button>}
+                                            <button type="button" className="oc-link" onClick={() => setReport(r.id)} title="حضور و گفت‌وگو">📋 💬</button>
                                             {r.recording && <a className="oc-link" href={route('online.recording', r.id)} target="_blank" rel="noreferrer">🎬</a>}
                                         </td>
                                     </tr>

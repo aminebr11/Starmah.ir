@@ -29,6 +29,7 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher/online')->name('tea
     Route::post('/', [ManageController::class, 'store'])->name('online.store');
     Route::put('/{room}', [ManageController::class, 'update'])->name('online.update');
     Route::delete('/{room}', [ManageController::class, 'destroy'])->name('online.destroy');
+    Route::post('/{room}/cover', [ManageController::class, 'cover'])->middleware('throttle:30,1')->name('online.cover');
 });
 
 Route::middleware(['auth', 'role:student'])->get('/online', [ManageController::class, 'student'])->name('online.list');

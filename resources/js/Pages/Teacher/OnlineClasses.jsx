@@ -3,13 +3,14 @@ import { useForm, router } from '@inertiajs/react';
 import DashLayout, { teacherMenu } from '@/Layouts/DashLayout';
 import JalaliDatePicker from '@/Components/JalaliDatePicker';
 import Mascot from '@/Components/Mascot';
-import { fa, ReportModal, RecordingsList } from '@/online/parts';
+import { fa, ReportModal, RecordingsList, CoverEditor } from '@/online/parts';
 
 /** «🎥 کلاسِ آنلاین» — ساخت، شروع، گزارشِ حضور و فیلمِ ضبط‌شده (معلم). */
 export default function OnlineClasses({ ready, allowed, schoolOn, media, max, rooms, classrooms, recordings = [], supervisor = false }) {
     const [open, setOpen] = useState(rooms.length === 0);
     const [editing, setEditing] = useState(null);
     const [report, setReport] = useState(null);
+    const [coverFor, setCoverFor] = useState(null);
     const form = useForm({ title: '', classroom_id: classrooms[0]?.id ?? '', starts_at: '', duration_min: 45, recording_shared: true, now: false });
     const d = form.data;
 
@@ -97,6 +98,7 @@ export default function OnlineClasses({ ready, allowed, schoolOn, media, max, ro
                     <div className="oc-cards">
                         {list.map((r) => (
                             <div key={r.id} className={`oc-card ${r.status}`}>
+                                {r.cover && r.status !== 'ended' && <img className="oc-card-cover" src={r.cover} alt="" loading="lazy" />}
                                 <div className="oc-card-h">
                                     <b>{r.title}</b>
                                     <span className={`oc-st ${r.status}`}>{r.status === 'live' ? `🔴 زنده · ${fa(r.online)} نفر` : r.status === 'scheduled' ? 'برنامه‌ریزی‌شده' : 'تمام‌شده'}</span>
@@ -109,7 +111,8 @@ export default function OnlineClasses({ ready, allowed, schoolOn, media, max, ro
                                 <div className="oc-card-a">
                                     {r.status !== 'ended' && allowed && <a className="btn btn-sm" href={route('online.room', r.id)}>{r.status === 'live' ? '🎥 ورود' : '▶️ شروع'}</a>}
                                     {r.status !== 'live' && <button type="button" className="btn btn-sm btn-ghost" onClick={() => edit(r)}>✏️</button>}
-                                    {r.present > 0 && <button type="button" className="btn btn-sm btn-ghost" onClick={() => setReport(r.id)}>📋 حضور</button>}
+                                    {r.status !== 'ended' && <button type="button" className="btn btn-sm btn-ghost" onClick={() => setCoverFor(r)} title="تصویر و جمله‌ی خوش‌آمد برای بچه‌ها">🖼️ خوش‌آمد</button>}
+                                    {r.status !== 'scheduled' && <button type="button" className="btn btn-sm btn-ghost" onClick={() => setReport(r.id)}>📋 حضور و گفت‌وگو</button>}
                                     {r.status !== 'live' && <button type="button" className="btn btn-sm btn-ghost" onClick={() => del(r)}>🗑️</button>}
                                 </div>
                                 {r.recording && (
@@ -126,6 +129,8 @@ export default function OnlineClasses({ ready, allowed, schoolOn, media, max, ro
             ))}
             {ready && rooms.length === 0 && !open && <div className="panel oc-empty-p"><Mascot mood="idle" size={70} /><p>هنوز کلاسی نساخته‌اید.</p></div>}
             {report && <ReportModal url={route('online.report', report)} onClose={() => setReport(null)} />}
+            {coverFor && <CoverEditor url={route('teacher.online.cover', coverFor.id)} cover={coverFor.cover} welcome={coverFor.welcome}
+                onClose={() => setCoverFor(null)} onDone={() => router.reload({ only: ['rooms'], preserveScroll: true })} />}
         </DashLayout>
     );
 }
