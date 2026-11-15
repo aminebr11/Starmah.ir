@@ -1,0 +1,90 @@
+<template>
+  <style>
+    #root{position:absolute;inset:0;direction:rtl}
+
+    .tools{position:absolute;left:30px;right:30px;top:194px;height:100px;background:#fff;border-radius:28px;display:flex;align-items:center;gap:14px;padding:0 22px;box-shadow:0 6px 0 #e3dbfa}
+    .tools span{width:74px;height:74px;border-radius:20px;background:#f5f2fd;display:flex;align-items:center;justify-content:center;font-size:40px}
+    .tools span:first-child{box-shadow:inset 0 0 0 4px #7c3aed;background:#ede5ff}
+    .tools i{width:48px;height:48px;border-radius:50%;display:block}
+    .can{position:absolute;left:0;right:0;top:1230px;text-align:center;font-weight:900;font-size:34px;color:#4c1d95;opacity:0}
+    .bd{position:absolute;left:30px;right:30px;top:320px;height:880px;overflow:hidden}
+    .zw{position:absolute;inset:0;transform-origin:50% 50%}
+    .pgh{position:absolute;left:0;right:0;top:0;height:90px;background:#0ea5e9;color:#fff;font-weight:900;font-size:36px;display:flex;align-items:center;justify-content:center}
+    .pizza{position:absolute;left:210px;top:140px}
+    .q{position:absolute;left:0;right:0;top:470px;text-align:center;font-weight:900;font-size:92px;color:#1f2a44}
+    .q2{position:absolute;left:0;right:0;top:640px;text-align:center;font-weight:800;font-size:38px;color:#334155}
+    .ink{position:absolute;left:-150px;top:-520px;pointer-events:none}
+    .zc{position:absolute;left:50px;top:1214px;background:rgba(30,16,70,.9);color:#fff;border-radius:99px;padding:14px 26px;font-weight:900;font-size:32px;opacity:0}
+    .zc b{background:#fff;color:#4c1d95;border-radius:99px;padding:4px 16px;margin-right:12px}
+
+  </style>
+  <div id="root" data-composition-id="s07" data-width="1080" data-height="1920">
+
+    <div class="head"><div class="chip">۵ · تخته</div><div class="title"><span class="w">با</span> <span class="w">انگشت</span> <em><span class="w">بنویس</span></em></div></div>
+    <div class="scr"><div class="layer a">
+      <div class="topbar"><div class="tt"><b>ریاضی — کسرها</b><small><i class="live"></i>زنده · ۰۰:۱۲</small></div><div class="cnt">👥 ۱۲</div></div>
+      <div class="tools"><span>✏️</span><span>🖍️</span><span>🧽</span><i style="background:#1f2a44"></i><i style="background:#e53935"></i><i style="background:#43a047"></i><i style="background:#1e88e5"></i></div>
+      <div class="can">✏️ می‌توانی بنویسی</div>
+      <div class="bd card"><div class="zw">
+        <div class="pgh">ریاضی چهارم — کسرها</div>
+        <svg class="pizza" viewBox="-60 -60 120 120" width="300" height="300">
+          <circle r="54" fill="#fde68a" stroke="#d97706" stroke-width="4"/>
+          <path d="M0 0 L54 0 A54 54 0 0 1 38.2 38.2 Z" fill="#ef4444"/>
+          <path d="M0 0 L38.2 38.2 A54 54 0 0 1 0 54 Z" fill="#ef4444"/>
+          <path d="M0 0 L0 54 A54 54 0 0 1 -38.2 38.2 Z" fill="#ef4444"/>
+          <g stroke="#b45309" stroke-width="2.5"><line x1="-54" y1="0" x2="54" y2="0"/><line x1="0" y1="-54" x2="0" y2="54"/><line x1="-38.2" y1="-38.2" x2="38.2" y2="38.2"/><line x1="-38.2" y1="38.2" x2="38.2" y2="-38.2"/></g>
+        </svg>
+        <div class="q">۳ + ۴ = ؟</div>
+        <div class="q2">چند تکه‌ی پیتزا قرمز است؟</div>
+      </div></div>
+      <svg class="ink" viewBox="0 0 1080 1920" width="1080" height="1920"><ellipse cx="540" cy="1235" rx="210" ry="95" fill="none" stroke="#e53935" stroke-width="10" stroke-linecap="round" pathLength="1" stroke-dasharray="1 1.2" stroke-dashoffset="1.1"/></svg>
+      <div class="zc">🔍 ۱٫۸× <b>⟲ کامل</b></div>
+    </div></div>
+    <div class="finger" style="left:0;top:0" data-layout-ignore>👆</div>
+
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const D = 8.6;
+
+    const P = (sel) => document.querySelector('[data-composition-id="s07"] ' + sel);
+    const headIn = (at) => {
+      tl.fromTo(P('.chip'), { opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)', duration: .2, ease: 'power4.out' }, at);
+      tl.fromTo(P('.title').querySelectorAll('.w'), { opacity: 0, filter: 'blur(6px)' }, { opacity: 1, filter: 'blur(0px)', duration: .14, stagger: .067, ease: 'power4.out' }, at + .08);
+    };
+    const headOut = () => tl.to([P('.chip'), P('.title')], { opacity: 0, filter: 'blur(8px)', duration: .16, ease: 'power3.in' }, D - .2);
+    const scrIn = (at = 0) => tl.fromTo(P('.scr .layer.a'), { opacity: 0, filter: 'blur(10px)' }, { opacity: 1, filter: 'blur(0px)', duration: .22, ease: 'power4.out' }, at);
+    const scrOut = () => tl.to(P('.scr'), { opacity: 0, filter: 'blur(10px)', duration: .16, ease: 'power3.in' }, D - .18);
+    // انگشت: از پایین می‌آید، روی نقطه‌ی (x,y) می‌زند
+    const fingerTo = (el, x, y, at, dur = .45) => tl.to(el, { x: x - 62, y: y - 8, duration: dur, ease: 'power3.out' }, at);
+    const tap = (el, at) => { tl.to(el, { scale: .86, duration: .07, ease: 'power2.in' }, at); tl.to(el, { scale: 1, duration: .16, ease: 'back.out(2)' }, at + .07); };
+    const press = (el, at) => { tl.to(el, { scale: .93, duration: .07, ease: 'power2.in' }, at); tl.to(el, { scale: 1, duration: .2, ease: 'back.out(2.2)' }, at + .07); };
+    const fingerAway = (el, at) => tl.to(el, { x: 1100, y: 2100, duration: .4, ease: 'power3.in' }, at);
+    const pop = (el, at, from = .6) => tl.fromTo(el, { opacity: 0, scale: from }, { opacity: 1, scale: 1, duration: .38, ease: 'back.out(1.8)' }, at);
+    tl.set(P('.finger'), { x: 1100, y: 2100 }, 0);
+
+    headIn(.05); scrIn(0);
+    tl.fromTo(P('.can'), { opacity: 0, y: -16 }, { opacity: 1, y: 0, duration: .3, ease: 'expo.out' }, .5);
+    fingerTo(P('.finger'), 750, 1235, 2.0);
+    tl.to(P('.finger'), { x: 625, y: 1294, duration: 0.169, ease: 'none' }, 2.500);
+    tl.to(P('.finger'), { x: 478, y: 1322, duration: 0.169, ease: 'none' }, 2.669);
+    tl.to(P('.finger'), { x: 331, y: 1294, duration: 0.169, ease: 'none' }, 2.837);
+    tl.to(P('.finger'), { x: 268, y: 1227, duration: 0.169, ease: 'none' }, 3.006);
+    tl.to(P('.finger'), { x: 331, y: 1160, duration: 0.169, ease: 'none' }, 3.175);
+    tl.to(P('.finger'), { x: 478, y: 1132, duration: 0.169, ease: 'none' }, 3.344);
+    tl.to(P('.finger'), { x: 625, y: 1160, duration: 0.169, ease: 'none' }, 3.513);
+    tl.to(P('.finger'), { x: 688, y: 1227, duration: 0.169, ease: 'none' }, 3.681);
+    tl.fromTo(P('.ink ellipse'), { strokeDashoffset: 1.1 }, { strokeDashoffset: 0, duration: 1.35, ease: 'none' }, 2.5);
+    // دو بار زدن → بزرگ‌نمایی
+    fingerTo(P('.finger'), 470, 1080, 6.199999999999999);
+    tap(P('.finger'), 6.699999999999999); tap(P('.finger'), 6.9399999999999995);
+    tl.to(P('.ink'), { opacity: 0, duration: .2 }, 6.999999999999999);
+    tl.to(P('.zw'), { scale: 1.8, x: 0, y: 0, duration: .55, ease: 'expo.out' }, 7.079999999999999);
+    tl.to(P('.can'), { opacity: 0, duration: .15 }, 6.999999999999999);
+    pop(P('.zc'), 7.199999999999999);
+    fingerAway(P('.finger'), 7.249999999999999);
+    headOut(); scrOut();
+
+    window.__timelines["s07"] = tl;
+  </script>
+</template>

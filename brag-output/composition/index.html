@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <script src="assets/vendor/gsap.min.js"></script>
+    <style>
+@font-face{font-family:'Vazirmatn';src:url('assets/fonts/Vazirmatn-Medium.woff2') format('woff2');font-weight:500}
+@font-face{font-family:'Vazirmatn';src:url('assets/fonts/Vazirmatn-Bold.woff2') format('woff2');font-weight:700}
+@font-face{font-family:'Vazirmatn';src:url('assets/fonts/Vazirmatn-ExtraBold.woff2') format('woff2');font-weight:800}
+@font-face{font-family:'Vazirmatn';src:url('assets/fonts/Vazirmatn-Black.woff2') format('woff2');font-weight:900}
+:root{--ink:#231a45;--mut:#6b6290;--pri:#7c3aed;--bg:#f4f1ff;--yel:#ffd84d;--grn:#16a34a;--grn2:#22c55e;--red:#dc2626;--line:#ece6fb}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{margin:0;width:1080px;height:1920px;overflow:hidden;background:#170b3d}
+body,#root{font-family:'Vazirmatn',sans-serif;color:var(--ink)}
+.ground{position:absolute;inset:0;background:radial-gradient(130% 75% at 50% 0%,#5b2bb8 0%,#331778 42%,#170b3d 100%)}
+.stars{position:absolute;left:0;top:-200px;width:1080px;height:2400px;opacity:.75;
+  background-image:radial-gradient(circle at 20px 30px,#fff 2.2px,transparent 3px),radial-gradient(circle at 140px 110px,#ffe9a8 1.6px,transparent 2.4px),
+  radial-gradient(circle at 70px 170px,#fff 1.2px,transparent 2px);background-size:180px 200px,260px 230px,150px 190px}
+/* سرتیتر */
+.head{position:absolute;right:64px;top:150px;width:720px;direction:rtl;text-align:right;color:#fff}
+.chip{display:inline-flex;align-items:center;gap:12px;background:rgba(255,255,255,.16);border-radius:99px;padding:8px 26px 10px;font-weight:800;font-size:36px;color:#fff}
+.title{font-weight:900;font-size:76px;line-height:1.22;margin-top:16px;letter-spacing:-.5px}
+.title em,.big em{font-style:normal;color:var(--yel)}
+.w{display:inline-block}
+/* صفحه‌ی گوشی */
+.scr{position:absolute;left:150px;top:520px;width:780px;height:1300px;border-radius:58px;overflow:hidden;background:var(--bg);direction:rtl}
+.layer{position:absolute;inset:0}
+.topbar{position:absolute;left:0;right:0;top:0;height:170px;background:linear-gradient(120deg,#2e1a7a,#6d28d9);color:#fff;padding:62px 34px 0;display:flex;align-items:flex-start;gap:16px}
+.topbar .tt{flex:1}
+.topbar b{display:block;font-weight:900;font-size:36px;line-height:1.2}
+.topbar small{display:block;font-weight:700;font-size:28px;color:#e4dcff;margin-top:2px}
+.topbar .live{display:inline-block;width:14px;height:14px;border-radius:50%;background:#ff4d6d;margin-left:8px;vertical-align:middle}
+.topbar .cnt{background:rgba(255,255,255,.18);border-radius:22px;padding:8px 18px;font-weight:800;font-size:28px}
+.bar{position:absolute;left:0;right:0;bottom:0;height:190px;background:#fff;display:flex;justify-content:center;gap:14px;padding-top:24px;box-shadow:0 -2px 0 var(--line)}
+.cb{width:146px;height:136px;border-radius:32px;background:#f1edfb;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-weight:800;font-size:28px;color:var(--ink)}
+.cb span{font-size:54px;line-height:1}
+.cb.on{background:#dcfce7}
+.cbring{position:absolute;inset:0;border-radius:32px;box-shadow:inset 0 0 0 5px var(--grn2);opacity:0}
+.cb{position:relative}
+.card{background:#fff;border-radius:40px;box-shadow:0 0 0 2px var(--line),0 10px 0 #e3dbfa}
+.btn{display:flex;align-items:center;justify-content:center;border-radius:36px;color:#fff;font-weight:900;font-size:40px;height:112px;background:linear-gradient(135deg,#a78bfa,#7c3aed);box-shadow:0 10px 0 #5b21b6}
+.toast{position:absolute;left:40px;right:40px;top:196px;border-radius:30px;padding:22px 28px;font-weight:900;font-size:32px;text-align:center}
+.toast.ok{background:#dcfce7;color:#14532d;box-shadow:0 0 0 3px #86efac}
+.toast.bad{background:#fee2e2;color:#7f1d1d;box-shadow:0 0 0 3px #fca5a5}
+.finger{position:absolute;font-size:150px;line-height:1;z-index:40;filter:drop-shadow(0 14px 14px rgba(20,10,60,.45))}
+.tile{position:absolute;border-radius:30px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:120px}
+.tile .nm{position:absolute;bottom:14px;right:16px;background:rgba(0,0,0,.5);color:#fff;font-weight:800;font-size:28px;border-radius:99px;padding:4px 16px}
+.tile .ring{position:absolute;inset:0;border-radius:30px;box-shadow:inset 0 0 0 8px var(--grn2),0 0 0 0 rgba(34,197,94,.0);opacity:0}
+.big{font-weight:900;color:#fff;text-align:center;direction:rtl}
+</style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="91.9" data-width="1080" data-height="1920">
+      <div class="ground"><div class="stars" id="stars"></div></div>
+      <div id="phone" data-composition-id="phone" data-composition-src="compositions/phone.html" data-start="9.7" data-duration="73.8" data-track-index="2" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:2"></div>
+      <div id="s01" data-composition-id="s01" data-composition-src="compositions/s01.html" data-start="0.0" data-duration="9.7" data-track-index="3" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:3"></div>
+      <div id="s02" data-composition-id="s02" data-composition-src="compositions/s02.html" data-start="9.7" data-duration="8.3" data-track-index="3" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:3"></div>
+      <div id="s03" data-composition-id="s03" data-composition-src="compositions/s03.html" data-start="18.0" data-duration="7.7" data-track-index="3" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:3"></div>
+      <div id="s04" data-composition-id="s04" data-composition-src="compositions/s04.html" data-start="25.7" data-duration="6.2" data-track-index="3" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:3"></div>
+      <div id="s05" data-composition-id="s05" data-composition-src="compositions/s05.html" data-start="31.9" data-duration="7.1" data-track-index="3" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:3"></div>
+      <div id="s06" data-composition-id="s06" data-composition-src="compositions/s06.html" data-start="39.0" data-duration="8.0" data-track-index="3" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:3"></div>
+      <div id="s07" data-composition-id="s07" data-composition-src="compositions/s07.html" data-start="47.0" data-duration="8.6" data-track-index="3" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:3"></div>
+      <div id="s08" data-composition-id="s08" data-composition-src="compositions/s08.html" data-start="55.6" data-duration="6.3" data-track-index="3" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:3"></div>
+      <div id="s09" data-composition-id="s09" data-composition-src="compositions/s09.html" data-start="61.9" data-duration="6.5" data-track-index="3" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:3"></div>
+      <div id="s10" data-composition-id="s10" data-composition-src="compositions/s10.html" data-start="68.4" data-duration="6.7" data-track-index="3" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:3"></div>
+      <div id="s11" data-composition-id="s11" data-composition-src="compositions/s11.html" data-start="75.1" data-duration="7.9" data-track-index="3" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:3"></div>
+      <div id="s12" data-composition-id="s12" data-composition-src="compositions/s12.html" data-start="83.0" data-duration="8.9" data-track-index="3" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:3"></div>
+      <div id="notch" data-composition-id="notch" data-composition-src="compositions/notch.html" data-start="9.7" data-duration="73.8" data-track-index="4" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:4"></div>
+      <div id="mahoo" data-composition-id="mahoo" data-composition-src="compositions/mahoo.html" data-start="0" data-duration="91.9" data-track-index="5" data-track-kind="graphics" data-width="1080" data-height="1920" style="z-index:5"></div>
+      <audio id="vo-s01" data-start="0.3" data-duration="8.59" data-track-index="20" data-volume="1" src="assets/voice/s01.wav"></audio>
+      <audio id="vo-s02" data-start="10.05" data-duration="6.72" data-track-index="20" data-volume="1" src="assets/voice/s02.wav"></audio>
+      <audio id="vo-s03" data-start="18.35" data-duration="6.59" data-track-index="20" data-volume="1" src="assets/voice/s03.wav"></audio>
+      <audio id="vo-s04" data-start="26.05" data-duration="5.03" data-track-index="20" data-volume="1" src="assets/voice/s04.wav"></audio>
+      <audio id="vo-s05" data-start="32.25" data-duration="5.99" data-track-index="20" data-volume="1" src="assets/voice/s05.wav"></audio>
+      <audio id="vo-s06" data-start="39.35" data-duration="6.89" data-track-index="20" data-volume="1" src="assets/voice/s06.wav"></audio>
+      <audio id="vo-s07" data-start="47.35" data-duration="7.46" data-track-index="20" data-volume="1" src="assets/voice/s07.wav"></audio>
+      <audio id="vo-s08" data-start="55.95" data-duration="5.13" data-track-index="20" data-volume="1" src="assets/voice/s08.wav"></audio>
+      <audio id="vo-s09" data-start="62.25" data-duration="5.33" data-track-index="20" data-volume="1" src="assets/voice/s09.wav"></audio>
+      <audio id="vo-s10" data-start="68.75" data-duration="5.54" data-track-index="20" data-volume="1" src="assets/voice/s10.wav"></audio>
+      <audio id="vo-s11" data-start="75.45" data-duration="6.17" data-track-index="20" data-volume="1" src="assets/voice/s11.wav"></audio>
+      <audio id="vo-s12" data-start="83.35" data-duration="6.35" data-track-index="20" data-volume="1" src="assets/voice/s12.wav"></audio>
+      <audio id="music-a" data-start="0" data-duration="90.1" data-track-index="21" data-volume="0.12" data-fade-in="0.8" data-fade-out="0.6" src="assets/music/bed.mp3"></audio>
+      <audio id="music-b" data-start="89.5" data-duration="2.4" data-media-start="89.5" data-track-index="22" data-volume="0.3" data-fade-in="0.6" data-fade-out="1.4" src="assets/music/bed.mp3"></audio>
+      <audio id="fx-00" data-start="7.85" data-duration="0.609" data-track-index="30" data-volume="0.7" src="assets/sfx/switch_007.ogg"></audio>
+      <audio id="fx-01" data-start="8.15" data-duration="0.178" data-track-index="31" data-volume="0.7" src="assets/sfx/impactSoft_medium_001.ogg"></audio>
+      <audio id="fx-02" data-start="9.7" data-duration="0.596" data-track-index="32" data-volume="0.5" src="assets/sfx/card-slide-1.ogg"></audio>
+      <audio id="fx-03" data-start="12.05" data-duration="0.495" data-track-index="30" data-volume="0.45" src="assets/sfx/error_005.ogg"></audio>
+      <audio id="fx-04" data-start="15.8" data-duration="0.609" data-track-index="31" data-volume="0.6" src="assets/sfx/switch_007.ogg"></audio>
+      <audio id="fx-05" data-start="16.05" data-duration="0.186" data-track-index="32" data-volume="0.5" src="assets/sfx/drop_002.ogg"></audio>
+      <audio id="fx-06" data-start="20.6" data-duration="0.051" data-track-index="30" data-volume="0.65" src="assets/sfx/click2.ogg"></audio>
+      <audio id="fx-07" data-start="21.1" data-duration="0.596" data-track-index="31" data-volume="0.45" src="assets/sfx/card-slide-1.ogg"></audio>
+      <audio id="fx-08" data-start="24.2" data-duration="0.005" data-track-index="32" data-volume="0.7" src="assets/sfx/click_003.ogg"></audio>
+      <audio id="fx-09" data-start="27.9" data-duration="0.051" data-track-index="30" data-volume="0.65" src="assets/sfx/click2.ogg"></audio>
+      <audio id="fx-10" data-start="28.15" data-duration="0.142" data-track-index="31" data-volume="0.55" src="assets/sfx/impactSoft_medium_004.ogg"></audio>
+      <audio id="fx-11" data-start="28.75" data-duration="0.205" data-track-index="32" data-volume="0.45" src="assets/sfx/impactGlass_light_001.ogg"></audio>
+      <audio id="fx-12" data-start="33.85" data-duration="0.051" data-track-index="30" data-volume="0.65" src="assets/sfx/click2.ogg"></audio>
+      <audio id="fx-13" data-start="35.45" data-duration="0.105" data-track-index="31" data-volume="0.5" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="fx-14" data-start="36.8" data-duration="0.005" data-track-index="32" data-volume="0.7" src="assets/sfx/click_003.ogg"></audio>
+      <audio id="fx-15" data-start="41.25" data-duration="0.186" data-track-index="30" data-volume="0.45" src="assets/sfx/drop_002.ogg"></audio>
+      <audio id="fx-16" data-start="45.0" data-duration="0.051" data-track-index="31" data-volume="0.65" src="assets/sfx/click2.ogg"></audio>
+      <audio id="fx-17" data-start="45.2" data-duration="0.105" data-track-index="32" data-volume="0.5" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="fx-18" data-start="53.7" data-duration="0.051" data-track-index="30" data-volume="0.6" src="assets/sfx/click2.ogg"></audio>
+      <audio id="fx-19" data-start="53.94" data-duration="0.005" data-track-index="31" data-volume="0.6" src="assets/sfx/click_003.ogg"></audio>
+      <audio id="fx-20" data-start="56.05" data-duration="0.186" data-track-index="32" data-volume="0.5" src="assets/sfx/drop_002.ogg"></audio>
+      <audio id="fx-21" data-start="57.8" data-duration="0.051" data-track-index="30" data-volume="0.65" src="assets/sfx/click2.ogg"></audio>
+      <audio id="fx-22" data-start="58.75" data-duration="0.205" data-track-index="31" data-volume="0.55" src="assets/sfx/impactGlass_light_001.ogg"></audio>
+      <audio id="fx-23" data-start="62.35" data-duration="0.596" data-track-index="32" data-volume="0.4" src="assets/sfx/card-slide-1.ogg"></audio>
+      <audio id="fx-24" data-start="64.87" data-duration="0.005" data-track-index="30" data-volume="0.6" src="assets/sfx/click_003.ogg"></audio>
+      <audio id="fx-25" data-start="70.3" data-duration="0.596" data-track-index="31" data-volume="0.45" src="assets/sfx/card-slide-1.ogg"></audio>
+      <audio id="fx-26" data-start="73.0" data-duration="0.051" data-track-index="32" data-volume="0.65" src="assets/sfx/click2.ogg"></audio>
+      <audio id="fx-27" data-start="78.0" data-duration="0.609" data-track-index="30" data-volume="0.55" src="assets/sfx/switch_007.ogg"></audio>
+      <audio id="fx-28" data-start="80.4" data-duration="0.051" data-track-index="31" data-volume="0.65" src="assets/sfx/click2.ogg"></audio>
+      <audio id="fx-29" data-start="81.15" data-duration="0.105" data-track-index="32" data-volume="0.45" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="fx-30" data-start="81.6" data-duration="0.205" data-track-index="30" data-volume="0.45" src="assets/sfx/impactGlass_light_001.ogg"></audio>
+      <audio id="fx-31" data-start="83.05" data-duration="0.596" data-track-index="31" data-volume="0.45" src="assets/sfx/card-slide-1.ogg"></audio>
+      <audio id="fx-32" data-start="83.35" data-duration="0.105" data-track-index="32" data-volume="0.5" src="assets/sfx/drop_001.ogg"></audio>
+      <audio id="fx-33" data-start="84.5" data-duration="0.186" data-track-index="30" data-volume="0.5" src="assets/sfx/drop_002.ogg"></audio>
+      <audio id="fx-34" data-start="86.8" data-duration="0.142" data-track-index="31" data-volume="0.6" src="assets/sfx/impactSoft_medium_004.ogg"></audio>
+      <audio id="fx-35" data-start="88.1" data-duration="1.475" data-track-index="32" data-volume="0.55" src="assets/sfx/impactBell_heavy_000.ogg"></audio>
+    </div>
+    <script>
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo('#stars', { y: 0 }, { y: -160, duration: 91.9, ease: 'none' }, 0);
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

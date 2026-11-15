@@ -1,0 +1,17 @@
+<template>
+  <style>
+    #root{position:absolute;inset:0}
+    .body{position:absolute;left:130px;top:500px;width:820px;height:1340px;border-radius:78px;background:#120b2b;box-shadow:0 0 0 4px #3a2a7a,0 40px 80px rgba(0,0,0,.55)}
+    .screen{position:absolute;left:20px;top:20px;width:780px;height:1300px;border-radius:58px;background:#f4f1ff}
+    .notch{position:absolute;left:310px;top:40px;width:200px;height:52px;border-radius:99px;background:#120b2b}
+  </style>
+  <div id="root" data-composition-id="phone" data-width="1080" data-height="1920">
+    <div class="body" id="phone-body"><div class="screen"></div></div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo('#phone-body', { y: 1400 }, { y: 0, duration: .6, ease: 'expo.out' }, 0);
+    tl.to('#phone-body', { y: 1500, duration: .45, ease: 'power3.in' }, 73.3);
+    window.__timelines["phone"] = tl;
+  </script>
+</template>

@@ -1,0 +1,80 @@
+<template>
+  <style>
+    #root{position:absolute;inset:0;direction:rtl}
+
+    .lobby{background:radial-gradient(120% 80% at 50% 0%,#5b2bb8,#22105a)}
+    .lc{position:absolute;left:36px;right:36px;top:110px;padding:40px 40px 50px;text-align:center}
+    .moon{font-size:110px;line-height:1.1}
+    .lc b{display:block;font-weight:900;font-size:50px;margin-top:6px}
+    .lc small{display:block;font-weight:700;font-size:28px;color:var(--mut);margin:8px 0 22px}
+    .tip{background:#f5f2fd;border-radius:24px;padding:18px 22px;font-weight:700;font-size:28px;text-align:right;margin-bottom:14px;line-height:1.6}
+    .enter{margin-top:24px}
+    .zoom{position:absolute;left:290px;top:1080px;width:200px;height:200px;border-radius:50%;background:#6d28d9;opacity:0}
+    .layer.c{opacity:0}
+    .board{position:absolute;left:30px;right:30px;top:200px;height:820px;padding:120px 40px 0}
+    .ln{height:2px;background:#bcd3f5;margin-bottom:120px}
+    .wel{top:470px;opacity:0}
+
+  </style>
+  <div id="root" data-composition-id="s04" data-width="1080" data-height="1920">
+
+    <div class="head"><div class="chip">۲ · هدفون</div><div class="title"><span class="w">🎧</span> <span class="w">هدفون،</span> <span class="w">بعد</span> <em><span class="w">ورود!</span></em></div></div>
+    <div class="scr">
+      <div class="layer a lobby">
+        <div class="lc card">
+          <div class="moon">🌙</div>
+          <b>ریاضی — کسرها</b><small>👩‍🏫 خانم احمدی · چهارم الف</small>
+          <div class="tip t-head">🎧 هدفون بگذار تا صدا بهتر باشد.</div>
+          <div class="tip">✋ برای صحبت دست بالا کن؛ معلم میکروفون را باز می‌کند.</div>
+          <div class="tip">⭐ پاسخِ درست به سؤال‌ها و ستاره‌ی معلم امتیاز دارد!</div>
+          <div class="btn enter">🚀 ورود به کلاس</div>
+        </div>
+      </div>
+      <div class="zoom"></div>
+      <div class="layer c">
+        <div class="topbar"><div class="tt"><b>ریاضی — کسرها</b><small><i class="live"></i>زنده · ۰۰:۱۲</small></div><div class="cnt">👥 ۱۲</div></div>
+        <div class="board card"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+        <div class="toast ok wel">🌟 آفرین! تو در کلاس هستی</div>
+        <div class="bar"><div class="cb"><span>✋</span>دست بالا</div><div class="cb"><span>😀</span>واکنش</div><div class="cb"><span>🔊</span>صدا</div><div class="cb"><span>💬</span>گفت‌وگو</div></div>
+      </div>
+    </div>
+    <div class="finger" style="left:0;top:0" data-layout-ignore>👆</div>
+
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const D = 6.2;
+
+    const P = (sel) => document.querySelector('[data-composition-id="s04"] ' + sel);
+    const headIn = (at) => {
+      tl.fromTo(P('.chip'), { opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)', duration: .2, ease: 'power4.out' }, at);
+      tl.fromTo(P('.title').querySelectorAll('.w'), { opacity: 0, filter: 'blur(6px)' }, { opacity: 1, filter: 'blur(0px)', duration: .14, stagger: .067, ease: 'power4.out' }, at + .08);
+    };
+    const headOut = () => tl.to([P('.chip'), P('.title')], { opacity: 0, filter: 'blur(8px)', duration: .16, ease: 'power3.in' }, D - .2);
+    const scrIn = (at = 0) => tl.fromTo(P('.scr .layer.a'), { opacity: 0, filter: 'blur(10px)' }, { opacity: 1, filter: 'blur(0px)', duration: .22, ease: 'power4.out' }, at);
+    const scrOut = () => tl.to(P('.scr'), { opacity: 0, filter: 'blur(10px)', duration: .16, ease: 'power3.in' }, D - .18);
+    // انگشت: از پایین می‌آید، روی نقطه‌ی (x,y) می‌زند
+    const fingerTo = (el, x, y, at, dur = .45) => tl.to(el, { x: x - 62, y: y - 8, duration: dur, ease: 'power3.out' }, at);
+    const tap = (el, at) => { tl.to(el, { scale: .86, duration: .07, ease: 'power2.in' }, at); tl.to(el, { scale: 1, duration: .16, ease: 'back.out(2)' }, at + .07); };
+    const press = (el, at) => { tl.to(el, { scale: .93, duration: .07, ease: 'power2.in' }, at); tl.to(el, { scale: 1, duration: .2, ease: 'back.out(2.2)' }, at + .07); };
+    const fingerAway = (el, at) => tl.to(el, { x: 1100, y: 2100, duration: .4, ease: 'power3.in' }, at);
+    const pop = (el, at, from = .6) => tl.fromTo(el, { opacity: 0, scale: from }, { opacity: 1, scale: 1, duration: .38, ease: 'back.out(1.8)' }, at);
+    tl.set(P('.finger'), { x: 1100, y: 2100 }, 0);
+
+    headIn(.05); scrIn(0);
+    tl.fromTo(P('.t-head'), { backgroundColor: '#f5f2fd' }, { backgroundColor: '#fff3c4', duration: .3 }, .6);
+    tl.fromTo(P('.t-head'), { scale: 1 }, { scale: 1.04, duration: .18, yoyo: true, repeat: 1, ease: 'sine.inOut' }, .6);
+    fingerTo(P('.finger'), 540, 1530, 1.6500000000000001);
+    tap(P('.finger'), 2.2); press(P('.enter'), 2.2);
+    fingerAway(P('.finger'), 2.5);
+    // زوم از داخلِ دکمه به کلاس
+    tl.fromTo(P('.zoom'), { opacity: 0, scale: .1 }, { opacity: 1, scale: 4, duration: .4, ease: 'power3.in' }, 2.4000000000000004);
+    tl.set(P('.layer.a'), { opacity: 0 }, 2.8000000000000003);
+    tl.fromTo(P('.layer.c'), { opacity: 0, scale: 1.08 }, { opacity: 1, scale: 1, duration: .35, ease: 'expo.out' }, 2.8000000000000003);
+    tl.to(P('.zoom'), { opacity: 0, duration: .25 }, 2.85);
+    tl.fromTo(P('.wel'), { opacity: 0, y: -40 }, { opacity: 1, y: 0, duration: .4, ease: 'expo.out' }, 3.0500000000000003);
+    headOut(); scrOut();
+
+    window.__timelines["s04"] = tl;
+  </script>
+</template>

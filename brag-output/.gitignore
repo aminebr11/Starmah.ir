@@ -1,0 +1,11 @@
+# خروجی‌ها و فایل‌های موقتِ ساختِ ویدیو (ساختنی دوباره؛ در مخزن نگه داشته نمی‌شوند)
+*.mp4
+*.jpg
+render.log
+composition/.hyperframes/
+composition/node_modules/
+composition/AGENTS.md
+composition/CLAUDE.md
+# صدا: موسیقی کپیِ .claude/skills/brag/assets/music است؛ نریشن با Piper دوباره ساخته می‌شود (README.md)
+composition/assets/music/
+composition/assets/voice/

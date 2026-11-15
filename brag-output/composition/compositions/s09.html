@@ -1,0 +1,90 @@
+<template>
+  <style>
+    #root{position:absolute;inset:0;direction:rtl}
+
+    .tabs{position:absolute;left:30px;right:30px;top:196px;height:96px;background:#efeafc;border-radius:28px;display:flex;padding:8px;gap:8px}
+    .tabs span{flex:1;border-radius:22px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:28px;color:var(--mut)}
+    .tabs span.on{background:#fff;color:#7c3aed;box-shadow:0 4px 0 #e3dbfa}
+    .msg{position:absolute;right:30px;max-width:620px;background:#fff;border-radius:30px;padding:18px 26px 22px;font-weight:700;font-size:34px;box-shadow:0 0 0 2px var(--line);opacity:0}
+    .msg b{display:block;font-weight:900;font-size:28px;color:#7c3aed;margin-bottom:4px}
+    .msg.t{background:#eff6ff;box-shadow:0 0 0 2px #bfdbfe}
+    .msg.t b{color:#1d4ed8}
+    .msg.me{right:auto;left:30px;background:#ede5ff}
+    .m1{top:330px}.m2{top:500px}.m3{top:650px}.m4{top:800px}
+    .emo{position:absolute;left:24px;right:24px;top:1010px;display:flex;justify-content:space-between}
+    .emo span{width:78px;height:78px;border-radius:22px;background:#f1edfb;display:flex;align-items:center;justify-content:center;font-size:44px}
+    .send{position:absolute;left:24px;right:24px;top:1120px;height:120px;display:flex;gap:16px}
+    .inp{flex:1;background:#fff;border-radius:32px;box-shadow:inset 0 0 0 3px var(--line);display:flex;align-items:center;padding:0 30px;font-weight:700;font-size:34px;color:#8a83a8}
+    .sb{width:120px;border-radius:32px;background:#7c3aed;color:#fff;display:flex;align-items:center;justify-content:center;font-size:50px;transform:scaleX(-1)}
+    .re{position:absolute;top:900px;font-size:90px;opacity:0}
+    .polite{position:absolute;left:140px;right:140px;top:470px;text-align:center;background:#fff3c4;color:#7a4a00;border-radius:30px;padding:20px 0;font-weight:900;font-size:42px;box-shadow:0 0 0 4px #fcd34d,0 12px 24px rgba(0,0,0,.18);opacity:0}
+
+  </style>
+  <div id="root" data-composition-id="s09" data-width="1080" data-height="1920">
+
+    <div class="head"><div class="chip">۷ · گفت‌وگو</div><div class="title"><span class="w">پیام</span> <span class="w">بده،</span> <em><span class="w">مؤدب</span></em> <span class="w">باش</span></div></div>
+    <div class="scr"><div class="layer a">
+      <div class="topbar"><div class="tt"><b>ریاضی — کسرها</b><small><i class="live"></i>زنده · ۰۰:۱۲</small></div><div class="cnt">👥 ۱۲</div></div>
+      <div class="tabs"><span class="on">💬 گفت‌وگو</span><span>👥 نفرات</span><span>📊 سؤال</span></div>
+      <div class="msg m1 t"><b>👩‍🏫 خانم احمدی</b>سلام بچه‌ها! آماده‌اید؟</div>
+      <div class="msg m2"><b>آرمین</b>سلام خانم! 👋</div>
+      <div class="msg m3"><b>سارا</b>من آماده‌ام 😊</div>
+      <div class="msg m4 me"><b>من</b>ممنون خانم!</div>
+      <div class="emo"><span>👋</span><span>👍</span><span>😀</span><span>❤️</span><span>🙏</span><span>❓</span><span>✅</span><span>🌟</span></div>
+      <div class="send"><div class="inp"></div><div class="sb">➤</div></div>
+      <div class="re re0" style="left:520px" data-layout-ignore>👏</div><div class="re re1" style="left:600px" data-layout-ignore>❤️</div><div class="re re2" style="left:470px" data-layout-ignore>😂</div><div class="re re3" style="left:640px" data-layout-ignore>🌟</div><div class="re re4" style="left:560px" data-layout-ignore>👍</div>
+      <div class="polite" data-layout-allow-occlusion>🙂 همیشه مؤدب باش</div>
+    </div></div>
+
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const D = 6.5;
+
+    const P = (sel) => document.querySelector('[data-composition-id="s09"] ' + sel);
+    const headIn = (at) => {
+      tl.fromTo(P('.chip'), { opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)', duration: .2, ease: 'power4.out' }, at);
+      tl.fromTo(P('.title').querySelectorAll('.w'), { opacity: 0, filter: 'blur(6px)' }, { opacity: 1, filter: 'blur(0px)', duration: .14, stagger: .067, ease: 'power4.out' }, at + .08);
+    };
+    const headOut = () => tl.to([P('.chip'), P('.title')], { opacity: 0, filter: 'blur(8px)', duration: .16, ease: 'power3.in' }, D - .2);
+    const scrIn = (at = 0) => tl.fromTo(P('.scr .layer.a'), { opacity: 0, filter: 'blur(10px)' }, { opacity: 1, filter: 'blur(0px)', duration: .22, ease: 'power4.out' }, at);
+    const scrOut = () => tl.to(P('.scr'), { opacity: 0, filter: 'blur(10px)', duration: .16, ease: 'power3.in' }, D - .18);
+    // انگشت: از پایین می‌آید، روی نقطه‌ی (x,y) می‌زند
+    const fingerTo = (el, x, y, at, dur = .45) => tl.to(el, { x: x - 62, y: y - 8, duration: dur, ease: 'power3.out' }, at);
+    const tap = (el, at) => { tl.to(el, { scale: .86, duration: .07, ease: 'power2.in' }, at); tl.to(el, { scale: 1, duration: .16, ease: 'back.out(2)' }, at + .07); };
+    const press = (el, at) => { tl.to(el, { scale: .93, duration: .07, ease: 'power2.in' }, at); tl.to(el, { scale: 1, duration: .2, ease: 'back.out(2.2)' }, at + .07); };
+    const fingerAway = (el, at) => tl.to(el, { x: 1100, y: 2100, duration: .4, ease: 'power3.in' }, at);
+    const pop = (el, at, from = .6) => tl.fromTo(el, { opacity: 0, scale: from }, { opacity: 1, scale: 1, duration: .38, ease: 'back.out(1.8)' }, at);
+
+    headIn(.05); scrIn(0);
+    tl.set(P('.inp'), { textContent: 'پیام بنویس…' }, 0);
+    [['.m1', 0.44999999999999996], ['.m2', 0.95], ['.m3', 1.4500000000000002]].forEach(([s, at]) => tl.fromTo(P(s), { opacity: 0, x: 80 }, { opacity: 1, x: 0, duration: .35, ease: 'expo.out' }, at));
+    tl.set(P('.inp'), { textContent: "م" }, 1.950);
+    tl.set(P('.inp'), { textContent: "مم" }, 2.020);
+    tl.set(P('.inp'), { textContent: "ممن" }, 2.090);
+    tl.set(P('.inp'), { textContent: "ممنو" }, 2.160);
+    tl.set(P('.inp'), { textContent: "ممنون" }, 2.230);
+    tl.set(P('.inp'), { textContent: "ممنون " }, 2.300);
+    tl.set(P('.inp'), { textContent: "ممنون خ" }, 2.370);
+    tl.set(P('.inp'), { textContent: "ممنون خا" }, 2.440);
+    tl.set(P('.inp'), { textContent: "ممنون خان" }, 2.510);
+    tl.set(P('.inp'), { textContent: "ممنون خانم" }, 2.580);
+    tl.set(P('.inp'), { textContent: "ممنون خانم!" }, 2.650);
+    tl.fromTo(P('.m4'), { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: .35, ease: 'expo.out' }, 2.97);
+    tl.set(P('.inp'), { textContent: 'پیام بنویس…' }, 2.97);
+    tl.fromTo(P('.re0'), { opacity: 0, y: 0, scale: .6 }, { opacity: 1, y: -260, scale: 1.1, duration: .9, ease: 'power2.out' }, 2.350);
+    tl.to(P('.re0'), { opacity: 0, y: -420, duration: .5, ease: 'power2.in' }, 3.250);
+    tl.fromTo(P('.re1'), { opacity: 0, y: 0, scale: .6 }, { opacity: 1, y: -260, scale: 1.1, duration: .9, ease: 'power2.out' }, 2.510);
+    tl.to(P('.re1'), { opacity: 0, y: -420, duration: .5, ease: 'power2.in' }, 3.410);
+    tl.fromTo(P('.re2'), { opacity: 0, y: 0, scale: .6 }, { opacity: 1, y: -260, scale: 1.1, duration: .9, ease: 'power2.out' }, 2.670);
+    tl.to(P('.re2'), { opacity: 0, y: -420, duration: .5, ease: 'power2.in' }, 3.570);
+    tl.fromTo(P('.re3'), { opacity: 0, y: 0, scale: .6 }, { opacity: 1, y: -260, scale: 1.1, duration: .9, ease: 'power2.out' }, 2.830);
+    tl.to(P('.re3'), { opacity: 0, y: -420, duration: .5, ease: 'power2.in' }, 3.730);
+    tl.fromTo(P('.re4'), { opacity: 0, y: 0, scale: .6 }, { opacity: 1, y: -260, scale: 1.1, duration: .9, ease: 'power2.out' }, 2.990);
+    tl.to(P('.re4'), { opacity: 0, y: -420, duration: .5, ease: 'power2.in' }, 3.890);
+    pop(P('.polite'), 4.55);
+    headOut(); scrOut();
+
+    window.__timelines["s09"] = tl;
+  </script>
+</template>
